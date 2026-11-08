@@ -182,3 +182,11 @@ tools/                      asset pipeline (build-assets, autorig, strip-mocap, 
   Mixamo's terms allow use in projects but not redistribution of the raw animation files.
 - `window.__game` exposes the engine/story for debugging; `__game.shot(name, seconds)` steps the game
   and saves a canvas capture through the dev server (set `SHOT_DIR` to choose the folder).
+
+## License
+
+MIT (see [LICENSE](LICENSE)). It covers the code, the docs and the project's own assets: the
+models in `assets/raw` and `public/models`, the reference videos, the concept art and the posters.
+The Mixamo animation clips (`assets/mocap/Xbot.glb`, `Soldier.glb` and the clips stripped from
+them into `public/anims/`) are third-party files from the three.js examples and stay under
+Mixamo's own terms.
