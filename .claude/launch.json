@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "lantern",
+      "runtimeExecutable": "/Users/sharmaa8/.local/bin/node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1"],
+      "port": 5173
+    },
+    { "name": "lantern-attach", "url": "http://127.0.0.1:5180", "port": 5180 }
+  ]
+}
