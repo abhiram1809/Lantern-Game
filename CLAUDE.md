@@ -6,7 +6,7 @@ user likes to work, what has been done, and what to watch out for.
 
 ## Keep this file current (do this every time)
 
-This folder has been a git repository since 2026-11-09 (one commit then, on `main`). Commit
+This folder has been a git repository since 2026-11-09 (on `main`). Commit
 only when the user asks. This file's change log still holds the project's history from before
 git, and the reasons behind changes that a commit message doesn't carry.
 After any decent update to the game, update CLAUDE.md before you finish. A decent update is:
@@ -124,8 +124,9 @@ Environment variables for `npm run assets`:
 
 The model build takes a minute or two.
 
-`assets/raw` and `assets/mocap` are git-ignored: they are the large source files (about 120 MB),
-so they are not in the repository and need their own backup. The built
+`assets/raw` and `assets/mocap` are the large source files (about 120 MB, every file under
+25 MB). They are committed, at the user's request, so the repository holds the original scans
+and reference videos. The built
 outputs in `public/` are what the game loads.
 
 ## Assets and references
