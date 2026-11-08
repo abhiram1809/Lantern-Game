@@ -6,9 +6,12 @@ user likes to work, what has been done, and what to watch out for.
 
 ## Keep this file current (do this every time)
 
-This folder has been a git repository since 2026-11-09 (on `main`). Commit
-only when the user asks. This file's change log still holds the project's history from before
-git, and the reasons behind changes that a commit message doesn't carry.
+This folder has been a git repository since 2026-11-09 (on `main`), pushed to the **public**
+GitHub repo https://github.com/abhiram1809/Lantern-Game and licensed MIT (see *Git and GitHub*
+under Commands). Commit and push only when the user asks. This file's change log still holds
+the project's history from before git, and the reasons behind changes that a commit message
+doesn't carry.
+
 After any decent update to the game, update CLAUDE.md before you finish. A decent update is:
 
 - a new part, chapter, scene, cutscene or checkpoint
@@ -124,10 +127,28 @@ Environment variables for `npm run assets`:
 
 The model build takes a minute or two.
 
+### Git and GitHub
+
+- **The repository is public and open source by the user's choice** ("keep everything
+  open-source"), raw scans and videos included. Everything committed is world-readable: never
+  commit secrets, tokens or personal data, and don't make the repo private.
+- **License:** MIT (`LICENSE`, copyright abhiram1809, the user's GitHub name; the README's
+  License section says what it covers). The Mixamo clips (`assets/mocap/Xbot.glb`,
+  `Soldier.glb`, and `public/anims/`) are third-party and stay under Mixamo's terms.
+- **Pushing:** this Mac has no `gh` CLI and no stored GitHub login. The user pastes a
+  short-lived token when they want a push. Use it for that one command only, never in the
+  remote URL or a file. The empty `credential.helper=` stops macOS's keychain helper from
+  saving it:
+
+  ```bash
+  T='<token>' git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$T"; }; f' push
+  ```
+
+  Remind the user to revoke the token afterwards.
+
 `assets/raw` and `assets/mocap` are the large source files (about 120 MB, every file under
 25 MB). They are committed, at the user's request, so the repository holds the original scans
-and reference videos. The built
-outputs in `public/` are what the game loads.
+and reference videos. The built outputs in `public/` are what the game loads.
 
 ## Assets and references
 
@@ -842,6 +863,14 @@ public/models, public/anims built GLBs loaded at runtime; public/textures/poster
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-09: git, GitHub and the MIT license
+- `git init` on `main` and three commits: the project, then the raw scans, mocap and reference
+  videos (taken out of `.gitignore` at the user's request), then the MIT `LICENSE`,
+  `"license": "MIT"` in `package.json` and a License section in the README. `.gitignore` keeps
+  out `node_modules`, `dist`, `shots` and `.DS_Store`.
+- Pushed to https://github.com/abhiram1809/Lantern-Game. It was created private first; the user
+  stopped the push and asked for it public ("keep everything open-source"). See *Git and GitHub*.
 
 ### 2026-11-09: Part Two feedback: strafing, the camera, bent knees, the comic battery
 - **Strafing with held constructs** (`Player.js` `strafe`, `heading`, `strafeStep`; `Rig.js`
