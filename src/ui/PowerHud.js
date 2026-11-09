@@ -50,6 +50,7 @@ export class PowerHud {
     this.dmgNext = 0;
     this.dmgLast = new WeakMap();
     this.wheel = el('wheel');
+    this.bossbar = el('bossbar', '', '<div class="name"></div><div class="bar"><i class="lag"></i><i class="fill"></i></div>');
     this.health = { shown: -1, lag: 100, lagHold: 0 };
     this.chargeShown = -1;
     this.buildWheel();
@@ -59,6 +60,19 @@ export class PowerHud {
     this.vitals.classList.toggle('show', on);
     this.ringhud.classList.toggle('show', on);
     document.body.classList.toggle('powers', on);
+  }
+
+  // An opponent's health across the top (Sinestro's sparring): null hides it. `yieldAt` marks where
+  // the fight ends.
+  boss(name, frac = 1, yieldAt = 0) {
+    const b = this.bossbar;
+    b.classList.toggle('show', !!name);
+    if (!name) return;
+    b.querySelector('.name').textContent = name;
+    b.querySelector('.fill').style.width = `${Math.max(0, frac) * 100}%`;
+    this.bossLag = Math.max(frac, (this.bossLag ?? frac) - 0.004);
+    b.querySelector('.lag').style.width = `${this.bossLag * 100}%`;
+    b.style.setProperty('--yield', `${yieldAt * 100}%`);
   }
 
   // ------------------------------------------------------------------------ vitals and charge

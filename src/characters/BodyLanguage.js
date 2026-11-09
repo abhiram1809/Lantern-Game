@@ -38,9 +38,10 @@ const STANCES = {
 const _a = new THREE.Vector3();
 
 export class BodyLanguage {
-  constructor(rig, animator, { lookHome = null } = {}) {
-    Object.assign(this, { rig, anim: animator, lookHome });
-    this.scale = rig.restPos.head.y / 2.1;
+  // `gestures` / `stances` replace Kilowog's library for another character (then `scale` is usually
+  // 1, the library written in that character's own metres).
+  constructor(rig, animator, { lookHome = null, gestures = GESTURES, stances = STANCES, scale = rig.restPos.head.y / 2.1, reach = 0.62 } = {}) {
+    Object.assign(this, { rig, anim: animator, lookHome, gestures, stances, scale, reach });
     this.stanceName = null;
     this.active = null;
     this.talking = false;
@@ -59,26 +60,32 @@ export class BodyLanguage {
 
   stance(name) {
     this.stanceName = name;
-    for (const side of ['L', 'R']) if (!this.active?.def[side]) this.rest(side);
+    for (const side of ['L', 'R']) if (!this.active?.def[side] && !this.held?.[side]) this.rest(side);
+  }
+
+  // A hand taken over by something else (a construct in it); null gives it back to the stance.
+  hold(side, on) {
+    (this.held ??= {})[side] = on;
+    if (!on) this.rest(side);
   }
 
   // put a hand back in the stance (or let it go to the mocap)
   rest(side) {
-    const s = STANCES[this.stanceName];
-    if (!s) { this.anim.reach(side, null, { rate: 4 }); return; }
+    const s = this.stances[this.stanceName];
+    if (!s?.[side]) { this.anim.reach(side, null, { rate: 4 }); return; } // (a stance may only place one hand)
     const p = s[side], out = new THREE.Vector3();
     this.anim.reach(side, () => this.world(p, out), { pole: new THREE.Vector3(...s[`pole${side}`]), rate: 3.5 });
   }
 
   // Play a gesture by name (or a definition). One at a time; a new one takes over.
   play(name) {
-    const def = typeof name === 'string' ? GESTURES[name] : name;
+    const def = typeof name === 'string' ? this.gestures[name] : name;
     if (!def) return;
     const prev = this.active;
     const g = (this.active = { def, t: 0, cued: new Set() });
     for (const side of ['L', 'R']) {
       const keys = def[side];
-      if (!keys) { if (prev?.def[side]) this.rest(side); continue; }
+      if (!keys) { if (prev?.def[side] && !this.held?.[side]) this.rest(side); continue; }
       const out = new THREE.Vector3();
       this.anim.reach(side, () => this.world(sample(keys, g.t), out), { pole: new THREE.Vector3(...(def[`pole${side}`] ?? [side === 'L' ? 1 : -1, -0.5, -0.3])), rate: def.rate ?? 7 });
     }
@@ -99,7 +106,7 @@ export class BodyLanguage {
     this.anim.reach(side, () => {
       this.rig.bonePosition(`upperArm_${side}`, sh);
       const at = typeof target === 'function' ? target() : target;
-      return out.copy(at).sub(sh).normalize().multiplyScalar(0.62 * this.scale).add(sh);
+      return out.copy(at).sub(sh).normalize().multiplyScalar(this.reach * this.scale).add(sh);
     }, { pole: new THREE.Vector3(side === 'L' ? 0.6 : -0.6, -0.7, -0.3), rate: 6 });
   }
 
@@ -116,7 +123,7 @@ export class BodyLanguage {
       if (d.lean) { const l = sampleLean(d.lean, g.t); wantPitch += l[0]; wantYaw += l[1]; }
       if (g.t >= d.dur) {
         this.active = null;
-        for (const side of ['L', 'R']) if (d[side]) this.rest(side);
+        for (const side of ['L', 'R']) if (d[side] && !this.held?.[side]) this.rest(side);
       }
     }
     this.lean.pitch = damp(this.lean.pitch, wantPitch, 5, dt);

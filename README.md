@@ -3,8 +3,8 @@
 A Three.js story game. **Part One, Awakening:** test pilot Hal Jordan comes home, falls asleep,
 relives his father's crash, is visited by the ring's light, refuses to be afraid, and is carried
 to Abin Sur's wreck on the lake shore, where the ring chooses him. **Part Two, The Corps** (in
-progress): the Guardians summon Hal, the ring carries him across the universe to Oa, and Kilowog
-trains him; then the ring can take him between Oa and Earth.
+progress): the Guardians summon Hal, the ring carries him across the universe to Oa, Kilowog
+trains him and Sinestro spars with him; then the ring can take him between Oa and Earth.
 
 ## Run
 
@@ -31,14 +31,14 @@ Once the ring is charged (after the oath):
 | Key | Action |
 | --- | --- |
 | 4 | Construct wheel: time stops; move the mouse to a construct and click (or hold 4 and let go) |
-| Left click | Use the armed construct: strike with the fist, place a wall; hold to keep the shield up or to fire the gatling |
+| Left click | Use the armed construct: strike with the fist, place a wall, cut with the sword (click in rhythm for a three-cut combo); hold to keep the shield up or to fire the gatling |
 | Scroll | Change the construct's range |
 | Q | Holster the construct |
 | Space twice | Take off / drop out of flight (there is no jump) |
 | W / Space / C / Shift (flying) | Fly where you look / climb / descend / boost |
 | L | Keep the lantern in the ring's pocket dimension, or set it down in front of you |
 
-While the shield or the gatling is up, Hal faces where you look and strafes: W/S/A/D move him
+While the shield, the gatling or the sword is up, Hal faces where you look and strafes: W/S/A/D move him
 relative to the camera (S backs him off) without turning him away from your aim. Flying with
 one, he hovers upright and faces where you look instead of flying head-first.
 
@@ -84,6 +84,8 @@ Part Two:
 | `voyage` | Hyperluminal: the flight to Oa, from high orbit over Earth |
 | `oa` | Kilowog's range: the landing on Oa, then the target drones |
 | `livefire` | Live fire: the gatling, then drones that shoot back |
+| `sinestro` | Sinestro: his arrival and the sword lesson |
+| `duel` | Sparring: the duel with Sinestro |
 | `range` | The training ground: free training on Oa, with hyperspace travel |
 | `earth` | Home: Sector 2814: back at the lake after travelling from Oa |
 
@@ -114,8 +116,9 @@ For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#l
    treeline and land. After the end card you can keep exploring as Green Lantern.
 
 Constructs: **Fist** (attack, up to 14 m), **Shield** (defense, held), **Wall** (defense, placed
-where you aim, stands 20 s), and **Gatling** (attack, learned on Oa: hold to spin up and fire,
-45 m). Sword, staff, hammer and axe are on the wheel but locked for later. Every construct is
+where you aim, stands 20 s), **Gatling** (attack, learned from Kilowog: hold to spin up and fire,
+45 m) and **Sword** (attack, learned from Sinestro: cuts in a three-cut combo, and lunges at a
+target you aim at). Staff, hammer and axe are on the wheel but locked for later. Every construct is
 physical: the fist throws debris and drones, the shield deflects debris and bolts, and walls
 block debris, bolts and Hal.
 
@@ -137,7 +140,14 @@ block debris, bolts and Hal.
 5. **Live fire:** Kilowog teaches the gatling, then sends two waves of drones that circle, take
    turns to attack (watch for the red aim line), and fire bursts of bolts. Block with the
    shield, use the pillars and walls, or fly.
-6. **The range:** after the end card the range stays open; ask Kilowog for another round. The ring
+6. **Sinestro:** Sinestro of Korugar comes down beside the podium. He was Abin Sur's friend, and
+   he thinks little of his successor. He forms a blade from nothing and teaches the **Sword** on
+   four target drones.
+7. **Sparring:** Sinestro fights you in the air. Read his tells: a raised blade means a lunge
+   (shield it, or meet it with a sword cut to parry and stagger him), spikes forming behind him
+   mean a volley, a ring on the ground means a giant fist is coming down. He guards against the
+   gatling. Bring him to the mark on his health bar and he calls it.
+8. **The range:** after the end card the range stays open; ask Kilowog for another round. The ring
    now has hyperspace routes to Earth and back; at home the Corps has carried Abin Sur's body to Oa.
 
 ## Characters and movement
@@ -147,6 +157,10 @@ block debris, bolts and Hal.
   scaled, decimated to 90–100 k triangles, WebP textures, and **auto-rigged** by `tools/autorig.mjs`
   (17-bone humanoid placed from anatomical landmarks; skin weights from limb chains, blended at the
   joints, smoothed, with the whole skull/face/jaw on the head bone along a detected jaw line).
+- **Sinestro** has no scan of his own: he is derived at runtime from Abin Sur's (`createSinestro`
+  in `src/characters/Characters.js`), a shader layer painting his face, hair, brows, eyes and
+  moustache in the scan's object space, with the hair pushed out into volume and the head and nose
+  narrowed in the vertex stage.
 - **Motion capture.** Locomotion and idles are real mocap (the Mixamo-rigged *Xbot* clips from the
   three.js examples, stripped to `public/anims/xbot.glb` by `npm run mocap`), **retargeted** onto each
   scan's own skeleton (`src/characters/Mocap.js`): per-bone world rotations from rest plus a fixed
@@ -189,7 +203,7 @@ src/powers/                 RingPowers (charge, health, construct wheel, aiming 
                             wall / gatling, damage, flight effects), Constructs (list, shaders, shapes)
 src/scenes/                 Bedroom (+ hallway), Dream (airfield), Hyperspace (the transit), CrashSite, Oa,
                             Space (Earth and Oa from orbit)
-src/enemies/                Drones (Part Two's training drones: AI, physics, bolts)
+src/enemies/                Drones (Part Two's training drones: AI, physics, bolts), Sinestro (the sparring duel)
 src/fx/                     sky, particles + fire, water, trees, green light / bubble / shafts, cloth, textures,
                             Rift (the pocket dimension), EarthMap (continents and city lights for Space)
 src/story/                  Story (Part One + the shared chapter plumbing, the lantern's pocket dimension),

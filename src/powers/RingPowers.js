@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RAPIER } from '../engine/Physics.js';
 import { damp, clamp } from '../engine/Time.js';
 import { Particles } from '../fx/Particles.js';
-import { CONSTRUCTS, constructInfo, constructMesh, ghostMesh, fistGeometry, shieldGeometry, wallGeometry, gatlingGeometry, WALL, createBeam, surfaceSamples } from './Constructs.js';
+import { CONSTRUCTS, constructInfo, constructMesh, ghostMesh, fistGeometry, shieldGeometry, wallGeometry, gatlingGeometry, swordGeometry, Blade, WALL, createBeam, surfaceSamples } from './Constructs.js';
 import { glowTexture } from '../fx/Textures.js';
 
 const WATER = -0.03;
@@ -16,6 +16,7 @@ const KEYS = {
   shield: '<b>Hold click</b> raise &nbsp; <b>Q</b> holster',
   wall: '<b>Click</b> place &nbsp; <b>Scroll</b> range &nbsp; <b>Q</b> holster',
   gatling: '<b>Hold click</b> fire &nbsp; <b>Q</b> holster',
+  sword: '<b>Click</b> cut (in rhythm: combo) &nbsp; <b>Q</b> holster',
 };
 
 // The power ring: charge, the bearer's health, the construct wheel (game time stops while it's
@@ -53,6 +54,9 @@ export class RingPowers {
     this.samples = Object.fromEntries(Object.entries(this.geo).map(([k, g]) => [k, surfaceSamples(g, 240)]));
     this.geo.gatling = gatlingGeometry();
     this.samples.gatling = surfaceSamples(this.geo.gatling.body, 120);
+    this.geo.sword = swordGeometry();
+    this.samples.sword = surfaceSamples(this.geo.sword.geo, 80);
+    this.sword = null;
     this.ghost = {
       fist: ghostMesh(this.geo.fist, { uPattern: 1, uScale: 0.16, uFadeZ: new THREE.Vector2(-1.5, -0.6) }),
       shield: ghostMesh(this.geo.shield, { uPattern: 1, uScale: 0.13, uEmblem: 1 }),
@@ -152,7 +156,7 @@ export class RingPowers {
     for (const c of this.live) c.update(dt, t);
     this.live = this.live.filter((c) => !c.done || (c.dispose(), false));
     // a held construct up: Hal squares up to where the camera looks and strafes (Player.strafe)
-    player.strafe = !!((this.shield && !this.shield.ending) || (this.gatling && !this.gatling.ending));
+    player.strafe = !!((this.shield && !this.shield.ending) || (this.gatling && !this.gatling.ending) || (this.sword && !this.sword.ending));
     this.flash.intensity = Math.max(0, this.flash.intensity - dt * 60);
     for (const p of [this.sparks, this.trail, this.dust, this.spray]) p.update(dt, t, engine.camera, engine.renderer);
     this.updateTracers(dt);
@@ -211,6 +215,7 @@ export class RingPowers {
     this.reach = null;
     if (c.id !== 'shield') this.shield?.release();
     if (c.id !== 'gatling') this.gatling?.end();
+    if (c.id !== 'sword') this.sword?.end();
     this.closeWheel();
     this.audio.constructForm(0.45);
     this.hud.setArmed(c, KEYS[c.id]);
@@ -222,6 +227,7 @@ export class RingPowers {
     this.hud.setArmed(null);
     this.shield?.release();
     this.gatling?.end();
+    this.sword?.end();
   }
 
   // ------------------------------------------------------------------------------- aiming
@@ -384,6 +390,14 @@ export class RingPowers {
         else if (input.hit('Mouse0')) this.lowCharge();
       }
       if (this.gatling) this.gatling.firing = held;
+      return;
+    }
+    if (id === 'sword') {
+      // the blade forms on the first click and stays in hand while the sword is armed
+      if (input.hit('Mouse0')) {
+        if (!this.sword) { if (this.spend(info.cost)) this.live.push((this.sword = new SwordConstruct(this))); else this.lowCharge(); }
+        else this.sword.queue();
+      }
       return;
     }
     if (id === 'shield') {
@@ -690,6 +704,7 @@ export class RingPowers {
     this.walls = [];
     this.shield = null;
     this.gatling = null;
+    this.sword = null;
     this.player.strafe = false;
     this.player.moveScale = 1;
   }
@@ -1050,6 +1065,177 @@ class GatlingConstruct {
     if (this.P.gatling === this) this.P.gatling = null;
   }
 }
+
+// A sword of light in the ring hand. A click cuts; clicks in rhythm chain three cuts (a forehand
+// diagonal, a backhand, an overhead chop that lands hardest). Each cut is a keyed path for the hand
+// in Hal's own frame (x toward his left, y up, z forward), solved with the arm IK, with the blade's
+// direction keyed alongside; the blade sweeps between frames, so a fast cut can't skip a target.
+// Cutting at a target you aim at within a lunge, Hal throws himself at it.
+const SWINGS = [
+  { dur: 0.42, hit: [0.1, 0.27], dmg: 24, keys: [[0, [-0.3, 1.38, 0.18], [-0.35, 0.85, 0.35]], [0.09, [-0.36, 1.52, 0.06], [-0.5, 0.8, -0.3]], [0.25, [0.08, 1.04, 0.38], [0.75, -0.4, 0.55]], [0.42, [0.04, 1.06, 0.34], [0.55, -0.25, 0.8]]] },
+  { dur: 0.42, hit: [0.09, 0.26], dmg: 24, keys: [[0, [0.04, 1.06, 0.34], [0.55, -0.25, 0.8]], [0.08, [0.12, 1.2, 0.26], [0.85, 0.15, 0.25]], [0.24, [-0.42, 1.18, 0.3], [-0.9, 0.08, 0.45]], [0.42, [-0.36, 1.14, 0.3], [-0.55, 0.35, 0.78]]] },
+  { dur: 0.58, hit: [0.22, 0.36], dmg: 38, heavy: true, keys: [[0, [-0.36, 1.14, 0.3], [-0.55, 0.35, 0.78]], [0.16, [-0.16, 1.8, 0.04], [0.0, 0.55, -0.85]], [0.33, [-0.1, 1.08, 0.48], [0.0, -0.5, 0.86]], [0.58, [-0.24, 1.06, 0.36], [0.05, 0.45, 0.9]]] },
+];
+const GUARD = { hand: [-0.27, 1.06, 0.33], blade: [0.12, 0.62, 0.78] };
+
+class SwordConstruct {
+  constructor(P) {
+    this.P = P;
+    this.blade = new Blade(P.scene, P.geo.sword);
+    this.info = constructInfo('sword');
+    this.t = 0;
+    this.swing = null; // { def, t, hits, n }
+    this.combo = 0;
+    this.ending = false;
+    this.hand = new THREE.Vector3();
+    this.dir = new THREE.Vector3(...GUARD.blade);
+    this.edge = new THREE.Vector3(1, 0, 0);
+    this.prevDir = new THREE.Vector3(...GUARD.blade);
+    const p = P.player;
+    this.target = new THREE.Vector3();
+    p.animator.reach('R', () => this.target, { pole: new THREE.Vector3(-0.8, -0.55, -0.35), rate: 20 });
+    P.audio.constructForm(0.6);
+    this.humSnd = P.audio.swordHum();
+    this.queued = true; // the click that formed it also cuts
+  }
+
+  // a click: cut now, or as the next in the combo if one is under way
+  queue() { if (!this.ending) this.queued = true; }
+
+  // while a cut is in its hitting part (Sinestro's blade can be parried then)
+  get cutting() { return !!this.swing && this.swing.t >= this.swing.def.hit[0] && this.swing.t <= this.swing.def.hit[1]; }
+
+  start() {
+    const P = this.P, p = P.player;
+    if (!P.spend(this.info.perSwing)) { P.lowCharge(); this.queued = false; return; }
+    const n = this.swing && this.swing.t > this.swing.def.dur * 0.45 ? (this.swing.n + 1) % SWINGS.length : this.combo;
+    this.swing = { def: SWINGS[n], t: 0, hits: new Set(), n };
+    this.combo = (n + 1) % SWINGS.length;
+    this.queued = false;
+    this.idle = 0;
+    P.audio.swordSwing(n === 2 ? 1.3 : 1);
+    // lunge at an aimed target that's close but out of reach
+    const tg = P.aim.target;
+    if (tg?.alive) {
+      const d = _a.subVectors(tg.position, p.position), dist = d.length();
+      if (dist > 1.7 && dist < this.info.range[1]) p.dash(d.normalize(), (dist - 1.4) / 0.2, 0.2);
+    }
+  }
+
+  end() {
+    if (this.ending) return;
+    this.ending = true;
+    this.endT = 0;
+    this.humSnd.stop();
+    this.P.audio.dissolve();
+    this.P.player.animator.reach('R', null, { rate: 7 });
+  }
+
+  update(dt, time) {
+    const P = this.P, p = P.player;
+    this.t += dt;
+    if (this.ending) this.endT += dt;
+    this.blade.form = this.ending ? 1 - Math.min(1, this.endT / 0.25) : Math.min(1, this.t / 0.16);
+    if (this.t < 0.14) P.formSparks('sword', this.blade.mesh, 6);
+    if (!this.ending) {
+      const sw = this.swing;
+      if (sw) {
+        sw.t += dt;
+        // the next cut starts as this one follows through
+        if (this.queued && sw.t > sw.def.dur * 0.55) this.start();
+        else if (sw.t >= sw.def.dur) { this.swing = null; this.combo = 0; }
+      } else if (this.queued && this.t > 0.1) this.start();
+      if (!this.swing) this.idle = (this.idle ?? 0) + dt;
+    }
+    // the hand's path and the blade's direction, in Hal's frame
+    const root = p.rig.root;
+    root.updateMatrixWorld(true);
+    let hand = GUARD.hand, dir = GUARD.blade;
+    if (this.swing && !this.ending) [hand, dir] = sampleSwing(this.swing.def.keys, this.swing.t);
+    this.target.set(hand[0], hand[1], hand[2]).applyMatrix4(root.matrixWorld);
+    this.prevDir.copy(this.dir);
+    root.getWorldQuaternion(_q);
+    this.dir.set(dir[0], dir[1], dir[2]).normalize().applyQuaternion(_q);
+    // the edge leads the cut
+    _b.subVectors(this.dir, this.prevDir);
+    if (_b.lengthSq() > 1e-6) this.edge.lerp(_b.normalize(), 0.5);
+    _c.set(1, 0, 0).applyQuaternion(_q);
+    if (!this.swing) this.edge.lerp(_c, 0.1);
+    // in the fist: just past the wrist, along the forearm
+    p.rig.bonePosition('hand_R', this.hand);
+    p.rig.bonePosition('foreArm_R', _d);
+    this.hand.addScaledVector(_e.subVectors(this.hand, _d).normalize(), 0.075);
+    this.blade.place(this.hand, this.dir, this.edge);
+    this.blade.update(dt, time);
+    this.humSnd.set(this.swing ? 1 : 0.35);
+    if (this.cutting) this.cut();
+    if (this.ending && this.endT > 0.25) this.done = true;
+  }
+
+  // sweep the blade from where it was to where it is: targets take the cut once per swing, loose
+  // things get knocked aside
+  cut() {
+    const P = this.P, sw = this.swing, bl = this.blade;
+    const dmg = sw.def.dmg;
+    for (const tg of P.targets) {
+      if (!tg.alive || sw.hits.has(tg)) continue;
+      let best = Infinity;
+      for (let k = 0; k <= 3; k++) {
+        const f = k / 3;
+        _a.lerpVectors(bl.prevBase, bl.base, f);
+        _b.lerpVectors(bl.prevTip, bl.tip, f);
+        best = Math.min(best, segDist(tg.position, _a, _b));
+      }
+      if (best > tg.radius + 0.12) continue;
+      sw.hits.add(tg);
+      const dir = _c.subVectors(tg.position, P.player.position).setY(0).normalize();
+      if (tg.parry?.(P.player.position)) { P.audio.clash(); P.hitStop = 0.08; continue; }
+      P.dealDamage(tg, dmg, tg.position, dir);
+      tg.body?.applyImpulse({ x: dir.x * (sw.def.heavy ? 9 : 4) * tg.body.mass() * 0.1, y: 0.6, z: dir.z * (sw.def.heavy ? 9 : 4) * tg.body.mass() * 0.1 }, true);
+      P.hitStop = sw.def.heavy ? 0.09 : 0.045;
+      P.director.shake(sw.def.heavy ? 0.25 : 0.12, 0.25);
+      P.audio.swordHit(sw.def.heavy ? 1.3 : 1);
+      P.sparks.emit(sw.def.heavy ? 50 : 24, (q, v) => {
+        q[0] = tg.position.x; q[1] = tg.position.y; q[2] = tg.position.z;
+        v[0] = dir.x * 3 + (Math.random() - 0.5) * 5; v[1] = Math.random() * 4; v[2] = dir.z * 3 + (Math.random() - 0.5) * 5;
+      }, { life: 0.45, size: [0.06, 0], color: [[1.2, 5, 2, 1], [0.1, 1.2, 0.4, 0]] });
+    }
+    for (const { body } of P.physics.dynamics) {
+      if (sw.hits.has(body) || P.targetOf(body)) continue;
+      const t = body.translation();
+      _d.set(t.x, t.y, t.z);
+      if (segDist(_d, bl.base, bl.tip) > 0.45) continue;
+      sw.hits.add(body);
+      P.shove(body, _e.subVectors(_d, P.player.position).setY(0).normalize(), _d, 0.6, 10, 400);
+    }
+  }
+
+  dispose() {
+    this.blade.dispose();
+    if (this.P.sword === this) this.P.sword = null;
+  }
+}
+
+function sampleSwing(keys, t) {
+  if (t <= keys[0][0]) return [keys[0][1], keys[0][2]];
+  for (let i = 0; i < keys.length - 1; i++) {
+    const [t0, h0, d0] = keys[i], [t1, h1, d1] = keys[i + 1];
+    if (t < t1) {
+      const k = (t - t0) / (t1 - t0), e = k * k * (3 - 2 * k);
+      return [h0.map((v, j) => v + (h1[j] - v) * e), d0.map((v, j) => v + (d1[j] - v) * e)];
+    }
+  }
+  const last = keys[keys.length - 1];
+  return [last[1], last[2]];
+}
+
+// distance from point p to the segment a-b
+function segDist(p, a, b) {
+  _sd.subVectors(b, a);
+  const k = clamp(_se.subVectors(p, a).dot(_sd) / Math.max(1e-6, _sd.lengthSq()));
+  return _se.copy(a).addScaledVector(_sd, k).distanceTo(p);
+}
+const _q = new THREE.Quaternion(), _sd = new THREE.Vector3(), _se = new THREE.Vector3();
 
 // An expanding ring of light (impacts, takeoffs), facing `normal`.
 const RING_GEO = new THREE.RingGeometry(0.82, 1, 48);

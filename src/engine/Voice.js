@@ -8,6 +8,7 @@ const PROFILES = {
   kilowog: { prefer: ['Fred', 'Ralph', 'Rocko', 'Grandpa', 'Daniel', 'Google UK English Male', 'Microsoft David'], rate: 0.92, pitch: 0.42 },
   ring: { prefer: ['Karen', 'Moira', 'Samantha', 'Google UK English Female', 'Microsoft Hazel', 'Microsoft Zira'], rate: 1.05, pitch: 0.55 },
   guardian: { prefer: ['Daniel', 'Arthur', 'Google UK English Male', 'Microsoft George', 'Fred'], rate: 0.76, pitch: 0.62 },
+  sinestro: { prefer: ['Arthur', 'Daniel', 'Oliver', 'Google UK English Male', 'Microsoft George'], rate: 0.88, pitch: 0.72 },
 };
 
 export class Voice {

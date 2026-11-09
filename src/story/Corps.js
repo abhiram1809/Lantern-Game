@@ -13,6 +13,7 @@ import { createShaft } from '../fx/GreenLight.js';
 import { Oa, KILOWOG_SPOT, HAL_START, PADS, RANGE_RADIUS, BATTERY } from '../scenes/Oa.js';
 import { ABIN_SPOT, ARRIVAL, terrainHeight } from '../scenes/CrashSite.js';
 import { DroneSwarm } from '../enemies/Drones.js';
+import { Sinestro } from '../enemies/Sinestro.js';
 import { TravelHud, StarMap } from '../ui/TravelHud.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -20,12 +21,15 @@ const KICKER = 'Kilowog’s range';
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 // how high Hal must fly before the ring will make the jump
 const JUMP_HEIGHT = { earth: 26, oa: 30 };
+// where Sinestro comes down, on Hal's right as he faces Kilowog's podium
+const SIN_SPOT = V(5.2, 0, -25.4);
 
 // Part Two, "The Corps". At the lake the Guardians summon Hal; he climbs out of the sky and the ring
 // carries him across the universe to Oa (Voyage.js), down onto Kilowog's range. There: target drones
-// for the fist, then the gatling and a live-fire drill against drones that shoot back, then the
-// range left open, with hyperspace routes charted between Oa and Earth (the star map, E high in
-// flight). Everything else (powers, the lantern, pause, dialogue, collapse) comes from Story.
+// for the fist, then the gatling and a live-fire drill against drones that shoot back; then
+// Sinestro arrives, teaches the sword and spars with Hal (enemies/Sinestro.js); then the range is
+// left open, with hyperspace routes charted between Oa and Earth (the star map, E high in flight).
+// Everything else (powers, the lantern, pause, dialogue, collapse) comes from Story.
 export class Corps extends Story {
   get save() { return CorpsSave; }
 
@@ -41,6 +45,8 @@ export class Corps extends Story {
       voyage: () => this.flyToOa(),
       oa: () => this.targets(),
       livefire: () => this.liveFire(),
+      sinestro: () => this.sinestroArrives(),
+      duel: () => this.duel(),
       range: () => this.openRange(),
       earth: () => this.home(),
     };
@@ -76,6 +82,8 @@ export class Corps extends Story {
     this.setupOa();
     this.enterOa();
     if (id !== 'oa') this.learn('gatling', false);
+    if (id === 'duel' || id === 'range') this.learn('sword', false);
+    if (id === 'duel') this.addSinestro().place(SIN_SPOT, -2.2);
     if (id === 'range') this.travel = 'chart';
     player.camYaw = 0;
     player.camPitch = 0.16;
@@ -156,8 +164,9 @@ export class Corps extends Story {
 
   // A line of Kilowog's, performed: beats of the head throughout, and gestures cued to words
   // (from the voice's word boundaries, or the line's pace when the voice is silent).
-  async kwSay(key, cues = [], extra = {}) {
-    const text = LINES[key].text.toLowerCase(), body = this.kw;
+  kwSay(key, cues = [], extra = {}) { return this.perform(this.kw, key, cues, extra); }
+  async perform(body, key, cues = [], extra = {}) {
+    const text = LINES[key].text.toLowerCase();
     const at = cues.map(([word, name]) => ({ i: Math.max(0, text.indexOf(word.toLowerCase())), name, done: false }));
     const fire = (c) => {
       if (c.done) return;
@@ -175,6 +184,7 @@ export class Corps extends Story {
     }
   }
   kwBark(key, cues) { return this.kwSay(key, cues, { skip: false }); }
+  sinSay(key, cues, extra) { return this.perform(this.sin.bl, key, cues, extra); }
 
   // Kilowog points: at a world point (or function), for a while.
   kwPoint(target, hold = 1.8) { return () => this.kw.pointAt(target, hold); }
@@ -195,8 +205,8 @@ export class Corps extends Story {
     const off = V(-1.6, -0.25, 3.6).applyAxisAngle(V(0, 1, 0), yaw);
     return this.director.move(head.clone().add(off), head.clone().add(V(0, -0.15, 0)), duration, ease.inOut, 38);
   }
-  twoShot(duration = 1.8) {
-    const c = this.player.position.clone(), head = this.kilowog.bonePosition('head', V(0, 0, 0));
+  twoShot(duration = 1.8, other = this.kilowog) {
+    const c = this.player.position.clone(), head = other.bonePosition('head', V(0, 0, 0));
     const back = c.clone().sub(head).setY(0).normalize(), right = V(back.z, 0, -back.x);
     const halHead = c.clone().setY(c.y + 1.7);
     return this.director.move(c.clone().addScaledVector(back, 4).addScaledVector(right, 1.3).setY(c.y + 2.1), halHead.lerp(head, 0.45), duration, ease.inOut, 48);
@@ -205,12 +215,13 @@ export class Corps extends Story {
   overRange(x = 6, y = 2.5, z = 14) { return KILOWOG_SPOT.clone().add(V(x, y, z)); }
 
   // Kilowog's commentary while you fight: now and then, never on top of himself.
-  quip(key, chance = 1, cues = []) {
+  // (Sinestro's too, during the sparring: pass his body language)
+  quip(key, chance = 1, cues = [], body = this.kw) {
     const now = performance.now();
     if (this.quipping || now - (this.lastQuip ?? 0) < 6000 || Math.random() > chance) return;
     this.quipping = true;
     this.lastQuip = now;
-    this.kwBark(key, cues).finally(() => (this.quipping = false));
+    this.perform(body, key, cues, { skip: false }).finally(() => (this.quipping = false));
   }
 
   onKill() {
@@ -416,18 +427,142 @@ export class Corps extends Story {
     swarm.clear();
   }
 
-  // ---------------------------------------------------------------- 5. the open range
+  // ---------------------------------------------------------------- 5. Sinestro
+  // Sinestro of Korugar, built once; he stands (or fights) on the range.
+  addSinestro() {
+    if (this.sin) return this.sin;
+    const { oa, powers, player, audio, director } = this;
+    const sin = (this.sin = new Sinestro({ scene: oa.scene, physics: oa.physics, powers, player, audio, director, mocap: this.mocap, abin: this.assets.characters.abin, ring: createRing(), attachRing: (r, rig) => this.attachRing(r, rig), arena: RANGE_RADIUS, blocks: oa.blocks }));
+    oa.updaters.push((dt, t) => sin.update(dt, t));
+    sin.onQuip = (kind) => {
+      if (kind === 'parried') this.quip('sinParry', 1, [['quick', () => sin.anim.gesture('nod', 0.7, 0.4)]], sin.bl);
+      else if (kind === 'slam') this.quip('sinSlam', 0.7, [], sin.bl);
+      else if (kind === 'hurt') this.quip('sinHurt', 0.5, [], sin.bl);
+    };
+    sin.onHurtHal = () => this.quip(this.powers.shield ? 'sinQ1' : ['sinQ1', 'sinQ2', 'sinQ3'][Math.floor(Math.random() * 3)], 0.4, [], sin.bl);
+    return sin;
+  }
+
+  // He comes down out of the sky beside Kilowog's podium, sizes Hal up, and teaches the sword.
+  async sinestroArrives() {
+    const { director, player, audio } = this;
+    this.takeControl();
+    this.swarm.clear();
+    const sin = this.addSinestro();
+    const from = V(46, 48, 8), land = SIN_SPOT.clone(), yaw = Math.atan2(player.position.x - land.x, player.position.z - land.z);
+    sin.place(from, yaw);
+    sin.anim.play(sin.flyGen, 0);
+    sin.flyState.k = 0.6;
+    const halHead = player.position.clone().setY(1.7);
+    player.lookAt(() => sin.rig.bonePosition('head', _sh), 0.8);
+    this.kwAnim.lookAt(() => sin.rig.bonePosition('head', _sh), 0.6);
+    // from behind Hal, the streak coming in over the deck
+    director.cut(player.position.clone().add(V(-1.6, 1.9, 3.2)), land.clone().lerp(from, 0.4).setY(6), 46);
+    audio.whoosh(2.4, 0.5);
+    const look = new THREE.Vector3();
+    await tween(2.6, (k) => {
+      const e = 1 - (1 - k) ** 3;
+      sin.object.position.lerpVectors(from, land, e).y += Math.sin(k * Math.PI) * 3;
+      sin.place(sin.object.position, yaw);
+      sin.flyState.k = 0.6 * (1 - k);
+      look.copy(sin.object.position).y += 1.2;
+      director.look.lerp(look, 0.2);
+    }, ease.linear);
+    sin.anim.play(sin.standGen, 0.7);
+    audio.land(0.4);
+    this.powers.dustFx(land, 12, 1);
+    await wait(0.6);
+    await this.kwSay('kwSinestro', [['sinestro', () => this.kwAnim.gesture('nod', 0.9, 0.6)]]);
+    const sinHead = () => sin.rig.bonePosition('head', _sh2);
+    const close = (dur, side = 1) => { const h = sinHead().clone(), f = V(Math.sin(sin.yaw), 0, Math.cos(sin.yaw)), r = V(f.z, 0, -f.x); return director.move(h.clone().addScaledVector(f, 2.2).addScaledVector(r, 0.8 * side).add(V(0, -0.15, 0)), h.clone().add(V(0, -0.1, 0)), dur, ease.inOut, 36); };
+    await close(1.4);
+    await this.sinSay('sin1', [['so', () => sin.anim.gesture('chin', 1.2, 0.6)]]);
+    await this.sinSay('sin2', [['friend', () => sin.anim.gesture('beat', 0.5, 0.6)], ['brawler', 'dismiss']]);
+    await this.twoShot(1.2, sin.rig);
+    player.animator.gesture('tilt', 0.9, 0.5);
+    await this.say('halSin');
+    await close(1.2, -1);
+    await this.sinSay('sin3', [['crude', () => sin.anim.gesture('shake', 0.8, 0.4)], ['watch', 'ring']]);
+    // the demonstration: a blade from nothing, a cut through the air, gone again
+    await sin.demo();
+    this.learn('sword', false);
+    this.ringSay('ringSword');
+    audio.ringChime();
+    await this.sinSay('sin4', [['cut', 'present']]);
+    player.lookAt(null);
+    this.giveControl('Cut down the target drones');
+    this.hud.tutorial({ kicker: 'Sinestro', n: 1, of: 2, title: 'Sword', html: 'Open the wheel (<kbd>4</kbd>) and choose the <b>Sword</b>. <kbd>Click</kbd> to cut; click again in rhythm for a three-cut combo, the last one heavy.<br><span class="dim">Aim at a drone and the first cut lunges at it.</span>' });
+    await this.wave('target', 4, 0.35);
+    this.hud.tutorialDone();
+    await wait(1.0);
+    await this.sinSay('sinDrones', [['now', 'present']], { skip: false });
+    this.hud.tutorial(null);
+    this.swarm.clear();
+  }
+
+  // ---------------------------------------------------------------- 6. the sparring
+  async duel() {
+    const { player, hud, powers } = this;
+    const sin = this.addSinestro();
+    this.takeControl();
+    player.lookAt(() => sin.rig.bonePosition('head', _sh), 0.8);
+    await this.twoShot(1.6, sin.rig);
+    await this.sinSay('sinDuel', [['defend', () => sin.anim.gesture('chin', 1, 0.6)]]);
+    player.lookAt(null);
+    powers.setCharge(100);
+    powers.health = powers.maxHealth;
+    sin.tg.health = sin.tg.maxHealth;
+    sin.engage();
+    this.giveControl('Spar with Sinestro');
+    hud.tutorial({ kicker: 'Sinestro', n: 2, of: 2, title: 'Sparring', html: 'Read his tells. A <b>raised blade</b>: he lunges; block with the <b>Shield</b>, or cut into it with the <b>Sword</b> to parry. <b>Spikes</b> forming: a volley. A <b>ring</b> on the ground: get out from under it.<br><span class="dim">He guards against the gatling. Bring him to the mark and he will call it.</span>' });
+    hud.boss('Sinestro', 1, 0.35);
+    const bar = onFrame(() => hud.boss('Sinestro', sin.health, 0.35));
+    await new Promise((resolve) => (sin.onYield = resolve));
+    bar();
+    hud.boss(null);
+    hud.tutorialDone();
+    await wait(0.8);
+    hud.tutorial(null);
+    this.takeControl();
+    powers.holster();
+    if (player.flying) player.stopFlying(true);
+    await wait(1.4);
+    sin.disengage();
+    const p = sin.object.position;
+    sin.place(V(p.x, 0, p.z), sin.yaw);
+    player.lookAt(() => sin.rig.bonePosition('head', _sh), 0.8);
+    const c = player.position.clone(), toSin = V(p.x - c.x, 0, p.z - c.z);
+    if (toSin.length() > 4) player.walkTo(V(p.x, 0, p.z).addScaledVector(toSin.normalize(), -2.6), player.walkSpeed);
+    this.twoShot(1.6, sin.rig);
+    await this.sinSay('sinEnd1', [['enough', 'dismiss']]);
+    await this.twoShot(1.4, sin.rig);
+    await this.sinSay('sinEnd2', [['lose', () => sin.anim.gesture('chin', 1, 0.5)]]);
+    await this.say('halFearless');
+    await this.sinSay('sinEnd3', [['wise', 'present']]);
+    // he leaves the way he came
+    sin.anim.play(sin.flyGen, 0.4);
+    this.audio.whoosh(2, 0.5);
+    const from = sin.object.position.clone();
+    tween(2.2, (k) => { sin.place(from.clone().add(V(-8 * k * k, 40 * k * k, -30 * k * k)), sin.yaw); sin.flyState.k = k; }, ease.linear).then(() => (sin.object.visible = false));
+    await wait(1.0);
+    await this.kwClose(1.2);
+    await this.kwSay('kwLikes', [['poozer', 'shrug']]);
+    player.lookAt(null);
+    this.sparred = true; // the end card follows
+  }
+
+  // ---------------------------------------------------------------- 7. the open range
   async openRange() {
     const { ui } = this;
     await wait(0.5);
-    if (!this.save.load().reached.includes('earth') && !this.rangeCard) {
+    if ((this.sparred || !this.save.load().reached.includes('earth')) && !this.rangeCard) {
       this.rangeCard = true;
       const pick = await ui.screen({
         emblem: true,
         kicker: 'Part Two · The Corps',
-        title: 'KILOWOG’S RANGE',
+        title: 'SINESTRO',
         subtitle: 'To be continued',
-        body: 'Hal has learned to fight back. Sinestro has been watching from the edge of the range, and he has his own lessons in mind.\n\nUntil then the range is open, and the ring knows the way home.',
+        body: 'Hal has crossed blades with the greatest Lantern of them all and come out standing. Next, the Guardians of the Universe.\n\nUntil then the range is open, and the ring knows the way home.',
         buttons: ['Keep training', 'Quit to title'],
       });
       if (pick === 1) { location.hash = ''; location.reload(); return; }
@@ -461,7 +596,7 @@ export class Corps extends Story {
     } }));
   }
 
-  // ---------------------------------------------------------------- 6. home: back on Earth
+  // ---------------------------------------------------------------- 8. home: back on Earth
   async home() {
     this.travel = 'chart';
     this.giveControl('Home: Sector 2814');
@@ -570,3 +705,4 @@ export class Corps extends Story {
     if (first || !this.toldAbin) { this.toldAbin = true; await wait(3); this.ringSay('ringAbin'); }
   }
 }
+const _sh = new THREE.Vector3(), _sh2 = new THREE.Vector3();

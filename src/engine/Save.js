@@ -21,6 +21,8 @@ export const CORPS_CHECKPOINTS = [
   { id: 'voyage', label: 'Hyperluminal', clock: 'DEEP SPACE' },
   { id: 'oa', label: 'Kilowog’s range', clock: 'OA · SECTOR 0' },
   { id: 'livefire', label: 'Live fire', clock: 'OA · SECTOR 0' },
+  { id: 'sinestro', label: 'Sinestro', clock: 'OA · SECTOR 0' },
+  { id: 'duel', label: 'Sparring', clock: 'OA · SECTOR 0' },
   { id: 'range', label: 'The training ground', clock: 'OA · SECTOR 0' },
   { id: 'earth', label: 'Home: Sector 2814', clock: '11:48 PM' },
 ];

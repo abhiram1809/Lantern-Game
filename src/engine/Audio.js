@@ -277,6 +277,35 @@ export class AudioBank {
     this.tone({ type: 'sine', freq: open ? 70 : 180, to: open ? 210 : 55, attack: 0.03, peak: 0.14, dur: 0.6, wet: 0.5 });
     this.tone({ type: 'triangle', freq: open ? 1320 : 990, to: open ? 1980 : 660, attack: 0.02, peak: 0.03, dur: 0.5, wet: 0.7 });
   }
+  // The sword: a low hum while it's in hand (louder mid-swing), a whoosh per cut, the bite of a hit
+  // and the ring of two blades meeting.
+  swordHum() {
+    if (!this.ctx) return { set() {}, stop() {} };
+    const t = this.t, out = this.out(0, 0.25);
+    const o = this.ctx.createOscillator(), o2 = this.ctx.createOscillator();
+    o.type = 'sawtooth'; o2.type = 'sine';
+    o.frequency.value = 92; o2.frequency.value = 184.5;
+    const lp = this.filter('lowpass', 700, 2, out);
+    o.connect(this.gain(0.25, lp)); o2.connect(this.gain(0.5, lp));
+    o.start(t); o2.start(t);
+    return {
+      set: (k) => { out.gain.setTargetAtTime(0.012 + 0.03 * k, this.t, 0.06); lp.frequency.setTargetAtTime(600 + 1400 * k, this.t, 0.06); },
+      stop: (fade = 0.3) => { out.gain.setTargetAtTime(0, this.t, fade / 3); o.stop(this.t + fade + 0.2); o2.stop(this.t + fade + 0.2); },
+    };
+  }
+  swordSwing(scale = 1) {
+    this.burst({ type: 'bandpass', from: 500, to: 2600, q: 1.6, attack: 0.05, peak: 0.22 * scale, dur: 0.28, wet: 0.2 });
+    this.tone({ type: 'sawtooth', freq: 180, to: 420, attack: 0.03, peak: 0.03 * scale, dur: 0.25, wet: 0.3 });
+  }
+  swordHit(scale = 1) {
+    this.burst({ type: 'highpass', from: 2400, to: 900, attack: 0.003, peak: 0.3 * scale, dur: 0.22, wet: 0.25 });
+    this.burst({ buffer: this.brownBuf, from: 600, to: 120, peak: 0.4 * scale, dur: 0.3, wet: 0.2 });
+    this.tone({ type: 'triangle', freq: 980, to: 620, peak: 0.06 * scale, dur: 0.3, wet: 0.4 });
+  }
+  clash() {
+    [1480, 2210, 3170].forEach((f, i) => this.tone({ type: 'triangle', freq: f, to: f * 0.97, attack: 0.002, peak: 0.09 / (i + 1), dur: 0.9, wet: 0.6 }));
+    this.burst({ type: 'highpass', from: 4000, attack: 0.002, peak: 0.25, dur: 0.15, wet: 0.3 });
+  }
   // Punching out of the sky: a deep boom under a tearing roar.
   sonicBoom(scale = 1) {
     this.burst({ buffer: this.brownBuf, from: 700, to: 50, attack: 0.005, peak: 0.95 * scale, dur: 2.4, wet: 0.5 });

@@ -39,8 +39,8 @@ Small tweaks such as a colour value, a timing nudge or a typo don't need an entr
 A browser story game in Three.js about Hal Jordan becoming Green Lantern. **Part One,
 "Awakening"**, is complete and playable. **Part Two, "The Corps"** has its first slice: the
 Guardians' summons at the lake, the flight across the universe to Oa, Kilowog's range (target
-drones, the Gatling, a live-fire drill), and hyperspace travel between Oa and Earth. Part Three
-(Coast City) is planned.
+drones, the Gatling, a live-fire drill), Sinestro (the sword, a sparring duel), and hyperspace
+travel between Oa and Earth. Part Three (Coast City) is planned.
 
 The story of Part One:
 
@@ -69,7 +69,12 @@ Part Two so far (`src/story/Corps.js`):
 4. **Targets:** five target drones to break with the fist.
 5. **Live fire:** Kilowog teaches the **Gatling** ("if you can see it, the ring can make it"), then
    two waves of drones that shoot back.
-6. **The range:** an end card ("to be continued: Sinestro"), then free training, and the ring's
+6. **Sinestro** (`enemies/Sinestro.js`): he comes down beside the podium ("Abin Sur was my
+   friend"), forms a blade ("a construct is a thought, held still"), and Hal learns the **Sword**
+   on four target drones.
+7. **Sparring:** a duel with Sinestro, flying, until he calls it at 35% ("Fearless is not the same
+   as wise").
+8. **The range:** an end card ("to be continued: the Guardians"), then free training, and the ring's
    hyperspace routes between Oa and Earth (the star chart: E high in flight). Kilowog starts
    another round on request. Back on Earth the Corps has taken Abin Sur's body home.
 
@@ -104,6 +109,12 @@ No audio files are shipped: everything is synthesised with WebAudio, and voices 
   procedurally, or derived from an existing scan). Check it in close-up; if it falls short, say
   so plainly and they will generate it. When they say "I'm making X, you focus on other things",
   leave X alone.
+  - **Show them each iteration and ask** (their words: "keep asking for my opinion on how good it
+    looks"). Send close-ups (front, three-quarter, profile, eyes) after each pass and ask before
+    moving on; they push for improvements until it meets the scans' bar. For Sinestro they gave
+    a comic reference and said to match it **facially, not the suit**; they picked out the eyes,
+    the front view and the nose. Keep tall review sheets short: very tall images preview with
+    colour banding.
 - **File hand-off:** macOS blocks reads of `~/Downloads`. Ask the user to copy files into the
   project folder. Files they "copy" sometimes land in `~/Documents` instead.
 - **The user often runs their own dev server on port 5173.** Never kill it. Run your own on 5180
@@ -116,7 +127,8 @@ No audio files are shipped: everything is synthesised with WebAudio, and voices 
 - **Controls they chose:** no jump, ever. `4` opens the construct wheel (time stops), click
   deploys. Double-tap Space flies. `L` stores or summons the lantern (pocket dimension). `E` high in
   flight enters hyperspace (they asked for E). Fist, shield and wall are the starter constructs;
-  gatling, sword, staff, hammer and axe stay locked for later parts.
+  the gatling (Kilowog) and the sword (Sinestro) are learned on Oa; staff, hammer and axe stay
+  locked for later parts.
 - **Travel and planets (their design, 2026-11-09):** after Kilowog's training Hal can go home; the
   star chart unlocks more planets as the story goes on. For now only Oa and Earth are charted.
 
@@ -169,6 +181,7 @@ and reference videos. The built outputs in `public/` are what the game loads.
 | `assets/raw/hal_b.glb` | **Suited Hal**, built as `hal_lantern.glb`. The user calls it "the perfect one". |
 | `assets/raw/Abin.glb` | **Abin Sur** (the user's model), built as `abin_sur.glb` |
 | `assets/raw/Kilowog.glb` | **Kilowog** (the user's model, 2026-11-09), built as `kilowog.glb`. Two figures side by side; the z > 0 one is kept (`keepSide: 1`). |
+| (none) | **Sinestro** has no file: `createSinestro()` derives him at runtime from `abin_sur.glb` with a shader layer (see *Characters*). |
 | `assets/raw/hal_a.glb` | Old casual scan: two figures, poor face. Unused; see the commented entry in `build-assets.mjs`. |
 | `assets/raw/gemini_generated_video_93604faf.mp4` | Hyperluminal space flight: radial streaks, "ORBITAL APPROACH" HUD. **The Hyperspace scene is styled after it.** |
 | `assets/raw/gemini_generated_video_6bbb1091.mp4` | Reference for a **later part**: the suited Lantern flying over a neon night city, fighting red-eyed mechs with constructs (minigun, hex shield); combat HUD with minimap, health, ammo and damage numbers. |
@@ -263,7 +276,8 @@ inherited. A later part should do the same.
   `meetAbin()`, `takeLantern()` (which calls `transform()`, where the oath charges the ring),
   `ringTraining()`, and `explore()`. It saves a checkpoint (`this.checkpoint(id)`) before each
   step. Part Two's are `summons` → `summons()`, `voyage` → `flyToOa()`, `oa` → `targets()` (the
-  landing and the drones), `livefire` → `liveFire()`, `range` → `openRange()`, `earth` → `home()`.
+  landing and the drones), `livefire` → `liveFire()`, `sinestro` → `sinestroArrives()`, `duel` →
+  `duel()`, `range` → `openRange()`, `earth` → `home()`.
   The free-roam steps never resolve; travel saves `range` or `earth` itself on arrival.
 - `prepare(id)` rebuilds the world state a step expects when the game is resumed from it: which
   scene, where the player is, whether Hal is in bed, ring on, Abin dead, suit on, ring charge
@@ -438,6 +452,23 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
   own physics body, and the parts fade after 9 s.
 - `onHit`, `onKill` and `onPlayerHit` hooks (Kilowog's commentary uses the last two).
 
+### Sinestro (`src/enemies/Sinestro.js`)
+
+- **Out of the fight** he stands (mocap idle) with his hands clasped behind his back (his own
+  `BodyLanguage` library, `GESTURES` / `STANCES` in his metres), talks with the ring hand, and
+  plays the sword lesson (`demo()`).
+- **In the fight** (`engage()`) he flies: a dynamic capsule with gravity off, steered by a damped
+  spring (like the drones), so fists shove him and he recovers. He faces Hal, circles at about
+  6.5 m, matches Hal's height when Hal flies, leans into his flight, keeps his left hand behind his
+  back, and is a construct target (`tg`, 420 health).
+- **Moves** (`think()` / `runAction()`): a **lunge** (the blade raised and flaring for 0.6 s, a dash,
+  a cut; Hal's shield blocks it, a sword cut meeting it parries and staggers him for 1.2 s);
+  a **volley** of five light spikes formed behind him and fired with lead (shield and walls stop
+  them); a **guard** (a hex shield in front of his fist when four hits land within a second,
+  turning frontal hits); and below 62% a **slam** (a ring marks the spot under Hal, then a giant
+  fist comes down on it).
+- At 35% he yields (`onYield`); `onQuip` and `onHurtHal` drive his lines.
+
 ### Ring powers (`src/powers/`, `src/ui/PowerHud.js`)
 
 `Story` owns one `RingPowers` (`this.powers`) and one `PowerHud` (`this.hud`). `powers.attach()`
@@ -474,6 +505,15 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
     to its grips), aimed at the aim point. Hold to spin the barrels up, then hitscan rounds at
     14/s with tracers (instanced streaks), sparks and 6 damage each. 1% to form, 0.12% a round.
     Hal moves slower while it's out (`player.moveScale`). It dissolves 1.4 s after you stop.
+  - Sword (`SwordConstruct`, from Sinestro): forms in the ring hand on the first click and stays
+    while armed (Hal strafes). Clicks in rhythm chain three cuts (`SWINGS`: forehand diagonal,
+    backhand, an overhead chop that hits hardest), each a keyed hand path plus blade direction in
+    Hal's frame, solved with the arm IK; the blade's edge leads the cut. The blade sweeps between
+    frames (`cut()`), so targets take each cut once and fast cuts can't skip them; loose bodies
+    are knocked aside. Aimed at a target 1.7–5 m away, the cut lunges at it (`player.dash`).
+    3% to form, 0.8% a cut, 24 / 24 / 38 damage. `cutting` is true in a cut's hitting window
+    (Sinestro's blade is parried then). The blade mesh and its short light trail are `Blade` in
+    `Constructs.js`, shared with Sinestro.
   - While the shield or the gatling is up, `RingPowers.update` sets `player.strafe`: Hal faces
     where the camera looks and moves where the keys say (see *Player*). The constructs don't
     turn Hal themselves any more. Choosing another construct puts the held one away.
@@ -490,6 +530,8 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
   deck; the default treats low ground as water). It first calls `detach()`, which clears the old
   scene's constructs, hazards, targets and effect layers and resets `timeScale` and the grade.
 - `powers.freeze` stops time like the wheel does (the star chart).
+- `hud.boss(name, frac, yieldAt)` shows an opponent's health across the top (Sinestro), with a
+  mark where the fight ends.
   `ringhud.force` keeps the charge visible during cutscenes (the oath, recharging).
 - **Flight effects:** charge drain (0.12%/s, more boosting), a green aura light, light trails off
   the ring fist and boots, airflow sound, takeoff and landing shockwaves.
@@ -716,6 +758,19 @@ crash site. `player.surface` picks the footstep sound.
   - `hideBone`
   - `roughMin`, a roughness floor. Casual Hal uses 0.62 so his skin doesn't look like wax.
 - `createKilowog(gltf)` (glow 0.6: his eyes and emblem are green in the texture).
+- `createSinestro(abinGltf)`: Sinestro derived from Abin Sur's scan, matched facially to a comic
+  reference the user chose. A shader layer over `patchMaterial`, worked in the bind pose's object
+  space from the scan's front profile (chin 1.665, mouth 1.72, nose 1.75–1.79, brow ridge 1.83,
+  crown 1.96): coral-red skin (everything on the head that isn't uniform, plus the pink of the
+  hands), more orange up the forehead, hollow cheeks; black hair slicked back from a sharp widow's
+  peak with receded temples, given volume by pushing the scalp out radially (fuller at the crown
+  and back) and combed grooves in the normal so its sheen streaks along the strands (front to back
+  on top and sides, down the back to the nape), with the scan's scalp normal, AO and metalness
+  maps switched off under it; heavy brows slanting down to the nose with frown creases; glowing
+  yellow irises with dark pupils, a lash line and cleaner sockets painted into the scan's narrow
+  eye slits; a thin moustache drooping at the corners. The vertex stage also narrows the head 8%
+  and the nose 28%. Uniform a shade darker than Abin Sur's. `rig.su` holds every value
+  (tunable live in the browser).
 - **Kilowog's body language** (`characters/BodyLanguage.js`, driven from `Corps.addKilowog`), the
   usual conversation-system approach: a library of short hand gestures (`chest`, `fist`, `pump`,
   `open`, `shrug`, `sweep`, `beckon`, `dismiss`, `temple`) keyed in his body frame and solved with
@@ -796,6 +851,17 @@ The checks that have worked:
 - **A right arm pointing across the body reads as a fist at the chin.** Point with the arm on the
   target's side (`BodyLanguage.pointAt`).
 - **Bloom turns bright stars into blobs.** Keep star values under about 1 in the space backdrops.
+- **Pushing a scan's vertices along their normals opens cracks** at its UV seams (duplicated
+  vertices, different normals). Push along a direction that depends on position only (Sinestro's
+  hair goes out from the skull's centre).
+- **Paint over a scan in its bind-pose object space** (`vDPos`), not world space: painted features
+  then follow skinning and any vertex-stage reshaping (Sinestro's narrowed face) for free. Find the
+  landmarks from the mesh's front profile, then confirm each with a deliberately thick debug band:
+  brows placed 1.5 cm too low vanished into the eye sockets' shadow.
+- **Painting hair onto a bald scan exposes the scan's own scalp maps** (normal-map seams as
+  stitches, AO): switch them off under the hair.
+- **Construct trails need short histories.** Half a second of the sword's path drew opaque white
+  sheets; a tenth of a second reads as a swoosh.
 
 - **Rapier's character controller sinks into cylinder colliders.** On Oa's deck (a 43 m
   cylinder) Hal's capsule rested 0.33 m inside it; the foot IK then pulled his feet up to the
@@ -849,6 +915,15 @@ The checks that have worked:
 ## Status
 
 Verified by playing in the browser:
+
+- (2026-11-09, Sinestro) the model reviewed with the user through six passes in close-up (front,
+  three-quarter, profile, back, eyes), matched facially to their reference; his arrival (the
+  streak in, the landing, hands behind his back, his lines and gestures, the sword demo); the
+  sword: forming, the three-cut combo on keyed paths, damage 24/24/38 on Sinestro, the trail; the
+  sword lesson's drones; the sparring: the lunge (telegraph, dash, cut, damage), the volley, the
+  guard turning a frontal hit, the slam (mark, fist, damage), the parry stagger, yielding at 35%,
+  the ending lines and his departure, through to `range`; no console errors; a clean `vite build`.
+  Synthetic input; Hal never fought him with a real mouse.
 
 - (2026-11-09, pocket dimension, voyage, travel, Kilowog) in fixed-step captures with synthetic
   input: the pocket-dimension beat after the oath (L stows the lantern through the rift); summoning
@@ -914,6 +989,10 @@ Not verified:
   browser reports them; tested with the voice off, on the 14 chars/s pace)
 - the Part One end card's "Part Two" button into `summons` after a full Part One playthrough
 - frame rate in the Space scene (two 192×96 spheres with heavy fragment shaders)
+- the sparring's balance and feel with a real player (health, damage, timing of his moves); the
+  camera keeping him in view; the lunge (`player.dash`) on uneven ground or into a wall
+- the sword in flight, and Sinestro's flight pose at speed (he mostly hovers)
+- the Sinestro sounds and voice (never heard)
 
 ## Open items and ideas
 
@@ -930,18 +1009,21 @@ Not verified:
     the suit scan and a Guardian from Abin's, both to be judged in close-up; Kilowog most likely
     needs a Tripo model (non-human head and build).
   - Each part gets its own save section or key (see *Save*), carrying `unlocks` over.
-- **Next for Part Two** (proposed to the user 2026-11-09, not agreed yet): Sinestro on the range
-  (model derived from the suit scan, a sparring duel that teaches the sword or staff); the
-  Guardians (Abin Sur laid to rest on Oa, Hal sworn in); a mission that charts Korugar or Ysmault
-  on the star map; drills that unlock the remaining constructs. Earlier ideas still open: burying
+- **Next for Part Two** (the plan the user said to go ahead with, 2026-11-09): Sinestro is done;
+  next the Guardians (a Guardian derived from Abin Sur's scan, judged in close-up with the user;
+  Abin Sur laid to rest on Oa; Hal sworn in); then a mission that charts Korugar or Ysmault on the
+  star map and unlocks a construct; then Part Three, Coast City. Earlier ideas still open: burying
   Abin Sur at the lake, the empty prisoner tank (Atrocitus).
+- Sinestro's front view could still improve (the user's note); his face shape is Abin Sur's skull
+  narrowed, his hair is painted volume with no loose strands, and a faint seam can show on the
+  crown in extreme close-up.
+- The staff, hammer and axe have wheel slots but no geometry or behaviour.
 - Travel trips are cutscenes of about 12 s every time; a skip (or a shorter repeat) may be wanted.
 - Earth's continents are coarse hand-made outlines; a NASA Blue Marble / Black Marble texture
   would be far better but needs a download (ask first).
 - Kilowog has no face bones: a jaw bone in the auto-rig would allow speech; lip sync stays optional.
 - The voyage's Hal is the suit rig in parameter poses (hover, flyFast); no cape or secondary motion.
-- Locked constructs (sword, staff, hammer, axe) have wheel slots and icons but no geometry or
-  behaviour yet. Unlocking is `powers.unlocked` plus the part's `unlocks`.
+- Unlocking constructs is `powers.unlocked` plus the part's `unlocks`.
 - Oa's city is primitives with a window shader: fine from the range, plain up close (flying low
   among the towers). Sky bridges, greebles or a real model kit would lift it.
 - Seen from behind (the usual camera), the fist reads as a rounded block in flight; it reads as a
@@ -960,11 +1042,12 @@ src/engine/                 Engine (renderer + post), Input, Physics (Rapier), C
                             Audio (WebAudio synth), Voice (speech), Save (checkpoints)
 src/characters/             Rig + Animator, IK, Mocap, Poses, Player (walk + flight), Characters,
                             BodyLanguage (Kilowog's talking gestures)
-src/powers/                 RingPowers (charge, health, wheel, aim, constructs, flight fx), Constructs
-                            (list, shaders, fist / shield / wall geometry)
+src/powers/                 RingPowers (charge, health, wheel, aim, constructs incl. the sword, flight fx),
+                            Constructs (list, shaders, fist / shield / wall / gatling / sword geometry, Blade)
 src/scenes/                 Bedroom (+ hallway, buildJet), Dream, Hyperspace, CrashSite, Oa (Part Two),
                             Space (Earth and Oa from orbit)
-src/enemies/                Drones (training drones: model, spring flight, AI, bolts, breakup)
+src/enemies/                Drones (training drones: model, spring flight, AI, bolts, breakup), Sinestro
+                            (the sparring opponent: flight, blade, spikes, guard, slam)
 src/fx/                     Sky, Particles + Fire, Water, Trees, GreenLight, Cloth, Textures, Rift
                             (pocket dimension), EarthMap (continent outlines, city-light density)
 src/story/                  Story (Part One + shared plumbing, the lantern), Corps (Part Two, travel),
@@ -982,6 +1065,21 @@ public/models, public/anims built GLBs loaded at runtime; public/textures/poster
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-09: Sinestro, the sword and the sparring duel
+- **Sinestro's model** (`createSinestro` in `Characters.js`): derived from Abin Sur's scan with a
+  shader layer, reviewed with the user pass by pass (they asked to be shown every iteration) and
+  matched to the comic reference they sent, facially only. Passes: crimson skin, painted hair and
+  brows; hair volume and combed grooves; eyes painted into the slits; the reference's colours,
+  yellow eyes, scowl and moustache; a narrower face; a thinner nose. See *Characters*.
+- **The sword** (`SwordConstruct` in `RingPowers.js`, `swordGeometry` and `Blade` in
+  `Constructs.js`, `player.dash`, sword sounds in `Audio.js`). See *Ring powers*.
+- **Sinestro the opponent** (`enemies/Sinestro.js`, new), a boss bar (`hud.boss`), and
+  `BodyLanguage` taking another character's library (`gestures`, `stances`, `scale`, `hold()`,
+  one-handed stances).
+- **Story:** checkpoints `sinestro` and `duel` between `livefire` and `range`; his lines and a
+  `sinestro` voice; the range's end card now follows the sparring.
+- Verified: see Status (2026-11-09, Sinestro). Not verified: a real player fighting him, sounds.
 
 ### 2026-11-09: the pocket dimension, the flight to Oa, travel, Kilowog's body language
 - **Pocket dimension** (`Story.js` lantern section, `fx/Rift.js`, new): after the oath the ring shows

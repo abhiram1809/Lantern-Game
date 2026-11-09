@@ -30,6 +30,8 @@ export class Player {
     this.control = false;
     this.inputBlocked = false; // the construct wheel has the mouse and keys
     this.moveScale = 1; // slowed while firing a held construct
+    this.dashV = new THREE.Vector3(); // a lunge (the sword), on the ground or in the air
+    this.dashT = 0;
     this.strafe = false; // a held construct is up: face where the camera looks, move where the keys say
     this.autoAnim = true;
     this.tired = 0.7;
@@ -138,6 +140,9 @@ export class Player {
 
   turnTo(yaw, rate = 5) { this.yawTarget = yaw; this.yawRate = rate; }
 
+  // A burst of speed along `dir` for `duration` seconds, on top of the usual movement.
+  dash(dir, speed, duration) { this.dashV.copy(dir).multiplyScalar(speed); this.dashT = duration; }
+
   // Head tracking: a world point to look at (null to look ahead).
   lookAt(target, weight = 1) { this.animator.lookAt(target, weight); }
 
@@ -234,8 +239,9 @@ export class Player {
     }
 
     let actual = this.speed;
-    if (this.rb && (this.control || this.script || this.speed > 0.01 || !this.grounded)) {
-      const vx = Math.sin(this.heading) * this.speed, vz = Math.cos(this.heading) * this.speed;
+    const dashing = (this.dashT -= dt) > 0;
+    if (this.rb && (this.control || this.script || this.speed > 0.01 || !this.grounded || dashing)) {
+      const vx = Math.sin(this.heading) * this.speed + (dashing ? this.dashV.x : 0), vz = Math.cos(this.heading) * this.speed + (dashing ? this.dashV.z : 0);
       const wasAirborne = !this.grounded;
       this.vy = this.grounded ? -1 : this.vy - 9.81 * dt;
       this.fall = Math.max(this.fall, -this.vy);
@@ -351,7 +357,8 @@ export class Player {
     }
 
     if (this.rb) {
-      this.kcc.computeColliderMovement(this.collider, { x: v.x * dt, y: v.y * dt, z: v.z * dt }, undefined, undefined, this.filter);
+      const dk = (this.dashT -= dt) > 0 ? dt : 0;
+      this.kcc.computeColliderMovement(this.collider, { x: v.x * dt + this.dashV.x * dk, y: v.y * dt + this.dashV.y * dk, z: v.z * dt + this.dashV.z * dk }, undefined, undefined, this.filter);
       const m = this.kcc.computedMovement();
       const t = this.rb.translation();
       const next = { x: t.x + m.x, y: t.y + m.y, z: t.z + m.z };

@@ -7,7 +7,7 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 export const CONSTRUCTS = [
   { id: 'fist', name: 'Fist', kind: 'attack', cost: 6, range: [2, 14], desc: 'A giant fist that strikes where you aim. Reaches 14 m.' },
   { id: 'gatling', name: 'Gatling', kind: 'attack', cost: 1, perShot: 0.12, rate: 14, damage: 6, range: [2, 45], desc: 'Rotary cannon. Hold to spin up and fire. Reaches 45 m.' },
-  { id: 'sword', name: 'Sword', kind: 'attack', desc: 'Cutting blade for close combat.' },
+  { id: 'sword', name: 'Sword', kind: 'attack', cost: 3, perSwing: 0.8, damage: 24, range: [0, 5], desc: 'A blade of light. Click to cut; click in rhythm for a three-cut combo. Lunges at a target you aim at.' },
   { id: 'staff', name: 'Staff', kind: 'attack', desc: 'Long reach, sweeping strikes.' },
   { id: 'hammer', name: 'Hammer', kind: 'utility', desc: 'Smash through cover and barriers.' },
   { id: 'axe', name: 'Axe', kind: 'utility', desc: 'Cut through debris and wreckage.' },
@@ -225,6 +225,97 @@ export function gatlingGeometry() {
   const merge = (parts) => mergeVertices(mergeGeometries(parts.map(strip)), 1e-4);
   return { barrels: merge(barrels), body: merge(body), grip: new THREE.Vector3(0, -0.24, -0.31), fore: new THREE.Vector3(0.14, -0.11, 0.28), muzzle: new THREE.Vector3(0, 0, 1.1) };
 }
+
+// A straight sword along +Y, hilt at the origin: a long diamond-section blade, a guard shaped like the
+// emblem (its two bars and ring), a short grip and a pommel. About 1.3 m.
+export function swordGeometry() {
+  const strip = (g) => { g.deleteAttribute('uv'); return g.index ? g.toNonIndexed() : g; };
+  const parts = [
+    new THREE.CylinderGeometry(0.029, 0.037, 0.92, 4, 1).scale(1, 1, 0.3).translate(0, 0.63, 0), // blade
+    new THREE.CylinderGeometry(0.0, 0.029, 0.2, 4, 1).scale(1, 1, 0.3).translate(0, 1.19, 0), // point
+    box(0.34, 0.038, 0.06, 0, 0.14, 0, 0.016),
+    box(0.2, 0.03, 0.05, 0, 0.085, 0, 0.012),
+    new THREE.TorusGeometry(0.05, 0.012, 8, 24).translate(0, 0.112, 0),
+    new THREE.CylinderGeometry(0.019, 0.022, 0.2, 12).translate(0, -0.02, 0), // grip
+    new THREE.SphereGeometry(0.032, 14, 10).translate(0, -0.14, 0), // pommel
+  ];
+  return { geo: mergeVertices(mergeGeometries(parts.map(strip)), 1e-4), base: new THREE.Vector3(0, 0.17, 0), tip: new THREE.Vector3(0, 1.29, 0) };
+}
+
+// A construct blade in a hand, with a ribbon of light trailing the edge while it moves fast. Shared
+// by Hal's sword and Sinestro's. `place(position, bladeDir, edgeDir)` each frame; `form` 0..1.
+export class Blade {
+  constructor(scene, sword, { outline = 0.008 } = {}) {
+    this.sword = sword;
+    this.mesh = constructMesh(sword.geo, { uPattern: 0, outline });
+    this.mesh.userData.set('uForm', 0);
+    scene.add(this.mesh);
+    this.n = 6; // a short swoosh: about a tenth of a second of the edge's path
+    this.hist = Array.from({ length: this.n }, () => [new THREE.Vector3(), new THREE.Vector3()]);
+    this.filled = 0;
+    const geo = new THREE.BufferGeometry();
+    this.pos = new Float32Array(this.n * 2 * 3);
+    this.age = new Float32Array(this.n * 2);
+    geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
+    geo.setAttribute('aAge', new THREE.BufferAttribute(this.age, 1));
+    const idx = [];
+    for (let i = 0; i < this.n - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    geo.setIndex(idx);
+    for (let i = 0; i < this.n; i++) { this.age[i * 2] = this.age[i * 2 + 1] = i / (this.n - 1); }
+    this.trailU = { uOpacity: { value: 0 } };
+    this.trail = new THREE.Mesh(geo, new THREE.ShaderMaterial({
+      uniforms: this.trailU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      vertexShader: 'attribute float aAge; varying float vAge; void main(){ vAge = aAge; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform float uOpacity; varying float vAge; void main(){ float a = pow(1.0 - vAge, 2.5) * uOpacity; gl_FragColor = vec4(vec3(0.2, 1.1, 0.45) * a, 1.0); }',
+    }));
+    this.trail.frustumCulled = false;
+    this.trail.renderOrder = 22;
+    scene.add(this.trail);
+    this.base = new THREE.Vector3();
+    this.tip = new THREE.Vector3();
+    this.prevBase = new THREE.Vector3();
+    this.prevTip = new THREE.Vector3();
+    this.form = 0;
+  }
+
+  place(position, bladeDir, edgeDir) {
+    const y = _bY.copy(bladeDir).normalize(), z = _bZ.crossVectors(edgeDir, y).normalize(), x = _bX.crossVectors(y, z);
+    this.mesh.position.copy(position);
+    this.mesh.quaternion.setFromRotationMatrix(_bM.makeBasis(x, y, z));
+    this.mesh.updateMatrixWorld(true);
+    this.prevBase.copy(this.base);
+    this.prevTip.copy(this.tip);
+    this.mesh.localToWorld(this.base.copy(this.sword.base));
+    this.mesh.localToWorld(this.tip.copy(this.sword.tip));
+  }
+
+  update(dt, time) {
+    this.mesh.userData.set('uForm', this.form);
+    this.mesh.userData.set('uTime', time);
+    if (dt <= 0) return;
+    // the trail follows the edge; it shows while the tip moves fast
+    const speed = this.tip.distanceTo(this.prevTip) / dt;
+    this.trailU.uOpacity.value = Math.min(1, Math.max(0, (speed - 4) / 8)) * this.form * 0.45;
+    const last = this.hist.pop();
+    last[0].copy(this.base).lerp(this.tip, 0.45);
+    last[1].copy(this.tip);
+    this.hist.unshift(last);
+    this.filled = Math.min(this.n, this.filled + 1);
+    for (let i = 0; i < this.n; i++) {
+      const h = this.hist[Math.min(i, this.filled - 1)];
+      this.pos.set([h[0].x, h[0].y, h[0].z, h[1].x, h[1].y, h[1].z], i * 6);
+    }
+    this.trail.geometry.attributes.position.needsUpdate = true;
+  }
+
+  dispose() {
+    this.mesh.removeFromParent();
+    this.trail.removeFromParent();
+    this.trail.geometry.dispose();
+    this.trail.material.dispose();
+  }
+}
+const _bX = new THREE.Vector3(), _bY = new THREE.Vector3(), _bZ = new THREE.Vector3(), _bM = new THREE.Matrix4();
 
 // A brick wall standing on y = 0, facing ±Z. Extra height runs below ground to bury the base.
 export const WALL = { width: 4.2, height: 2.7, depth: 0.3, buried: 0.45 };
