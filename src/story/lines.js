@@ -1,4 +1,4 @@
-// Every spoken / subtitled line in Part One. `who` picks the voice and speaker label; 'ring' lines
+// Every spoken / subtitled line in the game. `who` picks the voice and speaker label; 'ring' lines
 // are the ring's own readout (typed under the objective, in the ring's voice).
 export const LINES = {
   home1: { who: 'hal', text: 'Long day. Carol’s going to have my head for that landing.' },
@@ -47,6 +47,10 @@ export const LINES = {
   oath4: { who: 'hal', text: 'Beware my power — Green Lantern’s light!' },
   recharge: { who: 'hal', text: 'In brightest day…' },
   halWhoa: { who: 'hal', text: '…Whoa.' },
+  // the pocket dimension
+  ringPocket: { who: 'ring', text: 'The power battery can be kept in the ring’s pocket dimension until it is needed.' },
+  ringStowed: { who: 'ring', text: 'Power battery stored.' },
+  halPocket: { who: 'hal', text: 'A pocket dimension. Of course there is.' },
 
   // ring training (Hal speaks these while you have control, so they can't be skipped by clicking)
   halPunch: { who: 'hal', text: 'Okay. That’s… new.' },
@@ -67,7 +71,30 @@ export const LINES = {
   ringDone: { who: 'ring', text: 'Training complete. Recharge at the power battery every twenty-four hours, or when the light runs low.' },
   ringRecharged: { who: 'ring', text: 'Charge restored.' },
 
-  // ---- Part Two: The Corps (Oa) ----
+  // ---- Part Two: The Corps ----
+  // the summons, at the lake
+  ringSummons: { who: 'ring', text: 'Priority transmission from Oa, for the bearer of Abin Sur’s ring.' },
+  guardian1: { who: 'guardian', style: 'light', text: 'Hal Jordan of Earth. The ring of Abin Sur has chosen you.' },
+  guardian2: { who: 'guardian', style: 'light', text: 'Come to Oa, and learn what it is to be a Green Lantern.' },
+  halWhere: { who: 'hal', text: 'Oa? Where is Oa?' },
+  ringCourse: { who: 'ring', text: 'Sector zero, at the centre of the universe. Course plotted. Climb, and I will take you there.' },
+  halAbin: { who: 'hal', text: 'Rest easy, Abin Sur. I’ll take it from here.' },
+  ringClimb: { who: 'ring', text: 'Altitude sufficient. Ready for the jump.' },
+  // the voyage
+  ringOrbit: { who: 'ring', text: 'Leaving Sector 2814. Course locked: Oa.' },
+  halEarth: { who: 'hal', text: 'Dad would have given anything to see this.' },
+  ringJump: { who: 'ring', text: 'Hyperluminal speed.' },
+  halFast: { who: 'hal', text: 'Okay. Now this is flying.' },
+  ringApproach: { who: 'ring', text: 'Orbital approach. Oa, sector zero.' },
+  halOa: { who: 'hal', text: 'So that’s Oa.' },
+  // travel, once the range is open
+  kwEarth: { who: 'kilowog', text: 'And poozer: Sector 2814 still needs its Lantern. Go home when you’re needed. The ring knows the way.' },
+  ringRoutes: { who: 'ring', text: 'Hyperspace routes charted: Earth and Oa. Fly high and press E to set a course.' },
+  ringHigher: { who: 'ring', text: 'Climb higher to make the jump.' },
+  kwBack: { who: 'kilowog', text: 'Back already, poozer? The range is yours.' },
+  halHome: { who: 'hal', text: 'Home. It looks smaller already.' },
+  ringAbin: { who: 'ring', text: 'Abin Sur’s remains have been carried home to Oa by the Corps.' },
+  // ---- Kilowog's range (Oa) ----
   ringOa: { who: 'ring', text: 'Oa. Sector zero. Central Power Battery in range: recharging continuously.' },
   kwIntro1: { who: 'kilowog', text: 'So you’re Abin Sur’s pick. A human.' },
   halIntro: { who: 'hal', text: 'Hal Jordan. And you are…?' },

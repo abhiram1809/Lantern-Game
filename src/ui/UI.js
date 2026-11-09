@@ -10,7 +10,7 @@ export const toGlyphs = (s) => [...s].map((c) => {
 const randomGlyph = () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-const SPEAKERS = { hal: 'Hal Jordan', abin: 'Abin Sur', light: '', dad: 'Martin Jordan', kid: 'Young Hal', thought: '', kilowog: 'Kilowog', sinestro: 'Sinestro' };
+const SPEAKERS = { hal: 'Hal Jordan', abin: 'Abin Sur', light: '', dad: 'Martin Jordan', kid: 'Young Hal', thought: '', kilowog: 'Kilowog', sinestro: 'Sinestro', guardian: 'The Guardians' };
 const ADVANCE = ['Space', 'Enter', 'Click', 'KeyE'];
 
 export class UI {
@@ -86,7 +86,8 @@ export class UI {
 
   // Shows one subtitle line, voices it and waits for it to finish (or for the player to skip).
   // skip: false for lines spoken while the player has control (clicks and Space are theirs then).
-  async say({ who = 'hal', text, alien = false, style, voice = true, hold, keep = false, name, skip = true }) {
+  // onWord(charIndex) is called as the voice reaches each word (when the speech engine reports it).
+  async say({ who = 'hal', text, alien = false, style, voice = true, hold, keep = false, name, skip = true, onWord }) {
     const { sub, speaker, text: textEl } = this.el;
     sub.className = '';
     if (alien) sub.classList.add('alien');
@@ -100,7 +101,7 @@ export class UI {
     const stop = onFrame(() => { if (skip && this.input.hit(...ADVANCE)) presses++; });
     let voiceDone = Promise.resolve();
     if (voice && alien) voiceDone = wait(this.audio.alienVoice(text));
-    else if (voice && who !== 'thought') voiceDone = this.voice.speak(text, who);
+    else if (voice && who !== 'thought') voiceDone = this.voice.speak(text, who, onWord);
 
     const rate = alien ? 0.03 : 0.024;
     for (let i = 1; i <= shown.length && presses === 0; i++) {

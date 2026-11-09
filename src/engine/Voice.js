@@ -7,6 +7,7 @@ const PROFILES = {
   kid: { prefer: ['Junior', 'Samantha', 'Google US English'], rate: 1.05, pitch: 1.7 },
   kilowog: { prefer: ['Fred', 'Ralph', 'Rocko', 'Grandpa', 'Daniel', 'Google UK English Male', 'Microsoft David'], rate: 0.92, pitch: 0.42 },
   ring: { prefer: ['Karen', 'Moira', 'Samantha', 'Google UK English Female', 'Microsoft Hazel', 'Microsoft Zira'], rate: 1.05, pitch: 0.55 },
+  guardian: { prefer: ['Daniel', 'Arthur', 'Google UK English Male', 'Microsoft George', 'Fred'], rate: 0.76, pitch: 0.62 },
 };
 
 export class Voice {
@@ -30,7 +31,8 @@ export class Voice {
   }
 
   // Resolves when the line finishes (or after a time-based fallback if the engine stays silent).
-  speak(text, who = 'hal') {
+  // onWord(charIndex) follows the engine's word boundaries, where it reports them.
+  speak(text, who = 'hal', onWord) {
     if (!this.enabled || !this.voices.length) return Promise.resolve();
     const profile = PROFILES[who] ?? PROFILES.hal;
     return new Promise((resolve) => {
@@ -42,6 +44,7 @@ export class Voice {
       let done = false;
       const finish = () => { if (!done) { done = true; resolve(); } };
       u.onend = finish;
+      if (onWord) u.onboundary = (e) => { if (e.name !== 'sentence') onWord(e.charIndex); };
       u.onerror = finish;
       setTimeout(finish, 1500 + text.length * 95);
       speechSynthesis.speak(u);

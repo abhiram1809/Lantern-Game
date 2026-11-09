@@ -12,7 +12,7 @@ export const PARENT = {
 const CHILD = { hips: 'spine', spine: 'chest', chest: 'neck', neck: 'head', upperArm_L: 'foreArm_L', foreArm_L: 'hand_L', upperArm_R: 'foreArm_R', foreArm_R: 'hand_R', thigh_L: 'shin_L', shin_L: 'foot_L', thigh_R: 'shin_R', shin_R: 'foot_R' };
 
 const X = new THREE.Vector3(1, 0, 0), Y = new THREE.Vector3(0, 1, 0), Z = new THREE.Vector3(0, 0, 1);
-const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _axis = new THREE.Vector3(), _e = new THREE.Euler();
+const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _q3 = new THREE.Quaternion(), _q4 = new THREE.Quaternion(), _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _axis = new THREE.Vector3(), _e = new THREE.Euler();
 
 // A pose as local bone rotations (in BONE_ORDER) plus the hips' offset from rest.
 export class QPose {
@@ -133,7 +133,7 @@ export class Animator {
     this.fadeTime = 0.4;
     this.overlay = null; // (paramPose, t, dt) => void, for param generators
     this.breath = 0; // the param poses and the mocap clips carry their own breathing
-    this.lean = { pitch: 0, roll: 0 };
+    this.lean = { pitch: 0, roll: 0, yaw: 0 }; // yaw turns the chest (a gesture following a hand)
     this.twist = 0; // radians the hips (so the legs) turn toward the travel while strafing; the chest turns back
     this.armSpread = 0; // radians the upper arms swing out from the body (bulky characters' hands clear their armour)
     this.look = { target: null, weight: 0, w: 0, yaw: 0, pitch: 0, maxYaw: 0.85 };
@@ -179,7 +179,8 @@ export class Animator {
     if (target) arm.target = target; // released arms keep their target while they ease out
   }
 
-  // Procedural head gesture: 'nod' or 'shake'.
+  // Procedural head gesture: 'nod', 'shake', 'beat' (one dip, for emphasis while talking), 'chin'
+  // (a lift, looking down the nose) or 'tilt' (negative amount tilts the other way).
   gesture(kind, duration = 1.1, amount = 1) { this.gestures.push({ kind, t: 0, duration, amount }); }
 
   update(dt) {
@@ -214,10 +215,13 @@ export class Animator {
     root.getWorldQuaternion(_q3);
     // breathing in the chest
     if (this.breath) b.chest.quaternion.multiply(_q.setFromAxisAngle(X, Math.sin(this.t * 1.6) * 0.016 * this.breath));
-    // momentum lean: pitch about the character's right axis, roll about its forward axis
-    const { pitch, roll } = this.lean;
-    if (Math.abs(pitch) + Math.abs(roll) > 1e-4) {
-      _q.setFromAxisAngle(_v.copy(X).applyQuaternion(_q3), pitch * 0.5).multiply(_q2.setFromAxisAngle(_v2.copy(Z).applyQuaternion(_q3), roll * 0.5));
+    // momentum lean: pitch about the character's right axis, roll about its forward axis, and a turn
+    // of the chest about its up axis
+    const { pitch, roll, yaw = 0 } = this.lean;
+    if (Math.abs(pitch) + Math.abs(roll) + Math.abs(yaw) > 1e-4) {
+      _q.setFromAxisAngle(_v.copy(Y).applyQuaternion(_q3), yaw * 0.5)
+        .multiply(_q2.setFromAxisAngle(_v.copy(X).applyQuaternion(_q3), pitch * 0.5))
+        .multiply(_q4.setFromAxisAngle(_v2.copy(Z).applyQuaternion(_q3), roll * 0.5));
       rotateBoneWorld(b.spine, _q);
       rotateBoneWorld(b.chest, _q);
       root.updateMatrixWorld(true);
@@ -238,8 +242,13 @@ export class Animator {
     // head gestures
     for (const g of this.gestures) {
       const e = Math.sin(Math.PI * (g.t / g.duration)) * g.amount;
-      const a = g.kind === 'nod' ? Math.sin(g.t * 11) * 0.16 * e : Math.sin(g.t * 13) * 0.22 * e;
-      b.head.quaternion.multiply(_q.setFromAxisAngle(g.kind === 'nod' ? X : Y, a));
+      let axis = X, a;
+      if (g.kind === 'nod') a = Math.sin(g.t * 11) * 0.16 * e;
+      else if (g.kind === 'shake') { axis = Y; a = Math.sin(g.t * 13) * 0.22 * e; }
+      else if (g.kind === 'beat') a = 0.13 * e;
+      else if (g.kind === 'chin') a = -0.14 * e;
+      else { axis = Z; a = 0.16 * e; }
+      b.head.quaternion.multiply(_q.setFromAxisAngle(axis, a));
     }
     this.applyLook(rig, dt, primary);
     for (const side of ['L', 'R']) {

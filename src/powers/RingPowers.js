@@ -46,6 +46,7 @@ export class RingPowers {
     this.markerTarget = null; // { pos, label }
     this.targets = new Set(); // things constructs can damage: { body, collider, position, radius, health, maxHealth, alive, hit() }
     this.regen = 0; // %/s, near a power source (Oa's Central Battery)
+    this.freeze = false; // another ring interface (the star chart) has stopped time
     this.gatling = null;
     this.onImpact = this.onSelect = this.onDeath = null;
     this.geo = { fist: fistGeometry(), shield: shieldGeometry(), wall: wallGeometry() };
@@ -67,6 +68,7 @@ export class RingPowers {
   // Enter a scene: { scene, physics, ground(x, z), bounds: Set of invisible-wall collider handles,
   // canLand(x, z), solid(x, y, z), center, radius, floor(x, z), ceiling } (the rest bound flight).
   attach({ scene, physics, ground, bounds = new Set(), canLand = () => true, solid = null, center = new THREE.Vector3(), radius = 80, floor = null, ceiling = 48 }) {
+    this.detach();
     Object.assign(this, { scene, physics, ground, bounds });
     this.sparks = new Particles(1200, { additive: true, drag: 1.8, turbulence: 0.6 });
     this.trail = new Particles(600, { additive: true, drag: 2.5, turbulence: 0.4 });
@@ -93,17 +95,37 @@ export class RingPowers {
   }
 
   // ------------------------------------------------------------------------------- frame
+  // Leave the current scene (travelling, or entering another): held and standing constructs,
+  // hazards, targets and the effect layers go with it.
+  detach() {
+    if (!this.scene) return;
+    this.closeWheel();
+    this.holster();
+    this.clearConstructs();
+    this.hazards = [];
+    this.targets.clear();
+    this.aim.target = null;
+    this.markerTarget = null;
+    for (const o of [this.sparks.points, this.trail.points, this.dust.points, this.spray.points, ...Object.values(this.ghost), this.path, this.aura, this.flash, this.tracerMesh]) o.removeFromParent();
+    this.wind?.set(0);
+    this.scene = null;
+    // nothing drives time or the grade until the next scene is attached
+    this.engine.timeScale = 1;
+    this.engine.gradeUniforms.uFocus.value = 0;
+    this.engine.gradeUniforms.uHurt.value = 0;
+  }
+
   update(dt, real) {
     if (!this.scene) return;
     const { input, player, engine } = this;
     const t = engine.time;
     // time: the wheel stops it, a strike freezes it for a few frames (hit-stop)
     this.hitStop = Math.max(0, this.hitStop - real);
-    const target = this.wheelState ? 0 : this.hitStop > 0 ? 0.03 : 1;
+    const target = this.wheelState || this.freeze ? 0 : this.hitStop > 0 ? 0.03 : 1;
     engine.timeScale = target < engine.timeScale ? target : damp(engine.timeScale, target, 14, real);
     if (engine.timeScale > 0.995) engine.timeScale = 1;
     const grade = engine.gradeUniforms;
-    grade.uFocus.value = damp(grade.uFocus.value, this.wheelState ? 1 : 0, 16, real);
+    grade.uFocus.value = damp(grade.uFocus.value, this.wheelState || this.freeze ? 1 : 0, 16, real);
     this.hurtFx = Math.max(0, this.hurtFx - real * 1.4);
     grade.uHurt.value = this.hurtFx;
 

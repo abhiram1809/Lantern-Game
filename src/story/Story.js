@@ -14,6 +14,7 @@ import { Hyperspace } from '../scenes/Hyperspace.js';
 import { CrashSite, ABIN_SPOT, ABIN_YAW, LANTERN_SPOT, ARRIVAL, WATER_LEVEL, terrainHeight } from '../scenes/CrashSite.js';
 import { GreenOrb, createBubble, createShaft } from '../fx/GreenLight.js';
 import { Particles, Fire } from '../fx/Particles.js';
+import { Rift } from '../fx/Rift.js';
 import { RingPowers } from '../powers/RingPowers.js';
 import { PowerHud } from '../ui/PowerHud.js';
 import { LINES } from './lines.js';
@@ -22,7 +23,7 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const ORB_SPOT = V(0.55, 1.5, -0.75);
 const SEATED = makePose({ ...POSES.sitEdge, sx: 0.05, nx: -0.1, kx: -0.15, ky: 0.05 });
 export const STARTER_CONSTRUCTS = ['fist', 'shield', 'wall'];
-export const POWER_KEYS = '<b>4</b> constructs (time stops) &nbsp; <b>Click</b> use &nbsp; <b>Q</b> holster &nbsp; <b>Space</b> ×2 fly / drop &nbsp; <b>C</b> descend';
+export const POWER_KEYS = '<b>4</b> constructs (time stops) &nbsp; <b>Click</b> use &nbsp; <b>Q</b> holster &nbsp; <b>Space</b> ×2 fly / drop &nbsp; <b>C</b> descend &nbsp; <b>L</b> lantern';
 
 // A part's checkpoints as a menu; resolves with an id, or null for Back.
 export async function chapterMenu(show, save) {
@@ -68,6 +69,7 @@ export class Story {
       this.ui.toast(this.voice.enabled ? 'Voices on' : 'Voices off');
     }
     if (this.playerActive) this.player.update(dt);
+    if (this.lanternReady && this.player.control && !this.player.inputBlocked && !this.busy && !this.lanternMoving && this.input.hit('KeyL')) this.toggleLantern();
     this.powers.update(dt, real);
     if (dt > 0) this.current?.update(dt, t, engine.camera, engine.renderer); // frozen while time is stopped
     this.updateInteractions();
@@ -102,7 +104,12 @@ export class Story {
   show(sceneObj) {
     this.current = sceneObj;
     this.engine.setScene(sceneObj.scene);
-    this.engine.renderer.toneMappingExposure = sceneObj.scene.userData.exposure ?? 1;
+    const u = sceneObj.scene.userData, cam = this.engine.camera;
+    this.engine.renderer.toneMappingExposure = u.exposure ?? 1;
+    // space needs a far reach; everything else keeps the close near plane
+    cam.near = u.near ?? 0.03;
+    cam.far = u.far ?? 900;
+    cam.updateProjectionMatrix();
   }
 
   ambience(...handles) {
@@ -233,7 +240,7 @@ export class Story {
       player.camDist = 3.0;
       if (id !== 'abin') this.abinDead();
       if (id === 'lantern') { this.attachRing(this.ring, this.hal); this.powers.ring = this.ring; this.powers.setCharge(12); }
-      if (id === 'powers' || id === 'free') { this.putOnSuit(); this.empower(id === 'free'); }
+      if (id === 'powers' || id === 'free') { this.putOnSuit(); this.empower(id === 'free'); this.pocketLantern(); }
       this.director.mode = 'follow';
       await ui.fade(0, 1.2);
     }
@@ -752,46 +759,56 @@ export class Story {
   }
 
   // ---------------------------------------------------------------- Chapter 3: the crash site
-  setupCrash() {
+  // The lake shore, built once. `body: false` leaves Abin Sur out (the Corps has taken him home by
+  // the time Hal flies back from Oa). The ring starts on Abin Sur's hand unless Hal already wears it.
+  setupCrash({ body = true } = {}) {
     if (this.site) return this.site;
-    const { audio } = this;
     this.bedroom?.dispose();
     this.lightningOff?.();
     const site = (this.site = new CrashSite(this).build());
-    this.show(site);
-    this.playerActive = true;
-    this.player.ground = terrainHeight;
-    this.ambience(audio.water(0.1), audio.wind(0.06), audio.crickets(0.025), audio.fire(0.22), audio.pad([73.4, 110, 146.8], 0.035, { cutoff: 380 }));
 
     // Abin Sur, the lantern and the ring
-    const abin = (this.abin = createAbinSur(this.assets.characters.abin));
-    abin.root.position.copy(ABIN_SPOT);
-    abin.root.rotation.y = ABIN_YAW;
-    site.scene.add(abin.root);
-    const abinAnim = (this.abinAnim = new Animator(abin));
-    abinAnim.play(still(POSES.sitGround, 1.8), 0);
-    abinAnim.overlay = (p, t) => { p.kx += Math.sin(t * 0.6) * 0.04; p.cx += Math.sin(t * 2.6) * 0.012; };
-    site.updaters.push((dt) => abinAnim.update(dt));
-    site.physics.fixedCollider(RAPIER.ColliderDesc.capsule(0.35, 0.35), { x: ABIN_SPOT.x + Math.sin(ABIN_YAW) * 0.45, y: ABIN_SPOT.y + 0.4, z: ABIN_SPOT.z + Math.cos(ABIN_YAW) * 0.45 });
-    this.abinLight = new THREE.PointLight(0x55ff88, 1.1, 3, 2);
-    abin.bones.chest.add(this.abinLight);
-    this.abinLight.position.set(0, 0.1, 0.25);
-    const lantern = (this.lantern = createLantern());
-    lantern.position.copy(LANTERN_SPOT);
-    lantern.rotation.y = 0.4;
-    site.scene.add(lantern);
-    site.physics.fixedCollider(RAPIER.ColliderDesc.cylinder(0.24, 0.14), { x: LANTERN_SPOT.x, y: LANTERN_SPOT.y + 0.24, z: LANTERN_SPOT.z });
-    const ring = (this.ring = createRing());
-    this.attachRing(ring, abin);
+    const ring = (this.ring ??= createRing());
+    if (body) {
+      const abin = (this.abin = createAbinSur(this.assets.characters.abin));
+      abin.root.position.copy(ABIN_SPOT);
+      abin.root.rotation.y = ABIN_YAW;
+      site.scene.add(abin.root);
+      const abinAnim = (this.abinAnim = new Animator(abin));
+      abinAnim.play(still(POSES.sitGround, 1.8), 0);
+      abinAnim.overlay = (p, t) => { p.kx += Math.sin(t * 0.6) * 0.04; p.cx += Math.sin(t * 2.6) * 0.012; };
+      site.updaters.push((dt) => abinAnim.update(dt));
+      this.abinBody = site.physics.fixedCollider(RAPIER.ColliderDesc.capsule(0.35, 0.35), { x: ABIN_SPOT.x + Math.sin(ABIN_YAW) * 0.45, y: ABIN_SPOT.y + 0.4, z: ABIN_SPOT.z + Math.cos(ABIN_YAW) * 0.45 });
+      this.abinLight = new THREE.PointLight(0x55ff88, 1.1, 3, 2);
+      abin.bones.chest.add(this.abinLight);
+      this.abinLight.position.set(0, 0.1, 0.25);
+      if (!ring.parent) this.attachRing(ring, abin);
+    }
+    this.lantern ??= createLantern();
+    this.lantern.rotation.y = 0.4;
+    this.placeLantern(site, LANTERN_SPOT);
     this.trail = new Particles(400, { additive: true, drag: 1.5, turbulence: 1.5 });
     site.scene.add(this.trail.points);
     site.updaters.push((dt, t) => this.trail.update(dt, t, this.engine.camera, this.engine.renderer));
     site.updaters.push(() => {
       site.water.userData.setLight(4, this.ring.getWorldPosition(_rp), _green, this.ringGlow ?? 0.6);
-      site.water.userData.setLight(5, lantern.position, _green, 1.2);
+      site.water.userData.setLight(5, this.lantern.position, _green, this.lanternScene === site ? 1.2 : 0);
     });
+    this.enterCrash();
+    return site;
+  }
+
+  // Make the lake shore the current scene: Hal's ground, its sounds, and the powers bound to it.
+  enterCrash() {
+    const { audio, site } = this;
+    this.show(site);
+    this.playerActive = true;
+    this.player.ground = terrainHeight;
+    this.player.surface = 'mud';
+    this.ambience(audio.water(0.1), audio.wind(0.06), audio.crickets(0.025), audio.fire(0.22), audio.pad([73.4, 110, 146.8], 0.035, { cutoff: 380 }));
     this.powers.attach({ scene: site.scene, physics: site.physics, ground: terrainHeight, bounds: site.bounds, canLand: (x, z) => site.canLand(x, z), solid: (x, y, z) => site.inTrees(x, y, z), center: V(0, 0, 8), radius: 72 });
     for (const f of site.fires) this.powers.hazards.push({ position: f.position, radius: f.radius + 0.25, height: f.height + 0.5, dps: 24 });
+    this.powers.regen = 0;
     return site;
   }
 
@@ -966,6 +983,14 @@ export class Story {
     await this.lines('halStay', 'halGone');
   }
 
+  // The Corps has carried Abin Sur home (Part Two, back on Earth).
+  removeAbin() {
+    if (!this.abin) return;
+    this.abin.root.removeFromParent();
+    this.site.physics.world.removeRigidBody(this.abinBody);
+    this.abin = null;
+  }
+
   abinDead() {
     this.abinAnim.play(still(POSES.dead, 0), 0);
     this.abinAnim.overlay = null;
@@ -993,10 +1018,30 @@ export class Story {
     it.enabled = false;
     powers.markerTarget = null;
     await this.transform();
+    await this.learnPocket();
+  }
+
+  // Straight after the first charge: the ring shows Hal where a Lantern keeps the power battery.
+  async learnPocket() {
+    const { hud } = this;
+    this.lanternReady = true;
+    this.lanternSpots(this.site);
+    this.giveControl('Put the lantern away');
+    this.player.camDist = 2.8;
+    await wait(0.6);
+    this.ringSay('ringPocket');
+    hud.tutorial({ kicker: 'Power battery', n: 1, of: 1, title: 'Pocket dimension', html: 'Press <kbd>L</kbd> to keep the lantern in the ring’s pocket dimension. Press <kbd>L</kbd> again to set it down wherever you stand.<br><span class="dim">Beside it, <kbd>E</kbd> recharges the ring.</span>' });
+    await waitFor(() => this.lanternStowed && !this.lanternMoving);
+    hud.tutorialDone();
+    this.audio.bell(880, 0.07, 1.2);
+    await wait(1.0);
+    await this.bark('halPocket');
+    hud.tutorial(null);
+    await wait(0.6);
   }
 
   putOnSuit() {
-    const suit = (this.suit = createHal(this.assets.characters.lantern, { glow: 1.4 }));
+    const suit = (this.suit ??= createHal(this.assets.characters.lantern, { glow: 1.4 }));
     this.player.setRig(suit);
     this.attachRing(this.ring, suit);
     this.powers.ring = this.ring;
@@ -1188,13 +1233,13 @@ export class Story {
     await done();
 
     // 6. landing
-    step(6, 'Landing', 'Fly down until you touch the ground, or double-tap <kbd>Space</kbd> to drop. Land by the lantern.');
-    powers.markerTarget = { pos: LANTERN_SPOT.clone().add(V(0, 0.6, 0)), label: 'Lantern' };
+    step(6, 'Landing', 'Fly down until you touch the ground, or double-tap <kbd>Space</kbd> to drop. Land beside Abin Sur.');
+    powers.markerTarget = { pos: ABIN_SPOT.clone().add(V(0, 0.9, 0)), label: 'Abin Sur' };
     await waitFor(() => !player.flying && player.grounded);
     powers.markerTarget = null;
     await done();
     hud.tutorial(null);
-    this.addRecharge();
+    this.lanternSpots(this.site);
     this.ringSay('ringDone');
     await wait(6);
 
@@ -1204,7 +1249,7 @@ export class Story {
       title: 'GREEN LANTERN',
       subtitle: 'Awakening',
       body: 'Sector 2814 has a new guardian. Abin Sur’s ring chose a man without fear. What Hal does with it is another story.',
-      buttons: ['Explore as Green Lantern', { label: 'Part Two: The Corps', sub: 'Oa' }, 'Play again'],
+      buttons: ['Explore as Green Lantern', { label: 'Part Two: The Corps', sub: 'The summons' }, 'Play again'],
     });
     if (pick === 1) { CorpsSave.resumeAfterReload(CorpsSave.first); return new Promise(() => {}); }
     if (pick === 2) { Save.newGame(); location.hash = ''; location.reload(); }
@@ -1294,29 +1339,164 @@ export class Story {
     return h0 - powers.health;
   }
 
-  // The lantern recharges the ring whenever it isn't full.
-  addRecharge() {
-    if (this.rechargeSpot) return;
-    const it = (this.rechargeSpot = this.site.interact({ position: LANTERN_SPOT, radius: 1.5, look: LANTERN_SPOT.clone().add(V(0, 0.3, 0)), label: 'Recharge the ring', action: () => this.recharge() }));
-    Object.defineProperty(it, 'enabled', { get: () => this.powers.charge < 99.5 });
+  // ---------------------------------------------------------------- the lantern and the pocket dimension
+  // A Lantern keeps the power battery in the ring's pocket dimension between charges. L puts it
+  // away (from wherever it stands) or sets it down in front of Hal; beside it, E recharges the ring,
+  // or puts it away once the ring is full. Works in whichever scene the powers are attached to.
+  lanternSpots(sceneObj = this.current) {
+    if (!sceneObj?.interact || sceneObj.lanternSpots) return;
+    this.lanternSpot ??= LANTERN_SPOT.clone();
+    this.lanternLook ??= this.lanternSpot.clone().add(V(0, 0.3, 0));
+    const here = () => this.lanternReady && !this.lanternStowed && !this.lanternMoving && this.lanternScene === sceneObj;
+    const def = { position: this.lanternSpot, radius: 1.5, look: this.lanternLook };
+    const recharge = sceneObj.interact({ ...def, label: 'Recharge the ring', action: () => this.recharge() });
+    Object.defineProperty(recharge, 'enabled', { get: () => here() && this.powers.charge < 99.5 });
+    const stow = sceneObj.interact({ ...def, label: 'Put the lantern away', action: () => this.stowLantern() });
+    Object.defineProperty(stow, 'enabled', { get: () => here() && this.powers.charge >= 99.5 });
+    sceneObj.lanternSpots = [recharge, stow];
+  }
+
+  // Stand the lantern at a spot in a scene (no effect), with a small collider so Hal walks round it.
+  placeLantern(sceneObj, spot) {
+    const l = (this.lantern ??= createLantern());
+    this.removeLanternBody();
+    (this.lanternSpot ??= new THREE.Vector3()).copy(spot);
+    (this.lanternLook ??= new THREE.Vector3()).copy(spot).y += 0.3;
+    sceneObj.scene.add(l);
+    l.position.copy(spot);
+    l.scale.setScalar(1);
+    this.lanternScene = sceneObj;
+    this.lanternStowed = false;
+    this.lanternBody = sceneObj.physics.fixedCollider(RAPIER.ColliderDesc.cylinder(0.24, 0.14), { x: spot.x, y: spot.y + 0.24, z: spot.z });
+    this.lanternWorld = sceneObj.physics;
+  }
+
+  removeLanternBody() {
+    if (this.lanternBody) this.lanternWorld.world.removeRigidBody(this.lanternBody);
+    this.lanternBody = null;
+  }
+
+  // The lantern is already in the pocket dimension (a checkpoint after the first charge, or travel).
+  pocketLantern() {
+    this.lanternReady = true;
+    this.removeLanternBody();
+    this.lantern?.removeFromParent();
+    this.lanternStowed = true;
+    this.lanternScene = null;
+  }
+
+  toggleLantern() {
+    const { player, powers } = this;
+    if (!this.lanternStowed) {
+      // too far off to see: the ring simply recalls it
+      if (this.lanternScene !== this.current || player.position.distanceTo(this.lantern.position) > 30) { this.pocketLantern(); this.audio.ringBlip(); this.ringSay('ringStowed'); return; }
+      return this.stowLantern();
+    }
+    if (player.flying || !player.grounded) { powers.say('Land to set the lantern down.', { voice: false }); return; }
+    const spot = player.position.clone().add(V(Math.sin(player.yaw) * 1.25, 0, Math.cos(player.yaw) * 1.25));
+    if (!player.air?.canLand(spot.x, spot.z)) { this.audio.denied(); powers.say('No footing for the lantern here.', { voice: false }); return; }
+    spot.y = powers.ground(spot.x, spot.z);
+    return this.summonLantern(spot);
+  }
+
+  // The ring hand reaches toward a world point (null lets it go).
+  ringReach(point, dist = 0.62) {
+    const rig = this.player.rig, sh = new THREE.Vector3(), aim = point?.clone();
+    this.player.animator.reach('R', aim ? () => { rig.bonePosition('upperArm_R', sh); return sh.add(_rq.copy(aim).sub(sh).normalize().multiplyScalar(dist)); } : null, { pole: V(-0.4, -0.85, -0.3), rate: 7 });
+  }
+
+  openRift(sceneObj, at, radius, flow) {
+    const { engine } = this;
+    const rift = new Rift(radius).addTo(sceneObj.scene);
+    rift.group.position.copy(at);
+    rift.flow = flow;
+    const stop = onFrame((dt) => rift.update(dt, engine.time, engine.camera, engine.renderer));
+    rift.close = async () => { rift.open = 0; await wait(0.8); stop(); rift.dispose(); }; // let the last motes die out
+    return rift;
+  }
+
+  // Into the pocket dimension: the ring hand reaches out, a rift tears open above the lantern, and
+  // the lantern lifts, turns and shrinks into it before it seals with a flash.
+  async stowLantern() {
+    if (this.lanternStowed || this.lanternMoving) return;
+    const { audio, powers } = this, l = this.lantern, sceneObj = this.lanternScene;
+    this.lanternMoving = true;
+    const from = l.position.clone(), mouth = from.clone().add(V(0, 0.95, 0));
+    const rift = this.openRift(sceneObj, mouth, 0.42, 1);
+    this.ringReach(mouth, 0.9);
+    audio.rift(true);
+    await tween(0.35, (k) => (rift.open = k), ease.out);
+    this.removeLanternBody();
+    const spin = l.rotation.y, glass = l.userData.glass.material;
+    await tween(0.8, (k) => {
+      const e = ease.inOut(k);
+      l.position.lerpVectors(from, mouth, e);
+      l.position.y += Math.sin(k * Math.PI) * 0.12;
+      l.rotation.y = spin + e * 5;
+      l.scale.setScalar(1 - 0.9 * ease.in(k));
+      l.userData.light.intensity = 1.2 + k * 5;
+      glass.emissiveIntensity = 2.2 + k * 4;
+    }, ease.linear);
+    l.removeFromParent();
+    l.userData.light.intensity = 1.2;
+    glass.emissiveIntensity = 2.2;
+    powers.flash.position.copy(mouth);
+    powers.flash.intensity = 14;
+    audio.rift(false);
+    await tween(0.22, (k) => (rift.open = 1 - k), ease.in);
+    rift.close();
+    this.ringReach(null);
+    this.lanternStowed = true;
+    this.lanternScene = null;
+    this.lanternMoving = false;
+  }
+
+  // Out of the pocket dimension: a rift opens at chest height in front of Hal and the lantern drops
+  // out of it, growing to full size as it settles onto the ground.
+  async summonLantern(spot) {
+    const { audio, powers } = this, sceneObj = this.current, l = (this.lantern ??= createLantern());
+    this.lanternMoving = true;
+    const mouth = spot.clone().add(V(0, 0.95, 0));
+    const rift = this.openRift(sceneObj, mouth, 0.42, -1);
+    this.ringReach(mouth, 0.9);
+    audio.rift(true);
+    await tween(0.3, (k) => (rift.open = k), ease.out);
+    sceneObj.scene.add(l);
+    const base = this.player.yaw + 0.4, glass = l.userData.glass.material;
+    await tween(0.75, (k) => {
+      l.position.lerpVectors(mouth, spot, ease.inOut(k));
+      l.scale.setScalar(0.1 + 0.9 * ease.out(k));
+      l.rotation.y = base + (1 - ease.out(k)) * 5;
+      l.userData.light.intensity = 6 - k * 4.8;
+      glass.emissiveIntensity = 6 - k * 3.8;
+    }, ease.linear);
+    this.placeLantern(sceneObj, spot);
+    powers.dustFx(spot, 10, 0.8);
+    audio.step(this.player.surface);
+    audio.rift(false);
+    await tween(0.25, (k) => (rift.open = 1 - k), ease.in);
+    rift.close();
+    this.ringReach(null);
+    this.lanternMoving = false;
   }
 
   async recharge() {
     const { player, powers, audio, lantern } = this;
+    const spot = this.lanternSpot.clone();
     this.takeControl();
-    const yaw = Math.atan2(LANTERN_SPOT.x - player.position.x, LANTERN_SPOT.z - player.position.z);
+    const yaw = Math.atan2(spot.x - player.position.x, spot.z - player.position.z);
     player.turnTo(yaw);
-    player.lookAt(LANTERN_SPOT.clone().add(V(0, 0.25, 0)), 1);
+    player.lookAt(spot.clone().add(V(0, 0.25, 0)), 1);
     const shoulder = new THREE.Vector3(), rig = player.rig;
     player.animator.reach('R', () => {
       rig.bonePosition('upperArm_R', shoulder);
-      return shoulder.add(LANTERN_SPOT.clone().add(V(0, 0.5, 0)).sub(shoulder).normalize().multiplyScalar(0.62));
+      return shoulder.add(spot.clone().add(V(0, 0.5, 0)).sub(shoulder).normalize().multiplyScalar(0.62));
     }, { pole: V(-0.4, -0.85, -0.3) });
     const c = player.position.clone();
-    this.director.move(c.clone().add(V(Math.sin(yaw + 1.9) * 2.6, 1.4, Math.cos(yaw + 1.9) * 2.6)), c.clone().add(V(0, 1.2, 0)).lerp(LANTERN_SPOT, 0.35), 1.6, ease.inOut, 45);
+    this.director.move(c.clone().add(V(Math.sin(yaw + 1.9) * 2.6, 1.4, Math.cos(yaw + 1.9) * 2.6)), c.clone().add(V(0, 1.2, 0)).lerp(spot, 0.35), 1.6, ease.inOut, 45);
     await wait(0.8);
-    const beam = createShaft({ from: LANTERN_SPOT.clone().add(V(0, 0.25, 0)), to: this.ring.getWorldPosition(new THREE.Vector3()), radiusFrom: 0.04, radiusTo: 0.07, color: new THREE.Color(0.5, 2.5, 1.0) });
-    this.site.scene.add(beam);
+    const beam = createShaft({ from: spot.clone().add(V(0, 0.25, 0)), to: this.ring.getWorldPosition(new THREE.Vector3()), radiusFrom: 0.04, radiusTo: 0.07, color: new THREE.Color(0.5, 2.5, 1.0) });
+    this.current.scene.add(beam);
     audio.riser(2.2, 0.35);
     const from = powers.charge;
     this.hud.ringhud.classList.add('force');
@@ -1352,11 +1532,11 @@ export class Story {
 
   async explore() {
     this.empower(true);
-    this.addRecharge();
+    this.lanternSpots(this.site);
     this.giveControl('Explore the crash site');
     await new Promise(() => {}); // free roam until the player quits from the pause menu
   }
 }
 
-const _rp = new THREE.Vector3();
+const _rp = new THREE.Vector3(), _rq = new THREE.Vector3();
 const _green = new THREE.Color(0.3, 1, 0.5);

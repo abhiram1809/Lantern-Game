@@ -79,7 +79,7 @@ async function titleFlow(ui) {
     const has = save.checkpoint && save.checkpoint !== 'home';
     const partTwo = save.reached.includes('free') || corps.reached.length > 0;
     const buttons = has ? [{ label: 'Continue', sub: Save.info(save.checkpoint).label }, 'New game'] : ['Begin'];
-    if (partTwo) buttons.push({ label: 'Part Two: The Corps', sub: corps.checkpoint ? `Continue · ${CorpsSave.info(corps.checkpoint).label}` : 'Oa' });
+    if (partTwo) buttons.push({ label: 'Part Two: The Corps', sub: corps.checkpoint ? `Continue · ${CorpsSave.info(corps.checkpoint).label}` : 'The summons' });
     if (has || partTwo || save.reached.length > 1) buttons.push('Chapters');
     const pick = await ui.screen({
       emblem: true,
@@ -87,7 +87,7 @@ async function titleFlow(ui) {
       title: 'GREEN LANTERN',
       subtitle: partTwo ? 'Awakening · The Corps' : 'Awakening',
       body: 'Test pilot Hal Jordan is coming home after a long day. Tonight, something in the sky has other plans.',
-      small: 'Headphones recommended &nbsp;·&nbsp; WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; E interact &nbsp;·&nbsp; Space advance &nbsp;·&nbsp; V voices &nbsp;·&nbsp; Esc pause',
+      small: 'Headphones recommended &nbsp;·&nbsp; WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; E interact &nbsp;·&nbsp; L lantern &nbsp;·&nbsp; Space advance &nbsp;·&nbsp; V voices &nbsp;·&nbsp; Esc pause',
       buttons,
       stack: buttons.length > 2,
     });

@@ -100,6 +100,7 @@ export class Physics {
 
   dispose() {
     this.world.free();
+    this.freed = true;
     this.dynamics = [];
   }
 }

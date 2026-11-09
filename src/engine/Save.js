@@ -13,11 +13,16 @@ export const CHECKPOINTS = [
   { id: 'free', label: 'Green Lantern', clock: '10:20 PM' },
 ];
 
-// Part Two, "The Corps": Oa. Oa keeps no Earth time, so the clock shows the sector.
+// Part Two, "The Corps": the summons at the lake, the flight to Oa, Kilowog's range. Oa keeps no
+// Earth time, so the clock shows the sector. `earth` is only reached by travelling home from the
+// range (the star map); after that, travel moves the checkpoint between `range` and `earth`.
 export const CORPS_CHECKPOINTS = [
+  { id: 'summons', label: 'The summons', clock: '10:31 PM' },
+  { id: 'voyage', label: 'Hyperluminal', clock: 'DEEP SPACE' },
   { id: 'oa', label: 'Kilowog’s range', clock: 'OA · SECTOR 0' },
   { id: 'livefire', label: 'Live fire', clock: 'OA · SECTOR 0' },
   { id: 'range', label: 'The training ground', clock: 'OA · SECTOR 0' },
+  { id: 'earth', label: 'Home: Sector 2814', clock: '11:48 PM' },
 ];
 
 function readCookie(key) {
@@ -29,8 +34,9 @@ function writeCookie(key, value) {
   document.cookie = `${key}=${encodeURIComponent(value)}; max-age=${60 * 60 * 24 * 365}; path=/; SameSite=Lax`;
 }
 
-// `unlocks` lists the constructs the ring can make (added alongside version 1; older saves get []).
-const blank = () => ({ version: 1, checkpoint: null, reached: [], settings: { voice: true }, stats: { fears: 0 }, unlocks: [], savedAt: 0 });
+// `unlocks` lists the constructs the ring can make, `worlds` the planets charted for hyperspace
+// travel (both added alongside version 1; older saves get []).
+const blank = () => ({ version: 1, checkpoint: null, reached: [], settings: { voice: true }, stats: { fears: 0 }, unlocks: [], worlds: [], savedAt: 0 });
 
 function createSave({ part, key, checkpoints, label, first }) {
   const save = {
@@ -94,7 +100,7 @@ function createSave({ part, key, checkpoints, label, first }) {
 const RESUME = 'gl_resume';
 
 export const Save = createSave({ part: 'awakening', key: 'gl_awakening_v1', checkpoints: CHECKPOINTS, label: 'Part One · Awakening', first: 'home' });
-export const CorpsSave = createSave({ part: 'corps', key: 'gl_corps_v1', checkpoints: CORPS_CHECKPOINTS, label: 'Part Two · The Corps', first: 'oa' });
+export const CorpsSave = createSave({ part: 'corps', key: 'gl_corps_v1', checkpoints: CORPS_CHECKPOINTS, label: 'Part Two · The Corps', first: 'summons' });
 export const PARTS = { awakening: Save, corps: CorpsSave };
 
 export const checkpointIndex = Save.index;
@@ -116,3 +122,5 @@ export function takeResume() {
 
 // Constructs unlocked in any part (they carry over).
 export const allUnlocks = () => [...new Set([...Save.load().unlocks, ...CorpsSave.load().unlocks])];
+// Planets charted for travel in any part.
+export const allWorlds = () => [...new Set([...Save.load().worlds, ...CorpsSave.load().worlds])];

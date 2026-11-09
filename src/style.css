@@ -264,6 +264,70 @@ body.cinematic #tutorial { opacity: 0 !important; }
 #wheel .hint { font: 500 13px/1 var(--hud-font); letter-spacing: 0.12em; color: var(--ink-dim); }
 #wheel .hint b { color: var(--ink); }
 
+/* ---------------------------------------------------------------- travel: flight readout, arrival card, star chart */
+#travel { position: absolute; left: calc(var(--inset) + 24px); bottom: calc(9vh + 22px); display: flex; align-items: center; gap: 14px; opacity: 0; transform: translateY(10px); transition: opacity 0.6s, transform 0.6s; }
+#travel.show { opacity: 1; transform: none; }
+#travel .gauge { position: relative; width: 112px; height: 112px; filter: drop-shadow(0 0 8px var(--green-soft)); }
+#travel .gauge svg { width: 100%; height: 100%; }
+#travel .track, #travel .arc { fill: none; stroke-width: 7; stroke-linecap: round; }
+#travel .track { stroke: rgba(160, 255, 210, 0.15); }
+#travel .arc { stroke: #c8ff5a; transition: stroke-dasharray 0.25s; }
+#travel.hyper .arc { stroke: var(--green); }
+#travel .inner { fill: rgba(0, 24, 14, 0.55); stroke: rgba(160, 255, 210, 0.35); stroke-width: 1; }
+#travel .cross { stroke: rgba(160, 255, 210, 0.3); stroke-width: 1; }
+#travel .blip { fill: #ffb35c; animation: blink 1.2s infinite; }
+#travel .spd { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font: 700 11px/1 var(--hud-font); letter-spacing: 0.2em; color: #c8ffd9; }
+#travel .info { min-width: 230px; padding: 9px 12px; border-left: 2px solid var(--green); background: linear-gradient(90deg, rgba(0, 28, 14, 0.75), rgba(0, 28, 14, 0)); }
+#travel .mode { font: 700 14px/1 var(--hud-font); letter-spacing: 0.32em; color: #eafff0; text-shadow: 0 0 10px var(--green-soft); }
+#travel .mode.flash { animation: modeflash 0.7s; }
+@keyframes modeflash { 0%, 40% { color: var(--green); text-shadow: 0 0 18px var(--green); } }
+#travel .rows { margin-top: 7px; display: grid; gap: 3px; }
+#travel .rows div { display: flex; justify-content: space-between; gap: 18px; font: 600 12px/1.2 var(--hud-font); letter-spacing: 0.12em; color: var(--ink-dim); text-transform: uppercase; }
+#travel .rows b { color: var(--ink); font-weight: 700; }
+#travel .wave { display: flex; gap: 3px; align-items: center; height: 16px; margin-top: 7px; }
+#travel .wave i { width: 3px; height: 30%; background: var(--green); opacity: 0.8; animation: wave 0.9s ease-in-out infinite; }
+#travel .wave i:nth-child(3n) { animation-delay: -0.3s; } #travel .wave i:nth-child(3n+1) { animation-delay: -0.6s; } #travel .wave i:nth-child(4n) { animation-duration: 0.6s; }
+@keyframes wave { 50% { height: 100%; } }
+#arrival { position: absolute; right: calc(var(--inset) + 30px); bottom: calc(9vh + 26px); padding: 12px 18px 13px; border: 1px solid var(--green-soft); border-radius: 4px; background: linear-gradient(200deg, rgba(0, 26, 12, 0.75), rgba(0, 12, 6, 0.4)); text-align: right; opacity: 0; transform: translateX(14px); transition: opacity 0.6s, transform 0.6s; clip-path: polygon(14px 0, 100% 0, 100% 100%, 0 100%, 0 14px); }
+#arrival.show { opacity: 1; transform: none; }
+#arrival .k { font: 700 11px/1 var(--hud-font); letter-spacing: 0.34em; text-transform: uppercase; color: var(--ink-dim); }
+#arrival .n { margin-top: 6px; font: 800 28px/1 var(--title-font); letter-spacing: 0.12em; text-transform: uppercase; color: #eafff0; text-shadow: 0 0 16px var(--green-soft); }
+#arrival .s { margin-top: 4px; font: 600 13px/1 var(--hud-font); letter-spacing: 0.24em; text-transform: uppercase; color: var(--green); }
+
+#starmap { position: absolute; inset: 0; display: none; grid-template-rows: auto 1fr auto; justify-items: center; gap: 10px; padding: 4vh 4vw 3vh; background: radial-gradient(ellipse at center, rgba(0, 18, 9, 0.72), rgba(0, 4, 2, 0.9)); pointer-events: auto; }
+#starmap.show { display: grid; animation: fadein 0.25s ease both; }
+#starmap .head { text-align: center; }
+#starmap .kicker { font: 600 13px/1 var(--hud-font); letter-spacing: 0.5em; color: var(--green); text-transform: uppercase; }
+#starmap h1 { margin: 8px 0 0; font: 800 clamp(26px, 4vw, 46px)/1 var(--title-font); letter-spacing: 0.1em; color: #eafff0; text-shadow: 0 0 30px rgba(93, 255, 149, 0.4); }
+#starmap .body { display: flex; gap: 3vw; align-items: center; min-height: 0; }
+#starmap .chart { position: relative; height: min(62vh, 52vw); aspect-ratio: 1; border-radius: 50%; box-shadow: 0 0 60px rgba(93, 255, 149, 0.08) inset; }
+#starmap .chart canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+#starmap .course { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+#starmap .course line { stroke: rgba(200, 220, 210, 0.35); stroke-width: 0.006; stroke-dasharray: 0.02 0.015; }
+#starmap .course line.ok { stroke: var(--green); stroke-width: 0.008; filter: drop-shadow(0 0 4px var(--green)); animation: dash 0.8s linear infinite; }
+@keyframes dash { to { stroke-dashoffset: -0.07; } }
+#starmap .node { position: absolute; transform: translate(-50%, -50%); padding: 0; border: 0; background: none; cursor: pointer; color: var(--ink); display: grid; justify-items: center; gap: 4px; }
+#starmap .node i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--green); background: rgba(93, 255, 149, 0.25); box-shadow: 0 0 12px var(--green); }
+#starmap .node span { font: 700 12px/1 var(--hud-font); letter-spacing: 0.22em; text-transform: uppercase; text-shadow: 0 1px 3px #000; }
+#starmap .node.locked { color: var(--ink-dim); cursor: default; }
+#starmap .node.locked i { border-color: rgba(200, 220, 210, 0.35); background: none; box-shadow: none; width: 10px; height: 10px; }
+#starmap .node.here i { border-color: #ffb35c; background: rgba(255, 179, 92, 0.3); box-shadow: 0 0 12px #ffb35c; }
+#starmap .node.sel i { transform: scale(1.5); }
+#starmap .node.sel span { color: #fff; }
+#starmap .cursor { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border: 2px solid #eafff0; border-radius: 50%; box-shadow: 0 0 10px var(--green); pointer-events: none; display: none; }
+#starmap .side { display: grid; gap: 8px; width: min(330px, 30vw); }
+#starmap .dest { text-align: left; cursor: pointer; padding: 10px 14px; border-radius: 8px; background: rgba(3, 26, 12, 0.6); border: 1px solid var(--green-faint); color: var(--ink); transition: background 0.15s, border-color 0.15s; }
+#starmap .dest .name { display: flex; justify-content: space-between; align-items: baseline; font: 800 18px/1 var(--title-font); letter-spacing: 0.08em; text-transform: uppercase; }
+#starmap .dest .name span { font: 600 11px/1 var(--hud-font); letter-spacing: 0.2em; color: var(--green); }
+#starmap .dest .note { margin-top: 5px; font: 500 13px/1.35 var(--hud-font); color: var(--ink-dim); }
+#starmap .dest.sel { background: rgba(30, 120, 60, 0.45); border-color: var(--green); box-shadow: 0 0 18px var(--green-soft); }
+#starmap .dest.here .name span { color: #ffb35c; }
+#starmap .dest.locked { opacity: 0.45; cursor: default; }
+#starmap .dest.shake { animation: deny 0.35s; }
+#starmap .keys { font: 500 13px/1 var(--hud-font); letter-spacing: 0.12em; color: var(--ink-dim); }
+body.chart #hud, body.chart #controls, body.chart #vitals, body.chart #ringhud, body.chart #ringmsg, body.chart #reticle, body.chart #prompt { opacity: 0 !important; }
+#starmap .keys b { color: var(--ink); }
+
 @media (max-width: 700px) {
   #controls, #tutorial { display: none; }
   #hud { padding: 12px 14px; }

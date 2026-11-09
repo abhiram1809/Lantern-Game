@@ -271,6 +271,23 @@ export class AudioBank {
   }
 
   // --- Ring powers ------------------------------------------------------------------------
+  // The ring's pocket dimension tearing open (or sealing shut).
+  rift(open = true) {
+    this.burst({ type: 'bandpass', from: open ? 260 : 2600, to: open ? 2600 : 220, q: 1.4, attack: open ? 0.12 : 0.02, peak: 0.2, dur: 0.55, wet: 0.6 });
+    this.tone({ type: 'sine', freq: open ? 70 : 180, to: open ? 210 : 55, attack: 0.03, peak: 0.14, dur: 0.6, wet: 0.5 });
+    this.tone({ type: 'triangle', freq: open ? 1320 : 990, to: open ? 1980 : 660, attack: 0.02, peak: 0.03, dur: 0.5, wet: 0.7 });
+  }
+  // Punching out of the sky: a deep boom under a tearing roar.
+  sonicBoom(scale = 1) {
+    this.burst({ buffer: this.brownBuf, from: 700, to: 50, attack: 0.005, peak: 0.95 * scale, dur: 2.4, wet: 0.5 });
+    this.tone({ freq: 48, to: 24, peak: 0.6 * scale, dur: 1.4, wet: 0.2 });
+    this.burst({ type: 'highpass', from: 1800, to: 400, attack: 0.002, peak: 0.25 * scale, dur: 0.6, wet: 0.3 });
+  }
+  // Dropping out of hyperspace: a falling sweep and a soft thump.
+  arrive() {
+    this.burst({ type: 'bandpass', from: 5200, to: 240, q: 1.1, attack: 0.01, peak: 0.3, dur: 1.2, wet: 0.6 });
+    this.tone({ freq: 110, to: 40, peak: 0.3, dur: 1.1, wet: 0.4 });
+  }
   // Muffle the world (construct wheel open, time stopped) or bring it back.
   muffle(on) {
     if (!this.ctx) return;

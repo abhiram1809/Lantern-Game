@@ -37,9 +37,10 @@ Small tweaks such as a colour value, a timing nudge or a typo don't need an entr
 ## What this is
 
 A browser story game in Three.js about Hal Jordan becoming Green Lantern. **Part One,
-"Awakening"**, is complete and playable. **Part Two, "The Corps"** (Oa) has its first slice:
-Kilowog's range, with target drones, the Gatling and a live-fire drill. Part Three (Coast City) is
-planned.
+"Awakening"**, is complete and playable. **Part Two, "The Corps"** has its first slice: the
+Guardians' summons at the lake, the flight across the universe to Oa, Kilowog's range (target
+drones, the Gatling, a live-fire drill), and hyperspace travel between Oa and Earth. Part Three
+(Coast City) is planned.
 
 The story of Part One:
 
@@ -52,21 +53,28 @@ The story of Part One:
    The ring arrives nearly spent: **12% charge**.
 6. Abin Sur dies. The ring's HUD comes up (health and charge) and points Hal to the lantern.
    Taking it, Hal speaks the full oath; each of its four lines pours light into the ring, **12% →
-   100%**, then the transformation into the suit.
+   100%**, then the transformation into the suit. The ring shows Hal its **pocket dimension**: L
+   puts the lantern away (and brings it back out).
 7. **Ring training** at Abin Sur's body: the construct wheel, the fist, the shield (the wreck's
    power core blows), the wall, then flight and landing. Then the end card (which offers Part
    Two) and free roam.
 
-Part Two so far (`src/story/Corps.js`), on Kilowog's training range on Oa:
+Part Two so far (`src/story/Corps.js`):
 
-1. **Arrival:** Oa's skyline and the Central Power Battery, then Kilowog on his podium ("poozer").
-2. **Targets:** five target drones to break with the fist.
-3. **Live fire:** Kilowog teaches the **Gatling** ("if you can see it, the ring can make it"), then
+1. **The summons** (the lake, 10:31 PM): by Abin Sur's body the ring relays the Guardians' call to
+   Oa. Hal says goodbye, flies above the trees and presses E.
+2. **Hyperluminal** (`src/story/Voyage.js`): a launch out of the sky, high orbit over Earth's night
+   side, the jump through the streak tunnel, Oa's orbital approach.
+3. **Arrival:** Hal streaks down onto the range in front of Kilowog ("poozer").
+4. **Targets:** five target drones to break with the fist.
+5. **Live fire:** Kilowog teaches the **Gatling** ("if you can see it, the ring can make it"), then
    two waves of drones that shoot back.
-4. **The range:** an end card ("to be continued: Sinestro"), then free training. Kilowog starts
-   another round on request.
+6. **The range:** an end card ("to be continued: Sinestro"), then free training, and the ring's
+   hyperspace routes between Oa and Earth (the star chart: E high in flight). Kilowog starts
+   another round on request. Back on Earth the Corps has taken Abin Sur's body home.
 
-The ring recharges continuously on Oa (the Central Battery is in range), so there's no lantern.
+The ring recharges continuously on Oa (the Central Battery is in range); the lantern can still be
+set down there.
 Stack:
 
 - `three` r0.187 (WebGLRenderer plus EffectComposer)
@@ -106,8 +114,11 @@ No audio files are shipped: everything is synthesised with WebAudio, and voices 
 - **Comic accuracy** is preferred where the constraints allow (the oath, the lantern recharge,
   constructs, the ring's voice). For the story after Part One they want to discuss options first.
 - **Controls they chose:** no jump, ever. `4` opens the construct wheel (time stops), click
-  deploys. Double-tap Space flies. Fist, shield and wall are the starter constructs; gatling,
-  sword, staff, hammer and axe stay locked for later parts.
+  deploys. Double-tap Space flies. `L` stores or summons the lantern (pocket dimension). `E` high in
+  flight enters hyperspace (they asked for E). Fist, shield and wall are the starter constructs;
+  gatling, sword, staff, hammer and axe stay locked for later parts.
+- **Travel and planets (their design, 2026-11-09):** after Kilowog's training Hal can go home; the
+  star chart unlocks more planets as the story goes on. For now only Oa and Earth are charted.
 
 ## Commands
 
@@ -251,10 +262,13 @@ inherited. A later part should do the same.
   `home()`, `bedroomRoam()` (which calls `nap()`), `light()`, `question()`, `crashArrival()`,
   `meetAbin()`, `takeLantern()` (which calls `transform()`, where the oath charges the ring),
   `ringTraining()`, and `explore()`. It saves a checkpoint (`this.checkpoint(id)`) before each
-  step. Part Two's are `oa` → `targets()`, `livefire` → `liveFire()`, `range` → `openRange()`.
+  step. Part Two's are `summons` → `summons()`, `voyage` → `flyToOa()`, `oa` → `targets()` (the
+  landing and the drones), `livefire` → `liveFire()`, `range` → `openRange()`, `earth` → `home()`.
+  The free-roam steps never resolve; travel saves `range` or `earth` itself on arrival.
 - `prepare(id)` rebuilds the world state a step expects when the game is resumed from it: which
   scene, where the player is, whether Hal is in bed, ring on, Abin dead, suit on, ring charge
-  (12% at `lantern`), and `empower()` (constructs unlocked, HUD up, 100%) at `powers` and `free`.
+  (12% at `lantern`), and `empower()` (constructs unlocked, HUD up, 100%) at `powers` and `free`;
+  `pocketLantern()` at every checkpoint after the first charge.
 
 **Adding a checkpoint** takes three changes:
 
@@ -268,6 +282,28 @@ Test it by loading `#<id>` directly.
 **Restarting** a checkpoint is a page reload (`Save.resumeAfterReload(id)`), which is the
 cleanest way to reset the scenes.
 
+**Scenes are entered, not just built.** `setupCrash({ body })` / `setupOa()` build once; `enterCrash()`
+/ `enterOa(at, yaw)` make the scene current: `show()`, `player.spawn()` (which first takes Hal out of
+the previous world's physics), ground, sounds, `powers.attach()` (which first `detach()`es from the
+last scene). Travel goes back and forth, so both scenes stay cached. `show()` also sets the
+camera's near and far planes from `scene.userData` (Space needs a far of 6000).
+
+**The lantern** (Story, shared): `this.lantern` is one object moved between scenes.
+`placeLantern(sceneObj, spot)` stands it (with a small collider), `pocketLantern()` hides it
+without an effect, `stowLantern()` / `summonLantern(spot)` play the rift (`fx/Rift.js`) with the ring
+arm reaching out, `toggleLantern()` is the L key (summon needs ground in front of Hal; out of sight,
+it is just recalled). `lanternSpots(sceneObj)` registers the two E interactions that follow
+`this.lanternSpot`: recharge below 99.5%, put away when full. `lanternReady` is false until the
+pocket-dimension beat after the oath (`learnPocket()`).
+
+**Travel** (Corps): `this.travel` is `'oa'` during the summons (E jumps straight to the voyage) or
+`'chart'` from the range on (E opens `StarMap`). `travelReady()` needs flight above
+`JUMP_HEIGHT[world]` (Earth 26 m, Oa 30 m) and no drill. The override of `updateInteractions()`
+shows the prompt and consumes the E press. `openChart()` sets `powers.freeze` (time stops, as with
+the wheel). `travelTo(id)` → `voyage()` → `arriveOa()` / `arriveEarth()`, which spawn Hal flying
+(`player.airborne(vel)`) and save the checkpoint. Charted worlds are `d.worlds` in the save
+(`allWorlds()` merges parts); `WORLDS` in `ui/TravelHud.js` lists them with their chart positions.
+
 **Dialogue and UI:**
 
 - **Dialogue:** every line is in `lines.js` (`LINES[key] = { who, text, alien?, ... }`). Play
@@ -278,6 +314,9 @@ cleanest way to reset the scenes.
   - `who: 'ring'` lines are the ring's readout: `this.ringSay(key)` types them under the
     objective and speaks them in the `ring` voice. Don't `await` them in training flow (the
     voice's time-based fallback can hold a step for several seconds).
+  - `who: 'guardian'` (style `light`) is the Guardians speaking through the ring.
+  - `ui.say({ onWord })` reports the voice's word boundaries (`Voice.speak(text, who, onWord)`);
+    Kilowog's gestures are cued from them (see *Characters*).
 - **Alien speech:** `toGlyphs()` in `UI.js` is a fixed letter-to-glyph cipher, so the "translation"
   is a literal decode (`ui.decode(english)`). `audio.alienVoice()` gives it a formant-buzz voice.
 - **Interactables:** register them with
@@ -297,10 +336,11 @@ constructs learned anywhere carry over. The pending restart is `gl_resume` in se
 `PARTS`, `partOf(id)` and `takeResume()` serve the title flow. A store's shape:
 
 ```js
-{ version: 1, checkpoint, reached: [ids], settings: { voice }, stats: { fears }, unlocks: [construct ids], savedAt }
+{ version: 1, checkpoint, reached: [ids], settings: { voice }, stats: { fears }, unlocks: [construct ids], worlds: [world ids], savedAt }
 ```
 
-`unlocks` was added without a version bump (`load()` fills missing fields from the blank save).
+`unlocks` and `worlds` were added without a version bump (`load()` fills missing fields from the
+blank save). Part Two's `first` is now `summons` (it was `oa`); older Corps saves keep working.
 Ring charge and health are not saved: each checkpoint sets them.
 
 `load()` discards any save whose `version` isn't 1. **If you change the shape incompatibly, bump
@@ -337,6 +377,22 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
     them). `canLand(x, z)` says where Hal can stand. `inTrees(x, y, z)` is the forest as a
     solid block below the canopy (the trees have no colliders).
   - Exports `ABIN_SPOT`, `ABIN_YAW`, `LANTERN_SPOT`, `ARRIVAL` and `WATER_LEVEL`.
+- **`Space.js`:** the flights between worlds (built once, `story.space`). `show('earth' | 'oa')`
+  picks the place; Hal sits at the origin and the story moves the planet groups, not him.
+  - Backdrop: stars at three scales, the galaxy's band with dust lanes, nebulae, and (for Oa) the
+    galactic core's glow (`uCore`).
+  - **Earth** (`EARTH`, radius 300, centre 362 below Hal): the continents come from
+    `fx/EarthMap.js`, coarse [lon, lat] outlines from memory rasterised to a 2048×1024 mask, coasts
+    roughened with 3D noise in the shader; biomes by latitude and noise, clouds, ocean glint, a
+    twilight band, and city lights as noise specks over a blurred density map of real clusters.
+    The globe is turned so North America (lon −104, lat 41) is under Hal with north ahead (−Z).
+    The sun sits just under the far limb (night below, dawn ahead); the Moon lights Hal.
+  - **Oa** (`OA`, radius 190, 760 ahead): a world-city, night side toward the approach: metal
+    plates by day, winding arteries and specks of light by night, seven green conduits (great
+    circles) meeting at the Central Battery's glow. A ringed giant upper left, half in shadow.
+  - `atmosphere()` is a back-face shell glowing just off the limb, blue by day, orange at the
+    terminator, flaring where the sun is behind the planet.
+  - `drift` streams dust motes past Hal so speed reads against the stars.
 - **`Oa.js`:** Kilowog's training range, a disc (radius `RANGE_RADIUS` = 42 m) floating far above
   Oa's city.
   - The deck is a canvas-textured slate: hex flagstones with faint lit inlays, rings, the Corps
@@ -431,7 +487,9 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
   drill), the target bracket, damage numbers (rapid hits on one target add up into one number),
   and the wheel.
 - `attach()` also takes `floor(x, z)` and `ceiling` for flight (Oa's floor drops to −60 off the
-  deck; the default treats low ground as water).
+  deck; the default treats low ground as water). It first calls `detach()`, which clears the old
+  scene's constructs, hazards, targets and effect layers and resets `timeScale` and the grade.
+- `powers.freeze` stops time like the wheel does (the star chart).
   `ringhud.force` keeps the charge visible during cutscenes (the oath, recharging).
 - **Flight effects:** charge drain (0.12%/s, more boosting), a green aura light, light trails off
   the ring fist and boots, airflow sound, takeoff and landing shockwaves.
@@ -562,6 +620,10 @@ Layers are applied every frame, in this order:
 `animator.armSpread` (radians) swings both upper arms out from the body before the IK layers.
 Kilowog uses 0.17 so his hands clear his thigh armour.
 
+`animator.lean.yaw` turns the chest (spine and chest, about the body's up axis) for gestures that
+follow a hand. Head gestures are `nod`, `shake`, `beat` (one dip, for emphasis), `chin` (a lift)
+and `tilt` (negative amount tilts the other way).
+
 `animator.twist` (radians, after the lean) turns the hips toward the direction of travel while
 strafing; the spine and chest turn back by the same amount (55/45), so the legs step toward the
 travel and the chest stays square to the aim. This is the upper/lower body split of older
@@ -626,6 +688,9 @@ Third-person controller with momentum (ground) and flight:
   (`air.solid`), inside a radius. Touching landable ground while descending lands; double-tap
   drops (refused over water). A fall faster than 9 m/s ends in the kneeling hard landing.
   The invisible shore walls are ignored while airborne.
+- `player.spawn()` removes Hal from the previous world's physics first (skipped if that world was
+  freed), so moving between scenes leaves no stale capsule behind. `player.airborne(vel)` starts
+  him flying without a takeoff (arriving from space).
 - `player.ignore` is a Set of collider handles the controller and camera pass through (the held
   shield). `player.inputBlocked` is set while the wheel has the mouse. `player.moveScale` slows
   him while he fires a held construct.
@@ -651,6 +716,16 @@ crash site. `player.surface` picks the footstep sound.
   - `hideBone`
   - `roughMin`, a roughness floor. Casual Hal uses 0.62 so his skin doesn't look like wax.
 - `createKilowog(gltf)` (glow 0.6: his eyes and emblem are green in the texture).
+- **Kilowog's body language** (`characters/BodyLanguage.js`, driven from `Corps.addKilowog`), the
+  usual conversation-system approach: a library of short hand gestures (`chest`, `fist`, `pump`,
+  `open`, `shrug`, `sweep`, `beckon`, `dismiss`, `temple`) keyed in his body frame and solved with
+  the arm IK; `pointAt(target)` with the arm on the target's side; a resting stance (`hips`: fists
+  on hips) the hands return to; head beats while he talks; idle fidgets (tilts, glances, stance
+  changes). `Corps.kwSay(key, cues)` cues gestures to words of a line (from the voice's word
+  boundaries, or a 14 chars/s pace without voice). He now plays a `Locomotion` and turns to face
+  Hal with shuffling steps past about 35° (`kwTurn`). His arms are short for his bulk (0.69 m from
+  shoulder to wrist): hands can't meet in front of his belly, so there is no clasp or palm-pound.
+  He has no face bones, so his "expression" is the head and body.
 - `createRing()` and `createLantern()` are procedural.
 - `loadCharacters()` loads `kilowog.glb` optionally (null if it's missing; Part Two then stands a
   broadened Abin Sur in for him).
@@ -697,6 +772,8 @@ The checks that have worked:
      (and `keyup`), `renderer.domElement.dispatchEvent(new MouseEvent('mousedown', { button: 0,
      bubbles: true }))` then a window `mouseup`. Two `Space` keydowns within 300 ms fly.
    - The canvas capture has no HUD (it's DOM): use a pane screenshot for the HUD.
+   - Part Two: `__game.story.travelTo('earth' | 'oa')` from `#range` or `#earth` runs a trip;
+     `__game.story.kw.play('chest')` / `.pointAt(v)` plays one of Kilowog's gestures.
 6. **Check faces in close-up** for anything that touches skinning, look-at or poses. Also check
    the moments the user will look at: the keys table, sitting up facing the light, Abin's hand,
    and the ring on the finger.
@@ -708,6 +785,17 @@ The checks that have worked:
    still playing. Every source edit makes Vite reload all tabs, theirs included.
 
 ## Gotchas (learned the hard way)
+
+- **One key press can be read twice.** The E that opened the star chart was still in `pressed` when
+  the chart updated the same frame, so it confirmed a destination at once. `input.consume()` a key
+  when it opens another interface.
+- **Disposing a scene disposes whatever is in it.** `Hyperspace.dispose()` traverses the scene: take
+  Hal (`player.object`) out first.
+- **Background browser tabs pause CSS animations**, so a DOM overlay with a fade-in looks nearly
+  invisible in a pane screenshot of a background tab. Set `animation: none` on it to inspect.
+- **A right arm pointing across the body reads as a fist at the chin.** Point with the arm on the
+  target's side (`BodyLanguage.pointAt`).
+- **Bloom turns bright stars into blobs.** Keep star values under about 1 in the space backdrops.
 
 - **Rapier's character controller sinks into cylinder colliders.** On Oa's deck (a 43 m
   cylinder) Hal's capsule rested 0.33 m inside it; the foot IK then pulled his feet up to the
@@ -762,6 +850,18 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-09, pocket dimension, voyage, travel, Kilowog) in fixed-step captures with synthetic
+  input: the pocket-dimension beat after the oath (L stows the lantern through the rift); summoning
+  it on the crash site and on Earth after travel; E at the lantern ("Put the lantern away" when
+  full); the summons at the lake (shots, ring raised to the eyes, the Guardians' lines); flying up
+  and E; the whole first voyage (launch, Earth from orbit with city lights, the ring plotting the
+  course, hyperspace from behind and alongside, Oa's approach, the dive) into the landing in front
+  of Kilowog and his intro; resuming at `voyage` (starts in orbit) and at `earth`; the open range,
+  the star chart, Oa → Earth (Abin Sur's body gone, the ring's line, `earth` saved) and Earth → Oa
+  (`range` saved, "Back already, poozer?"); Kilowog's gestures in close-up (chest, fist, shrug,
+  temple, sweep, beckon, open, dismiss, pointing left and right), his fists-on-hips stance and his
+  turn to face Hal; the live-fire intro into the drill; no console errors; a clean `vite build`.
+
 - (2026-11-09, fixes) Hal stands at deck height on Oa (hips at rest height, knees about 10°);
   with the shield or gatling up, S backs him off and A/D side-step while he faces the camera
   (shield and gatling, on Oa and at the crash site); flying with the gatling he stays upright and
@@ -803,10 +903,17 @@ Not verified:
 - a single uninterrupted start-to-finish playthrough
 - the dad's wave IK in the dream
 - frame rate with several walls, the fist and flight trails at once, and with 5 drones on Oa
-- Kilowog walking or running (he only idles and gestures); his rig's shoulder pads bend at big
-  arm angles (see the helper's notes in the change log)
+- Kilowog walking or running (he only idles, gestures and shuffles round to face Hal); his rig's
+  shoulder pads bend at big arm angles (see the helper's notes in the change log; the raised-fist
+  and temple gestures are the largest)
 - strafing with a real pointer-locked mouse, and how the side-step reads at full speed (the legs
   turn at most 60°, so a pure side-step slides the feet a little)
+- the star chart's virtual cursor with a real pointer-locked mouse (tested with keyboard and
+  synthetic events), and the new sounds (rift, sonic boom, arrival)
+- Kilowog's gesture timing against real speech (cues follow the voice's word boundaries where the
+  browser reports them; tested with the voice off, on the 14 chars/s pace)
+- the Part One end card's "Part Two" button into `summons` after a full Part One playthrough
+- frame rate in the Space scene (two 192×96 spheres with heavy fragment shaders)
 
 ## Open items and ideas
 
@@ -823,9 +930,16 @@ Not verified:
     the suit scan and a Guardian from Abin's, both to be judged in close-up; Kilowog most likely
     needs a Tripo model (non-human head and build).
   - Each part gets its own save section or key (see *Save*), carrying `unlocks` over.
-- **Next for Part Two:** the story opening at the lake (bury Abin Sur, the empty prisoner tank,
-  the summons, the trip in the 93604faf "orbital approach" style); Sinestro (model, sparring duel);
-  the Guardians; drills that unlock the remaining constructs.
+- **Next for Part Two** (proposed to the user 2026-11-09, not agreed yet): Sinestro on the range
+  (model derived from the suit scan, a sparring duel that teaches the sword or staff); the
+  Guardians (Abin Sur laid to rest on Oa, Hal sworn in); a mission that charts Korugar or Ysmault
+  on the star map; drills that unlock the remaining constructs. Earlier ideas still open: burying
+  Abin Sur at the lake, the empty prisoner tank (Atrocitus).
+- Travel trips are cutscenes of about 12 s every time; a skip (or a shorter repeat) may be wanted.
+- Earth's continents are coarse hand-made outlines; a NASA Blue Marble / Black Marble texture
+  would be far better but needs a download (ask first).
+- Kilowog has no face bones: a jaw bone in the auto-rig would allow speech; lip sync stays optional.
+- The voyage's Hal is the suit rig in parameter poses (hover, flyFast); no cape or secondary motion.
 - Locked constructs (sword, staff, hammer, axe) have wheel slots and icons but no geometry or
   behaviour yet. Unlocking is `powers.unlocked` plus the part's `unlocks`.
 - Oa's city is primitives with a window shader: fine from the range, plain up close (flying low
@@ -844,16 +958,21 @@ src/main.js                 boot, loading, title / continue / chapters, window._
 src/engine/                 Engine (renderer + post), Input, Physics (Rapier), CameraDirector
                             (follow / shot / orbit / shake), Time (game-time waits + tweens),
                             Audio (WebAudio synth), Voice (speech), Save (checkpoints)
-src/characters/             Rig + Animator, IK, Mocap, Poses, Player (walk + flight), Characters
+src/characters/             Rig + Animator, IK, Mocap, Poses, Player (walk + flight), Characters,
+                            BodyLanguage (Kilowog's talking gestures)
 src/powers/                 RingPowers (charge, health, wheel, aim, constructs, flight fx), Constructs
                             (list, shaders, fist / shield / wall geometry)
-src/scenes/                 Bedroom (+ hallway, buildJet), Dream, Hyperspace, CrashSite, Oa (Part Two)
+src/scenes/                 Bedroom (+ hallway, buildJet), Dream, Hyperspace, CrashSite, Oa (Part Two),
+                            Space (Earth and Oa from orbit)
 src/enemies/                Drones (training drones: model, spring flight, AI, bolts, breakup)
-src/fx/                     Sky, Particles + Fire, Water, Trees, GreenLight, Cloth, Textures
-src/story/                  Story (Part One + shared plumbing), Corps (Part Two), lines (all dialogue)
+src/fx/                     Sky, Particles + Fire, Water, Trees, GreenLight, Cloth, Textures, Rift
+                            (pocket dimension), EarthMap (continent outlines, city-light density)
+src/story/                  Story (Part One + shared plumbing, the lantern), Corps (Part Two, travel),
+                            Voyage (flights between worlds), lines (all dialogue)
 src/ui/UI.js                HUD, subtitles, glyph cipher + decode, choice, cards, pause, toasts
 src/ui/PowerHud.js          vitals, ring charge, armed construct, ring readout, reticle, marker,
                             training panel, target bracket, damage numbers, construct wheel
+src/ui/TravelHud.js         flight readout, arrival card, StarMap (the ring's star chart), WORLDS
 tools/                      build-assets, autorig, strip-mocap, extract-posters, debug renderers
 public/models, public/anims built GLBs loaded at runtime; public/textures/posters
 ```
@@ -863,6 +982,27 @@ public/models, public/anims built GLBs loaded at runtime; public/textures/poster
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-09: the pocket dimension, the flight to Oa, travel, Kilowog's body language
+- **Pocket dimension** (`Story.js` lantern section, `fx/Rift.js`, new): after the oath the ring shows
+  Hal how to keep the lantern in its pocket dimension (`learnPocket()`, still in the `lantern`
+  checkpoint). L stores it (a rift opens above it; it lifts, turns and shrinks in) or sets it down
+  in front of Hal; E beside it recharges or puts it away. Works on Earth and Oa. The training's
+  landing marker moved from the lantern to Abin Sur. `setupCrash` split into build + `enterCrash()`.
+- **Part Two now starts at the lake** (`Corps.js` rewritten, `Voyage.js`, `scenes/Space.js`,
+  `fx/EarthMap.js`, new): checkpoints `summons`, `voyage`, then `oa` (now a landing out of the sky
+  in front of Kilowog) and the drills; the user asked for the trip to be shown, not a cut to Oa.
+- **Travel** (the user's design): from the range on, E high in flight opens the star chart
+  (`ui/TravelHud.js`, new); Earth and Oa are charted, Korugar, Ysmault and Mogo locked. A short
+  voyage, then Hal arrives flying; `earth` is a new checkpoint (the lake without Abin Sur's body).
+  Saves gained `worlds`.
+- **Kilowog** (`characters/BodyLanguage.js`, new; `Rig.js` lean yaw and head gestures; `Voice.js` /
+  `UI.js` word boundaries): gestures cued to words in every line and quip, fists-on-hips stance,
+  head beats while talking, idle fidgets, turning to face Hal.
+- Also: `RingPowers.detach()` / `freeze`, `Player.airborne()` and the physics clean-up in `spawn()`,
+  per-scene near/far, new sounds (`rift`, `sonicBoom`, `arrive`), a `guardian` voice.
+- Verified: see Status (2026-11-09, pocket dimension...). Not verified: audio, real mouse on the
+  chart, gesture timing with real speech, Space frame rate.
 
 ### 2026-11-09: git, GitHub and the MIT license
 - `git init` on `main` and three commits: the project, then the raw scans, mocap and reference

@@ -3,7 +3,8 @@
 A Three.js story game. **Part One, Awakening:** test pilot Hal Jordan comes home, falls asleep,
 relives his father's crash, is visited by the ring's light, refuses to be afraid, and is carried
 to Abin Sur's wreck on the lake shore, where the ring chooses him. **Part Two, The Corps** (in
-progress): Hal on Oa, at Kilowog's training range.
+progress): the Guardians summon Hal, the ring carries him across the universe to Oa, and Kilowog
+trains him; then the ring can take him between Oa and Earth.
 
 ## Run
 
@@ -19,7 +20,7 @@ Open http://localhost:5173 and click **Begin** (audio starts on that click; head
 | WASD / arrows | Move (camera-relative) |
 | Shift | Run |
 | Mouse | Look (click the canvas to capture the pointer) |
-| E | Interact / reach for the ring / recharge at the lantern |
+| E | Interact / reach for the ring / recharge at the lantern; high in flight, enter hyperspace |
 | Space, Enter, click | Advance dialogue |
 | Y / N | Answer the light |
 | V | Toggle spoken voices |
@@ -35,6 +36,7 @@ Once the ring is charged (after the oath):
 | Q | Holster the construct |
 | Space twice | Take off / drop out of flight (there is no jump) |
 | W / Space / C / Shift (flying) | Fly where you look / climb / descend / boost |
+| L | Keep the lantern in the ring's pocket dimension, or set it down in front of you |
 
 While the shield or the gatling is up, Hal faces where you look and strafes: W/S/A/D move him
 relative to the camera (S backs him off) without turning him away from your aim. Flying with
@@ -42,7 +44,14 @@ one, he hovers upright and faces where you look instead of flying head-first.
 
 The ring's HUD shows Hal's health (bottom left) and the ring's charge with the armed construct
 (bottom right). Constructs and flight use charge; recharge at the lantern (on Oa the Central
-Power Battery recharges the ring continuously). Fire and drone bolts hurt; health comes back if
+Power Battery recharges the ring continuously). As in the comics, the lantern lives in the ring's
+pocket dimension: press **L** and a rift opens to swallow it, press **L** again and it drops out
+in front of you. Beside it, **E** recharges the ring (or puts it away when the ring is full).
+
+**Hyperspace travel** (Part Two, from Kilowog's range on): fly high (about 30 m) and press **E**.
+The ring's star chart opens (time stops); choose a charted world with the mouse or the arrow keys
+and press **E** or **Enter**. Earth and Oa are charted; Korugar, Ysmault and Mogo are on the chart
+but uncharted until the story reaches them. Fire and drone bolts hurt; health comes back if
 Hal stays out of harm for a few seconds. Aim near an enemy and the reticle locks on: brackets
 and a health bar mark it, and hits pop damage numbers.
 
@@ -71,9 +80,14 @@ Part Two:
 
 | Checkpoint | Where it puts you |
 | --- | --- |
-| `oa` | Kilowog's range: arrival on Oa, then the target drones |
+| `summons` | The summons: at the lake, by Abin Sur, as the Guardians call Hal to Oa |
+| `voyage` | Hyperluminal: the flight to Oa, from high orbit over Earth |
+| `oa` | Kilowog's range: the landing on Oa, then the target drones |
 | `livefire` | Live fire: the gatling, then drones that shoot back |
-| `range` | The training ground: the end card, then free training |
+| `range` | The training ground: free training on Oa, with hyperspace travel |
+| `earth` | Home: Sector 2814: back at the lake after travelling from Oa |
+
+Travelling saves the checkpoint of the world you arrive at (`range` or `earth`).
 
 For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#lantern`.
 
@@ -92,7 +106,8 @@ For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#l
    holds out his hand; the ring floats to Hal, who reaches for it; once it is on his finger the alien
    line decodes into English. Abin Sur dies, and the ring's interface comes up: its charge is down
    to 12%. At the lantern Hal speaks the oath ("In brightest day, in blackest night…"); each line
-   pours more light into the ring until it reads 100%, and the suit sweeps over him.
+   pours more light into the ring until it reads 100%, and the suit sweeps over him. The ring then
+   shows him its pocket dimension: **L** sends the lantern into it.
 5. **The ring's power** (training at Abin Sur's side): open the construct wheel (time stops),
    knock a burning hull plate away with a giant fist, raise a shield as the wreck's power core
    blows and hurls burning debris at you, raise a wall, then double-tap Space to fly above the
@@ -106,15 +121,24 @@ block debris, bolts and Hal.
 
 ### Part Two: The Corps (in progress)
 
-1. **Oa:** Hal arrives on Kilowog's training range, a disc floating high above Oa's city, with the
-   Central Power Battery on the horizon: the giant lantern of the comics, its glowing lens set in
-   a green globe under a wide cap and handle ring, ringed by the citadel's towers. Kilowog sizes
-   up his new "poozer".
-2. **Targets:** five target drones rise from the pads; break them with the fist.
-3. **Live fire:** Kilowog teaches the gatling, then sends two waves of drones that circle, take
+1. **The summons:** at the lake, by Abin Sur's body, the ring relays a message from the Guardians:
+   come to Oa. Hal says goodbye to Abin Sur, flies up above the trees and presses **E**.
+2. **Hyperluminal:** he punches up out of the sky with a sonic boom, hangs over the night side of
+   Earth (city lights, the dawn about to break over the limb, the Moon), the ring plots the
+   course, and he jumps: the streak tunnel of the space-flight reference video, with the ring's
+   flight readout counting down the distance. He drops out over Oa: a world-city on its night
+   side, green conduits running to the Central Battery, a ringed giant beyond.
+3. **Oa:** he streaks down onto Kilowog's training range, a disc floating high above the city,
+   with the Central Power Battery on the horizon: the giant lantern of the comics, its glowing
+   lens set in a green globe under a wide cap and handle ring, ringed by the citadel's towers.
+   Kilowog sizes up his new "poozer" (he talks with his hands now: chest thumps, pointing,
+   shrugs, a raised fist, fists on his hips between lines, and he turns to keep you in front of him).
+4. **Targets:** five target drones rise from the pads; break them with the fist.
+5. **Live fire:** Kilowog teaches the gatling, then sends two waves of drones that circle, take
    turns to attack (watch for the red aim line), and fire bursts of bolts. Block with the
    shield, use the pillars and walls, or fly.
-4. **The range:** after the end card the range stays open; ask Kilowog for another round.
+6. **The range:** after the end card the range stays open; ask Kilowog for another round. The ring
+   now has hyperspace routes to Earth and back; at home the Corps has carried Abin Sur's body to Oa.
 
 ## Characters and movement
 
@@ -159,15 +183,20 @@ src/engine/                 renderer + post (bloom, NaN guard, dream grade), pau
 src/characters/             Rig + Animator (quaternion poses, layers), IK (two-bone, world rotations),
                             Mocap (retargeting, locomotion blend), Poses (cutscene + flight poses), Player
                             (controller with momentum, flight, orbit camera), Characters (loading, suit
-                            glow / dissolve material patch, Abin Sur, ring, lantern)
+                            glow / dissolve material patch, Abin Sur, ring, lantern), BodyLanguage
+                            (Kilowog's talking gestures)
 src/powers/                 RingPowers (charge, health, construct wheel, aiming + aim assist, fist / shield /
                             wall / gatling, damage, flight effects), Constructs (list, shaders, shapes)
-src/scenes/                 Bedroom (+ hallway), Dream (airfield), Hyperspace (the transit), CrashSite, Oa
+src/scenes/                 Bedroom (+ hallway), Dream (airfield), Hyperspace (the transit), CrashSite, Oa,
+                            Space (Earth and Oa from orbit)
 src/enemies/                Drones (Part Two's training drones: AI, physics, bolts)
-src/fx/                     sky, particles + fire, water, trees, green light / bubble / shafts, cloth, textures
-src/story/                  Story (Part One + the shared chapter plumbing), Corps (Part Two), lines (all dialogue)
+src/fx/                     sky, particles + fire, water, trees, green light / bubble / shafts, cloth, textures,
+                            Rift (the pocket dimension), EarthMap (continents and city lights for Space)
+src/story/                  Story (Part One + the shared chapter plumbing, the lantern's pocket dimension),
+                            Corps (Part Two, travel), Voyage (flights between worlds), lines (all dialogue)
 src/ui/                     HUD, subtitles, glyph cipher + decode, choice, cards, pause menu, checkpoint
-                            notice; PowerHud (health, ring charge, construct wheel, reticle, training panel)
+                            notice; PowerHud (health, ring charge, construct wheel, reticle, training panel);
+                            TravelHud (flight readout, arrival card, star chart)
 tools/                      asset pipeline (build-assets, autorig, strip-mocap, extract-posters) and debug
                             renderers (inspect-model, inspect-weights, inspect-heads); headswap.mjs is the
                             earlier fix for the old casual scan, kept for reference

@@ -94,6 +94,7 @@ export class Player {
   get runSpeed() { return this.loco.runSpeed * (1 - 0.15 * this.tired) * this.speedScale; }
 
   spawn(physics, scene, position, yaw = 0) {
+    this.removeFromPhysics(); // out of the last scene's world (travel goes back and forth)
     this.physics = physics;
     scene.add(this.object);
     const world = physics.world;
@@ -463,8 +464,22 @@ export class Player {
 
   removeFromPhysics() {
     if (!this.rb) return;
-    this.physics.world.removeCharacterController(this.kcc);
-    this.physics.world.removeRigidBody(this.rb);
+    if (!this.physics.freed) {
+      this.physics.world.removeCharacterController(this.kcc);
+      this.physics.world.removeRigidBody(this.rb);
+    }
     this.rb = null;
+  }
+
+  // Already in the air (arriving from space): flying, without a takeoff.
+  airborne(vel) {
+    this.flying = true;
+    this.vel.copy(vel);
+    this.kcc.disableSnapToGround();
+    this.kcc.disableAutostep();
+    this.grounded = false;
+    this.landing = 0;
+    this.flightState.k = 1;
+    this.animator.play(this.flightGen, 0.3);
   }
 }
