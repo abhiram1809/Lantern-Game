@@ -152,6 +152,66 @@ export class AudioBank {
     return h;
   }
 
+  // A morning outside an apartment: distant traffic, and now and then a bird.
+  traffic(level = 0.05) { return this.loop(this.brownBuf, [this.filter('lowpass', 260), this.filter('highpass', 40)], level, { rate: 0.8, wet: 0.2 }); }
+  birdsong() {
+    if (!this.ctx) return;
+    const f = 2600 + Math.random() * 1800, n = 2 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < n; i++) this.tone({ freq: f * (1 + (Math.random() - 0.5) * 0.15), to: f * (1.2 + Math.random() * 0.4), peak: 0.012, dur: 0.07 + Math.random() * 0.06, wet: 0.5, delay: i * (0.11 + Math.random() * 0.05) });
+  }
+
+  // An old car's engine: a lumpy idle that rises with speed. set(rpm 0..1); stop().
+  engine(level = 0.12) {
+    if (!this.ctx) return { set() {}, stop() {} };
+    const t = this.t, out = this.out(0, 0.15);
+    const lp = this.filter('lowpass', 420, 1.2, out);
+    const o = this.ctx.createOscillator(), o2 = this.ctx.createOscillator();
+    o.type = 'sawtooth'; o2.type = 'square';
+    o.frequency.value = 38; o2.frequency.value = 19;
+    const lumpy = this.ctx.createOscillator(), lumpGain = this.gain(5);
+    lumpy.frequency.value = 3.1;
+    lumpy.connect(lumpGain).connect(o.frequency);
+    o.connect(this.gain(0.6, lp)); o2.connect(this.gain(0.3, lp));
+    const rumble = this.source(this.brownBuf, true);
+    rumble.connect(this.filter('lowpass', 160, 0.7, this.gain(0.8, lp)));
+    for (const x of [o, o2, lumpy, rumble]) x.start(t);
+    out.gain.setTargetAtTime(level, t, 0.15);
+    return {
+      set: (rpm) => {
+        o.frequency.setTargetAtTime(38 + rpm * 70, this.t, 0.3);
+        o2.frequency.setTargetAtTime(19 + rpm * 35, this.t, 0.3);
+        lp.frequency.setTargetAtTime(420 + rpm * 900, this.t, 0.3);
+        lumpGain.gain.setTargetAtTime(5 * (1 - rpm), this.t, 0.3);
+      },
+      stop: (fade = 0.6) => { out.gain.setTargetAtTime(0, this.t, fade / 3); for (const x of [o, o2, lumpy, rumble]) x.stop(this.t + fade + 0.5); },
+    };
+  }
+  // the starter motor turning over; `catches` ends in a cough as the engine fires
+  starter(dur = 1.4, catches = false) {
+    if (!this.ctx) return;
+    for (let i = 0; i < dur * 7; i++) this.burst({ buffer: this.brownBuf, type: 'bandpass', from: 220, q: 2, peak: 0.25, dur: 0.1, wet: 0.1, delay: i / 7 });
+    this.tone({ type: 'sawtooth', freq: 140, to: 120, peak: 0.04, dur, wet: 0.1 });
+    if (catches) this.burst({ buffer: this.brownBuf, from: 500, to: 80, peak: 0.6, dur: 0.6, wet: 0.2, delay: dur });
+    else this.burst({ buffer: this.brownBuf, from: 300, to: 100, peak: 0.25, dur: 0.3, wet: 0.2, delay: dur });
+  }
+  carDoor() {
+    this.burst({ buffer: this.brownBuf, from: 500, to: 140, peak: 0.55, dur: 0.35, wet: 0.2 });
+    this.tone({ type: 'triangle', freq: 110, to: 60, peak: 0.2, dur: 0.25, wet: 0.1 });
+  }
+  // a phone buzzing on a wooden nightstand
+  buzz(times = 2) {
+    for (let i = 0; i < times; i++) {
+      this.tone({ type: 'square', freq: 160, peak: 0.05, dur: 0.38, wet: 0.05, delay: i * 0.6 });
+      this.burst({ buffer: this.brownBuf, type: 'bandpass', from: 170, q: 6, peak: 0.12, dur: 0.38, wet: 0.05, delay: i * 0.6 });
+    }
+  }
+  voicemail() { this.tone({ type: 'sine', freq: 880, peak: 0.05, dur: 0.18, wet: 0.1 }); }
+  paper() { this.burst({ type: 'highpass', from: 3000, to: 1500, peak: 0.12, dur: 0.25, wet: 0.1 }); }
+  fridge(open = true) {
+    this.burst({ buffer: this.brownBuf, from: open ? 600 : 300, to: 120, peak: 0.3, dur: 0.25, wet: 0.1 });
+    if (open) return this.loop(this.brownBuf, [this.filter('bandpass', 120, 4)], 0.04, { fadeIn: 0.3, wet: 0 });
+  }
+
   // --- One-shots --------------------------------------------------------------------------
   burst({ buffer, type = 'lowpass', from = 800, to, q = 0.7, attack = 0.005, peak = 0.5, dur = 0.3, wet = 0.2, rate = 1, delay = 0 }) {
     if (!this.ctx) return;

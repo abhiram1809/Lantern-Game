@@ -62,7 +62,7 @@ export class Sinestro {
     this.anim.look.maxYaw = 0.75;
     const halHead = () => player.rig.bonePosition('head', _look);
     this.anim.lookAt(halHead, 0.6);
-    this.bl = new BodyLanguage(rig, this.anim, { gestures: GESTURES, stances: STANCES, scale: 1, reach: 0.55, lookHome: () => halHead });
+    this.bl = new BodyLanguage(rig, this.anim, { gestures: GESTURES, stances: STANCES, scale: 1, reach: 0.55, lookHome: () => halHead, shift: ['behind', 'oneBehind'] });
     this.bl.stance('behind');
     this.yaw = 0;
     this.body = { pitch: 0, roll: 0 };

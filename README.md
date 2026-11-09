@@ -1,10 +1,12 @@
-# Green Lantern — Awakening · The Corps
+# Green Lantern — Awakening · The Corps · Coast City
 
 A Three.js story game. **Part One, Awakening:** test pilot Hal Jordan comes home, falls asleep,
 relives his father's crash, is visited by the ring's light, refuses to be afraid, and is carried
-to Abin Sur's wreck on the lake shore, where the ring chooses him. **Part Two, The Corps** (in
-progress): the Guardians summon Hal, the ring carries him across the universe to Oa, Kilowog
-trains him and Sinestro spars with him; then the ring can take him between Oa and Earth.
+to Abin Sur's wreck on the lake shore, where the ring chooses him. **Part Two, The Corps:** the
+Guardians summon Hal, the ring carries him across the universe to Oa, Kilowog trains him,
+Sinestro spars with him, and the Guardians lay Abin Sur to rest and give Hal Sector 2814; he flies
+home before dawn. **Part Three, Coast City** (in progress): the morning after. He has slept through
+the test flight, rent is two months late, and Carol Ferris fires him.
 
 ## Run
 
@@ -58,10 +60,10 @@ and a health bar mark it, and hits pop damage numbers.
 ## Checkpoints and saving
 
 Progress saves automatically at each checkpoint, to `localStorage` with a cookie mirror as a
-fallback. Each part has its own save (`gl_awakening_v1`, `gl_corps_v1`); constructs learned in
-either carry over. The title screen offers **Continue**, **New game** and **Chapters** (any
-checkpoint reached so far), and **Part Two: The Corps** once Part One is finished (Part One's
-end card also offers it). The pause menu can resume, restart the current checkpoint, jump to a
+fallback. Each part has its own save (`gl_awakening_v1`, `gl_corps_v1`, `gl_coast_v1`); constructs
+learned in any carry over. The title screen offers **Continue**, **New game** and **Chapters** (any
+checkpoint reached so far), **Part Two: The Corps** once Part One is finished, and **Part Three:
+Coast City** once Part Two is (each part's end card also offers the next). The pause menu can resume, restart the current checkpoint, jump to a
 chapter, toggle voices, or quit to the title.
 
 | Checkpoint | Where it puts you |
@@ -86,10 +88,23 @@ Part Two:
 | `livefire` | Live fire: the gatling, then drones that shoot back |
 | `sinestro` | Sinestro: his arrival and the sword lesson |
 | `duel` | Sparring: the duel with Sinestro |
-| `range` | The training ground: free training on Oa, with hyperspace travel |
-| `earth` | Home: Sector 2814: back at the lake after travelling from Oa |
+| `guardians` | The Guardians: Kilowog sends Hal to their hall; the council, Abin Sur laid to rest |
+| `homeward` | Sector 2814: on the hall's dais, about to fly home (the voyage, the window, Part Two's end) |
+| `range` | The training ground: free flight on Oa, with hyperspace travel |
+| `earth` | Home: Sector 2814: free flight at the lake, with hyperspace travel |
 
-Travelling saves the checkpoint of the world you arrive at (`range` or `earth`).
+`range` and `earth` are free flight after Part Two's story (the end card offers it); travelling
+saves the checkpoint of the world you arrive at.
+
+Part Three:
+
+| Checkpoint | Where it puts you |
+| --- | --- |
+| `morning` | The morning after: asleep in daylight, 9:41 AM, the phone buzzing |
+| `drive` | Running late: the car behind his building, the road out to Ferris Aircraft |
+| `ferris` | Ferris Aircraft: in the staff lot, on foot |
+| `carol` | Carol: on the apron by the prototype, facing her |
+| `after` | Out of work: on his car afterwards (the end card) |
 
 For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#lantern`.
 
@@ -122,7 +137,7 @@ target you aim at). Staff, hammer and axe are on the wheel but locked for later.
 physical: the fist throws debris and drones, the shield deflects debris and bolts, and walls
 block debris, bolts and Hal.
 
-### Part Two: The Corps (in progress)
+### Part Two: The Corps
 
 1. **The summons:** at the lake, by Abin Sur's body, the ring relays a message from the Guardians:
    come to Oa. Hal says goodbye to Abin Sur, flies up above the trees and presses **E**.
@@ -147,13 +162,36 @@ block debris, bolts and Hal.
    (shield it, or meet it with a sword cut to parry and stagger him), spikes forming behind him
    mean a volley, a ring on the ground means a giant fist is coming down. He guards against the
    gatling. Bring him to the mark on his health bar and he calls it.
-8. **The range:** after the end card the range stays open; ask Kilowog for another round. The ring
-   now has hyperspace routes to Earth and back; at home the Corps has carried Abin Sur's body to Oa.
+8. **The Guardians:** Kilowog sends Hal to the Hall of the Guardians, on a tower between the range
+   and the battery; fly there yourself. Seven Guardians stand on tall pillars round the dais,
+   Sinestro beside Abin Sur's bier. They judge the ring's choice, Sinestro objects, Hal refuses to
+   give it back; then they lift their hands and Abin Sur's body goes into light, streaming away to
+   the Central Battery. Sector 2814 is Hal's.
+9. **Home:** climb out of the hall and press **E**. The voyage home ends at his bedroom window a
+   little after four in the morning, still raining: a green flash, the curtains blown in, the suit
+   sweeping back into his clothes, and he makes it to the bed. Part Two's end card offers Part
+   Three, or free flight: the range stays open (ask Kilowog for another round), with hyperspace
+   routes to Earth and back.
+
+### Part Three: Coast City (in progress)
+
+1. **The morning after:** 9:41 AM, daylight, the phone buzzing on the nightstand. Hal sits up,
+   sees the clock, and plays four voicemails: the landlord (two months behind), Tom Kalmaku twice
+   (where are you; they scrubbed the test), Carol ("come in, we need to talk"). Then the
+   apartment is yours: an empty fridge, red-ink bills, the photo of his father, and a rent notice
+   slipped under the front door. Leave by the front door.
+2. **Running late:** his old car takes three tries to start. The desert road out to Ferris
+   Aircraft, the gate, the staff lot.
+3. **Ferris Aircraft:** walk between the hangars to the apron, where the prototype he was meant
+   to fly at nine stands fuelled and Carol Ferris is waiting.
+4. **Carol:** the Air Force came out from Edwards and watched an empty cockpit. He can't tell her
+   where he was. She fires him.
+5. **Out of work:** Hal on the back of his car, the ring telling him there's no threat.
 
 ## Characters and movement
 
 - **Models.** `npm run assets` (`tools/build-assets.mjs`) turns the Tripo scans in `assets/raw`
-  (`Hal-Improved.glb` casual, `hal_b.glb` suit, `Abin.glb`, `Kilowog.glb`) into `public/models/*.glb`: reoriented,
+  (`Hal-Improved.glb` casual, `hal_b.glb` suit, `Abin.glb`, `Kilowog.glb`, `Carol.glb`) into `public/models/*.glb`: reoriented,
   scaled, decimated to 90–100 k triangles, WebP textures, and **auto-rigged** by `tools/autorig.mjs`
   (17-bone humanoid placed from anatomical landmarks; skin weights from limb chains, blended at the
   joints, smoothed, with the whole skull/face/jaw on the head bone along a detected jaw line).
@@ -161,6 +199,10 @@ block debris, bolts and Hal.
   in `src/characters/Characters.js`), a shader layer painting his face, hair, brows, eyes and
   moustache in the scan's object space, with the hair pushed out into volume and the head and nose
   narrowed in the vertex stage.
+- **The Guardians** are derived from Abin Sur's scan too (`src/characters/Guardian.js`): blue skin,
+  a domed and enlarged head, a white fringe and brows made of hair cards (`HairCards.js`: alpha-cut
+  strand ribbons grown from the scalp), and a red robe built as cloth round the body in the pose
+  they stand in, skinned to the skeleton (`Robe.js`).
 - **Motion capture.** Locomotion and idles are real mocap (the Mixamo-rigged *Xbot* clips from the
   three.js examples, stripped to `public/anims/xbot.glb` by `npm run mocap`), **retargeted** onto each
   scan's own skeleton (`src/characters/Mocap.js`): per-bone world rotations from rest plus a fixed
@@ -197,17 +239,19 @@ src/engine/                 renderer + post (bloom, NaN guard, dream grade), pau
 src/characters/             Rig + Animator (quaternion poses, layers), IK (two-bone, world rotations),
                             Mocap (retargeting, locomotion blend), Poses (cutscene + flight poses), Player
                             (controller with momentum, flight, orbit camera), Characters (loading, suit
-                            glow / dissolve material patch, Abin Sur, ring, lantern), BodyLanguage
-                            (Kilowog's talking gestures)
+                            glow / dissolve material patch, Abin Sur, Kilowog, Sinestro, Carol, ring, lantern),
+                            Guardian + Robe + HairCards (the Guardians), BodyLanguage (talking gestures)
 src/powers/                 RingPowers (charge, health, construct wheel, aiming + aim assist, fist / shield /
                             wall / gatling, damage, flight effects), Constructs (list, shaders, shapes)
-src/scenes/                 Bedroom (+ hallway), Dream (airfield), Hyperspace (the transit), CrashSite, Oa,
-                            Space (Earth and Oa from orbit)
+src/scenes/                 Bedroom (+ hallway, kitchenette; night or morning), Dream (airfield), Hyperspace
+                            (the transit), CrashSite, Oa (+ Hall: the Guardians' hall), Space (Earth and Oa
+                            from orbit), Ferris (the airfield by day, the road, Hal's car, the prototype)
 src/enemies/                Drones (Part Two's training drones: AI, physics, bolts), Sinestro (the sparring duel)
 src/fx/                     sky, particles + fire, water, trees, green light / bubble / shafts, cloth, textures,
                             Rift (the pocket dimension), EarthMap (continents and city lights for Space)
 src/story/                  Story (Part One + the shared chapter plumbing, the lantern's pocket dimension),
-                            Corps (Part Two, travel), Voyage (flights between worlds), lines (all dialogue)
+                            Corps (Part Two, travel), Coast (Part Three), Voyage (flights between worlds),
+                            lines (all dialogue)
 src/ui/                     HUD, subtitles, glyph cipher + decode, choice, cards, pause menu, checkpoint
                             notice; PowerHud (health, ring charge, construct wheel, reticle, training panel);
                             TravelHud (flight readout, arrival card, star chart)

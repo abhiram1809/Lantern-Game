@@ -6,14 +6,15 @@ import { MocapSource } from './Mocap.js';
 
 export async function loadCharacters(manager) {
   const loader = new GLTFLoader(manager);
-  const [casual, lantern, abin, xbot, kilowog] = await Promise.all([
+  const [casual, lantern, abin, xbot, kilowog, carol] = await Promise.all([
     loader.loadAsync('/models/hal_casual.glb'),
     loader.loadAsync('/models/hal_lantern.glb'),
     loader.loadAsync('/models/abin_sur.glb'),
     loader.loadAsync('/anims/xbot.glb'),
     loader.loadAsync('/models/kilowog.glb').catch(() => null), // Part Two; optional until built
+    loader.loadAsync('/models/carol.glb').catch(() => null), // Part Three
   ]);
-  for (const g of [casual, lantern, abin, kilowog]) {
+  for (const g of [casual, lantern, abin, kilowog, carol]) {
     if (!g) continue;
     g.scene.traverse((o) => {
       if (!o.isSkinnedMesh) return;
@@ -23,7 +24,7 @@ export async function loadCharacters(manager) {
       m.envMapIntensity = 0.6;
     });
   }
-  return { casual, lantern, abin, kilowog, mocap: new MocapSource(xbot) };
+  return { casual, lantern, abin, kilowog, carol, mocap: new MocapSource(xbot) };
 }
 
 // Adds suit glow, a sweep dissolve for the transformation, a tint, and an optional hidden bone.
@@ -84,7 +85,7 @@ export function patchMaterial(mat, { glow = 0, hideBone = -1, u = makeUniforms({
 }
 
 // A character from one of the rigged scans, with its own skeleton and shared material uniforms.
-function createCharacter(gltf, { glow = 0, roughMin = 0 } = {}) {
+export function createCharacter(gltf, { glow = 0, roughMin = 0 } = {}) {
   const root = SkeletonUtils.clone(gltf.scene);
   const u = makeUniforms({ glow, roughMin });
   root.traverse((o) => {
@@ -104,6 +105,26 @@ export const createAbinSur = (gltf) => createCharacter(gltf, { glow: 0.32 });
 
 // Kilowog, the Corps' drill sergeant, from his own scan.
 export const createKilowog = (gltf) => createCharacter(gltf, { glow: 0.6, roughMin: 0.45 });
+
+// Carol Ferris, from her own scan (Part Three). Matte like casual Hal: skin and cotton. Her scan's
+// normal map is broken over the skin (pale rims round the face, white flecks on the lips and
+// nostrils, whichever way its green channel is read), so on skin-coloured texels the surface's own
+// normal is used; the hair and clothes keep the map's detail.
+export function createCarol(gltf) {
+  const rig = createCharacter(gltf, { roughMin: 0.55 });
+  for (const m of rig.meshes) {
+    const mat = m.material, base = mat.onBeforeCompile;
+    mat.onBeforeCompile = (sh, r) => {
+      base(sh, r);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        vec3 cc = diffuseColor.rgb;
+        float cSkin = smoothstep(0.02, 0.08, cc.r - cc.b) * smoothstep(0.08, 0.2, cc.r) * smoothstep(0.0, 0.04, cc.g - cc.b * 0.8);
+        normal = normalize(mix(normal, nonPerturbedNormal, cSkin));`);
+    };
+    mat.customProgramCacheKey = () => 'gl-carol';
+  }
+  return rig;
+}
 
 // Sinestro of Korugar, derived from Abin Sur's scan (a long, severe alien face, no mask, a tall lean
 // body in the Corps uniform), matched to a comic reference the user chose (2026-11-09): warm

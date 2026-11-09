@@ -35,6 +35,11 @@ const MODELS = [
     name: 'kilowog', src: 'assets/raw/Kilowog.glb', keepSide: 1, facing: 1, tris: 90000, height: 2.4,
     rig: { neckMid: 0.858, jawBack: 0.07, neckBack: -0.08, headFill: true, neckColumn: true, shoulder: [0.18, 0.74], armMinX: 0.12, armRadius: 1.6, legX: 0.2, hipX: 0.083, knee: 0.27 },
   },
+  // Carol Ferris (the user's model, 2026-11-10), for Part Three. Another two-figure sheet along z
+  // (each figure about 0.59 of the sheet's height, in an A-pose): keep the z > 0 one, facing +X.
+  // Her long hair hides the neck, so the narrowest slice lands at her mouth: the neck is given. She
+  // stands in an A-pose (hands at 0.32 H out, the bag at her hip), so the arm axis band is moved in.
+  { name: 'carol', src: 'assets/raw/Carol.glb', keepSide: 1, facing: 1, tris: 90000, height: 1.7, rig: { neckMid: 0.86, armLo: 0.13, armTipIn: 0.05, armMinY: 0.6 } },
 ];
 
 await MeshoptDecoder.ready;

@@ -1,16 +1,18 @@
 import * as THREE from 'three';
 import { wait, waitFor, tween, ease, onFrame, damp } from '../engine/Time.js';
-import { CorpsSave, allWorlds } from '../engine/Save.js';
+import { CorpsSave, CoastSave, allWorlds } from '../engine/Save.js';
 import { Story } from './Story.js';
-import { LINES } from './lines.js';
 import { voyage } from './Voyage.js';
 import { Animator } from '../characters/Rig.js';
 import { Locomotion } from '../characters/Mocap.js';
 import { BodyLanguage } from '../characters/BodyLanguage.js';
-import { POSES, still } from '../characters/Poses.js';
+import { POSES, still, makePose } from '../characters/Poses.js';
 import { createAbinSur, createKilowog, createRing } from '../characters/Characters.js';
+import { createGuardian } from '../characters/Guardian.js';
 import { createShaft } from '../fx/GreenLight.js';
 import { Oa, KILOWOG_SPOT, HAL_START, PADS, RANGE_RADIUS, BATTERY } from '../scenes/Oa.js';
+import { HALL, HALL_PILLARS, BIER, DAIS_TOP } from '../scenes/Hall.js';
+import { Particles } from '../fx/Particles.js';
 import { ABIN_SPOT, ARRIVAL, terrainHeight } from '../scenes/CrashSite.js';
 import { DroneSwarm } from '../enemies/Drones.js';
 import { Sinestro } from '../enemies/Sinestro.js';
@@ -23,12 +25,18 @@ const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const JUMP_HEIGHT = { earth: 26, oa: 30 };
 // where Sinestro comes down, on Hal's right as he faces Kilowog's podium
 const SIN_SPOT = V(5.2, 0, -25.4);
+// Abin Sur lying in state: on his back, arms at his sides
+const LAID_OUT = makePose({ aL: [0.1, -1, -0.04], aR: [-0.1, -1, -0.04], eL: 0.12, eR: 0.12, fL: 0.35, fR: 0.35, kx: -0.04 });
+// in the Guardians' hall: Sinestro beside the bier, facing the dais
+const SIN_HALL = V(HALL.x + 2.6, HALL.y, BIER.z + 1.1);
 
 // Part Two, "The Corps". At the lake the Guardians summon Hal; he climbs out of the sky and the ring
 // carries him across the universe to Oa (Voyage.js), down onto Kilowog's range. There: target drones
 // for the fist, then the gatling and a live-fire drill against drones that shoot back; then
-// Sinestro arrives, teaches the sword and spars with Hal (enemies/Sinestro.js); then the range is
-// left open, with hyperspace routes charted between Oa and Earth (the star map, E high in flight).
+// Sinestro arrives, teaches the sword and spars with Hal (enemies/Sinestro.js); then the Guardians
+// call him to their hall (scenes/Hall.js), lay Abin Sur to rest and give him Sector 2814, and he
+// flies home, in through his bedroom window before dawn. After that the range is open, with
+// hyperspace routes charted between Oa and Earth (the star map, E high in flight).
 // Everything else (powers, the lantern, pause, dialogue, collapse) comes from Story.
 export class Corps extends Story {
   get save() { return CorpsSave; }
@@ -47,6 +55,8 @@ export class Corps extends Story {
       livefire: () => this.liveFire(),
       sinestro: () => this.sinestroArrives(),
       duel: () => this.duel(),
+      guardians: () => this.guardiansCall(),
+      homeward: () => this.homeward(),
       range: () => this.openRange(),
       earth: () => this.home(),
     };
@@ -82,8 +92,21 @@ export class Corps extends Story {
     this.setupOa();
     this.enterOa();
     if (id !== 'oa') this.learn('gatling', false);
-    if (id === 'duel' || id === 'range') this.learn('sword', false);
+    if (['duel', 'guardians', 'homeward', 'range'].includes(id)) this.learn('sword', false);
     if (id === 'duel') this.addSinestro().place(SIN_SPOT, -2.2);
+    if (id === 'homeward') {
+      // standing on the dais, the hall empty now
+      this.enterOa(V(HALL.x, DAIS_TOP, HALL.z), Math.PI);
+      this.addGuardians();
+      this.hallActive = true;
+      const sin = this.addSinestro();
+      sin.place(SIN_HALL, Math.atan2(HALL.x - SIN_HALL.x, HALL.z - SIN_HALL.z));
+      player.camYaw = 0;
+      player.camPitch = 0.2;
+      this.director.mode = 'follow';
+      await ui.fade(0, 1.2);
+      return;
+    }
     if (id === 'range') this.travel = 'chart';
     player.camYaw = 0;
     player.camPitch = 0.16;
@@ -121,7 +144,7 @@ export class Corps extends Story {
     player.camDist = 3.2;
     powers.attach({
       scene: oa.scene, physics: oa.physics, ground: (x, z) => oa.ground(x, z), bounds: oa.bounds, canLand: (x, z) => oa.canLand(x, z),
-      floor: (x, z) => (Math.hypot(x, z) < RANGE_RADIUS + 0.4 ? 0 : -60), center: V(0, 0, 0), radius: 150, ceiling: 120,
+      floor: (x, z) => oa.floor(x, z), center: V(-30, 0, -70), radius: 200, ceiling: 120,
     });
     powers.regen = 1.5; // the Central Battery keeps every ring on Oa topped up
     this.lanternSpots(oa);
@@ -162,27 +185,8 @@ export class Corps extends Story {
     this.kwLoco.speed = damp(this.kwLoco.speed, this.kwTurning ? 0.5 : 0, 6, dt);
   }
 
-  // A line of Kilowog's, performed: beats of the head throughout, and gestures cued to words
-  // (from the voice's word boundaries, or the line's pace when the voice is silent).
+  // A line of Kilowog's, performed (Story.perform): head beats, gestures cued to its words.
   kwSay(key, cues = [], extra = {}) { return this.perform(this.kw, key, cues, extra); }
-  async perform(body, key, cues = [], extra = {}) {
-    const text = LINES[key].text.toLowerCase();
-    const at = cues.map(([word, name]) => ({ i: Math.max(0, text.indexOf(word.toLowerCase())), name, done: false }));
-    const fire = (c) => {
-      if (c.done) return;
-      c.done = true;
-      if (typeof c.name === 'function') c.name(); else body.play(c.name);
-    };
-    let heard = false, t = 0;
-    const stop = onFrame((dt) => { t += dt; if (!heard) for (const c of at) if (t >= 0.15 + c.i / 14) fire(c); });
-    body.talk(true);
-    try {
-      await this.say(key, { ...extra, onWord: (ci) => { heard = true; for (const c of at) if (ci >= c.i) fire(c); } });
-    } finally {
-      stop();
-      body.talk(false);
-    }
-  }
   kwBark(key, cues) { return this.kwSay(key, cues, { skip: false }); }
   sinSay(key, cues, extra) { return this.perform(this.sin.bl, key, cues, extra); }
 
@@ -548,25 +552,342 @@ export class Corps extends Story {
     await this.kwClose(1.2);
     await this.kwSay('kwLikes', [['poozer', 'shrug']]);
     player.lookAt(null);
-    this.sparred = true; // the end card follows
   }
 
-  // ---------------------------------------------------------------- 7. the open range
-  async openRange() {
-    const { ui } = this;
+  // ---------------------------------------------------------------- 7. the Guardians
+  // Seven of them, one on each pillar of their hall, the eldest in the middle. Built when first
+  // needed (each is the scan, its robe and its hair); they only move while Hal is at the hall.
+  addGuardians() {
+    if (this.guardians) return this.guardians;
+    const { oa } = this, halHead = this.headOf(this.player.rig);
+    this.guardians = HALL_PILLARS.map((p, i) => {
+      const g = createGuardian(this.assets.characters.abin, this.mocap, { seed: i === 3 ? 0 : i + 1, hairCount: i === 3 ? 2200 : 1500 });
+      g.root.position.set(p.x, p.top, p.z);
+      g.root.rotation.y = p.yaw;
+      oa.scene.add(g.root);
+      g.anim.lookAt(halHead, 0.45);
+      return g;
+    });
+    this.elder = this.guardians[3];
+    oa.updaters.push((dt) => {
+      if (!this.hallActive) return;
+      for (const g of this.guardians) { g.bl.update(dt); g.anim.update(dt); }
+    });
+    return this.guardians;
+  }
+
+  // Abin Sur on his bier of light, carried home from Earth.
+  addBier() {
+    if (this.bierAbin) return this.bierAbin;
+    const abin = (this.bierAbin = createAbinSur(this.assets.characters.abin));
+    abin.u.uGlow.value = 0.05;
+    abin.u.uTint.value.setScalar(0.85);
+    const anim = new Animator(abin);
+    anim.play(still(LAID_OUT, 0), 0);
+    anim.update(0.016);
+    // on his back across the slab, head to the west
+    const holder = (this.bierHolder = new THREE.Group());
+    holder.position.set(BIER.x, this.oa.hall.slabTop, BIER.z);
+    holder.rotation.y = Math.PI / 2;
+    abin.root.rotation.x = -Math.PI / 2;
+    abin.root.position.set(0, 0.13, 0.98);
+    holder.add(abin.root);
+    this.oa.scene.add(holder);
+    this.oa.updaters.push((dt) => { if (this.hallActive && abin.root.visible) anim.update(dt); });
+    return abin;
+  }
+
+  // A Guardian's line: the speaker's head and hands keep time, the others still.
+  gSay(key, g = this.elder, cues = []) { return this.perform(g.bl, key, cues); }
+
+  // Up at a Guardian on his pillar, from a little below and in front.
+  gClose(g = this.elder, duration = 1.6, side = 0, fov = 27) {
+    const h = g.bonePosition('head', V(0, 0, 0)).add(V(0, 0.08, 0)), yaw = g.root.rotation.y;
+    const f = V(Math.sin(yaw), 0, Math.cos(yaw)), r = V(f.z, 0, -f.x);
+    return this.director.move(h.clone().addScaledVector(f, 1.9).addScaledVector(r, side).add(V(0, -0.45, 0)), h.clone().add(V(0, -0.06, 0)), duration, ease.inOut, fov);
+  }
+  // Hal on the dais, looking up, from in front and below his eyeline
+  halUp(duration = 1.4, side = 0.5) {
+    const c = this.player.position, h = V(c.x, c.y + 1.66, c.z);
+    return this.director.move(h.clone().add(V(side, -0.35, -1.7)), h.clone().add(V(0, 0.08, 0)), duration, ease.inOut, 34);
+  }
+  sinClose(duration = 1.3, side = 1) {
+    const sin = this.sin, h = sin.rig.bonePosition('head', V(0, 0, 0)), f = V(Math.sin(sin.yaw), 0, Math.cos(sin.yaw)), r = V(f.z, 0, -f.x);
+    return this.director.move(h.clone().addScaledVector(f, 2.2).addScaledVector(r, 0.8 * side).add(V(0, -0.15, 0)), h.clone().add(V(0, -0.1, 0)), duration, ease.inOut, 36);
+  }
+
+  // Kilowog sends him; he flies to the hall himself; the Guardians are waiting.
+  async guardiansCall() {
+    const { player, powers, audio } = this;
+    this.takeControl();
+    this.swarm.clear();
+    const sin = this.addSinestro();
+    this.addGuardians();
+    this.addBier();
+    // Sinestro has gone ahead of him: by the bier when Hal comes in
+    sin.disengage?.();
+    sin.object.visible = true;
+    sin.anim.play(sin.standGen, 0);
+    sin.place(SIN_HALL, Math.atan2(HALL.x - SIN_HALL.x, HALL.z - SIN_HALL.z));
+    const kwHead = this.kilowog.bonePosition('head', V(0, 0, 0));
+    player.lookAt(kwHead, 0.9);
+    await this.kwClose(1.4);
+    await this.kwSay('kwGuardians', [['guardians', () => this.kwAnim.gesture('nod', 0.9, 0.6)], ['hall', this.kwPoint(HALL.clone().add(V(0, 10, 0)), 2.2)], ['look bad', 'dismiss']]);
+    player.lookAt(null);
+    audio.ringChime();
+    this.ringGlow = 4;
+    this.ringSay('ringHall');
+    this.giveControl('Fly to the Hall of the Guardians');
+    powers.markerTarget = { pos: HALL.clone().add(V(0, 3, 0)), label: 'The Guardians' };
+    this.hallActive = true;
+    await waitFor(() => Math.hypot(player.position.x - HALL.x, player.position.z - HALL.z) < 8 && player.position.y < HALL.y + 14);
+    powers.markerTarget = null;
+    this.ringGlow = 0.6;
+    await this.landInHall();
+    await this.council();
+  }
+
+  // Onto the dais, facing the pillars: a glide in if he's flying, a walk if he's on his feet.
+  async landInHall() {
+    const { player, powers } = this;
+    this.takeControl();
+    powers.holster();
+    const land = V(HALL.x, DAIS_TOP, HALL.z);
+    if (!player.flying) { await player.walkTo(land, player.walkSpeed); player.turnTo(Math.PI); await wait(0.6); return; }
+    this.playerActive = false;
+    player.flying = false;
+    player.autoAnim = false;
+    const animStop = onFrame((dt) => player.animator.update(dt));
+    const o = player.object, from = o.position.clone(), yaw0 = o.rotation.y;
+    this.director.move(land.clone().add(V(3.2, 1.5, 6.5)), land.clone().add(V(0, 1.2, 0)), 2.0, ease.inOut, 46);
+    await tween(1.8, (k) => {
+      const e = ease.inOut(k);
+      o.position.lerpVectors(from, land, e);
+      o.position.y += Math.sin(k * Math.PI) * 0.6;
+      o.rotation.set(0, yaw0 + wrap(Math.PI - yaw0) * e, 0);
+      player.pivot.quaternion.slerp(new THREE.Quaternion(), 0.12);
+    }, ease.linear);
+    animStop();
+    player.pivot.quaternion.identity();
+    player.place(land, Math.PI);
+    this.playerActive = true;
+    player.animator.play(still(POSES.land, 0.6), 0.1);
+    powers.landFx(6, true);
+    await wait(1.0);
+    player.autoAnim = true;
+    player.animator.play(player.loco, 0.8);
     await wait(0.5);
-    if ((this.sparred || !this.save.load().reached.includes('earth')) && !this.rangeCard) {
-      this.rangeCard = true;
-      const pick = await ui.screen({
-        emblem: true,
-        kicker: 'Part Two · The Corps',
-        title: 'SINESTRO',
-        subtitle: 'To be continued',
-        body: 'Hal has crossed blades with the greatest Lantern of them all and come out standing. Next, the Guardians of the Universe.\n\nUntil then the range is open, and the ring knows the way home.',
-        buttons: ['Keep training', 'Quit to title'],
-      });
-      if (pick === 1) { location.hash = ''; location.reload(); return; }
-    }
+  }
+
+  // Before the Guardians: their judgement, Sinestro's objection, Abin Sur laid to rest, Sector 2814.
+  async council() {
+    const { player, director, audio } = this;
+    const elder = this.elder, sin = this.sin, gs = this.guardians;
+    const elderHead = () => elder.bonePosition('head', _sh3).add(V(0, 0.08, 0));
+    // the hall from behind Hal: the crescent of Guardians, the battery beyond
+    director.cut(HALL.clone().add(V(2.6, 2.4, 6.4)), HALL.clone().add(V(0, 6.2, -10)), 48);
+    director.move(HALL.clone().add(V(1.8, 2.7, 5.2)), HALL.clone().add(V(0, 6.8, -10)), 7, ease.inOut, 44);
+    const choir = audio.pad([98, 146.8, 196, 293.7], 0, { cutoff: 900, fadeIn: 3 });
+    choir.level(0.05, 3);
+    player.lookAt(elderHead, 0.85);
+    sin.bl.lookHome = () => this.headOf(player.rig)();
+    await wait(2.2);
+    await this.gSay('gHall1');
+    await this.gClose(elder, 2.0);
+    await this.gSay('gHall2', elder, [['ring', () => elder.anim.gesture('nod', 1, 0.4)]]);
+    await this.halUp(1.2);
+    await wait(0.4);
+    await this.gClose(gs[1], 1.4, 0.4);
+    await this.gSay('gHall3', gs[1], [['fear', () => gs[1].anim.gesture('chin', 1.1, 0.5)]]);
+    // Sinestro steps in
+    await this.sinClose(1.3);
+    await this.sinSay('sinHall1', [['earned', () => sin.anim.gesture('chin', 1.2, 0.5)], ['nearest', 'dismiss']]);
+    await this.gClose(elder, 1.4, -0.4);
+    await this.gSay('gHall4', elder, [['sinestro', () => elder.anim.gesture('shake', 1.1, 0.35)], ['overcome', () => elder.anim.gesture('nod', 1, 0.4)]]);
+    await this.halUp(1.2, -0.4);
+    player.animator.gesture('beat', 0.5, 0.6);
+    await this.say('halHall1');
+    await this.gClose(elder, 1.3);
+    await this.gSay('gHall5');
+    await this.rite();
+    // the charge
+    await this.gClose(elder, 2.2, 0.2, 28);
+    elder.gu.uHandL.value = 1;
+    elder.bl.play('decree');
+    await this.gSay('gHall6');
+    audio.ringChime();
+    this.ringGlow = 5;
+    this.ringSay('ring2814');
+    await wait(1.6);
+    setTimeout(() => (elder.gu.uHandL.value = 0), 1200);
+    this.ringGlow = 0.6;
+    await this.twoShot(1.4, sin.rig);
+    await this.sinSay('sinHall2', [['watching', () => sin.anim.gesture('chin', 1, 0.5)]]);
+    player.animator.gesture('tilt', 0.8, 0.4);
+    await this.say('halHall2');
+    choir.stop(4);
+    player.lookAt(null);
+  }
+
+  // Abin Sur goes into the light: the Guardians lift their hands, his body sweeps away from the feet
+  // up, and the light that was him rises from the bier and streams away toward the Central Battery.
+  async rite() {
+    const { director, audio, oa } = this;
+    const abin = this.bierAbin, gs = this.guardians;
+    const top = this.oa.hall.slabTop;
+    // from the far side of the bier from Sinestro: Abin Sur, the Guardians' hands raised above
+    director.cut(BIER.clone().add(V(-3.9, 1.7, 3.3)), BIER.clone().add(V(0, 1.6, -2)), 46);
+    await wait(0.6);
+    for (const g of gs) { g.gu.uHandL.value = 1; g.bl.play('decree'); }
+    setTimeout(() => { for (const g of gs) g.gu.uHandL.value = 0; }, 3600);
+    audio.riser(5, 0.35);
+    const hum = audio.pad([196, 246.9, 293.7, 392], 0, { cutoff: 1600, fadeIn: 2 });
+    hum.level(0.06, 2);
+    await wait(1.0);
+    const motes = new Particles(1600, { additive: true, drag: 0.15, turbulence: 0.6 });
+    oa.scene.add(motes.points);
+    const toBattery = BATTERY.clone().sub(BIER).normalize();
+    const stopMotes = onFrame((dt, t) => motes.update(dt, t, this.engine.camera, this.engine.renderer));
+    abin.u.uDissolveOn.value = 1;
+    abin.u.uDissolveSign.value = 1;
+    abin.u.uEdgeColor.value.setRGB(0.6, 4, 1.6);
+    this.gSay('gRite');
+    director.move(BIER.clone().add(V(-2.6, 1.35, 2.5)), BIER.clone().add(V(0, 1.15, 0)), 6, ease.inOut, 42);
+    await tween(6, (k) => {
+      abin.u.uDissolve.value = -0.05 + k * 1.15;
+      // motes rise from where the light is taking him, feet to head
+      const front = BIER.x + 0.98 - 1.96 * THREE.MathUtils.clamp((k * 1.15 - 0.15) / 0.75, 0, 1);
+      motes.emit(6, (p, v) => {
+        p[0] = front + (Math.random() - 0.5) * 0.3; p[1] = top + 0.1 + Math.random() * 0.22; p[2] = BIER.z + (Math.random() - 0.5) * 0.45;
+        v[0] = toBattery.x * 0.5 + (Math.random() - 0.5) * 0.3; v[1] = 1.1 + Math.random() * 1.2; v[2] = toBattery.z * 0.5 + (Math.random() - 0.5) * 0.3;
+      }, { life: 3.5, size: [0.09, 0.02], color: [[0.7, 3.2, 1.5, 1], [0.15, 1.2, 0.5, 0]] });
+    }, ease.linear);
+    abin.root.visible = false;
+    // the light he was, gathering and going home
+    // the stream going away over the pillars toward the battery's glow
+    director.move(BIER.clone().add(V(-1.2, 1.8, 6.5)), BIER.clone().add(toBattery.clone().multiplyScalar(40)).setY(top + 14), 4, ease.inOut, 50);
+    await tween(4, (k) => {
+      motes.emit(10, (p, v) => {
+        p[0] = BIER.x + (Math.random() - 0.5) * 1.6; p[1] = top + Math.random() * 0.4; p[2] = BIER.z + (Math.random() - 0.5) * 0.5;
+        const sp = 4 + Math.random() * 4;
+        v[0] = toBattery.x * sp * 0.6; v[1] = sp; v[2] = toBattery.z * sp * 0.6;
+      }, { life: 5, size: [0.12, 0.03], color: [[0.7, 3.4, 1.6, 1 - k * 0.6], [0.1, 1, 0.4, 0]] });
+    }, ease.linear);
+    hum.stop(4);
+    await this.sinClose(1.2, -1);
+    this.sin.anim.gesture('nod', 1.6, 0.9); // a bow of the head
+    await this.sinSay('sinFarewell');
+    await wait(0.8);
+    setTimeout(() => { stopMotes(); motes.points.removeFromParent(); }, 6000);
+  }
+
+  // ---------------------------------------------------------------- 8. home
+  // Up out of the hall and the jump; the voyage home; Coast City before dawn, still raining: in at
+  // his bedroom window, the suit gone, asleep. Then the end of Part Two.
+  async homeward() {
+    const { powers } = this;
+    this.travel = 'home';
+    this.ringSay('ringHome');
+    this.giveControl('Fly up and make the jump home');
+    powers.markerTarget = { pos: HALL.clone().add(V(0, 40, 0)), label: 'Climb' };
+    await waitFor(() => this.travelReady());
+    powers.markerTarget = null;
+    await new Promise((resolve) => (this.onJump = resolve));
+    this.travel = null;
+    this.hallActive = false;
+    this.pocketLantern();
+    await voyage(this, { from: 'oa', to: 'earth' });
+    await this.backThroughWindow();
+    const pick = await this.ui.screen({
+      emblem: true,
+      kicker: 'Part Two · The Corps',
+      title: 'SECTOR 2814',
+      subtitle: 'Part Two complete',
+      body: 'Hal Jordan is a Green Lantern of the Corps, sworn to guard Sector 2814.\n\nHe also has a job, a landlord, and a test flight at nine.',
+      buttons: ['Part Three: Coast City', 'Free flight (Oa and Earth)', 'Quit to title'],
+      stack: true,
+    });
+    if (pick === 0) CoastSave.resumeAfterReload(CoastSave.first);
+    else if (pick === 1) this.save.resumeAfterReload('earth');
+    else { location.hash = ''; location.reload(); }
+    await new Promise(() => {});
+  }
+
+  // His bedroom at a quarter past four: a green glow at the rain-streaked window, the curtains
+  // thrown back, and he is standing in the room. The suit sweeps away into his clothes; he makes it
+  // to the bed.
+  async backThroughWindow() {
+    const { ui, player, director, audio, engine } = this;
+    const grade = engine.gradeUniforms;
+    this.powers.detach();
+    this.hud.show(false);
+    const room = this.setupBedroom();
+    this.world = 'earth';
+    room.setClock('4:16');
+    ui.clock('4:16 AM');
+    ui.objective(null);
+    this.takeControl();
+    // Hal is still in the suit; casual Hal (this.hal) waits under it for the dissolve
+    const at = V(1.55, 0, -0.35);
+    player.spawn(room.physics, room.scene, at, -Math.PI / 2);
+    player.setRig(this.suit);
+    this.attachRing(this.ring, this.suit);
+    this.playerActive = true;
+    player.autoAnim = false;
+    player.animator.play(still(POSES.land, 0.4), 0);
+    player.object.visible = false;
+    director.cut(V(-1.2, 1.45, 1.2), V(2.2, 1.3, -0.45), 48);
+    tween(0.6, (k) => (grade.uFlash.value = 1 - k));
+    // the green light outside the glass, the curtains blown in
+    for (const c of room.curtains) { c.wind.set(-2.2, 0.5, 0); c.gust = 0.9; }
+    audio.whoosh(1.6, 0.4);
+    await tween(1.0, (k) => { room.greenFill.intensity = 30 * Math.sin(k * Math.PI * 0.5); room.glassU.uGreen.value = k; });
+    player.object.visible = true;
+    audio.land(0.25);
+    await tween(1.4, (k) => { room.greenFill.intensity = 30 * (1 - k) + 2; room.glassU.uGreen.value = 1 - k; });
+    for (const c of room.curtains) { c.wind.set(0, 0, 0); c.gust = 0.15; }
+    player.animator.play(still(POSES.stand, 1), 0.8);
+    await wait(0.6);
+    // the suit goes: his clothes sweep back in over him
+    director.move(V(0.2, 1.4, 0.6), at.clone().add(V(0, 1.2, 0)), 2.5, ease.inOut, 42);
+    const suit = this.suit, hal = this.hal;
+    player.mount(hal);
+    player.animator.addRig(hal);
+    hal.u.uDissolveOn.value = 1; hal.u.uDissolveSign.value = -1;
+    suit.u.uDissolveOn.value = 1; suit.u.uDissolveSign.value = 1;
+    audio.dissolve();
+    audio.whoosh(2, 0.3);
+    await tween(2.6, (k) => { hal.u.uDissolve.value = -0.1 + k * 1.25; suit.u.uDissolve.value = -0.1 + k * 1.25; room.greenFill.intensity = 2 * (1 - k); }, ease.inOut);
+    hal.u.uDissolveOn.value = 0;
+    suit.u.uDissolveOn.value = 0;
+    suit.u.uDissolve.value = 0;
+    this.ring.removeFromParent();
+    player.setRig(hal);
+    this.attachRing(this.ring, hal);
+    this.powers.suited = false;
+    player.setTired(0.6);
+    player.speedScale = 1;
+    player.animator.play(player.loco, 0.6);
+    player.autoAnim = true;
+    await this.say('halBack');
+    // to the bed, and out like a light
+    director.move(V(-1.9, 1.6, 1.6), V(-0.6, 0.7, -0.6), 3, ease.inOut, 50);
+    await player.walkTo(V(-0.2, 0, -0.75), 1.0);
+    await ui.fade(1, 1.0);
+    audio.tick();
+    this.putInBed(0.3);
+    room.setClock('4:19');
+    ui.clock('4:19 AM');
+    director.cut(V(-1.95, 1.62, 1.75), V(-0.2, 0.85, -1.0), 58);
+    await ui.fade(0, 1.6);
+    director.move(V(-1.75, 1.55, 1.35), V(-0.4, 0.8, -1.1), 6, ease.inOut);
+    await wait(3.5);
+    await ui.fade(1, 2);
+  }
+
+  // ---------------------------------------------------------------- 9. the open range
+  async openRange() {
+    await wait(0.5);
     this.giveControl('Train on the range');
     const fresh = !this.save.load().worlds.includes('earth');
     this.chartWorlds(['earth', 'oa']);
@@ -596,7 +917,7 @@ export class Corps extends Story {
     } }));
   }
 
-  // ---------------------------------------------------------------- 8. home: back on Earth
+  // ---------------------------------------------------------------- 10. back on Earth (free flight)
   async home() {
     this.travel = 'chart';
     this.giveControl('Home: Sector 2814');
@@ -619,14 +940,14 @@ export class Corps extends Story {
     const ready = this.travelReady();
     if (ready !== this.jumpPrompt) {
       this.jumpPrompt = ready;
-      this.ui.prompt(ready ? 'E' : null, ready ? (this.travel === 'oa' ? 'Make the jump to Oa' : 'Enter hyperspace') : null);
+      this.ui.prompt(ready ? 'E' : null, ready ? ({ oa: 'Make the jump to Oa', home: 'Make the jump home' }[this.travel] ?? 'Enter hyperspace') : null);
     }
     if (ready) {
       if (this.input.hit('KeyE')) {
         this.input.consume('KeyE'); // or the star map would take this press as its confirm
         this.jumpPrompt = false;
         this.ui.prompt();
-        if (this.travel === 'oa') { this.onJump?.(); this.onJump = null; } else this.openChart();
+        if (this.travel === 'oa' || this.travel === 'home') { this.onJump?.(); this.onJump = null; } else this.openChart();
       }
       return;
     }
@@ -705,4 +1026,4 @@ export class Corps extends Story {
     if (first || !this.toldAbin) { this.toldAbin = true; await wait(3); this.ringSay('ringAbin'); }
   }
 }
-const _sh = new THREE.Vector3(), _sh2 = new THREE.Vector3();
+const _sh = new THREE.Vector3(), _sh2 = new THREE.Vector3(), _sh3 = new THREE.Vector3();

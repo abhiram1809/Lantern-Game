@@ -38,6 +38,10 @@ export const RIG_DEFAULTS = {
   hipX: null,       // hip joints' distance from the centre line (× H); null = 0.95 × the centroid
                     // of the thigh tops (pulled inward by a dense crotch)
   knee: 0.285,      // knee height (× H)
+  armLo: 0.2,       // the arm axis is fitted to vertices from this far out (× H)...
+  armTipIn: 0.12,   // ...to this far short of the fingertips (× H)...
+  armMinY: 0.35,    // ...and above this height (× H). An A-pose's hands don't reach far out, so the
+                    // T-pose band is nearly empty there; narrow it in and raise it clear of the hips
 };
 
 export function autoRig(pos, idx, H, opts = {}) {
@@ -128,11 +132,11 @@ export function autoRig(pos, idx, H, opts = {}) {
       const v = V(i);
       if (v[1] > 0.3 * H && s * v[0] > bx) { bx = s * v[0]; tip = v; }
     }
-    const lo = 0.2 * H, hi = s * tip[0] - 0.12 * H;
+    const lo = o.armLo * H, hi = s * tip[0] - o.armTipIn * H;
     const pts = [];
     for (let i = 0; i < n; i++) {
       const v = V(i);
-      if (s * v[0] > lo && s * v[0] < hi && v[1] > 0.35 * H) pts.push(v);
+      if (s * v[0] > lo && s * v[0] < hi && v[1] > o.armMinY * H) pts.push(v);
     }
     const mean = mul(pts.reduce((a, p) => add(a, p), [0, 0, 0]), 1 / pts.length);
     const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];

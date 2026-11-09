@@ -9,6 +9,9 @@ const PROFILES = {
   ring: { prefer: ['Karen', 'Moira', 'Samantha', 'Google UK English Female', 'Microsoft Hazel', 'Microsoft Zira'], rate: 1.05, pitch: 0.55 },
   guardian: { prefer: ['Daniel', 'Arthur', 'Google UK English Male', 'Microsoft George', 'Fred'], rate: 0.76, pitch: 0.62 },
   sinestro: { prefer: ['Arthur', 'Daniel', 'Oliver', 'Google UK English Male', 'Microsoft George'], rate: 0.88, pitch: 0.72 },
+  carol: { prefer: ['Samantha', 'Allison', 'Ava', 'Susan', 'Google US English', 'Microsoft Aria', 'Microsoft Zira'], rate: 1.0, pitch: 1.05 },
+  tom: { prefer: ['Alex', 'Tom', 'Evan', 'Google US English', 'Microsoft Guy'], rate: 1.12, pitch: 1.1 },
+  landlord: { prefer: ['Ralph', 'Fred', 'Bruce', 'Google UK English Male', 'Microsoft David'], rate: 0.95, pitch: 0.7 },
 };
 
 export class Voice {

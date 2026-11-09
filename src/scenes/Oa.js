@@ -4,6 +4,7 @@ import { NOISE_GLSL } from '../fx/Sky.js';
 import { glowTexture } from '../fx/Textures.js';
 import { Particles } from '../fx/Particles.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { buildHall } from './Hall.js';
 
 // Oa: Kilowog's training ground, a disc of dark stone with the Corps' hex lines inlaid in light,
 // floating high above the city. The Central Power Battery, a lantern hundreds of metres tall,
@@ -58,6 +59,7 @@ export class Oa {
     this.buildBattery();
     this.buildTraffic();
     this.buildProps();
+    this.hall = buildHall(this);
 
     this.hemi = new THREE.HemisphereLight(0x7088a0, 0x12161a, 0.6);
     s.add(this.hemi);
@@ -507,8 +509,11 @@ export class Oa {
     }
   }
 
-  ground(x, z) { return Math.hypot(x, z) < RANGE_RADIUS + 0.4 ? 0 : -400; }
-  canLand(x, z) { return Math.hypot(x, z) < RANGE_RADIUS - 0.8; }
+  // the range's deck, or the Guardians' hall
+  ground(x, z) { return Math.hypot(x, z) < RANGE_RADIUS + 0.4 ? 0 : this.hall.ground(x, z) ?? -400; }
+  canLand(x, z) { return Math.hypot(x, z) < RANGE_RADIUS - 0.8 || this.hall.canLand(x, z); }
+  // the lowest Hal may fly: the deck, the hall's floor, or well down among the towers
+  floor(x, z) { return Math.hypot(x, z) < RANGE_RADIUS + 0.4 ? 0 : this.hall.ground(x, z) ?? -60; }
 
   interact(def) {
     const it = { radius: 1.4, key: 'E', enabled: true, ...def };

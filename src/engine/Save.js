@@ -13,9 +13,10 @@ export const CHECKPOINTS = [
   { id: 'free', label: 'Green Lantern', clock: '10:20 PM' },
 ];
 
-// Part Two, "The Corps": the summons at the lake, the flight to Oa, Kilowog's range. Oa keeps no
-// Earth time, so the clock shows the sector. `earth` is only reached by travelling home from the
-// range (the star map); after that, travel moves the checkpoint between `range` and `earth`.
+// Part Two, "The Corps": the summons at the lake, the flight to Oa, Kilowog's range, Sinestro, the
+// Guardians, and home. Oa keeps no Earth time, so the clock shows the place. The story runs to
+// `homeward` and ends there (Part Three follows); `range` and `earth` are free flight (Oa and Earth,
+// the star map between them), reached from the end card or by travelling.
 export const CORPS_CHECKPOINTS = [
   { id: 'summons', label: 'The summons', clock: '10:31 PM' },
   { id: 'voyage', label: 'Hyperluminal', clock: 'DEEP SPACE' },
@@ -23,8 +24,20 @@ export const CORPS_CHECKPOINTS = [
   { id: 'livefire', label: 'Live fire', clock: 'OA · SECTOR 0' },
   { id: 'sinestro', label: 'Sinestro', clock: 'OA · SECTOR 0' },
   { id: 'duel', label: 'Sparring', clock: 'OA · SECTOR 0' },
+  { id: 'guardians', label: 'The Guardians', clock: 'OA · THE CITADEL' },
+  { id: 'homeward', label: 'Sector 2814', clock: 'OA · THE CITADEL' },
   { id: 'range', label: 'The training ground', clock: 'OA · SECTOR 0' },
   { id: 'earth', label: 'Home: Sector 2814', clock: '11:48 PM' },
+];
+
+// Part Three, "Coast City": the morning after, on Earth. Hal overslept the test flight he flew
+// home from Oa to make; rent is late; the drive out to Ferris Aircraft, where Carol fires him.
+export const COAST_CHECKPOINTS = [
+  { id: 'morning', label: 'The morning after', clock: '9:41 AM' },
+  { id: 'drive', label: 'Running late', clock: '9:58 AM' },
+  { id: 'ferris', label: 'Ferris Aircraft', clock: '10:23 AM' },
+  { id: 'carol', label: 'Carol', clock: '10:26 AM' },
+  { id: 'after', label: 'Out of work', clock: '10:44 AM' },
 ];
 
 function readCookie(key) {
@@ -103,13 +116,14 @@ const RESUME = 'gl_resume';
 
 export const Save = createSave({ part: 'awakening', key: 'gl_awakening_v1', checkpoints: CHECKPOINTS, label: 'Part One · Awakening', first: 'home' });
 export const CorpsSave = createSave({ part: 'corps', key: 'gl_corps_v1', checkpoints: CORPS_CHECKPOINTS, label: 'Part Two · The Corps', first: 'summons' });
-export const PARTS = { awakening: Save, corps: CorpsSave };
+export const CoastSave = createSave({ part: 'coast', key: 'gl_coast_v1', checkpoints: COAST_CHECKPOINTS, label: 'Part Three · Coast City', first: 'morning' });
+export const PARTS = { awakening: Save, corps: CorpsSave, coast: CoastSave };
 
 export const checkpointIndex = Save.index;
 export const checkpointInfo = Save.info;
 
 // Which part a checkpoint id belongs to (ids are unique across parts).
-export const partOf = (id) => (CorpsSave.index(id) >= 0 ? 'corps' : 'awakening');
+export const partOf = (id) => (CorpsSave.index(id) >= 0 ? 'corps' : CoastSave.index(id) >= 0 ? 'coast' : 'awakening');
 
 // The pending restart after a reload, if any: { part, id }.
 export function takeResume() {
@@ -123,6 +137,6 @@ export function takeResume() {
 }
 
 // Constructs unlocked in any part (they carry over).
-export const allUnlocks = () => [...new Set([...Save.load().unlocks, ...CorpsSave.load().unlocks])];
+export const allUnlocks = () => [...new Set(Object.values(PARTS).flatMap((p) => p.load().unlocks))];
 // Planets charted for travel in any part.
-export const allWorlds = () => [...new Set([...Save.load().worlds, ...CorpsSave.load().worlds])];
+export const allWorlds = () => [...new Set(Object.values(PARTS).flatMap((p) => p.load().worlds))];

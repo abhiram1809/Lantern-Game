@@ -137,6 +137,28 @@ export class Story {
   }
 
   say(key, extra) { return this.ui.say({ ...LINES[key], ...extra }); }
+
+  // A line performed by a character's BodyLanguage: beats of the head throughout, and gestures cued
+  // to words (from the voice's word boundaries, or the line's pace when the voice is silent).
+  // `cues` are [word, gesture name or function].
+  async perform(body, key, cues = [], extra = {}) {
+    const text = LINES[key].text.toLowerCase();
+    const at = cues.map(([word, name]) => ({ i: Math.max(0, text.indexOf(word.toLowerCase())), name, done: false }));
+    const fire = (c) => {
+      if (c.done) return;
+      c.done = true;
+      if (typeof c.name === 'function') c.name(); else body.play(c.name);
+    };
+    let heard = false, t = 0;
+    const stop = onFrame((dt) => { t += dt; if (!heard) for (const c of at) if (t >= 0.15 + c.i / 14) fire(c); });
+    body.talk(true);
+    try {
+      await this.say(key, { ...extra, onWord: (ci) => { heard = true; for (const c of at) if (ci >= c.i) fire(c); } });
+    } finally {
+      stop();
+      body.talk(false);
+    }
+  }
   async lines(...keys) { for (const k of keys) await this.say(k); }
   // A line Hal says while the player keeps control (clicks and Space don't skip it).
   bark(key) { return this.say(key, { skip: false }); }

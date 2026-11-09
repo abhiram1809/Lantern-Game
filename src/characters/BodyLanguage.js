@@ -39,9 +39,10 @@ const _a = new THREE.Vector3();
 
 export class BodyLanguage {
   // `gestures` / `stances` replace Kilowog's library for another character (then `scale` is usually
-  // 1, the library written in that character's own metres).
-  constructor(rig, animator, { lookHome = null, gestures = GESTURES, stances = STANCES, scale = rig.restPos.head.y / 2.1, reach = 0.62 } = {}) {
-    Object.assign(this, { rig, anim: animator, lookHome, gestures, stances, scale, reach });
+  // 1, the library written in that character's own metres). `shift` is the pair of stances an idle
+  // fidget swaps between (null: never).
+  constructor(rig, animator, { lookHome = null, gestures = GESTURES, stances = STANCES, scale = rig.restPos.head.y / 2.1, reach = 0.62, shift = ['hips', null] } = {}) {
+    Object.assign(this, { rig, anim: animator, lookHome, gestures, stances, scale, reach, shift });
     this.stanceName = null;
     this.active = null;
     this.talking = false;
@@ -147,7 +148,7 @@ export class BodyLanguage {
     this.idleT = 4 + Math.random() * 5;
     const r = Math.random();
     if (r < 0.28) this.anim.gesture('tilt', 1.1, (Math.random() < 0.5 ? -1 : 1) * 0.45);
-    else if (r < 0.5) this.stance(this.stanceName === 'hips' ? null : 'hips');
+    else if (r < 0.5 && this.shift) this.stance(this.stanceName === this.shift[0] ? this.shift[1] : this.shift[0]);
     else if (r < 0.78 && this.lookHome) {
       // a glance off to one side and back
       const side = Math.random() < 0.5 ? -1 : 1;

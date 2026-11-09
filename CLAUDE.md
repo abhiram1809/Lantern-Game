@@ -37,10 +37,11 @@ Small tweaks such as a colour value, a timing nudge or a typo don't need an entr
 ## What this is
 
 A browser story game in Three.js about Hal Jordan becoming Green Lantern. **Part One,
-"Awakening"**, is complete and playable. **Part Two, "The Corps"** has its first slice: the
-Guardians' summons at the lake, the flight across the universe to Oa, Kilowog's range (target
-drones, the Gatling, a live-fire drill), Sinestro (the sword, a sparring duel), and hyperspace
-travel between Oa and Earth. Part Three (Coast City) is planned.
+"Awakening"**, and **Part Two, "The Corps"**, are complete and playable: Part Two runs from the
+Guardians' summons at the lake, across the universe to Oa, through Kilowog's range and Sinestro's
+sparring, to the Guardians' hall and home before dawn, with hyperspace travel between Oa and Earth
+as free flight afterwards. **Part Three, "Coast City"**, has its first slice: the morning after on
+Earth (late, broke, fired by Carol Ferris).
 
 The story of Part One:
 
@@ -74,12 +75,33 @@ Part Two so far (`src/story/Corps.js`):
    on four target drones.
 7. **Sparring:** a duel with Sinestro, flying, until he calls it at 35% ("Fearless is not the same
    as wise").
-8. **The range:** an end card ("to be continued: the Guardians"), then free training, and the ring's
-   hyperspace routes between Oa and Earth (the star chart: E high in flight). Kilowog starts
-   another round on request. Back on Earth the Corps has taken Abin Sur's body home.
+8. **The Guardians** (`scenes/Hall.js`, `characters/Guardian.js`): Kilowog sends Hal to their hall;
+   he flies there himself. Seven Guardians on pillars round the dais, Sinestro by Abin Sur's bier;
+   the council (Sinestro objects, Hal won't give the ring back), Abin Sur's body dissolving into
+   light that streams to the Central Battery, and Sector 2814 given to Hal.
+9. **Home:** up out of the hall and E; the short voyage; his bedroom at 4:16 AM, still raining: a
+   green flash at the window, the suit sweeping back into his clothes, bed. Part Two's end card
+   offers Part Three or free flight.
+10. **Free flight** (`range`, `earth`): the range (Kilowog starts another round on request) and the
+   lake, with the ring's hyperspace routes between them (the star chart: E high in flight).
+
+Part Three so far (`src/story/Coast.js`), a civilian morning (the ring stays on, its powers off):
+
+1. **The morning after** (the apartment by day, `Bedroom.build({ morning: true })`): 9:41 AM, the
+   phone buzzing; he sits up, sees the clock, plays four voicemails on speaker (the landlord Sal
+   Delgado, Tom Kalmaku twice, Carol). Free roam: the fridge (it opens), the bills, the photo, the
+   window, a rent notice under the front door; leave by the front door.
+2. **Running late** (`scenes/Ferris.js`): his car (procedural, `buildCar`) takes three tries to
+   start behind his building; the desert road; the gate; the staff lot.
+3. **Ferris Aircraft:** on foot between the hangars to the apron, where the prototype stands.
+4. **Carol** (her own Tripo scan): she fires him for the missed Air Force test.
+5. **Out of work:** Hal on the back of his car; the end card ("to be continued").
 
 The ring recharges continuously on Oa (the Central Battery is in range); the lantern can still be
 set down there.
+
+The user chose Part Three's beats (2026-11-10): Carol fires him for **missing the test** (he was on
+Oa all night), he gets there in **his old car** (three tries to start), and they made Carol in Tripo.
 Stack:
 
 - `three` r0.187 (WebGLRenderer plus EffectComposer)
@@ -114,7 +136,10 @@ No audio files are shipped: everything is synthesised with WebAudio, and voices 
     moving on; they push for improvements until it meets the scans' bar. For Sinestro they gave
     a comic reference and said to match it **facially, not the suit**; they picked out the eyes,
     the front view and the nose. Keep tall review sheets short: very tall images preview with
-    colour banding.
+    colour banding. The Guardian (2026-11-10) was accepted on the first pass shown ("good enough,
+    move on"), after several internal passes (robe shape, hair cards).
+  - A woman can't be derived from the male scans at the scans' bar: say so up front and ask for a
+    Tripo model (Carol, 2026-11-10). Their sheets may hold two figures (Kilowog, Carol): `keepSide`.
 - **File hand-off:** macOS blocks reads of `~/Downloads`. Ask the user to copy files into the
   project folder. Files they "copy" sometimes land in `~/Documents` instead.
 - **The user often runs their own dev server on port 5173.** Never kill it. Run your own on 5180
@@ -181,7 +206,9 @@ and reference videos. The built outputs in `public/` are what the game loads.
 | `assets/raw/hal_b.glb` | **Suited Hal**, built as `hal_lantern.glb`. The user calls it "the perfect one". |
 | `assets/raw/Abin.glb` | **Abin Sur** (the user's model), built as `abin_sur.glb` |
 | `assets/raw/Kilowog.glb` | **Kilowog** (the user's model, 2026-11-09), built as `kilowog.glb`. Two figures side by side; the z > 0 one is kept (`keepSide: 1`). |
+| `assets/raw/Carol.glb` | **Carol Ferris** (the user's model, 2026-11-10), built as `carol.glb`. Two figures side by side (`keepSide: 1`), A-pose, a shoulder bag. |
 | (none) | **Sinestro** has no file: `createSinestro()` derives him at runtime from `abin_sur.glb` with a shader layer (see *Characters*). |
+| (none) | **The Guardians** have no file either: `createGuardian()` (`characters/Guardian.js`) derives them from `abin_sur.glb`. |
 | `assets/raw/hal_a.glb` | Old casual scan: two figures, poor face. Unused; see the commented entry in `build-assets.mjs`. |
 | `assets/raw/gemini_generated_video_93604faf.mp4` | Hyperluminal space flight: radial streaks, "ORBITAL APPROACH" HUD. **The Hyperspace scene is styled after it.** |
 | `assets/raw/gemini_generated_video_6bbb1091.mp4` | Reference for a **later part**: the suited Lantern flying over a neon night city, fighting red-eyed mechs with constructs (minigun, hex shield); combat HUD with minimap, health, ammo and damage numbers. |
@@ -196,6 +223,7 @@ Model build settings (`MODELS` in `tools/build-assets.mjs`):
 | Suited Hal | 90k | 1.83 m |
 | Abin Sur | 90k | 1.96 m |
 | Kilowog | 90k | 2.4 m |
+| Carol | 90k | 1.7 m |
 
 Every model faces +Z (`facing: 1`) and has WebP textures.
 
@@ -262,9 +290,9 @@ interactions. Each chapter is an `async` method that awaits waits, tweens, dialo
 player's actions.
 
 **Parts:** `Story` is Part One *and* the shared plumbing. Part Two's `Corps` (`src/story/Corps.js`)
-extends it and overrides `get save()` (its own store), `steps()` (checkpoint id → method) and
-`prepare(id)`. Everything else (powers, HUD, pause, dialogue, barks, collapse, interactions) is
-inherited. A later part should do the same.
+and Part Three's `Coast` (`src/story/Coast.js`) extend it and override `get save()` (their own
+store), `steps()` (checkpoint id → method) and `prepare(id)`. Everything else (powers, HUD, pause,
+dialogue, barks, `perform`, collapse, interactions) is inherited. `main.js` picks the class by part.
 
 **Checkpoints:**
 
@@ -277,8 +305,12 @@ inherited. A later part should do the same.
   `ringTraining()`, and `explore()`. It saves a checkpoint (`this.checkpoint(id)`) before each
   step. Part Two's are `summons` → `summons()`, `voyage` → `flyToOa()`, `oa` → `targets()` (the
   landing and the drones), `livefire` → `liveFire()`, `sinestro` → `sinestroArrives()`, `duel` →
-  `duel()`, `range` → `openRange()`, `earth` → `home()`.
-  The free-roam steps never resolve; travel saves `range` or `earth` itself on arrival.
+  `duel()`, `guardians` → `guardiansCall()` (the flight to the hall, `council()`, `rite()`),
+  `homeward` → `homeward()` (the jump, the voyage, `backThroughWindow()`, the end card), `range` →
+  `openRange()`, `earth` → `home()`. Part Three's are `morning` → `morning()`, `drive` → `drive()`,
+  `ferris` → `ferris()`, `carol` → `carolScene()`, `after` → `after()`.
+  The free-roam steps never resolve; travel saves `range` or `earth` itself on arrival. Part Two's
+  linear run ends at `homeward`'s end card (Part Three, free flight via `earth`, or the title).
 - `prepare(id)` rebuilds the world state a step expects when the game is resumed from it: which
   scene, where the player is, whether Hal is in bed, ring on, Abin dead, suit on, ring charge
   (12% at `lantern`), and `empower()` (constructs unlocked, HUD up, 100%) at `powers` and `free`;
@@ -330,7 +362,10 @@ the wheel). `travelTo(id)` → `voyage()` → `arriveOa()` / `arriveEarth()`, wh
     voice's time-based fallback can hold a step for several seconds).
   - `who: 'guardian'` (style `light`) is the Guardians speaking through the ring.
   - `ui.say({ onWord })` reports the voice's word boundaries (`Voice.speak(text, who, onWord)`);
-    Kilowog's gestures are cued from them (see *Characters*).
+    `Story.perform(body, key, cues)` plays a line on a `BodyLanguage` (head beats, gestures cued to
+    words). Kilowog, Sinestro, the Guardians and Carol all speak through it.
+  - `style: 'phone'` is a voicemail on speaker (grey, quoted; `name` carries the caller and time).
+    Part Three's ring lines go through `say` with `{ name: 'The ring' }` (its HUD readout is off).
 - **Alien speech:** `toGlyphs()` in `UI.js` is a fixed letter-to-glyph cipher, so the "translation"
   is a literal decode (`ui.decode(english)`). `audio.alienVoice()` gives it a formant-buzz voice.
 - **Interactables:** register them with
@@ -343,9 +378,10 @@ the wheel). `travelTo(id)` → `voyage()` → `arriveOa()` / `arriveEarth()`, wh
 ### Save (`src/engine/Save.js`)
 
 Each part has its own store, made by `createSave({ part, key, checkpoints, label, first })`:
-`Save` (Part One, key `gl_awakening_v1`) and `CorpsSave` (Part Two, `gl_corps_v1`). Each is kept
+`Save` (Part One, key `gl_awakening_v1`), `CorpsSave` (Part Two, `gl_corps_v1`) and `CoastSave`
+(Part Three, `gl_coast_v1`, `COAST_CHECKPOINTS`). Each is kept
 in `localStorage` with a cookie mirror (1 year, SameSite=Lax) for when storage is blocked. Settings
-(voices) always live in Part One's store. `allUnlocks()` merges both parts' `unlocks`, so
+(voices) always live in Part One's store. `allUnlocks()` / `allWorlds()` merge every part's lists, so
 constructs learned anywhere carry over. The pending restart is `gl_resume` in sessionStorage.
 `PARTS`, `partOf(id)` and `takeResume()` serve the title flow. A store's shape:
 
@@ -375,6 +411,10 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
   - A blanket that is a height field draping over Hal's body.
   - `BED` holds the bed's bounds.
   - `buildJet()` is also used in the dream.
+  - A kitchenette at the hallway's dead end (both versions): a fridge whose door opens
+    (`openFridge(open, tween)`, with its light), a counter, the week's pizza boxes.
+  - `build({ morning: true })` (Part Three): the morning sky through the window, the sun as the
+    window light, no rain on the glass (`glassU.uRain`, `uDay`), the lamp off, brighter fill.
 - **`Dream.js`:** the sepia airfield at sunset, from eight-year-old Hal's eye level. Martin waves
   (mocap idle plus arm IK), then the jet goes down.
 - **`Hyperspace.js`:** the transit, styled after the 93604faf video. Light streaks stretch with
@@ -429,7 +469,23 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
     in front of the lens washes the citadel.
   - The sky (`buildSky`) draws a ringed gas giant analytically (it's beyond the far plane), with
     nebula and stars. Lanterns cross the sky as particle trails (`buildTraffic`).
-  - `ground(x, z)`, `canLand(x, z)`, `interact()`.
+  - `ground(x, z)`, `canLand(x, z)`, `floor(x, z)` (flight's lowest height), `interact()`; all of
+    them include the Guardians' hall.
+- **`Hall.js`:** the Hall of the Guardians, built into the Oa scene (`oa.hall`) on a tower at
+  `HALL` (-62, 3, -150), between the range and the battery, so it shows from the range and Hal
+  flies there. A floor disc of polished stone with lit rings and rays; a crescent of seven pillars
+  on the battery side (`HALL_PILLARS`: radius 10.8, 5.9–7.2 m, the eldest's in the middle), a
+  Guardian's platform on each; the dais (`DAIS_TOP`); Abin Sur's bier (`BIER`, dark stone, lit
+  edge); a great ring hanging over it; a spotlight on the Guardians. Colliders are hull prisms and
+  boxes. Flight on Oa is bounded by a 200 m radius round (-30, 0, -70) to include it.
+- **`Ferris.js`:** Ferris Aircraft by day (Part Three), the dream's airfield twenty years on:
+  runway (z -150), taxiway, the apron with the prototype (`JET_SPOT`, `buildPrototype()`: a lofted
+  chined fuselage, canopy, twin canted fins), three corrugated hangars with their doors open
+  (Hangar Two lit, a second airframe inside), tower, office, staff lot (`CAR_SPOT`), gate (`GATE`),
+  fence, power poles, the access road south, mesas on the horizon, scrub, a desert floor shaded
+  from world-space noise. `LOT` (6 km down the road, out of sight) is the lot behind Hal's building.
+  `buildCar()` is his car (faded red, primer door; `userData.seat`, `wheels`, `exhaust`).
+  `focus(at)` moves the sun's shadow box onto the action; the sky dome follows the camera.
 
 ### Drones (`src/enemies/Drones.js`)
 
@@ -590,7 +646,10 @@ Multi-primitive meshes are supported: all primitives are rigged together and eac
 merged over `RIG_DEFAULTS` in `autorig.mjs` (the defaults are the original constants, so the
 other models build byte-identically). Kilowog uses it: fixed neck, jaw-line, shoulder, hip and
 knee landmarks, a thicker arm radius, a head fill limited to surface connected to the face, and a
-"neck column" that keeps the armour collar on the chest. `keepSide` picks one figure from a
+"neck column" that keeps the armour collar on the chest. Carol uses `neckMid: 0.86` (her long hair
+hides the neck: the narrowest slice landed at her mouth, and her chin went to the chest) and the
+A-pose arm band `armLo` / `armTipIn` / `armMinY` (the T-pose band was nearly empty, so the arm axis
+fit was garbage and her arms stretched to the floor). `keepSide` picks one figure from a
 two-figure sheet.
 
 **`autoRig(pos, idx, H)`** builds a 17-bone humanoid. The bones are `BONE_ORDER` in
@@ -660,6 +719,10 @@ Layers are applied every frame, in this order:
    and bends the other knee.
 
 `animator.armSpread` (radians) swings both upper arms out from the body before the IK layers.
+
+`BodyLanguage` options: `gestures` / `stances` (a character's own library, `scale: 1` in its own
+metres), `reach`, and `shift`, the pair of stances an idle fidget swaps between (Kilowog's default
+`['hips', null]`; Sinestro `['behind', 'oneBehind']`; null never: the Guardians, Carol).
 Kilowog uses 0.17 so his hands clear his thigh armour.
 
 `animator.lean.yaw` turns the chest (spine and chest, about the body's up axis) for gestures that
@@ -758,6 +821,31 @@ crash site. `player.surface` picks the footstep sound.
   - `hideBone`
   - `roughMin`, a roughness floor. Casual Hal uses 0.62 so his skin doesn't look like wax.
 - `createKilowog(gltf)` (glow 0.6: his eyes and emblem are green in the texture).
+- `createCarol(gltf)`: her scan's normal map is broken over the skin (pale rims round the face,
+  white flecks on the lips, whichever way the green channel is read), so skin-coloured texels use
+  the surface normal; hair and clothes keep the map.
+- **The Guardians** (`characters/Guardian.js`, `createGuardian(abinGltf, mocap, { seed, hairCount })`),
+  from Abin Sur's scan, approved by the user on the first pass shown:
+  - Vertex stage (bind space, like Sinestro): the skull swollen into a dome above the brow (radial
+    push from the skull centre, a lift, a widening), the fringe's mass pushed out (`gThick`), then
+    the whole head scaled 1.58× about the neck (`uPivot`); the figure scaled 0.62 (about 1.4 m).
+  - Fragment: blue skin from the scan's luminance, paler up the dome; dark eyes painted into the
+    slits; the fringe (a band round the back of the head from a rounded point at each temple,
+    `gBand`) painted white with combed grooves in the normal; white brows; everything below the
+    neck discarded except the hands (`vKeep`, from the skin weights), the robe covering it.
+  - Hair cards (`characters/HairCards.js`, `growHair(mesh, opts)`): ribbons of alpha-cut strands
+    grown from the scalp's triangles inside a mask, combed along a direction field, kept between
+    `lift` and `lift + hug` off the drawn surface by a nearest-vertex search (a 1 cm grid), skinned
+    to the head; radial normals so the mass shades as a volume. The fringe and the brows are cards.
+  - The robe (`characters/Robe.js`, `buildRobe(rig)`): built *in the pose they stand in* (the mocap
+    idle plus the `sleeves` stance, run for 2.5 s first) from the CPU-skinned scan: a gown from
+    convex hulls of the torso's slices (an A-line from the chest, a bell from the hips), a yoke
+    arcing off the neck over the shoulders, full sleeves from rounded shoulder caps to bell cuffs
+    that hang, the high collar; skinned with a second `THREE.Skeleton` on the same bones whose
+    inverses are that pose. Procedural weave, trim, the Corps emblem on the chest.
+  - Body language: `GUARDIAN_STANCES.sleeves` (each hand in the other's sleeve; the hands are hidden
+    while `uHandL` / `uHandR` are 0) and `GUARDIAN_GESTURES.decree` / `release` (set the hand's
+    uniform to 1 first, so it comes out of the sleeve). `seed` varies the fringe, dome and skin.
 - `createSinestro(abinGltf)`: Sinestro derived from Abin Sur's scan, matched facially to a comic
   reference the user chose. A shader layer over `patchMaterial`, worked in the bind pose's object
   space from the scan's front profile (chin 1.665, mouth 1.72, nose 1.75–1.79, brow ridge 1.83,
@@ -829,6 +917,11 @@ The checks that have worked:
    - The canvas capture has no HUD (it's DOM): use a pane screenshot for the HUD.
    - Part Two: `__game.story.travelTo('earth' | 'oa')` from `#range` or `#earth` runs a trip;
      `__game.story.kw.play('chest')` / `.pointAt(v)` plays one of Kilowog's gestures.
+   - **The test tab pauses itself** once the player has control (no pointer lock there), so lines
+     and tweens only move while you step `engine.advance()`; don't `await` a story promise without
+     stepping, or the script hangs. To fly for real: `player.takeOff()`, then hold `Space`.
+   - **A pending restart beats the URL hash**: `takeResume()` (sessionStorage `gl_resume`) is read
+     first. If `#id` lands somewhere else, `sessionStorage.clear()` and reload.
 6. **Check faces in close-up** for anything that touches skinning, look-at or poses. Also check
    the moments the user will look at: the keys table, sitting up facing the light, Abin's hand,
    and the ring on the finger.
@@ -841,6 +934,19 @@ The checks that have worked:
 
 ## Gotchas (learned the hard way)
 
+- **A collider kilometres across lets the character controller sink in** (Ferris's 16 km ground
+  box: Hal stood 0.27 m deep and a scripted walk never arrived). Keep walked-on colliders to the
+  area walked on.
+- **Hair cards need the real surface, not a spherical lookup.** Binning the scalp by direction
+  left most bins empty, and filling them from neighbours threw strands metres off the head (and an
+  ear's max radius fanned the hair out). Search the nearest vertex (a spatial grid) and keep each
+  strand between two heights along its normal.
+- **A robe built in the bind pose fits nothing.** Build garments around the posed body (CPU-skin
+  the scan with `getVertexPosition`) and bind them with their own `Skeleton` of the same bones.
+  What the robe hides of the scan is discarded in its shader, so the robe needn't follow the
+  scan's shapes (Abin Sur's shoulder armour would have made the Guardians boxy).
+- **Tripo sheets can hold two figures** (Kilowog, Carol): bounds like 0.13 × 0.59 × 0.98 with
+  the long axis z are two figures side by side, not a Z-up scan. Preview with `tools/preview.mjs`.
 - **One key press can be read twice.** The E that opened the star chart was still in `pressed` when
   the chart updated the same frame, so it confirmed a destination at once. `input.consume()` a key
   when it opens another interface.
@@ -916,6 +1022,21 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-10, the Guardians, home, Part Three) in fixed-step captures: the Guardian model in
+  close-up (front, three-quarter, profile, back, full body; the user approved it); the hall from
+  the range, from above and inside; Kilowog's send-off, the trigger at the hall and the landing on
+  the dais; the whole council with its cameras (the elder and a side Guardian close, Hal looking
+  up, Sinestro), the rite (raised hands, Abin Sur dissolving feet to head, motes rising), the
+  charge, Sinestro's farewell, to `homeward`; the jump with real flight input (take off, climb,
+  the "Make the jump home" prompt, E into the voyage); the bedroom at 4:16 (the flash, the suit
+  dissolving into his clothes, the walk to bed); the title screen with three parts. Part Three:
+  the morning (sitting up, the clock, the phone held up through four voicemails, standing up,
+  control), the fridge, the notice, the front door; the drive (three starts, the bay, the road,
+  the verge shot, the gate, parking, getting out); the walk's trigger; Carol in daylight (her
+  scan after the rig and normal-map fixes: idle, walk, head turns, close-ups) and the whole
+  firing with its gestures and her walking away; the ending and end card. Part One's apartment
+  still plays (with the new kitchenette). A clean `vite build`. Synthetic input, voices off.
+
 - (2026-11-09, Sinestro) the model reviewed with the user through six passes in close-up (front,
   three-quarter, profile, back, eyes), matched facially to their reference; his arrival (the
   streak in, the landing, hands behind his back, his lines and gestures, the sword demo); the
@@ -973,6 +1094,14 @@ Verified by playing in the browser:
 
 Not verified:
 
+- any of the new voices and sounds (car engine, starter, phone buzz, birds, traffic, fridge, the
+  Guardians' hall)
+- Part Three walked through with a real mouse and keys from start to end; the morning's optional
+  looks (photo, window, mail) were only listed, not all played
+- frame rate in the hall (seven Guardians: scan, robe and hair cards each) and at Ferris (shadows,
+  the long ground plane)
+- Carol at the voice's real pace (her gestures were cued on the 14 chars/s fallback)
+
 - audio and voices (never listened to), including every new power sound and the ring voice
 - the wheel's virtual cursor with a real pointer-locked mouse (tested with synthetic events)
 - a single uninterrupted start-to-finish playthrough
@@ -1009,11 +1138,15 @@ Not verified:
     the suit scan and a Guardian from Abin's, both to be judged in close-up; Kilowog most likely
     needs a Tripo model (non-human head and build).
   - Each part gets its own save section or key (see *Save*), carrying `unlocks` over.
-- **Next for Part Two** (the plan the user said to go ahead with, 2026-11-09): Sinestro is done;
-  next the Guardians (a Guardian derived from Abin Sur's scan, judged in close-up with the user;
-  Abin Sur laid to rest on Oa; Hal sworn in); then a mission that charts Korugar or Ysmault on the
-  star map and unlocks a construct; then Part Three, Coast City. Earlier ideas still open: burying
-  Abin Sur at the lake, the empty prisoner tank (Atrocitus).
+- **Next** (the plan the user approved, 2026-11-09; the Guardians and Part Three's opening are
+  done): a mission that charts Korugar or Ysmault on the star map and unlocks a construct; then
+  the rest of Part Three, Coast City (the neon night city and the Manhunters, Atrocitus behind
+  them). Earlier ideas still open: burying Abin Sur at the lake, the empty prisoner tank.
+- Part Three: Tom Kalmaku, the landlord and the Air Force people are voices only (no models);
+  Ferris's hangars and tower are plain from up close; the prototype is procedural; Hal's car has
+  no door animation (he appears beside it). Carol's face keeps faint highlights at the brows (her
+  scan's normal map). The ring's powers are off for the civilian morning (no flying to work).
+- The Guardians all share one face (Abin Sur's); their hands only come out for `decree`.
 - Sinestro's front view could still improve (the user's note); his face shape is Abin Sur's skull
   narrowed, his hair is painted volume with no loose strands, and a faint seam can show on the
   crown in extreme close-up.
@@ -1041,17 +1174,18 @@ src/engine/                 Engine (renderer + post), Input, Physics (Rapier), C
                             (follow / shot / orbit / shake), Time (game-time waits + tweens),
                             Audio (WebAudio synth), Voice (speech), Save (checkpoints)
 src/characters/             Rig + Animator, IK, Mocap, Poses, Player (walk + flight), Characters,
-                            BodyLanguage (Kilowog's talking gestures)
+                            BodyLanguage (talking gestures), Guardian + Robe + HairCards (the Guardians)
 src/powers/                 RingPowers (charge, health, wheel, aim, constructs incl. the sword, flight fx),
                             Constructs (list, shaders, fist / shield / wall / gatling / sword geometry, Blade)
-src/scenes/                 Bedroom (+ hallway, buildJet), Dream, Hyperspace, CrashSite, Oa (Part Two),
-                            Space (Earth and Oa from orbit)
+src/scenes/                 Bedroom (+ hallway, kitchenette, buildJet; night or morning), Dream, Hyperspace,
+                            CrashSite, Oa (Part Two) + Hall (the Guardians' hall), Space (Earth and Oa
+                            from orbit), Ferris (Part Three: the airfield, the road, buildCar, buildPrototype)
 src/enemies/                Drones (training drones: model, spring flight, AI, bolts, breakup), Sinestro
                             (the sparring opponent: flight, blade, spikes, guard, slam)
 src/fx/                     Sky, Particles + Fire, Water, Trees, GreenLight, Cloth, Textures, Rift
                             (pocket dimension), EarthMap (continent outlines, city-light density)
 src/story/                  Story (Part One + shared plumbing, the lantern), Corps (Part Two, travel),
-                            Voyage (flights between worlds), lines (all dialogue)
+                            Coast (Part Three), Voyage (flights between worlds), lines (all dialogue)
 src/ui/UI.js                HUD, subtitles, glyph cipher + decode, choice, cards, pause, toasts
 src/ui/PowerHud.js          vitals, ring charge, armed construct, ring readout, reticle, marker,
                             training panel, target bracket, damage numbers, construct wheel
@@ -1065,6 +1199,26 @@ public/models, public/anims built GLBs loaded at runtime; public/textures/poster
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-10: the Guardians, home before dawn, Part Three's morning and the firing
+- **The Guardians** (`characters/Guardian.js`, `Robe.js`, `HairCards.js`, new): derived from Abin
+  Sur's scan; reviewed internally over eight passes (a stiff robe, then a sack, then sleeves; the
+  hair from a painted patch to cards; strands floating off the head), shown once and approved.
+- **The hall and the council** (`scenes/Hall.js`, new; `Corps.js` `guardiansCall`, `council`,
+  `rite`): the flight to the hall, the judgement, Abin Sur laid to rest, Sector 2814.
+- **Home** (`Corps.homeward`, `backThroughWindow`): the jump, the voyage, the bedroom at 4:16, the
+  suit dissolving into his clothes; Part Two's end card. Checkpoints `guardians`, `homeward`; the
+  range's old end card is gone (`range` / `earth` are free flight).
+- **Part Three** (`story/Coast.js`, `scenes/Ferris.js`, new; `CoastSave`; `main.js`): the morning
+  after (`Bedroom` morning variant and kitchenette, phone, mail, notice), the car and the drive,
+  Ferris Aircraft, Carol and the firing, the end card. The user chose the beats.
+- **Carol** (the user's Tripo scan): `build-assets.mjs` entry (`keepSide`, `neckMid`, A-pose arm
+  band), new `autorig.mjs` options `armLo`, `armTipIn`, `armMinY` (defaults unchanged), and
+  `createCarol` (skin without the broken normal map).
+- Also: `Story.perform` (moved from Corps), `BodyLanguage` `shift`, new sounds (`engine`,
+  `starter`, `carDoor`, `buzz`, `voicemail`, `paper`, `fridge`, `traffic`, `birdsong`), voices
+  `carol`, `tom`, `landlord`, the `phone` subtitle style, sky presets `morning` and `desert`.
+- Verified: see Status (2026-11-10). Not verified: audio, a real-input playthrough, frame rate.
 
 ### 2026-11-09: Sinestro, the sword and the sparring duel
 - **Sinestro's model** (`createSinestro` in `Characters.js`): derived from Abin Sur's scan with a

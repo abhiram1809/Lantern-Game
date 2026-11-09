@@ -56,6 +56,10 @@ body.powers #subtitle { max-width: min(760px, 56vw); }
 #subtitle.alien .text { font-family: var(--glyph-font); font-size: clamp(22px, 2.1vw, 32px); letter-spacing: 0.12em; }
 #subtitle.light .text { color: #c8ffd9; font-family: var(--title-font); font-weight: 300; letter-spacing: 0.14em; text-shadow: 0 0 14px rgba(93, 255, 149, 0.8); }
 #subtitle.thought .text { font-style: italic; color: var(--ink-dim); }
+/* a voicemail on speaker: a phone's grey, the caller and time as the label */
+#subtitle.phone .speaker { color: #b9c2cc; }
+#subtitle.phone .text { color: #dfe4ea; font-weight: 400; }
+#subtitle.phone .text::before { content: '“'; } #subtitle.phone .text::after { content: '”'; }
 #subtitle .text .g { font-family: var(--glyph-font); color: #c8ffd9; }
 #subtitle .more { display: inline-block; margin-left: 8px; color: var(--green); animation: blink 1s infinite; }
 @keyframes blink { 50% { opacity: 0.2; } }

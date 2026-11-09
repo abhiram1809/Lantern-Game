@@ -12,6 +12,9 @@ export const NOISE_GLSL = /* glsl */ `
 const PRESETS = {
   storm: { top: 0x05070c, horizon: 0x1a2130, bottom: 0x040506, sun: 0x9fb4d8, sunDir: [0.4, 0.5, -0.8], sunSize: 0.0004, glow: 0.25, cloud: 0.75, cloudColor: 0x0b0e14, cloudLit: 0x35405a, stars: 0.0 },
   night: { top: 0x04070d, horizon: 0x1b2433, bottom: 0x05070a, sun: 0xdfe8ff, sunDir: [-0.25, 0.55, -0.8], sunSize: 0.0009, glow: 0.6, cloud: 0.58, cloudColor: 0x0c1018, cloudLit: 0x6d7a94, stars: 1.0 },
+  // a clear morning after the storm (the apartment), and the desert at mid-morning (Ferris Aircraft)
+  morning: { top: 0x3d72b6, horizon: 0xcbdcea, bottom: 0x7d847c, sun: 0xfff0d2, sunDir: [0.8, 0.32, -0.3], sunSize: 0.0016, glow: 1.1, cloud: 0.32, cloudColor: 0xc4cfdc, cloudLit: 0xffffff, stars: 0.0 },
+  desert: { top: 0x2c66b0, horizon: 0xd9e2e6, bottom: 0xb59a7a, sun: 0xfff6e4, sunDir: [-0.35, 0.72, -0.5], sunSize: 0.0012, glow: 0.8, cloud: 0.16, cloudColor: 0xdde5ee, cloudLit: 0xffffff, stars: 0.0 },
   sunset: { top: 0x3a5d8a, horizon: 0xffb070, bottom: 0x6b4a32, sun: 0xffd6a0, sunDir: [0.0, 0.08, -1], sunSize: 0.002, glow: 2.2, cloud: 0.35, cloudColor: 0xd08a6a, cloudLit: 0xffe0b0, stars: 0.0 },
 };
 

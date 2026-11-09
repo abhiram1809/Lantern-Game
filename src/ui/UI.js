@@ -10,7 +10,7 @@ export const toGlyphs = (s) => [...s].map((c) => {
 const randomGlyph = () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-const SPEAKERS = { hal: 'Hal Jordan', abin: 'Abin Sur', light: '', dad: 'Martin Jordan', kid: 'Young Hal', thought: '', kilowog: 'Kilowog', sinestro: 'Sinestro', guardian: 'The Guardians' };
+const SPEAKERS = { hal: 'Hal Jordan', abin: 'Abin Sur', light: '', dad: 'Martin Jordan', kid: 'Young Hal', thought: '', kilowog: 'Kilowog', sinestro: 'Sinestro', guardian: 'The Guardians', carol: 'Carol Ferris', tom: 'Tom Kalmaku', landlord: 'Sal Delgado' };
 const ADVANCE = ['Space', 'Enter', 'Click', 'KeyE'];
 
 export class UI {

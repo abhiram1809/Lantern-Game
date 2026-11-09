@@ -27,13 +27,16 @@ export class Bedroom {
     this.bodyCapsules = null; // set by the story while Hal is in bed
   }
 
-  build() {
+  // `morning`: the morning after the storm (Part Three): sun through the window, no rain, the lamp off.
+  build({ morning = false } = {}) {
     const s = this.scene;
-    s.fog = new THREE.FogExp2(0x05070a, 0.012);
+    this.morning = morning;
+    s.fog = morning ? new THREE.FogExp2(0xbac9d6, 0.005) : new THREE.FogExp2(0x05070a, 0.012);
     s.environment = this.engine.envMap;
-    s.environmentIntensity = 0.12;
+    s.environmentIntensity = morning ? 0.32 : 0.12;
     this.materials();
     this.buildShell();
+    this.buildKitchen();
     this.buildFurniture();
     this.buildWindow();
     this.buildProps();
@@ -150,6 +153,59 @@ export class Bedroom {
       pic.rotation.y = Math.PI;
       frame.add(pic);
     }
+  }
+
+  // The kitchenette at the hallway's dead end: a fridge whose door opens (`openFridge`), a counter
+  // with a coffee maker and the week's pizza boxes.
+  buildKitchen() {
+    const { m } = this;
+    const enamel = new THREE.MeshStandardMaterial({ color: 0xe6e1d4, roughness: 0.32, metalness: 0.05 });
+    const fx = 0.8, fz = HALL.z1 - 0.33, fw = 0.7, fd = 0.62, fh = 1.72;
+    this.add(box(fw, fh, fd - 0.04, enamel, 0.02), fx, fh / 2, fz + 0.02, { collide: true });
+    // the doors (fridge below, freezer above), hinged on the east side
+    const hinge = (this.fridgeHinge = new THREE.Group());
+    hinge.position.set(fx + fw / 2, 0, fz - fd / 2 + 0.02);
+    this.scene.add(hinge);
+    this.add(box(fw - 0.01, 1.2, 0.045, enamel, 0.015), -fw / 2, 0.62, -0.02, { parent: hinge });
+    this.add(box(0.025, 0.4, 0.03, m.metal), -fw + 0.06, 0.95, -0.06, { parent: hinge });
+    this.add(box(fw - 0.01, 0.48, 0.045, enamel, 0.015), fx, 1.47, fz - fd / 2);
+    this.add(box(0.025, 0.2, 0.03, m.metal), fx - fw / 2 + 0.06, 1.42, fz - fd / 2 - 0.04);
+    // inside: a light, a shelf, and next to nothing on it
+    const inside = new THREE.MeshStandardMaterial({ color: 0xf2f0ea, roughness: 0.5, side: THREE.BackSide });
+    this.add(box(fw - 0.08, 1.1, fd - 0.12, inside), fx, 0.62, fz + 0.04, { shadow: false });
+    this.add(box(fw - 0.1, 0.012, fd - 0.14, new THREE.MeshStandardMaterial({ color: 0xdfe8ec, transparent: true, opacity: 0.6, roughness: 0.1 })), fx, 0.62, fz + 0.04);
+    this.add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.032, 0.17, 14), new THREE.MeshStandardMaterial({ color: 0xa3150f, roughness: 0.35 })), fx - 0.16, 0.71, fz + 0.06);
+    const lemon = this.add(new THREE.Mesh(new THREE.SphereGeometry(0.035, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xe0c23a, roughness: 0.6 })), fx + 0.08, 0.627, fz + 0.1);
+    lemon.rotation.x = Math.PI;
+    lemon.position.y = 0.66;
+    this.add(box(0.07, 0.19, 0.07, new THREE.MeshStandardMaterial({ color: 0xf4f4ef, roughness: 0.7 })), fx + 0.17, 0.25, fz + 0.12);
+    this.fridgeLight = new THREE.PointLight(0xfff2dc, 0, 1.6, 2);
+    this.fridgeLight.position.set(fx, 1.0, fz - 0.1);
+    this.scene.add(this.fridgeLight);
+    // a takeout menu and a photo held on with magnets
+    this.add(box(0.16, 0.22, 0.004, new THREE.MeshStandardMaterial({ color: 0xe8d9b0, roughness: 0.9 })), -0.25, 1.0, -0.047, { parent: hinge, shadow: false });
+    this.add(box(0.1, 0.07, 0.004, new THREE.MeshStandardMaterial({ map: photoTexture(), roughness: 0.4 })), -0.5, 0.82, -0.047, { parent: hinge, shadow: false });
+    // the counter
+    const cx = -0.08, cw = 1.0, cd = 0.58;
+    this.add(box(cw, 0.86, cd, m.darkWood), cx, 0.43, HALL.z1 - cd / 2, { collide: true });
+    this.add(box(cw + 0.03, 0.04, cd + 0.03, new THREE.MeshStandardMaterial({ color: 0xcfc6b0, roughness: 0.45 })), cx, 0.88, HALL.z1 - cd / 2);
+    for (const x of [cx - 0.25, cx + 0.25]) this.add(box(0.008, 0.6, 0.01, m.black), x, 0.45, HALL.z1 - cd - 0.003);
+    const maker = new THREE.Group();
+    this.add(box(0.18, 0.3, 0.2, m.black, 0.02), 0, 0.15, 0, { parent: maker });
+    this.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.12, 16), new THREE.MeshStandardMaterial({ color: 0x2a1a10, transparent: true, opacity: 0.75, roughness: 0.1 })), 0, 0.08, 0.07, { parent: maker });
+    maker.position.set(cx + 0.3, 0.9, HALL.z1 - 0.3);
+    this.scene.add(maker);
+    const pizza = new THREE.MeshStandardMaterial({ color: 0xc7a879, roughness: 0.9 });
+    for (let i = 0; i < 3; i++) {
+      const b = this.add(box(0.36, 0.04, 0.36, pizza), cx - 0.22, 0.92 + i * 0.041, HALL.z1 - 0.3);
+      b.rotation.y = (i - 1) * 0.12;
+    }
+  }
+
+  // Open (or close) the fridge door; its light comes on.
+  async openFridge(open = true, tweenFn) {
+    const from = this.fridgeHinge.rotation.y, to = open ? 1.6 : 0;
+    await tweenFn(0.7, (k) => { this.fridgeHinge.rotation.y = from + (to - from) * k; this.fridgeLight.intensity = (open ? k : 1 - k) * 1.2; });
   }
 
   buildFurniture() {
@@ -324,12 +380,12 @@ export class Bedroom {
     }
     this.add(box(0.2, 0.04, ww + 0.16, m.trim), x - 0.06, WINDOW.y0 - 0.03, zc);
     // Rain-streaked glass
-    this.glassU = { uTime: { value: 0 }, uFlash: { value: 0 }, uGreen: { value: 0 } };
+    this.glassU = { uTime: { value: 0 }, uFlash: { value: 0 }, uGreen: { value: 0 }, uRain: { value: this.morning ? 0 : 1 }, uDay: { value: this.morning ? 1 : 0 } };
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(ww, wh), new THREE.ShaderMaterial({
       uniforms: this.glassU, transparent: true, depthWrite: false,
       vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
       fragmentShader: /* glsl */ `
-        uniform float uTime, uFlash, uGreen; varying vec2 vUv;
+        uniform float uTime, uFlash, uGreen, uRain, uDay; varying vec2 vUv;
         float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5); }
         void main() {
           vec2 uv = vUv * vec2(26.0, 9.0);
@@ -337,8 +393,11 @@ export class Bedroom {
           vec2 f = fract(uv + vec2(0.0, uTime * (0.2 + r * 0.6) + r));
           float drop = smoothstep(0.12, 0.0, length((f - vec2(0.5, 0.3)) * vec2(1.0, 2.2))) * step(0.55, r);
           float streak = smoothstep(0.08, 0.0, abs(f.x - 0.5)) * smoothstep(0.3, 0.9, f.y) * step(0.7, r) * 0.5;
-          float a = 0.05 + (drop + streak) * 0.5;
+          float a = 0.05 + (drop + streak) * 0.5 * uRain;
           vec3 c = mix(vec3(0.45, 0.55, 0.7), vec3(0.4, 1.4, 0.7), uGreen) * (0.25 + uFlash * 2.0 + uGreen * 1.5);
+          // by day: a faint sheen, a few dried spots
+          c = mix(c, vec3(0.85, 0.9, 0.95), uDay * 0.6);
+          a = mix(a, 0.035 + step(0.93, r) * smoothstep(0.1, 0.0, length(f - 0.5)) * 0.12, uDay);
           gl_FragColor = vec4(c, a);
         }`,
     }));
@@ -406,12 +465,12 @@ export class Bedroom {
     this.dust.emit(220, (p, v) => {
       p[0] = -1.5 + Math.random() * 3.5; p[1] = 0.3 + Math.random() * 2; p[2] = -1.9 + Math.random() * 3.5;
       v[0] = (Math.random() - 0.5) * 0.02; v[1] = (Math.random() - 0.5) * 0.01; v[2] = (Math.random() - 0.5) * 0.02;
-    }, { life: 1e6, size: [0.008, 0.008], color: [[0.7, 0.62, 0.5, 0.22], [0.7, 0.62, 0.5, 0.22]] });
+    }, { life: 1e6, size: [0.008, 0.008], color: this.morning ? [[1.2, 1.05, 0.85, 0.35], [1.2, 1.05, 0.85, 0.35]] : [[0.7, 0.62, 0.5, 0.22], [0.7, 0.62, 0.5, 0.22]] });
   }
 
   buildLights() {
-    const s = this.scene;
-    this.hemi = new THREE.HemisphereLight(0x6a7a99, 0x1a1410, 0.1);
+    const s = this.scene, day = this.morning;
+    this.hemi = day ? new THREE.HemisphereLight(0xc4d6ea, 0x3c3024, 0.55) : new THREE.HemisphereLight(0x6a7a99, 0x1a1410, 0.1);
     s.add(this.hemi);
     // desk lamp
     const spot = new THREE.SpotLight(0xffb26a, 6, 9, 1.05, 0.65, 2);
@@ -426,8 +485,8 @@ export class Bedroom {
     this.lampFill = new THREE.PointLight(0xffa860, 0.7, 6, 2);
     this.lampFill.position.set(0.8, 1.6, -1.2);
     s.add(this.lampFill);
-    // moonlight through the window
-    const moon = new THREE.DirectionalLight(0x8ea8dd, 0.9);
+    // moonlight through the window (by day, the low morning sun)
+    const moon = day ? new THREE.DirectionalLight(0xffdcb0, 3.2) : new THREE.DirectionalLight(0x8ea8dd, 0.9);
     moon.position.set(9, 6.5, -2.5);
     moon.target.position.set(0, 0, -0.4);
     moon.castShadow = true;
@@ -447,6 +506,21 @@ export class Bedroom {
     s.add(fixture);
     this.hallLight = hall;
     // the green light floods in from here
+    if (day) {
+      // the lamp and hallway light off; daylight bounced in off the walls
+      spot.intensity = 0;
+      this.lampFill.intensity = 0;
+      this.lamp.bulb.material.color.setRGB(0.3, 0.25, 0.2);
+      hall.intensity = 0.25;
+      fixture.material.color.setRGB(0.9, 0.85, 0.8);
+      const bounce = new THREE.PointLight(0xffe6c8, 1.4, 6, 2);
+      bounce.position.set(0.6, 1.3, -0.4);
+      s.add(bounce);
+      const hallDay = new THREE.PointLight(0xdfe6ee, 0.9, 6, 2);
+      hallDay.position.set(-2.4, 2.0, 2.8);
+      s.add(hallDay);
+      this.clockLight.intensity = 0.15;
+    }
     this.greenFill = new THREE.PointLight(0x55ff88, 0, 14, 1.6);
     this.greenFill.position.set(2.6, 1.6, -0.35);
     s.add(this.greenFill);
@@ -454,9 +528,9 @@ export class Bedroom {
 
   buildOutside() {
     const s = this.scene;
-    this.sky = createSky('storm');
+    this.sky = createSky(this.morning ? 'morning' : 'storm');
     s.add(this.sky);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x070a07, roughness: 1 }));
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: this.morning ? 0x46553a : 0x070a07, roughness: 1 }));
     ground.position.set(0, -2.5, 0);
     ground.receiveShadow = true;
     s.add(ground);
