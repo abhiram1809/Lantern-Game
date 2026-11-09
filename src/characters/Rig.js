@@ -33,6 +33,21 @@ function blendQPose(out, a, b, t) {
   for (let k = 0; k < 3; k++) out.hp[k] = a.hp[k] + (b.hp[k] - a.hp[k]) * t;
 }
 
+// Eigen-decomposition of a symmetric 3x3 matrix by Jacobi rotations: [values, unit vectors].
+function eigen3(A) {
+  const a = A.map((r) => [...r]), v = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  for (let sweep = 0; sweep < 24; sweep++) {
+    for (const [p, q] of [[0, 1], [0, 2], [1, 2]]) {
+      if (Math.abs(a[p][q]) < 1e-12) continue;
+      const th = 0.5 * Math.atan2(2 * a[p][q], a[q][q] - a[p][p]), c = Math.cos(th), s = Math.sin(th);
+      for (let k = 0; k < 3; k++) { const x = a[k][p], y = a[k][q]; a[k][p] = c * x - s * y; a[k][q] = s * x + c * y; }
+      for (let k = 0; k < 3; k++) { const x = a[p][k], y = a[q][k]; a[p][k] = c * x - s * y; a[q][k] = s * x + c * y; }
+      for (let k = 0; k < 3; k++) { const x = v[k][p], y = v[k][q]; v[k][p] = c * x - s * y; v[k][q] = s * x + c * y; }
+    }
+  }
+  return [[a[0][0], a[1][1], a[2][2]], [0, 1, 2].map((i) => new THREE.Vector3(v[0][i], v[1][i], v[2][i]))];
+}
+
 // Wraps an auto-rigged skeleton. Poses can come from flat parameters (`apply`, aims arms by
 // direction so it works on T- and A-pose scans) or from quaternion poses (`applyQ`, mocap).
 export class Rig {
@@ -68,6 +83,40 @@ export class Rig {
   }
 
   get material() { return this.meshes[0].material; }
+
+  // The palm, measured from the mesh in the hand bone's own frame (cached), for setting a held prop
+  // flat in the hand (the scans have no finger bones): `centre`, `normal` (out of the palm),
+  // `along` (wrist to fingertips), `thick` (the hand's thickness). A principal-axis fit of the
+  // vertices the hand bone carries: the shortest axis runs through the hand (a spread thumb makes
+  // the longest one diagonal, so `along` is the wrist to the hand's centre, in the palm's plane).
+  // The palm is the side that faces down in the bind pose (both scans stand palms down).
+  palm(side) {
+    this._palm ??= {};
+    if (this._palm[side]) return this._palm[side];
+    const bone = this.bones[`hand_${side}`], pts = [], down = new THREE.Vector3(0, -1, 0);
+    for (const m of this.meshes) {
+      const bi = m.skeleton.bones.indexOf(bone);
+      if (bi < 0) continue;
+      const g = m.geometry, P = g.attributes.position, SI = g.attributes.skinIndex, SW = g.attributes.skinWeight;
+      const toBone = new THREE.Matrix4().multiplyMatrices(m.skeleton.boneInverses[bi], m.bindMatrix);
+      if (!pts.length) down.transformDirection(toBone); // the bind pose's down, in the bone's frame
+      for (let i = 0; i < P.count; i++) {
+        let w = 0;
+        for (let k = 0; k < 4; k++) if (SI.getComponent(i, k) === bi) w += SW.getComponent(i, k);
+        if (w > 0.6) pts.push(new THREE.Vector3().fromBufferAttribute(P, i).applyMatrix4(toBone));
+      }
+    }
+    const centre = pts.reduce((a, p) => a.add(p), new THREE.Vector3()).multiplyScalar(1 / pts.length);
+    const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (const p of pts) { const d = [p.x - centre.x, p.y - centre.y, p.z - centre.z]; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) C[i][j] += d[i] * d[j]; }
+    const [vals, vecs] = eigen3(C);
+    const order = [0, 1, 2].sort((i, j) => vals[j] - vals[i]);
+    const normal = vecs[order[2]], along = centre.clone().normalize();
+    if (normal.dot(down) < 0) normal.negate();
+    let lo = Infinity, hi = -Infinity;
+    for (const p of pts) { const h = p.clone().sub(centre).dot(normal); lo = Math.min(lo, h); hi = Math.max(hi, h); }
+    return (this._palm[side] = { centre, normal, along: along.sub(normal.clone().multiplyScalar(along.dot(normal))).normalize(), thick: hi - lo, surface: hi });
+  }
 
   apply(p) {
     const b = this.bones, r = this.rest;
@@ -132,6 +181,7 @@ export class Animator {
     this.fade = 1;
     this.fadeTime = 0.4;
     this.overlay = null; // (paramPose, t, dt) => void, for param generators
+    this.post = null; // (rig, dt) => void, after every layer (a held prop's wrist, say)
     this.breath = 0; // the param poses and the mocap clips carry their own breathing
     this.lean = { pitch: 0, roll: 0, yaw: 0 }; // yaw turns the chest (a gesture following a hand)
     this.twist = 0; // radians the hips (so the legs) turn toward the travel while strafing; the chest turns back
@@ -261,6 +311,7 @@ export class Animator {
       solveTwoBone(b[`upperArm_${side}`], b[`foreArm_${side}`], b[`hand_${side}`], target, pole, arm.w, arm.keepHand);
     }
     this.applyFeet(rig, dt, primary);
+    this.post?.(rig, dt);
   }
 
   applyLook(rig, dt, primary) {

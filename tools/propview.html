@@ -1,0 +1,74 @@
+<!doctype html>
+<!-- Dev-only prop viewer: /tools/propview.html?src=/shots/props/car.glb
+     Renders a model from several angles into one sheet and lists its parts, for judging downloaded
+     assets in close-up before they go in the game. window.view(src, opts) renders another; with
+     the dev server's /__shot middleware, window.save(name) writes the sheet to SHOT_DIR. -->
+<html>
+<head><meta charset="utf-8"><title>Prop viewer</title>
+<style>body { margin: 0; background: #1c1c1e; color: #ccc; font: 12px monospace; } canvas { display: block; } pre { margin: 8px; white-space: pre-wrap; }</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<pre id="info"></pre>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const W = 480, H = 360, COLS = 3;
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2a2b2e);
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(3, 6, 4);
+scene.add(sun, new THREE.HemisphereLight(0xdde6ff, 0x554433, 0.6));
+const loader = new GLTFLoader();
+let current = null;
+
+// views: [yaw, pitch, zoom] about the model's centre (yaw 0 looks at its front, +Z)
+const VIEWS = [[0.6, 0.25, 1], [0, 0.05, 1], [Math.PI / 2, 0.05, 1], [Math.PI, 0.2, 1], [-2.3, 0.45, 1], [0.9, 0.15, 0.45]];
+
+window.view = async (src, { views = VIEWS, focus = null, hide = null, yaw = 0 } = {}) => {
+  if (current) scene.remove(current);
+  const gltf = await loader.loadAsync(src);
+  current = gltf.scene;
+  current.rotation.y = yaw;
+  scene.add(current);
+  current.updateMatrixWorld(true);
+  const lines = [];
+  current.traverse((o) => {
+    if (hide && hide.test(o.name)) o.visible = false;
+    if (!o.isMesh) return;
+    const b = new THREE.Box3().setFromObject(o), s = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+    const m = Array.isArray(o.material) ? o.material[0] : o.material;
+    lines.push(`${o.name.padEnd(44)} tris ${String((o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3).padStart(6)}  size ${s.toArray().map((v) => v.toFixed(2)).join(' ')}  at ${c.toArray().map((v) => v.toFixed(2)).join(' ')}  mat ${m.name}${m.map ? ' (map)' : ''}${m.transparent ? ' (blend)' : ''}`);
+  });
+  const box = new THREE.Box3().setFromObject(current), size = box.getSize(new THREE.Vector3()), centre = box.getCenter(new THREE.Vector3());
+  const target = focus ? new THREE.Vector3(...focus) : centre;
+  const R = size.length() * 0.62;
+  document.getElementById('info').textContent = `${src}\nbounds ${size.toArray().map((v) => v.toFixed(3)).join(' x ')}  centre ${centre.toArray().map((v) => v.toFixed(2)).join(' ')}\n\n` + lines.join('\n');
+  const rows = Math.ceil(views.length / COLS);
+  renderer.setSize(W * COLS, H * rows);
+  renderer.setScissorTest(true);
+  const cam = new THREE.PerspectiveCamera(35, W / H, R / 200, R * 50);
+  views.forEach(([yw, pt, zoom], i) => {
+    const x = (i % COLS) * W, y = (rows - 1 - Math.floor(i / COLS)) * H;
+    renderer.setViewport(x, y, W, H);
+    renderer.setScissor(x, y, W, H);
+    const d = (R / Math.tan(THREE.MathUtils.degToRad(17.5))) * 0.62 * zoom;
+    cam.position.set(target.x + Math.sin(yw) * Math.cos(pt) * d, target.y + Math.sin(pt) * d, target.z + Math.cos(yw) * Math.cos(pt) * d);
+    cam.lookAt(target);
+    renderer.render(scene, cam);
+  });
+  renderer.setScissorTest(false);
+  return { size: size.toArray(), centre: centre.toArray(), parts: lines.length };
+};
+window.save = (name) => fetch(`/__shot?name=${name}`, { method: 'POST', body: renderer.domElement.toDataURL('image/png') });
+const src = new URLSearchParams(location.search).get('src');
+if (src) window.view(src);
+</script>
+</body>
+</html>

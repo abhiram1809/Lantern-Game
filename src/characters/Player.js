@@ -81,6 +81,7 @@ export class Player {
     if (!this.animator) {
       this.animator = new Animator(rig);
       this.loco = new Locomotion(this.mocap, { tired: this.tired });
+      this.loco.relax.adduct = 0.12; // Hal's arms in at his sides (Kilowog's armour needs his out)
       this.loco.onStep = (kind) => this.audio.step(this.surface, kind);
       this.animator.play(this.loco, 0);
     } else this.animator.setRig(rig);

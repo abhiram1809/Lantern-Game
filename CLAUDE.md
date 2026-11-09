@@ -91,11 +91,23 @@ Part Three so far (`src/story/Coast.js`), a civilian morning (the ring stays on,
    phone buzzing; he sits up, sees the clock, plays four voicemails on speaker (the landlord Sal
    Delgado, Tom Kalmaku twice, Carol). Free roam: the fridge (it opens), the bills, the photo, the
    window, a rent notice under the front door; leave by the front door.
-2. **Running late** (`scenes/Ferris.js`): his car (procedural, `buildCar`) takes three tries to
-   start behind his building; the desert road; the gate; the staff lot.
+2. **Running late** (`scenes/Ferris.js`): his car (the downloaded '71 Phoenix, `makeCar`) takes
+   three tries to start behind his building; the desert road; the gate; the staff lot; out of the
+   car (`getOut`: a hand to the handle, the door pushed open, a turn in the seat, feet out over
+   the sill, up, out past the door's tip, the door pulled shut by its edge).
 3. **Ferris Aircraft:** on foot between the hangars to the apron, where the prototype stands.
 4. **Carol** (her own Tripo scan): she fires him for the missed Air Force test.
-5. **Out of work:** Hal on the back of his car; the end card ("to be continued").
+5. **Out of work:** Hal sitting on his car's trunk lid, feet on the bumper; the end card ("to be
+   continued").
+
+Seated poses in Coast are solved for the seat, not guessed: `legTo(pose, side, dy, dz, thigh,
+shin, toe)` is two-bone IK in the leg's plane from the hip joint to an ankle target, and
+`drivingPose`, `swingPose`, `outPose` and `trunkPose` use it with the car's measured points. At the
+wheel Hal is reclined 0.34 (the roof is low) and his hands are on the rim by arm IK
+(`driveHands`). The phone (`buildPhone`, the downloaded iPhone with its logo removed and the
+morning's lock screen drawn on its screen mesh, double-sided) is held by `holdInHand`: parented to
+`hand_L`, eased onto `rig.palm('L')`, and the wrist turned in `animator.post` so the screen faces
+his eyes.
 
 The ring recharges continuously on Oa (the Central Battery is in range); the lantern can still be
 set down there.
@@ -119,7 +131,16 @@ No audio files are shipped: everything is synthesised with WebAudio, and voices 
   - Look at faces, hands and deformation **in close-up** during the motion you changed.
   - Look at the camera angles the player actually sees.
 - **Quality bar:** it should not look low effort, or "like it was made in a day". Prefer depth
-  and polish over adding features quickly.
+  and polish over adding features quickly. Their words (2026-11-10): "in no scene whatsoever should
+  the game scream that it was done last minute". They catch contact errors: legs through a car's
+  floor, a phone through a hand, a walk with bent elbows and cocked wrists ("looks a bit gay": it
+  read as mincing; see `relaxArms`).
+- **Props and set dressing: find detailed models, don't build them** (2026-11-10: "better to just
+  find one and replace rather than building stuff from scratch"; they pointed at Hugging Face
+  datasets). The Sandflow `sand3d-*` sets they named are objects rebuilt as code from primitives,
+  without textures, so no better than ours; their source, Objaverse, has the original Sketchfab
+  meshes. See *Props*. Use CC BY or CC0 only (no NC, ND, SA or "Free Standard"), check every model
+  in the prop viewer before using it, and credit it in `CREDITS.md` (generated).
 - **Physics of movement matters most**: natural running, arm interactions and weight. Hair and lip
   sync are explicitly optional.
 - **Borrow established techniques.** The user said to copy physics and animation approaches from
@@ -164,6 +185,7 @@ npm install
 npm run dev        # Vite on http://localhost:5173 (strictPort)
 npm run build      # production build to dist/ (should be clean, no errors)
 npm run assets     # tools/build-assets.mjs: assets/raw/*.glb → public/models/*.glb (rigged)
+npm run props      # tools/build-props.mjs: assets/props/*.glb → public/models/props/*.glb, and CREDITS.md
 npm run mocap      # tools/strip-mocap.mjs: assets/mocap/{Xbot,Soldier}.glb → public/anims/
 npm run posters    # tools/extract-posters.mjs: cuts posters from assets/ref/4.webp
 ```
@@ -214,6 +236,7 @@ and reference videos. The built outputs in `public/` are what the game loads.
 | `assets/raw/gemini_generated_video_6bbb1091.mp4` | Reference for a **later part**: the suited Lantern flying over a neon night city, fighting red-eyed mechs with constructs (minigun, hex shield); combat HUD with minimap, health, ammo and damage numbers. |
 | `assets/ref/1–4.webp` | Concept art. The HUD frame, the 10:00 PM timestamp and the glyph subtitles come from here. `4.webp` is the bedroom; the posters are cut from it. |
 | `assets/mocap/Xbot.glb`, `Soldier.glb` | Mixamo-rigged characters from the three.js examples. Only Xbot's clips are used at runtime (`public/anims/xbot.glb`). |
+| `assets/props/*.glb` | **Downloaded props** (2026-11-10), CC BY 4.0 Sketchfab models from Objaverse, credited in `CREDITS.md`: Hal's car (`phoenix`), four period cars for the lots, the prototype (an F22), the phone, palms, Hal's apartment block, the apron's access stand, tug, fuel truck, cones, tool chest, drums, forklift. `apartment.glb`'s textures were re-encoded as JPEG to keep it under 25 MB. |
 
 Model build settings (`MODELS` in `tools/build-assets.mjs`):
 
@@ -479,13 +502,50 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
   edge); a great ring hanging over it; a spotlight on the Guardians. Colliders are hull prisms and
   boxes. Flight on Oa is bounded by a 200 m radius round (-30, 0, -70) to include it.
 - **`Ferris.js`:** Ferris Aircraft by day (Part Three), the dream's airfield twenty years on:
-  runway (z -150), taxiway, the apron with the prototype (`JET_SPOT`, `buildPrototype()`: a lofted
-  chined fuselage, canopy, twin canted fins), three corrugated hangars with their doors open
-  (Hangar Two lit, a second airframe inside), tower, office, staff lot (`CAR_SPOT`), gate (`GATE`),
-  fence, power poles, the access road south, mesas on the horizon, scrub, a desert floor shaded
-  from world-space noise. `LOT` (6 km down the road, out of sight) is the lot behind Hal's building.
-  `buildCar()` is his car (faded red, primer door; `userData.seat`, `wheels`, `exhaust`).
-  `focus(at)` moves the sun's shadow box onto the action; the sky dome follows the camera.
+  runway (z -150), taxiway, the apron with the prototype (`JET_SPOT`, the downloaded F22, nose
+  east, colliders boxed round its own fuselage, wing, fin and gear parts by `solid()`), the access
+  stand at its cockpit, the tug at its nose, the fuel truck, cones; three corrugated hangars with
+  their doors open (procedural; Hangar Two lit, a second F22 inside without its canopy, tool
+  chests, drums, a forklift, a stand), tower, office, the staff lot (`CAR_SPOT`, nine parked cars
+  by `park()`, each with a box collider), gate (`GATE`), fence, power poles, the access road south,
+  mesas, scrub, a desert floor shaded from world-space noise, walked on as a heightfield
+  (`fixedGround`). `LOT` (6 km down the road, out of sight) is the lot behind Hal's building: the
+  downloaded brick apartment block, palms, three neighbours' cars. Hal's car is `makeCar('phoenix',
+  { primer: true })` (see *Props*). Everything the scene places from the props is listed in
+  `FERRIS_PROPS`, which `Coast.prepare` loads first. `focus(at)` moves the sun's shadow box onto the
+  action; the sky dome follows the camera.
+
+### Props (`src/props/`, `tools/build-props.mjs`)
+
+Downloaded models (CC BY 4.0, Sketchfab by way of Objaverse; `CREDITS.md`). How to find one:
+
+1. Search Sketchfab's public API (`api.sketchfab.com/v3/search?type=models&q=…&downloadable=true`,
+   no login) and keep the hits whose uid is in Objaverse's `object-paths.json.gz` (on Hugging Face,
+   `allenai/objaverse`); download the GLB from `huggingface.co/datasets/allenai/objaverse/resolve/main/<path>`
+   (no Sketchfab account needed). `lvis-annotations.json.gz` is a small category index of a subset.
+2. Check the licence (CC BY or CC0) and the author on the model's API page; never write them from
+   memory (seven of fourteen were wrong the first time).
+3. Look at it in `tools/propview.html?src=…` on the dev server (six angles, a parts list with sizes
+   and materials; `view()` / `save()` from the console write the sheet to `SHOT_DIR`). Many are
+   untextured, in centimetres, or turned (the F22 lay 39° off its axis).
+4. Add it to `PROPS` in `build-props.mjs`: `forward` (an axis or a yaw), `length` / `height` /
+   `scale`, `origin`, `drop` (part names; GLTFLoader turns spaces into underscores, so match both),
+   `opaque`, `simplify`, `tex`, and the title, author and uid for the credits. Raw files go in
+   `assets/props/` (under 25 MB each).
+
+At runtime `loadProps(names)` (`Props.js`) loads a set once; `prop(name, { ownMaterials })` hands
+out clones. Loading also floors every material's roughness (0.12 glass, 0.2 the rest) and dims
+glass reflections: Sketchfab exports are often mirror-smooth, and under the sun they bloomed into
+white lines. `meshes(root, test)`, `boundsIn(space, list)` and `pivot(space, list, at)` (re-parent
+parts under a hinge or hub) are the helpers.
+
+`Car.js` `makeCar(name, { paint, primer, dust })` dresses one of the cars: the paint material
+recoloured with dust toward the sills, chrome roughened in the shader (most of it has roughness
+maps), lamp lenses dimmed, wheels on pivots at their hubs (`userData.wheels`, spin with
+`rotation.x`), the driver's door (front left, +X) on a hinge (`openDoor(k)`, 1.15 rad), and for the
+driver (measured on the Phoenix: cushion 0.44, floor 0.27, roof 1.3, wheel centre 0.37/0.78/0.11,
+its face tilted 31°): `seat` (the hip joints), `pedals` (the ankles), `rim(side, hour)` (wrist
+targets on the steering wheel), `tail` (the trunk lid's back edge), `exhaust`.
 
 ### Drones (`src/enemies/Drones.js`)
 
@@ -617,6 +677,7 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
 ### Physics (`src/engine/Physics.js`)
 
 Each scene has one Rapier world. The helpers are `fixedBox`, `fixedCollider`, `fixedTrimesh`,
+`fixedGround(size)` (flat ground as a heightfield: see Gotchas),
 `dynamic`, `dynamicBox`, `burst(center, strength, radius, lift, spin)` (the light bursting in, or
 explosions) and `setGravityScale`.
 
@@ -734,6 +795,11 @@ strafing; the spine and chest turn back by the same amount (55/45), so the legs 
 travel and the chest stays square to the aim. This is the upper/lower body split of older
 third-person shooters, used because the mocap has no strafe clips.
 
+`animator.post(rig, dt)` runs after every layer, IK included (Coast's held phone turns the wrist
+there). `rig.palm(side)` is the palm measured from the hand bone's own vertices (cached): `centre`,
+`normal` (the side that faces down in the bind pose), `along` (wrist to the hand's centre),
+`thick`, `surface`, in the bone's frame; a prop parented to the hand bone sits flat on it.
+
 `Poses.js` holds the cutscene parameter poses: lying, on his side, sitting on the bed edge,
 shielding his eyes, floating, carried head-first, reaching, fist raised, and Abin slumped.
 
@@ -755,7 +821,12 @@ shielding his eyes, floating, carried head-first, reaching, fist raised, and Abi
   - Gait phase advances with distance travelled, so the feet don't slide. `direction = -1`
     plays it backwards (backing off while strafing); footsteps fire in either direction.
   - `onStep` fires on foot contact (for footstep sounds).
-  - A "tired" posture is layered on top.
+  - A "tired" posture is layered on top: the sad pose's back, neck and head only (its shoulder and
+    arm tracks are filtered out: they curled the arms).
+  - `relaxArms` (in `Locomotion.sample`, `loco.relax = { elbow, wrist, adduct }`) pulls the
+    elbows (0.5 of the way, less while running) and wrists (0.65) back toward straight and, for Hal
+    only (`adduct` 0.12, set in `Player`), the upper arms in to his sides. Xbot's walk carries 35°
+    elbows and cocked wrists, and Hal's walk read as mincing; Kilowog keeps `adduct` 0 (armour).
   - Measured clip speeds: walk 1.55 m/s (0.967 s cycle), run 3.36 m/s (0.70 s cycle). Xbot's hips
     are at 1.04 m, and `scale = rig.hipsHeight / 1.04`.
 - `MocapClip(source, name)` is a single looping clip, used for the dad's idle.
@@ -915,6 +986,10 @@ The checks that have worked:
      (and `keyup`), `renderer.domElement.dispatchEvent(new MouseEvent('mousedown', { button: 0,
      bubbles: true }))` then a window `mouseup`. Two `Space` keydowns within 300 ms fly.
    - The canvas capture has no HUD (it's DOM): use a pane screenshot for the HUD.
+   - `shot(name, 0)` renders the camera from before a `director.cut()` you just made: step at
+     least a frame (`shot(name, 1 / 30)`). Captures are 1536×960 (pixel ratio 1.5): crop with that.
+   - `tools/propview.html?src=/path.glb` renders any GLB from six angles with a parts list; put
+     candidate downloads in `shots/` (ignored by git) to look at them before they're used.
    - Part Two: `__game.story.travelTo('earth' | 'oa')` from `#range` or `#earth` runs a trip;
      `__game.story.kw.play('chest')` / `.pointAt(v)` plays one of Kilowog's gestures.
    - **The test tab pauses itself** once the player has control (no pointer lock there), so lines
@@ -934,9 +1009,25 @@ The checks that have worked:
 
 ## Gotchas (learned the hard way)
 
-- **A collider kilometres across lets the character controller sink in** (Ferris's 16 km ground
-  box: Hal stood 0.27 m deep and a scripted walk never arrived). Keep walked-on colliders to the
-  area walked on.
+- **A big box collider lets the character controller sink in.** Ferris's 16 km ground box: Hal
+  stood 0.27 m deep. Cut to 600 m, he still sank 9 cm as soon as he walked, and then stuck in
+  place (the user: "can't walk properly after getting off the car"; it wasn't the car). The box's
+  queries lose precision with its size. Flat ground is a heightfield (`physics.fixedGround`).
+- **Sketchfab models render mirror-smooth.** Glass, lenses and badges at roughness 0 put
+  highlights in the thousands under the sun, and the bloom turned window edges into glowing white
+  lines. `Props.js` floors roughness on load; chrome with roughness maps needs it in the shader.
+- **GLTFLoader renames nodes** (spaces become underscores): a `drop` pattern written for the
+  loaded names (`Apple_Logo`) missed the file's own (`Apple Logo`) and the logo stayed.
+- **A downloaded screen can face into the phone.** Its single-sided screen was culled from the
+  front and you saw the inside of the back panel through it. Make such overlays double-sided, and
+  check a canvas texture's flip on the model (this one wanted three's default `flipY`).
+- **A principal-axis fit of a hand isn't along the fingers** when the thumb is spread (it came out
+  diagonal): take the wrist-to-centre direction for `along`.
+- **Sitting poses need the seat's numbers.** The old driving pose (guessed angles) put Hal's shins
+  through the car's floor and his legs out under it. Measure the cushion, floor, roof and wheel from
+  the mesh, and solve the legs (`legTo`).
+- **A door swinging shut sweeps its whole radius.** A character standing in the opening gets hit;
+  step out past the tip first (Coast's `getOut`).
 - **Hair cards need the real surface, not a spherical lookup.** Binning the scalp by direction
   left most bins empty, and filling them from neighbours threw strands metres off the head (and an
   ear's max radius fanned the hair out). Search the nearest vertex (a spatial grid) and keep each
@@ -1022,6 +1113,16 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-10, props, the car, the phone, the walk) in fixed-step captures: Hal walking on Ferris's
+  ground after the drive (level at y 0, 1.18 m/s, no sticking; it sank 9 cm and stuck before);
+  Hal at the Phoenix's wheel from outside, from the front and in cutaways with the body hidden
+  (feet in the footwell, head under the roof, hands on the rim); the whole drive's getting-out
+  sequence frame by frame (door opened by hand, the turn, standing, out past the door, the door
+  pulled shut); the trunk scene (on the lid, feet on the bumper); the phone picked up, flat in the
+  palm in four angles, the lock screen readable from his eyes, no logo; the walk, run and idle
+  before and after `relaxArms` (front and side); the staff lot, the apron (F22, stand, tug, fuel
+  truck, cones), Hangar Two's interior, the apartment lot; the Carol scene with the F22 behind her;
+  Kilowog on the range (arms unaffected); no console errors; a clean `vite build`. Synthetic input.
 - (2026-11-10, the Guardians, home, Part Three) in fixed-step captures: the Guardian model in
   close-up (front, three-quarter, profile, back, full body; the user approved it); the hall from
   the range, from above and inside; Kilowog's send-off, the trigger at the hall and the landing on
@@ -1094,6 +1195,10 @@ Verified by playing in the browser:
 
 Not verified:
 
+- the drive and walk with a real mouse and keys; the getting-out sequence at the voice's real pace
+- frame rate with the props (the staff lot's nine cars, two F22s, the palms' alpha fronds)
+- the car's bloom in every shot of the drive (glints were reduced and checked in the lot only)
+- Sinestro, the Guardians and the Part One dream with the relaxed arms (their arms are mostly on IK)
 - any of the new voices and sounds (car engine, starter, phone buzz, birds, traffic, fridge, the
   Guardians' hall)
 - Part Three walked through with a real mouse and keys from start to end; the morning's optional
@@ -1142,10 +1247,18 @@ Not verified:
   done): a mission that charts Korugar or Ysmault on the star map and unlocks a construct; then
   the rest of Part Three, Coast City (the neon night city and the Manhunters, Atrocitus behind
   them). Earlier ideas still open: burying Abin Sur at the lake, the empty prisoner tank.
-- Part Three: Tom Kalmaku, the landlord and the Air Force people are voices only (no models);
-  Ferris's hangars and tower are plain from up close; the prototype is procedural; Hal's car has
-  no door animation (he appears beside it). Carol's face keeps faint highlights at the brows (her
-  scan's normal map). The ring's powers are off for the civilian morning (no flying to work).
+- **Still procedural, next to replace with downloads** (the user's direction, 2026-11-10): Ferris's
+  three hangars (plain walls from up close), the control tower and the office (primitives), the
+  gate booth, the kitchenette's fridge and counter, the apartment's furniture, the dream's jet
+  (`buildJet`, also in the bedroom). Candidates already found and looked at: "j type hanger"
+  (ElectricL, arched, textured, closed front), "Metal Storage Building" (jimbogies), "Old Fridge"
+  (sergeilihandristov, door in unnamed parts), "Coffee Maker" (Ryan_Nein), "F-104 Starfighter"
+  (Mikhail_Zelenov, for the dream). Rejected: "Airport Tower" and the Midwestern apartment
+  (no textures), the hangar kit (untextured), the Smart car (wrong era).
+- Part Three: Tom Kalmaku, the landlord and the Air Force people are voices only (no models).
+  Carol's face keeps faint highlights at the brows (her scan's normal map). The ring's powers are
+  off for the civilian morning (no flying to work). Hal starts the drive already in the car (no
+  getting in). The F22 still carries its "Raptor 01" markings.
 - The Guardians all share one face (Abin Sur's); their hands only come out for `decree`.
 - Sinestro's front view could still improve (the user's note); his face shape is Abin Sur's skull
   narrowed, his hair is painted volume with no loose strands, and a faint seam can show on the
@@ -1179,7 +1292,9 @@ src/powers/                 RingPowers (charge, health, wheel, aim, constructs i
                             Constructs (list, shaders, fist / shield / wall / gatling / sword geometry, Blade)
 src/scenes/                 Bedroom (+ hallway, kitchenette, buildJet; night or morning), Dream, Hyperspace,
                             CrashSite, Oa (Part Two) + Hall (the Guardians' hall), Space (Earth and Oa
-                            from orbit), Ferris (Part Three: the airfield, the road, buildCar, buildPrototype)
+                            from orbit), Ferris (Part Three: the airfield, the road, the lots)
+src/props/                  Props (downloaded models: load, clone, helpers), Car (makeCar: paint, wheels,
+                            the driver's door, seat / pedals / rim / tail points)
 src/enemies/                Drones (training drones: model, spring flight, AI, bolts, breakup), Sinestro
                             (the sparring opponent: flight, blade, spikes, guard, slam)
 src/fx/                     Sky, Particles + Fire, Water, Trees, GreenLight, Cloth, Textures, Rift
@@ -1190,8 +1305,9 @@ src/ui/UI.js                HUD, subtitles, glyph cipher + decode, choice, cards
 src/ui/PowerHud.js          vitals, ring charge, armed construct, ring readout, reticle, marker,
                             training panel, target bracket, damage numbers, construct wheel
 src/ui/TravelHud.js         flight readout, arrival card, StarMap (the ring's star chart), WORLDS
-tools/                      build-assets, autorig, strip-mocap, extract-posters, debug renderers
-public/models, public/anims built GLBs loaded at runtime; public/textures/posters
+tools/                      build-assets, autorig, build-props, propview.html, strip-mocap, extract-posters,
+                            debug renderers
+public/models, public/anims built GLBs loaded at runtime (props in public/models/props); public/textures/posters
 ```
 
 ---
@@ -1199,6 +1315,21 @@ public/models, public/anims built GLBs loaded at runtime; public/textures/poster
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-10: downloaded props, the car and getting out, the phone in the hand, the walk
+- **The walk after the car** (the user: "can't walk properly"): Hal sank 9 cm into Ferris's 600 m
+  ground box and stuck. Flat ground is now a heightfield (`Physics.fixedGround`).
+- **Props** (`src/props/`, `tools/build-props.mjs`, `tools/propview.html`, `CREDITS.md`, new): the
+  user asked for found models over procedural ones. Sixteen CC BY models from Objaverse replace
+  the procedural car, lot cars, prototype, palms, apartment block and apron kit; the phone too.
+- **The car** (`Car.js`, `Coast.drive`, `getOut`): Hal seated by solved leg IK (his legs went
+  through the old car's floor), hands on the rim, the door opened and shut by hand.
+- **The phone** (`Coast.holdInHand`, `Rig.palm`, `Animator.post`): flat in the palm instead of
+  through it, the screen turned to his eyes; the model's logo removed, the lock screen drawn on it.
+- **The walk** (`Mocap.relaxArms`, the tired layer filtered): the user said it looked effeminate
+  ("arms look a bit bent"); straighter elbows and wrists, arms in at his sides.
+- **The trunk scene**: Hal sits on the lid with his feet on the bumper (he stood through it).
+- Verified: see Status (2026-11-10, props...). Not verified: real input, frame rate, audio.
 
 ### 2026-11-10: the Guardians, home before dawn, Part Three's morning and the firing
 - **The Guardians** (`characters/Guardian.js`, `Robe.js`, `HairCards.js`, new): derived from Abin

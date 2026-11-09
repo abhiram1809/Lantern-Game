@@ -13,7 +13,8 @@ const LIMB_CHILD = {
   upperArm_L: 'LeftForeArm', foreArm_L: 'LeftHand', hand_L: 'LeftHandMiddle1', upperArm_R: 'RightForeArm', foreArm_R: 'RightHand', hand_R: 'RightHandMiddle1',
   thigh_L: 'LeftLeg', shin_L: 'LeftFoot', thigh_R: 'RightLeg', shin_R: 'RightFoot',
 };
-const _q = new THREE.Quaternion(), _v = new THREE.Vector3();
+const _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _v = new THREE.Vector3();
+const INDEX = Object.fromEntries(BONE_ORDER.map((n, i) => [n, i]));
 
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 
@@ -95,6 +96,26 @@ export class MocapInstance {
   }
 }
 
+// Pull a retargeted pose's elbows and wrists part of the way back toward straight (as the source
+// stands at rest, arms straight). Xbot's walk carries its arms with the elbows bent about 35 degrees
+// and the wrists cocked, which on Hal read as mincing; a man's relaxed walk swings nearly straight
+// arms from the shoulder, hands loose at the thighs. `adduct` (radians) also brings the upper arms
+// in toward the body (the T-pose correction leaves them held out a little).
+export function relaxArms(inst, out, rig, elbow, wrist, adduct = 0) {
+  const C = inst.corrections.get(rig);
+  if (!C) return out;
+  for (const [name, sign] of [['upperArm_L', -1], ['upperArm_R', 1]]) {
+    const i = INDEX[name];
+    _q2.fromArray(out.q, i * 4).premultiply(_q.setFromAxisAngle(_v.set(0, 0, 1), sign * adduct)).toArray(out.q, i * 4);
+  }
+  for (const [name, k] of [['foreArm_L', elbow], ['foreArm_R', elbow], ['hand_L', wrist], ['hand_R', wrist]]) {
+    const i = INDEX[name];
+    _q.copy(C[INDEX[PARENT[name]]]).invert().multiply(C[i]); // the joint straight, as at rest
+    _q2.fromArray(out.q, i * 4).slerp(_q, k).toArray(out.q, i * 4);
+  }
+  return out;
+}
+
 // Natural ground speed of an in-place gait clip (how fast the stance foot moves back) and the
 // time of left-foot contact (to line walk and run up by phase).
 function measureGait(inst, clip) {
@@ -136,6 +157,8 @@ export class Locomotion {
     this.walk.timeScale = this.run.timeScale = 0; // driven by phase
     if (c.sad_pose) {
       const sad = THREE.AnimationUtils.subclip(c.sad_pose, 'sad', 2, 3, 30);
+      // the tired posture is the back, neck and head only: its shoulders and arms curled the walk
+      sad.tracks = sad.tracks.filter((t) => /mixamorig(Hips|Spine\d?|Neck|Head)\./.test(t.name));
       THREE.AnimationUtils.makeClipAdditive(sad);
       this.sad = this.m.mixer.clipAction(sad);
       this.sad.blendMode = THREE.AdditiveAnimationBlendMode;
@@ -157,6 +180,8 @@ export class Locomotion {
     this.phase = 0;
     this.scale = 1; // our hips height / source hips height
     this.onStep = null;
+    this.relax = { elbow: 0.5, wrist: 0.65, adduct: 0 }; // see relaxArms; the elbows less while running (runners bend them)
+    this.wRun = 0;
   }
 
   // ground speeds (in our character's metres) at which the walk and run clips play naturally
@@ -174,6 +199,7 @@ export class Locomotion {
     const wIdle = 1 - smooth(0.05, wv * 0.55, s);
     const wRun = smooth(wv * 1.05, rv * 0.95, s);
     const wWalk = Math.max(0, 1 - wIdle - wRun);
+    this.wRun = wRun;
     this.idle.setEffectiveWeight(wIdle);
     this.walk.setEffectiveWeight(wWalk);
     this.run.setEffectiveWeight(wRun);
@@ -191,7 +217,11 @@ export class Locomotion {
     this.m.read();
   }
 
-  sample(out, rig) { return this.m.retarget(out, rig); }
+  sample(out, rig) {
+    this.m.retarget(out, rig);
+    const r = this.relax, k = 1 - 0.8 * this.wRun;
+    return r ? relaxArms(this.m, out, rig, r.elbow * k, r.wrist, r.adduct) : out; // wrists straight at any pace
+  }
 }
 
 // A single looping mocap clip (e.g. the dad's idle in the dream).

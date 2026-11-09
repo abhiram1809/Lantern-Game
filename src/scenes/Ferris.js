@@ -4,6 +4,8 @@ import { Physics } from '../engine/Physics.js';
 import { createSky } from '../fx/Sky.js';
 import { Particles } from '../fx/Particles.js';
 import { noiseTexture } from '../fx/Textures.js';
+import { prop, meshes, boundsIn } from '../props/Props.js';
+import { makeCar } from '../props/Car.js';
 
 // Ferris Aircraft, mid-morning: the airfield in the desert outside Coast City where Martin Jordan
 // flew (the dream's airfield, in daylight, twenty years on). North to south: the runway, a taxiway,
@@ -19,6 +21,8 @@ export const LOT = V(0, 0, 6000); // behind the apartment building (Hal's car)
 const RUNWAY_Z = -150;
 const HANGARS = [{ x: -62, n: '1' }, { x: 0, n: '2' }, { x: 62, n: '3' }];
 const HANGAR = { w: 54, d: 30, h: 15, z0: 8 }; // doors on the north face (z0), facing the apron
+// the downloaded models the scene uses (src/props, CREDITS.md): load them before build()
+export const FERRIS_PROPS = ['phoenix', 'fairheaven', 'negotiator', 'sialia', 'fairheaven_sw', 'prototype', 'palms', 'apartment', 'stand', 'fueltruck', 'tug', 'cones', 'toolbox', 'drums', 'forklift'];
 
 let seed = 7;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
@@ -57,18 +61,19 @@ export class Ferris {
     this.buildOffice();
     this.buildRoad();
     this.buildMesas();
-    this.jet = buildPrototype();
+    this.jet = prop('prototype');
     this.jet.position.copy(JET_SPOT);
     this.jet.rotation.y = Math.PI / 2;
     s.add(this.jet);
-    this.physics.fixedBox({ x: JET_SPOT.x, y: 1.4, z: JET_SPOT.z }, { x: 7.5, y: 1.4, z: 1.4 });
-    this.physics.fixedBox({ x: JET_SPOT.x - 1, y: 0.4, z: JET_SPOT.z }, { x: 3, y: 0.4, z: 5.5 });
+    this.solid(this.jet, /Fuselage|Wing|Keel|Stabilizer|Nozzle|Gear/);
     this.buildApronProps();
+    this.buildStaffLot();
     this.buildApartmentLot();
-    this.car = buildCar({ color: 0x8c2a22 });
+    // Hal's car: sun-faded maroon, the driver's door in primer
+    this.car = makeCar('phoenix', { paint: 0x5a1d19, primer: true, dust: 0.7 });
     this.car.position.copy(CAR_SPOT);
     s.add(this.car);
-    this.carBox = this.physics.fixedBox({ x: CAR_SPOT.x, y: 0.7, z: CAR_SPOT.z }, { x: 0.92, y: 0.7, z: 2.4 });
+    this.carBox = this.physics.fixedBox({ x: CAR_SPOT.x, y: 0.65, z: CAR_SPOT.z }, { x: 0.93, y: 0.65, z: 2.45 }); // the body, not the mirrors
     this.exhaust = new Particles(300, { additive: false, puffy: true, drag: 0.8, turbulence: 0.4 });
     s.add(this.exhaust.points);
     return this;
@@ -121,8 +126,8 @@ export class Ferris {
     ground.position.set(0, -0.02, 3000);
     ground.receiveShadow = true;
     s.add(ground);
-    // (only the field is walked on; a box kilometres across lets the character controller sink in)
-    this.physics.fixedBox({ x: 0, y: -0.5, z: 0 }, { x: 300, y: 0.5, z: 300 });
+    // (a heightfield, not a box: Hal sank into a box this size as soon as he walked, and stuck)
+    this.physics.fixedGround(600);
     // concrete: the apron, and the lot behind the hangars
     const [c, g] = canvas(1024);
     g.fillStyle = '#aaa69c';
@@ -288,10 +293,11 @@ export class Ferris {
       this.physics.fixedBox({ x: H.x, y: h / 2, z: z0 + d }, { x: w / 2, y: h / 2, z: 0.3 });
       for (const sx of [-1, 1]) this.physics.fixedBox({ x: H.x + sx * w / 2, y: h / 2, z: z0 + d / 2 }, { x: 0.3, y: h / 2, z: d / 2 });
       if (H.n === '2') {
-        // a second airframe inside on jacks, panels off, under work lights
-        const shell = buildPrototype({ bare: true });
+        // a second airframe inside, its canopy off, under work lights
+        const shell = prop('prototype');
         shell.position.set(-6, 0, d / 2 + 2);
         shell.rotation.y = Math.PI / 2 + 0.3;
+        for (const m of meshes(shell, (n) => /Cabin_Glass/.test(n))) m.visible = false;
         gx.add(shell);
         for (const x of [-14, 0, 14]) {
           const lamp = new THREE.PointLight(0xfff0d8, 30, 26, 2);
@@ -299,11 +305,13 @@ export class Ferris {
           gx.add(lamp);
           add(new THREE.BoxGeometry(1.4, 0.15, 0.6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.1, 1.9) }), x, h - 1.2, d / 2);
         }
-        // tool carts and a rolling staircase
-        for (const [x, z, r] of [[8, 6, 0.3], [11, 9, -0.2], [-16, 20, 0.6]]) {
-          const cart = add(new RoundedBoxGeometry(1.2, 0.9, 0.6, 2, 0.05), new THREE.MeshStandardMaterial({ color: 0xa82a24, roughness: 0.4, metalness: 0.4 }), x, 0.45, z);
-          cart.rotation.y = r;
-        }
+        // tool chests, drums, the forklift, a work stand at the cockpit
+        const place = (name, x, z, r) => { const o = prop(name); o.position.set(x, 0, z); o.rotation.y = r; gx.add(o); return o; };
+        place('toolbox', 8, 6, 0.3);
+        place('toolbox', 11, 9.5, -0.2 + Math.PI);
+        place('drums', -19, 25, 0.6);
+        place('forklift', 15, 22, -2.2);
+        place('stand', 0.5, d / 2 - 1.2, 0.3);
       }
     }
   }
@@ -446,68 +454,107 @@ export class Ferris {
     }
   }
 
-  // Around the prototype: wheel chocks, a fuel cart, a boarding ladder, cones; it was ready to fly.
+  // Around the prototype: the access stand at the cockpit, the tug at its nose, the fuel truck, a
+  // tool chest and cones; it was ready to fly at nine.
   buildApronProps() {
     const s = this.scene, J = JET_SPOT;
-    const yellow = new THREE.MeshStandardMaterial({ color: 0xd9a926, roughness: 0.55 });
-    const ladder = new THREE.Group();
-    ladder.position.set(J.x + 3.4, 0, J.z + 1.6);
-    s.add(ladder);
-    for (const x of [-0.32, 0.32]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.9, 0.06), yellow); r.position.set(x, 1.4, 0); r.rotation.x = 0.35; r.castShadow = true; ladder.add(r); }
-    for (let i = 0; i < 8; i++) { const st = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.04, 0.16), yellow); st.position.set(0, 0.25 + i * 0.33, 0.45 - i * 0.12); ladder.add(st); }
-    const cone = new THREE.ConeGeometry(0.18, 0.5, 14).translate(0, 0.25, 0);
-    const orange = new THREE.MeshStandardMaterial({ color: 0xe0561a, roughness: 0.5 });
-    for (const [x, z] of [[-9, 6], [-9, -6], [9, 6], [9, -6]]) { const c = new THREE.Mesh(cone, orange); c.position.set(J.x + x, 0, J.z + z); c.castShadow = true; s.add(c); }
-    const cart = new THREE.Group();
-    cart.position.set(J.x - 8, 0, J.z + 9);
-    cart.rotation.y = 0.4;
-    s.add(cart);
-    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 3.2, 20).rotateZ(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xdedbd2, roughness: 0.4, metalness: 0.3 }));
-    tank.position.y = 1.35;
-    tank.castShadow = true;
-    cart.add(tank);
-    const chassis = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.3, 1.5), new THREE.MeshStandardMaterial({ color: 0x2a2c30 }));
-    chassis.position.y = 0.55;
-    cart.add(chassis);
-    for (const [x, z] of [[-1.3, -0.7], [1.3, -0.7], [-1.3, 0.7], [1.3, 0.7]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.22, 16).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x1a1a1a })); w.position.set(x, 0.35, z); cart.add(w); }
-    this.physics.fixedBox({ x: cart.position.x, y: 1, z: cart.position.z }, { x: 1.9, y: 1, z: 1 });
+    const place = (name, x, z, r, solid = true) => {
+      const o = prop(name);
+      o.position.set(J.x + x, 0, J.z + z);
+      o.rotation.y = r;
+      s.add(o);
+      if (solid) { const b = boundsIn(s, meshes(o, () => true)), c = b.getCenter(V(0, 0, 0)), h = b.getSize(V(0, 0, 0)).multiplyScalar(0.5); this.physics.fixedBox({ x: c.x, y: h.y, z: c.z }, { x: h.x * 0.9, y: h.y, z: h.z * 0.9 }); }
+      return o;
+    };
+    // (the jet's nose is east, +x; its right side, the one Carol stands on, is south, +z)
+    place('stand', 4.4, 2.3, Math.PI);
+    place('tug', 12.6, 0, -Math.PI / 2);
+    place('fueltruck', -12, 12.5, 0.35 - Math.PI / 2);
+    place('toolbox', 1.5, 4.4, 0.2);
+    place('cones', -16, -14, 0.5);
+    // cones at the wingtips and the tail: one cone out of the pack, moved to stand at its origin
+    const pack = prop('cones');
+    pack.updateMatrixWorld(true);
+    const src = meshes(pack, (n) => /^Traffic_Cone_2_1001/.test(n))[0];
+    const cb = boundsIn(pack, [src]), cc = cb.getCenter(V(0, 0, 0));
+    const at = new THREE.Matrix4().makeTranslation(-cc.x, -cb.min.y, -cc.z).multiply(src.matrixWorld);
+    for (const [x, z, r] of [[-1.5, 7.6, 0.3], [-1.5, -7.6, 1.2], [-10.6, 0, 2.1]]) {
+      const cone = new THREE.Mesh(src.geometry, src.material);
+      cone.castShadow = true;
+      cone.matrixAutoUpdate = false;
+      cone.matrix.makeRotationY(r).setPosition(J.x + x, 0, J.z + z).multiply(at);
+      s.add(cone);
+    }
   }
 
-  // The lot behind Hal's building, where the road from the field ends: a three-storey stucco block
-  // (on the lot's south side, facing it) with an outside stair, palms, a couple of other cars.
+  // The staff lot behind the hangars: the day shift's cars nose to the hangars, in the painted bays.
+  buildStaffLot() {
+    const cars = [[18, 51, 'negotiator', 0x8f8a80], [24, 51, 'fairheaven', 0xb9b2a1], [30, 51, 'sialia', 0x3b5b74], [45, 51, 'fairheaven_sw', 0x5b6f52],
+      [51, 51, 'negotiator', 0x2c2f35], [6, 69, 'fairheaven', 0x7a1f1c], [27, 69, 'fairheaven_sw', 0xc8c2b2], [39, 69, 'sialia', 0xd6d0c0], [57, 69, 'fairheaven', 0x354c66]];
+    for (const [x, z, name, paint] of cars) this.park(name, V(x, 0, z), (z < 60 ? Math.PI : 0) + (rnd() - 0.5) * 0.05, paint);
+  }
+
+  // The lot behind Hal's building, where the road from the field ends: the three-storey brick block
+  // on the lot's south side, facing it, palms, a dumpster, the neighbours' cars.
   buildApartmentLot() {
     const s = this.scene, L = LOT;
     const g = new THREE.Group();
     g.position.copy(L);
     s.add(g);
-    const stucco = new THREE.MeshStandardMaterial({ map: noiseTexture({ base: '#d9c3a3', spots: 900, spread: 30, alpha: 0.06, repeat: [6, 3], fine: 0.1 }), roughness: 0.95 });
-    const trim = new THREE.MeshStandardMaterial({ color: 0x7a5a44, roughness: 0.8 });
-    const glass = new THREE.MeshStandardMaterial({ color: 0x2c3a44, metalness: 0.8, roughness: 0.12 });
-    const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
-    add(new THREE.BoxGeometry(40, 9.6, 14), stucco, 0, 4.8, 16);
-    for (let fl = 0; fl < 3; fl++) for (let i = 0; i < 9; i++) {
-      add(new THREE.BoxGeometry(1.6, 1.3, 0.1), glass, -16 + i * 4, 1.6 + fl * 3.1, 8.98);
-      add(new THREE.BoxGeometry(1.9, 0.12, 0.25), trim, -16 + i * 4, 0.9 + fl * 3.1, 8.9);
-    }
-    // the walkways and stair up the outside
-    for (const y of [3.1, 6.2]) add(new THREE.BoxGeometry(40, 0.2, 1.6), trim, 0, y, 8.1);
-    for (let i = 0; i < 14; i++) add(new THREE.BoxGeometry(1.2, 0.18, 0.3), trim, 20.8, 0.2 + i * 0.22, 9 - i * 0.12);
+    const block = prop('apartment');
+    block.position.set(0, 0, 26);
+    block.rotation.y = Math.PI;
+    g.add(block);
     // asphalt, bays, a dumpster, palms
-    const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(60, 30).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x4f4c48, roughness: 0.95 }));
+    const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(60, 30).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: noiseTexture({ base: '#4f4c48', spots: 1600, spread: 12, alpha: 0.07, repeat: [8, 4], fine: 0.2 }), roughness: 0.95 }));
     asphalt.position.set(0, 0.015, -2);
     asphalt.receiveShadow = true;
     g.add(asphalt);
     const paint = new THREE.MeshBasicMaterial({ color: 0xdcd6c8 });
     for (let x = -18; x <= 18; x += 3.2) { const l = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 5).rotateX(-Math.PI / 2), paint); l.position.set(x, 0.02, 5); g.add(l); }
-    add(new RoundedBoxGeometry(2.2, 1.4, 1.4, 2, 0.06), new THREE.MeshStandardMaterial({ color: 0x2f5a3a, roughness: 0.6, metalness: 0.4 }), -24, 0.7, 6);
-    for (const [x, z, h] of [[-27, -8, 11], [26, -6, 13], [30, 3, 9.5]]) g.add(palm(x, z, h));
-    for (const [x, col, r] of [[-11.2, 0x2b4a6b, 0.04], [8, 0xc9c3b4, -0.03]]) {
-      const car = buildCar({ color: col, primer: false });
+    const bin = new THREE.Mesh(new RoundedBoxGeometry(2.2, 1.4, 1.4, 2, 0.06), new THREE.MeshStandardMaterial({ color: 0x2f5a3a, roughness: 0.6, metalness: 0.4 }));
+    bin.position.set(-24, 0.7, 9);
+    bin.castShadow = bin.receiveShadow = true;
+    g.add(bin);
+    for (const [x, z, h, r] of [[-27, -8, 11, 0.4], [26, -6, 12.5, 2.2], [31, 4, 9.5, 4.1]]) {
+      const p = prop('palms');
+      p.position.set(x, 0, z);
+      p.rotation.y = r;
+      p.scale.setScalar(h / 10.5);
+      g.add(p);
+    }
+    for (const [x, name, col, r] of [[-11.2, 'fairheaven', 0x2b4a6b, 0.04], [8, 'sialia', 0xc9c3b4, -0.03], [14.4, 'negotiator', 0x6d6a5f, 0.02]]) {
+      const car = makeCar(name, { paint: col });
       car.position.set(x, 0, 4.8);
       car.rotation.y = r;
       g.add(car);
     }
     this.lotCarSpot = L.clone().add(V(-1.6, 0, 4.8)); // nose in, toward the building
+  }
+
+  // Boxes round a placed model's parts (those whose names pass `test`), so Hal walks round its
+  // fuselage and under its wings rather than through them.
+  solid(obj, test) {
+    const parts = meshes(obj, (n) => test.test(n));
+    const groups = new Map();
+    for (const m of parts) { const k = m.name.replace(/[-_]FACES.*$|_\d+$/, ''); (groups.get(k) ?? groups.set(k, []).get(k)).push(m); }
+    for (const list of groups.values()) {
+      const b = boundsIn(this.scene, list);
+      if (b.max.y - b.min.y < 0.05 && b.max.y > 2.2) continue; // thin and overhead: walk under it
+      const c = b.getCenter(V(0, 0, 0)), h = b.getSize(V(0, 0, 0)).multiplyScalar(0.5);
+      this.physics.fixedBox({ x: c.x, y: c.y, z: c.z }, { x: Math.max(h.x, 0.05), y: Math.max(h.y, 0.05), z: Math.max(h.z, 0.05) });
+    }
+  }
+
+  // a parked car, with its collider
+  park(name, at, yaw, paint) {
+    const car = makeCar(name, { paint, dust: 0.45 + rnd() * 0.3 });
+    car.position.copy(at);
+    car.rotation.y = yaw;
+    this.scene.add(car);
+    const b = boundsIn(this.scene, meshes(car, () => true)), c = b.getCenter(V(0, 0, 0)), h = b.getSize(V(0, 0, 0)).multiplyScalar(0.5);
+    this.physics.fixedBox({ x: c.x, y: h.y, z: c.z }, { x: h.x * 0.95, y: h.y, z: h.z * 0.97 });
+    return car;
   }
 
   interact(def) {
@@ -526,211 +573,4 @@ export class Ferris {
   }
 
   dispose() { this.physics.dispose(); }
-}
-
-// A palm: a tall leaning trunk, a crown of drooping fronds.
-function palm(x, z, h) {
-  const g = new THREE.Group();
-  g.position.set(x, 0, z);
-  const lean = (rnd() - 0.5) * 0.12;
-  const curve = new THREE.QuadraticBezierCurve3(V(0, 0, 0), V(lean * h * 0.3, h * 0.5, 0), V(lean * h, h, 0));
-  const trunk = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, 0.22, 8), new THREE.MeshStandardMaterial({ color: 0x8a7458, roughness: 1 }));
-  trunk.castShadow = true;
-  g.add(trunk);
-  const top = curve.getPoint(1);
-  const frond = new THREE.MeshStandardMaterial({ color: 0x55703a, roughness: 0.9, side: THREE.DoubleSide });
-  for (let i = 0; i < 11; i++) {
-    const a = (i / 11) * Math.PI * 2 + rnd() * 0.3;
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 0); shape.quadraticCurveTo(1.6, 0.45, 3.4, 0); shape.quadraticCurveTo(1.6, -0.45, 0, 0);
-    const geo = new THREE.ShapeGeometry(shape, 8);
-    const p = geo.attributes.position;
-    for (let j = 0; j < p.count; j++) { const u = p.getX(j) / 3.4; p.setZ(j, -u * u * 1.6); }
-    geo.computeVertexNormals();
-    const f = new THREE.Mesh(geo, frond);
-    f.position.copy(top);
-    f.rotation.set(-Math.PI / 2 + 0.25, 0, a, 'YXZ');
-    f.rotation.y = a;
-    f.castShadow = true;
-    g.add(f);
-  }
-  return g;
-}
-
-// Ferris's prototype: a single-seat twin-tail jet, lofted from cross-sections (a long chined nose, a
-// bubble canopy, side intakes, swept wings, canted fins), in grey primer with the company's red
-// stripe. `bare` is the one in the hangar, half-built, without its canopy.
-export function buildPrototype({ bare = false } = {}) {
-  const g = new THREE.Group();
-  const skin = new THREE.MeshStandardMaterial({ color: bare ? 0x9ea3a6 : 0x7d858b, metalness: 0.55, roughness: 0.38 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x2a2d31, metalness: 0.6, roughness: 0.45 });
-  const red = new THREE.MeshStandardMaterial({ color: 0xa3191b, metalness: 0.3, roughness: 0.45 });
-  // fuselage: stations along x (nose +x) as [x, half-width, half-height, centre y]
-  const st = [[8.0, 0.02, 0.02, 1.95], [7.4, 0.22, 0.16, 1.95], [6.2, 0.5, 0.36, 1.98], [4.6, 0.74, 0.55, 2.05], [3.0, 0.95, 0.66, 2.1], [1.0, 1.25, 0.7, 2.05], [-1.5, 1.3, 0.68, 2.0], [-3.8, 1.15, 0.6, 2.0], [-5.6, 0.9, 0.52, 2.0], [-6.6, 0.82, 0.5, 2.0]];
-  const R = 28, pos = [], idx = [];
-  for (const [x, w, h, cy] of st) for (let i = 0; i < R; i++) {
-    const a = (i / R) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
-    // a chine: flatter sides, a sharp edge where the belly meets the flanks
-    const k = Math.sign(c) * Math.pow(Math.abs(c), 0.7), sy = Math.sign(s) * Math.pow(Math.abs(s), s < 0 ? 1.4 : 0.9);
-    pos.push(x, cy + sy * h, k * w);
-  }
-  for (let j = 0; j < st.length - 1; j++) for (let i = 0; i < R; i++) {
-    const a = j * R + i, b = j * R + ((i + 1) % R), c2 = (j + 1) * R + i, d = (j + 1) * R + ((i + 1) % R);
-    idx.push(a, c2, b, b, c2, d);
-  }
-  const fus = new THREE.BufferGeometry();
-  fus.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  fus.setIndex(idx);
-  fus.computeVertexNormals();
-  const body = new THREE.Mesh(fus, skin);
-  g.add(body);
-  // the company stripe down the flank
-  for (const side of [-1, 1]) {
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(7, 0.22, 0.02), red);
-    stripe.position.set(0.5, 2.15, side * 1.27);
-    stripe.rotation.y = 0;
-    g.add(stripe);
-  }
-  if (!bare) {
-    const canopy = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x3a4a3a, metalness: 0.9, roughness: 0.05, transparent: true, opacity: 0.85 }));
-    canopy.scale.set(2.0, 0.55, 0.48);
-    canopy.position.set(3.4, 2.55, 0);
-    g.add(canopy);
-    const frame = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.03, 6, 20, Math.PI), dark);
-    frame.position.set(3.0, 2.55, 0);
-    frame.rotation.y = Math.PI / 2;
-    g.add(frame);
-  }
-  // intakes on the flanks, below the canopy
-  for (const side of [-1, 1]) {
-    const intake = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.75, 0.5), skin);
-    intake.position.set(1.2, 1.75, side * 1.25);
-    g.add(intake);
-    const mouth = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.66), dark);
-    mouth.position.set(2.51, 1.75, side * 1.25);
-    mouth.rotation.y = Math.PI / 2;
-    g.add(mouth);
-  }
-  // wings: a swept trapezoid, thin, with a bevel; a slight droop
-  const wing = new THREE.Shape();
-  wing.moveTo(2.2, 0); wing.lineTo(-2.4, 4.6); wing.lineTo(-3.6, 4.6); wing.lineTo(-4.6, 0); wing.closePath();
-  const wingGeo = new THREE.ExtrudeGeometry(wing, { depth: 0.08, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2 });
-  for (const side of [-1, 1]) {
-    const w = new THREE.Mesh(wingGeo, skin);
-    w.rotation.x = side * Math.PI / 2;
-    w.rotation.z = 0;
-    w.position.set(0, 1.85, side * 0.9);
-    w.rotateX(side * -0.04);
-    g.add(w);
-  }
-  // twin canted fins and the tailplanes
-  const fin = new THREE.Shape();
-  fin.moveTo(0, 0); fin.lineTo(-1.9, 2.5); fin.lineTo(-2.8, 2.5); fin.lineTo(-2.6, 0); fin.closePath();
-  const finGeo = new THREE.ExtrudeGeometry(fin, { depth: 0.07, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 1 });
-  for (const side of [-1, 1]) {
-    const f = new THREE.Mesh(finGeo, skin);
-    f.position.set(-3.6, 2.45, side * 0.7);
-    f.rotation.x = side * -0.38;
-    g.add(f);
-    const tp = new THREE.Mesh(wingGeo, skin);
-    tp.scale.set(0.42, 0.42, 1);
-    tp.rotation.x = side * Math.PI / 2;
-    tp.position.set(-4.6, 1.95, side * 0.75);
-    g.add(tp);
-  }
-  // twin nozzles
-  for (const side of [-1, 1]) {
-    const nz = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.36, 0.9, 20, 1, true).rotateZ(Math.PI / 2), dark);
-    nz.position.set(-7.0, 2.0, side * 0.42);
-    g.add(nz);
-  }
-  // landing gear: struts, wheels
-  const tyre = new THREE.MeshStandardMaterial({ color: 0x18191b, roughness: 0.8 });
-  for (const [x, z, r] of [[5.4, 0, 0.32], [-1.6, 1.4, 0.42], [-1.6, -1.4, 0.42]]) {
-    const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1.5, 8), dark);
-    strut.position.set(x, 0.9 + r * 0.5, z * 0.8);
-    g.add(strut);
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.26, 18).rotateX(Math.PI / 2), tyre);
-    wheel.position.set(x, r, z);
-    g.add(wheel);
-  }
-  // the number on the tail
-  const [c, gx] = canvas(256, 128);
-  gx.fillStyle = '#e9e4d8'; gx.font = '900 84px Arial, sans-serif'; gx.textAlign = 'center'; gx.fillText(bare ? 'X-2' : 'X-1', 128, 96);
-  for (const side of [-1, 1]) {
-    const n = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.6), new THREE.MeshBasicMaterial({ map: tex(c), transparent: true }));
-    n.position.set(-5.2, 3.6, side * (0.7 + 0.44));
-    n.rotation.y = side > 0 ? 0 : Math.PI;
-    n.rotation.x = side * -0.38;
-    g.add(n);
-  }
-  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return g;
-}
-
-// Hal's car: a long, square-shouldered coupe twenty years past its best, faded paint, the driver's
-// door in grey primer, a cracked tail light. About 4.8 m, nose to +Z, origin on the ground at its
-// centre. `userData.seat` is where the driver sits, `userData.exhaust` the tailpipe.
-export function buildCar({ color = 0x8c2a22, primer = true } = {}) {
-  const g = new THREE.Group();
-  const [c, gx] = canvas(256);
-  gx.fillStyle = '#' + new THREE.Color(color).getHexString();
-  gx.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 700; i++) { gx.fillStyle = `rgba(255,255,255,${rnd() * 0.07})`; gx.fillRect(rnd() * 256, rnd() * 256, 1 + rnd() * 18, 1 + rnd() * 3); } // sun-faded, swirled
-  if (primer) for (let i = 0; i < 14; i++) { gx.fillStyle = `rgba(110,64,40,${0.2 + rnd() * 0.3})`; gx.beginPath(); gx.arc(rnd() * 256, rnd() * 256, 2 + rnd() * 7, 0, 7); gx.fill(); } // rust
-  const paintTex = tex(c);
-  const paint = new THREE.MeshStandardMaterial({ map: paintTex, metalness: 0.35, roughness: 0.55 });
-  const chrome = new THREE.MeshStandardMaterial({ color: 0xc8ccd0, metalness: 1, roughness: 0.22 });
-  const black = new THREE.MeshStandardMaterial({ color: 0x141516, roughness: 0.7 });
-  const glass = new THREE.MeshStandardMaterial({ color: 0x8ea3b2, metalness: 0.3, roughness: 0.04, transparent: true, opacity: 0.38, envMapIntensity: 1.6 });
-  const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
-  // the body: long and low, the hood and trunk lids a touch lower than the beltline
-  add(new RoundedBoxGeometry(1.86, 0.6, 4.8, 3, 0.1), paint, 0, 0.62, 0);
-  add(new RoundedBoxGeometry(1.8, 0.08, 1.55, 2, 0.03), paint, 0, 0.94, 1.55);
-  add(new RoundedBoxGeometry(1.8, 0.08, 1.15, 2, 0.03), paint, 0, 0.94, -1.75);
-  // the greenhouse: glass with a body-coloured roof and pillars
-  const cabin = new THREE.BoxGeometry(1.62, 0.52, 2.0, 1, 1, 1);
-  const cp = cabin.attributes.position;
-  for (let i = 0; i < cp.count; i++) if (cp.getY(i) > 0) { cp.setX(i, cp.getX(i) * 0.9); cp.setZ(i, cp.getZ(i) * 0.72 - 0.08); }
-  cabin.computeVertexNormals();
-  add(cabin, glass, 0, 1.2, -0.15);
-  add(new RoundedBoxGeometry(1.48, 0.06, 1.42, 2, 0.02), paint, 0, 1.47, -0.23);
-  for (const sx of [-1, 1]) {
-    const a = add(new THREE.BoxGeometry(0.06, 0.6, 0.08), paint, sx * 0.76, 1.2, 0.68); a.rotation.x = -0.75; // A-pillars
-    const cP = add(new THREE.BoxGeometry(0.06, 0.6, 0.12), paint, sx * 0.76, 1.2, -0.98); cP.rotation.x = 0.6; // C-pillars
-  }
-  for (const sx of [-1, 1]) add(new THREE.BoxGeometry(0.03, 0.035, 4.5), chrome, sx * 0.935, 0.9, 0); // belt line
-  // the primer door
-  if (primer) add(new THREE.BoxGeometry(0.02, 0.5, 1.1), new THREE.MeshStandardMaterial({ color: 0x8a8c8a, roughness: 0.9 }), 0.935, 0.66, 0.1);
-  // bumpers, grille, lights
-  add(new RoundedBoxGeometry(1.95, 0.16, 0.16, 2, 0.05), chrome, 0, 0.42, 2.44);
-  add(new RoundedBoxGeometry(1.95, 0.16, 0.16, 2, 0.05), chrome, 0, 0.42, -2.44);
-  add(new THREE.BoxGeometry(1.2, 0.26, 0.04), black, 0, 0.66, 2.41);
-  for (const sx of [-1, 1]) {
-    add(new THREE.CylinderGeometry(0.11, 0.11, 0.05, 18).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xeeeeee, emissive: 0x222018, metalness: 0.5, roughness: 0.1 }), sx * 0.72, 0.68, 2.42);
-    add(new THREE.BoxGeometry(0.36, 0.14, 0.04), new THREE.MeshStandardMaterial({ color: sx > 0 && primer ? 0x5a1410 : 0xa01a14, emissive: 0x220302, roughness: 0.3 }), sx * 0.66, 0.72, -2.42);
-  }
-  // wheels in dark arches
-  for (const [x, z] of [[0.82, 1.5], [-0.82, 1.5], [0.82, -1.5], [-0.82, -1.5]]) {
-    add(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 20, 1, true, 0, Math.PI).rotateZ(Math.PI / 2).rotateX(Math.PI / 2), black, x * 1.04, 0.38, z);
-    const w = new THREE.Group();
-    w.position.set(x, 0.33, z);
-    g.add(w);
-    const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.22, 22).rotateZ(Math.PI / 2), black);
-    tyre.castShadow = true;
-    w.add(tyre);
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.23, 18).rotateZ(Math.PI / 2), chrome);
-    w.add(cap);
-    (g.userData.wheels ??= []).push(w);
-  }
-  // inside: a bench seat and the steering wheel (for the driver's hands)
-  add(new THREE.BoxGeometry(1.5, 0.18, 0.55), black, 0, 0.72, -0.35);
-  add(new THREE.BoxGeometry(1.5, 0.55, 0.14), black, 0, 1.0, -0.62);
-  const wheel = add(new THREE.TorusGeometry(0.19, 0.022, 8, 24), black, 0.38, 1.08, 0.42);
-  wheel.rotation.x = -1.1;
-  add(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 6).rotateZ(Math.PI / 2), chrome, -0.85, 0.32, -2.5); // tailpipe
-  g.userData.seat = V(0.38, 0.55, -0.32);
-  g.userData.wheel = wheel;
-  g.userData.exhaust = V(-0.85, 0.32, -2.58);
-  return g;
 }

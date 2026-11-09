@@ -5,18 +5,62 @@ import { Story } from './Story.js';
 import { Animator } from '../characters/Rig.js';
 import { Locomotion } from '../characters/Mocap.js';
 import { BodyLanguage } from '../characters/BodyLanguage.js';
-import { POSES, still, makePose } from '../characters/Poses.js';
+import { POSES, still, makePose, blendInto } from '../characters/Poses.js';
 import { createCarol, createRing } from '../characters/Characters.js';
 import { Bedroom } from '../scenes/Bedroom.js';
-import { Ferris, CAROL_SPOT, CAR_SPOT, GATE, LOT } from '../scenes/Ferris.js';
+import { Ferris, CAROL_SPOT, CAR_SPOT, GATE, LOT, FERRIS_PROPS } from '../scenes/Ferris.js';
+import { loadProps, prop, meshes } from '../props/Props.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const SEATED = makePose({ ...POSES.sitEdge, sx: 0.05, nx: -0.1, kx: -0.15, ky: 0.05 });
-// at the wheel: on the bench seat, knees up, both hands forward on the rim
-const DRIVING = makePose({ hy: -0.33, sx: 0.08, cx: 0.04, lLx: -1.35, kL: 1.3, lRx: -1.25, kR: 1.15, lLz: 0.05, lRz: -0.05, fL: 0.35, fR: 0.35, aL: [0.25, -0.45, 0.85], eL: 1.0, aR: [-0.25, -0.45, 0.85], eR: 1.0 });
-// sitting on the trunk lid: the seated pose, a little slumped
-const ON_TRUNK = makePose({ ...POSES.sitEdge, sx: 0.2, cx: 0.12, nx: 0.08, kx: 0.05 });
+
+// Two-bone IK in a sitting leg's plane: the thigh, knee and foot angles that put the ankle `dy`
+// below and `dz` ahead of the hip joint with the knee bent up (a: thigh, b: shin). `toe` is the
+// foot's pitch (negative: toes up). Sitting poses are solved for the seat they sit on, so the feet
+// land on the car's floor instead of going through it.
+function legTo(p, side, dy, dz, a, b, toe = -0.15) {
+  const d = Math.min(Math.hypot(dy, dz), a + b - 0.002), psi = Math.atan2(-dz, -dy);
+  const phi = psi - Math.acos(THREE.MathUtils.clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1));
+  const ky = -a * Math.cos(phi), kz = -a * Math.sin(phi); // the knee, from the hip
+  const shin = Math.atan2(-(dz - kz), -(dy - ky));
+  p[`l${side}x`] = phi;
+  p[`k${side}`] = shin - phi;
+  p[`f${side}`] = toe - shin;
+  return p;
+}
+const legLengths = (rig) => {
+  const w = (n) => rig.bonePosition(n, new THREE.Vector3());
+  return [w('thigh_L').distanceTo(w('shin_L')), w('shin_L').distanceTo(w('foot_L'))];
+};
+// At the wheel: low in the bucket seat and leaned back (the roof is low), knees up either side of
+// the column, feet on the pedals. The hands are put on the rim by the arm IK (driveHands).
+function drivingPose(rig, car) {
+  const { seat, pedals } = car.userData, [a, b] = legLengths(rig), hipY = seat.y - 0.04;
+  const p = makePose({ hy: hipY - rig.hipsHeight, sx: -0.34, cx: -0.1, nx: 0.2, kx: 0.18, lLz: 0.12, lRz: -0.05,
+    aL: [0.3, -0.35, 0.85], eL: 0.9, aR: [-0.3, -0.35, 0.85], eR: 0.9 });
+  legTo(p, 'L', pedals.y - hipY, pedals.z - seat.z - 0.05, a, b, -0.3);
+  return legTo(p, 'R', pedals.y - hipY, pedals.z - seat.z + 0.02, a, b, -0.12);
+}
+// Getting out: turned to the open door, knees up to clear the sill, then feet on the ground outside.
+function swingPose(rig, car) {
+  const [a, b] = legLengths(rig), p = makePose({ hy: car.userData.seat.y - rig.hipsHeight, sx: -0.05, lLz: 0.06, lRz: -0.06, aL: [0.35, -0.8, 0.4], eL: 0.6, aR: [-0.35, -0.8, 0.4], eR: 0.6 });
+  legTo(p, 'L', -0.08, 0.62, a, b, 0);
+  return legTo(p, 'R', -0.1, 0.6, a, b, 0);
+}
+function outPose(rig, car) {
+  const { seat } = car.userData, [a, b] = legLengths(rig);
+  const p = makePose({ hy: seat.y - rig.hipsHeight, sx: 0.28, cx: 0.08, nx: 0.05, lLz: 0.08, lRz: -0.08, aL: [0.25, -0.7, 0.6], eL: 0.7, aR: [-0.25, -0.7, 0.6], eR: 0.7 });
+  legTo(p, 'L', 0.08 - seat.y, 0.5, a, b, 0);
+  return legTo(p, 'R', 0.08 - seat.y, 0.46, a, b, 0);
+}
+// Sitting on the trunk lid, thighs out over the bumper, the shins hanging in front of it, slumped.
+function trunkPose(rig, hipY) {
+  const [a, b] = legLengths(rig), p = makePose({ hy: hipY - rig.hipsHeight, sx: 0.2, cx: 0.12, nx: 0.12, kx: 0.06, lLz: 0.1, lRz: -0.12 });
+  legTo(p, 'L', -0.4, 0.44, a, b, 0.25);
+  return legTo(p, 'R', -0.42, 0.38, a, b, 0.3);
+}
+// blending one held pose into another over a tween
 
 // Carol's body language, in her scan's metres (1.7 m; shoulders at ±0.17, 1.29; arms about 0.55 m):
 // her left hand on her hip while she listens, the right one making her points.
@@ -52,6 +96,7 @@ export class Coast extends Story {
 
   async prepare(id) {
     const { ui, player } = this;
+    await loadProps([...FERRIS_PROPS, 'phone']);
     ui.clock(this.save.info(id).clock);
     this.ring = createRing();
     this.attachRing(this.ring, this.hal);
@@ -63,7 +108,8 @@ export class Coast extends Story {
     this.setupFerris();
     if (id === 'drive') return; // starts in the car
     // in the staff lot by his car, or on the apron with Carol
-    const at = { ferris: CAR_SPOT.clone().add(V(1.5, 0, -0.6)), carol: CAROL_SPOT.clone().add(V(-0.4, 0, 3.4)), after: CAR_SPOT.clone().add(V(1.5, 0, -0.6)) }[id];
+    // (the car is turned round, so its driver's side, +x in its own frame, is -x here)
+    const at = { ferris: CAR_SPOT.clone().add(V(-2.45, 0, 0.45)), carol: CAROL_SPOT.clone().add(V(-0.4, 0, 3.4)), after: CAR_SPOT.clone().add(V(-2.45, 0, 0.45)) }[id];
     this.ferrisScene.car.rotation.y = Math.PI; // parked nose to the hangars, as he left it
     this.enterFerris(at, id === 'carol' ? Math.PI : Math.PI * 0.9);
     if (id === 'carol') this.addCarol();
@@ -88,7 +134,7 @@ export class Coast extends Story {
     onFrame((dt) => { if (this.current === room && (bird -= dt) < 0) { bird = 3 + Math.random() * 7; audio.birdsong(); } });
     // the phone on the nightstand, the mail on the hall table, the notice under the door
     const phone = (this.phone = buildPhone());
-    phone.position.set(-0.13, 0.556, -1.56);
+    phone.position.set(-0.13, 0.5555, -1.56);
     phone.rotation.y = 0.4;
     room.scene.add(phone);
     room.scene.add(buildMail(V(-3.42, 0.826, 3.3)));
@@ -137,11 +183,41 @@ export class Coast extends Story {
     this.giveControl('Get to Ferris Aircraft');
   }
 
+  // A prop held flat in the palm (the scans have no finger bones): parented to the hand bone and
+  // eased onto the palm's surface (Rig.palm), and each frame, after the arm IK, the wrist turned so
+  // the prop's face (+Y of its own frame) looks at his eyes with its top up.
+  holdInHand(obj, side) {
+    const rig = this.hal, anim = this.player.animator, hand = rig.bones[`hand_${side}`], palm = rig.palm(side);
+    hand.attach(obj); // where it is, for now
+    const Y = palm.normal, Z = palm.along.clone().negate(), X = new THREE.Vector3().crossVectors(Y, Z);
+    const q1 = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z));
+    const p1 = palm.centre.clone().addScaledVector(Y, palm.surface + 0.0045);
+    const p0 = obj.position.clone(), q0 = obj.quaternion.clone();
+    tween(0.35, (k) => { obj.position.lerpVectors(p0, p1, k); obj.quaternion.slerpQuaternions(q0, q1, k); }, ease.inOut);
+    const w = { k: 0 };
+    tween(0.7, (k) => (w.k = k), ease.inOut);
+    const Lt = new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(palm.along, palm.normal), palm.along, palm.normal).transpose();
+    const N = new THREE.Vector3(), A = new THREE.Vector3(), C = new THREE.Vector3(), eye = new THREE.Vector3(), at = new THREE.Vector3();
+    const m = new THREE.Matrix4(), qw = new THREE.Quaternion(), qp = new THREE.Quaternion();
+    anim.post = () => {
+      rig.bonePosition('head', eye).y += 0.07;
+      obj.getWorldPosition(at);
+      N.subVectors(eye, at).normalize(); // the palm's normal, to the eyes
+      A.set(0, 1, 0).addScaledVector(N, -N.y).normalize(); // the fingers, up
+      C.crossVectors(A, N);
+      qw.setFromRotationMatrix(m.makeBasis(C, A, N).multiply(Lt));
+      hand.parent.getWorldQuaternion(qp).invert();
+      hand.quaternion.slerp(qp.multiply(qw), w.k);
+      hand.updateMatrixWorld(true);
+    };
+    return { release: () => { anim.post = null; } };
+  }
+
   // The phone: buzzing on the nightstand, its screen lit.
   buzzPhone(times = 2) {
     this.audio.buzz(times);
     const p0 = this.phone.position.clone(), r0 = this.phone.rotation.y;
-    this.phone.userData.screen.material.color.setScalar(1.6);
+    this.phone.userData.screen.material.color.setScalar(1.0);
     return tween(times * 0.6, (k) => {
       const on = (k * times * 0.6) % 0.6 < 0.38;
       this.phone.position.set(p0.x + (on ? (Math.random() - 0.5) * 0.003 : 0), p0.y, p0.z + (on ? (Math.random() - 0.5) * 0.003 : 0));
@@ -186,25 +262,20 @@ export class Coast extends Story {
     player.animator.gesture('shake', 0.9, 0.5);
     await this.say('halLate2');
     // the phone: picked up, on speaker, four voicemails
-    const phone = this.phone, hand = new THREE.Vector3(), chest = new THREE.Vector3();
+    const phone = this.phone, chest = new THREE.Vector3(), rig = this.hal;
     this.handsOnKnees(false, ['L']);
-    player.animator.reach('L', phone.position.clone().add(V(0, 0.04, 0)), { pole: V(0.8, -0.5, -0.4), rate: 5 });
+    // the hand down onto the phone, then up with it, flat in the palm, the screen turned to his eyes
+    player.animator.reach('L', phone.position.clone().add(V(0, 0.075, 0)), { pole: V(0.8, -0.5, -0.4), rate: 5 });
     player.lookAt(phone.position, 0.8);
-    await wait(0.8);
-    const rig = this.hal;
-    const holdOff = onFrame(() => {
-      rig.bonePosition('hand_L', hand);
-      phone.position.copy(hand).add(V(0, 0.02, 0));
-      phone.lookAt(rig.bonePosition('head', chest));
-      phone.rotateX(Math.PI / 2 - 0.25); // the screen toward his eyes
-    });
+    await wait(0.85);
+    const grip = this.holdInHand(phone, 'L');
     const fwd = V(1, 0, 0);
-    player.animator.reach('L', () => rig.bonePosition('chest', chest).addScaledVector(fwd, 0.27).add(V(0, 0.12, -0.05)), { pole: V(0.4, -0.8, -0.5), rate: 4 });
-    player.lookAt(() => phone.position, 0.85);
+    player.animator.reach('L', () => rig.bonePosition('chest', chest).addScaledVector(fwd, 0.3).add(V(0, 0.1, -0.03)), { pole: V(0.6, -0.9, -0.4), rate: 4 });
+    player.lookAt(() => phone.getWorldPosition(_h2), 0.85);
     director.move(V(0.45, 1.35, -0.75), V(-0.35, 1.15, -1.1), 2, ease.inOut, 40);
     await wait(0.8);
     await this.say('halCalls');
-    phone.userData.screen.material.color.setScalar(1.2);
+    phone.userData.screen.material.color.setScalar(0.85);
     for (const key of ['vmLandlord', 'vmTom1', 'vmTom2', 'vmCarol']) {
       audio.voicemail();
       await wait(0.5);
@@ -216,7 +287,7 @@ export class Coast extends Story {
     player.animator.gesture('nod', 1.2, 0.3);
     await this.say('halMorning');
     // pocketed; up off the bed
-    holdOff();
+    grip.release();
     phone.visible = false;
     player.animator.reach('L', null);
     this.handsOnKnees(false);
@@ -273,17 +344,20 @@ export class Coast extends Story {
     player.autoAnim = false;
     player.lookAt(null);
     car.add(player.object);
-    player.object.position.set(0.38, 0.24, -0.3);
+    const seat = car.userData.seat;
+    player.object.position.set(seat.x, 0, seat.z);
     player.object.rotation.set(0, 0, 0);
     player.pivot.quaternion.identity();
-    player.animator.play(still(DRIVING, 0.6), 0);
+    car.userData.openDoor(0);
+    player.animator.play(still(drivingPose(this.hal, car), 0.6), 0);
+    this.driveHands(car, true);
     const animOff = onFrame((dt) => player.animator.update(dt));
     const placeCar = (p, yaw) => { car.position.copy(p); car.rotation.y = yaw; };
     placeCar(f.lotCarSpot, 0);
     f.focus(f.lotCarSpot);
     const local = (x, y, z) => V(x, y, z).applyAxisAngle(V(0, 1, 0), car.rotation.y).add(car.position);
-    // turning it over: twice nothing, then it catches
-    director.cut(local(-2.6, 1.25, -3.4), local(0.3, 1.0, 0.3), 42);
+    // turning it over: twice nothing, then it catches (through the windscreen, from the driver's side)
+    director.cut(local(2.3, 1.35, 2.7), local(0.3, 0.98, -0.3), 36);
     await ui.fade(0, 1.4);
     await wait(0.8);
     const shake = (dur, amt) => tween(dur, () => (car.position.y = (Math.random() - 0.5) * amt), ease.linear).then(() => (car.position.y = 0));
@@ -375,16 +449,66 @@ export class Coast extends Story {
     motor.stop(0.4);
     this.motor = null;
     await wait(0.6);
-    // out of the car
+    await this.getOut(car, animOff);
+  }
+
+  // His hands on the rim (or off it): the arm IK holds them there while the car moves.
+  driveHands(car, on) {
+    const anim = this.player.animator, ud = car.userData;
+    if (!on) { anim.reach('L', null); anim.reach('R', null); return; }
+    anim.reach('L', () => car.localToWorld(ud.rim('L', 10)), { pole: V(0.9, -1, -0.2), rate: 8 });
+    anim.reach('R', () => car.localToWorld(ud.rim('R', 2)), { pole: V(-0.9, -1, -0.2), rate: 8 });
+  }
+
+  // Out of the car, the way people get out of a low coupe: a hand to the door handle and the door
+  // pushed open, a turn in the seat to put the feet out over the sill, up and clear of the frame,
+  // a step back, and the door swung shut behind him.
+  async getOut(car, animOff) {
+    const { player, audio, director } = this, o = player.object, ud = car.userData, rig = this.hal, anim = player.animator;
+    const local = (x, y, z) => car.localToWorld(V(x, y, z));
+    // the front quarter on the driver's side: the door opens toward the camera
+    director.cut(local(3.4, 1.45, 3.2), local(0.8, 0.95, -0.35), 38);
+    this.driveHands(car, false);
+    const door = ud.door, handle = V(-0.14, 0.24, -0.86); // on the door card, in the hinge's frame
+    anim.reach('L', () => door.localToWorld(handle.clone()), { pole: V(1, -0.6, -0.4), rate: 6 });
+    await wait(0.7);
     audio.carDoor();
+    await tween(0.45, (k) => ud.openDoor(0.3 * ease.inOut(k)));
+    anim.reach('L', null);
+    tween(0.7, (k) => ud.openDoor(0.3 + 0.7 * ease.out(k)));
+    // turn in the seat to face the door, knees up over the sill, feet down outside
+    const seat = ud.seat, A = drivingPose(rig, car), B = swingPose(rig, car), C = outPose(rig, car);
+    const st = { k: 0 };
+    const p0 = o.position.clone();
+    anim.play((out) => { const k = st.k; return k < 0.5 ? blendInto(out, A, B, k * 2) : blendInto(out, B, C, (k - 0.5) * 2); }, 0.2);
+    await tween(1.3, (k) => {
+      st.k = ease.inOut(k);
+      o.rotation.y = (Math.PI / 2) * ease.inOut(Math.min(1, k * 1.25));
+      o.position.set(p0.x + 0.26 * ease.inOut(k), 0, p0.z);
+    });
+    await wait(0.15);
+    // up, the head ducked under the roof's edge, and clear of the frame
+    anim.play(player.loco, 0.9);
+    player.loco.speed = 0;
+    const p1 = o.position.clone();
+    await tween(1.1, (k) => o.position.set(p1.x + (1.26 - p1.x) * ease.inOut(k), 0, p1.z), ease.linear);
     animOff();
-    car.remove(player.object);
-    player.animator.play(player.loco, 0);
-    this.enterFerris(CAR_SPOT.clone().add(V(1.5, 0, -0.6)), Math.PI * 0.9);
+    const out = car.localToWorld(V(1.26, 0, seat.z)), yawOut = car.rotation.y + Math.PI / 2;
+    car.remove(o);
+    this.enterFerris(out, yawOut);
     player.autoAnim = true;
-    director.cut(CAR_SPOT.clone().add(V(4, 1.6, -4)), CAR_SPOT.clone().add(V(1.5, 1.2, -0.6)), 45);
-    await wait(0.8);
+    // out past the door's tip (clear of its swing), then the tip pulled across and let go
+    await player.walkTo(local(2.45, 0, -0.45), player.walkSpeed * 0.8);
+    player.turnTo(car.rotation.y - 0.44);
+    await wait(0.45);
+    const tip = V(0.03, 0.3, -1.34); // the top of the door's rear edge, in the hinge's frame
+    anim.reach('R', () => door.localToWorld(tip.clone()), { pole: V(-1, -0.6, -0.3), rate: 7 });
+    await wait(0.4);
+    await tween(0.5, (k) => ud.openDoor(1 - 0.45 * ease.inOut(k)));
+    anim.reach('R', null);
+    await tween(0.32, (k) => ud.openDoor(0.55 * (1 - ease.in(k))), ease.linear);
     audio.carDoor();
+    director.shake?.(0.05, 0.15);
     await wait(0.6);
   }
 
@@ -505,19 +629,26 @@ export class Coast extends Story {
     this.takeControl();
     if (this.carol) this.carol.root.visible = false;
     const f = this.ferrisScene;
-    // the car is parked nose to the hangars; he sits on its tail, facing south down the road
-    const seat = CAR_SPOT.clone().add(V(0, 0.42, 2.25));
+    // the car is parked nose to the hangars; he perches on the back edge of its trunk lid, facing
+    // south down the road, his hands on the lid either side of him
+    const car = f.car, tail = car.userData.tail, hipY = tail.y + 0.09;
+    const seat = car.localToWorld(V(0, 0, tail.z + 0.2)); // the hips on the lid, the knees past the bumper
     player.removeFromPhysics();
     this.playerActive = false;
     player.autoAnim = false;
     player.object.position.copy(seat);
-    player.object.rotation.set(0, 0, 0);
-    player.animator.play(still(ON_TRUNK, 1.2), 0);
-    this.handsOnKnees(true);
+    player.object.rotation.set(0, car.rotation.y + Math.PI, 0);
+    player.pivot.quaternion.identity();
+    player.animator.play(still(trunkPose(this.hal, hipY), 1.2), 0);
+    for (const [side, x] of [['L', 0.3], ['R', -0.3]]) {
+      const at = car.localToWorld(V(-x * 1.25, tail.y + 0.06, tail.z + 0.32));
+      player.animator.reach(side, at, { pole: V(side === 'L' ? 1 : -1, 0.2, -1), rate: 6 });
+    }
     const animOff = onFrame((dt) => player.animator.update(dt));
     f.focus(seat);
     ui.clock(this.save.info('after').clock);
-    const head = seat.clone().add(V(0, 1.15, 0));
+    seat.y = hipY;
+    const head = seat.clone().add(V(0, 0.72, 0));
     director.cut(head.clone().add(V(-1.4, -0.25, 2.6)), head.clone().add(V(0, -0.1, 0)), 40);
     await ui.fade(0, 1.6);
     director.move(head.clone().add(V(-1.1, -0.2, 2.1)), head.clone().add(V(0, -0.1, 0)), 8, ease.inOut, 36);
@@ -547,27 +678,39 @@ export class Coast extends Story {
     await new Promise(() => {});
   }
 }
-const _h = new THREE.Vector3();
+const _h = new THREE.Vector3(), _h2 = new THREE.Vector3();
 
-// A phone lying on the nightstand: a dark slab, its screen showing the morning's news.
+// Hal's phone (a downloaded model, CREDITS.md) with the morning's lock screen drawn on it. The group
+// lies flat, screen up; its child is the phone itself (long axis +Y, screen +Z), so in the group's
+// frame the screen faces +Y and the phone's top points -Z.
 function buildPhone() {
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.009, 0.148), new THREE.MeshStandardMaterial({ color: 0x15171a, metalness: 0.6, roughness: 0.25 }));
-  body.castShadow = true;
-  g.add(body);
+  const g = new THREE.Group(), ph = prop('phone', { ownMaterials: true });
+  ph.rotation.x = -Math.PI / 2;
+  g.add(ph);
   const c = document.createElement('canvas');
-  c.width = 128; c.height = 256;
+  c.width = 256; c.height = 552;
   const x = c.getContext('2d');
-  x.fillStyle = '#0b0f14'; x.fillRect(0, 0, 128, 256);
-  x.fillStyle = '#e9eef3'; x.font = '300 40px Arial, sans-serif'; x.textAlign = 'center'; x.fillText('9:41', 64, 62);
-  x.fillStyle = '#1c2a36'; x.fillRect(10, 92, 108, 46); x.fillRect(10, 146, 108, 46);
-  x.fillStyle = '#ff5b4d'; x.font = '700 14px Arial, sans-serif'; x.fillText('4 missed calls', 64, 120);
-  x.fillStyle = '#9fb3c4'; x.font = '600 13px Arial, sans-serif'; x.fillText('4 new voicemails', 64, 174);
+  const sky = x.createLinearGradient(0, 0, 0, 552);
+  sky.addColorStop(0, '#1d2a3c'); sky.addColorStop(1, '#0a0e15');
+  x.fillStyle = sky; x.fillRect(0, 0, 256, 552);
+  x.fillStyle = '#e9eef3'; x.textAlign = 'center';
+  x.font = '500 15px Arial, sans-serif'; x.fillText('Thursday, November 10', 128, 92);
+  x.font = '200 76px Arial, sans-serif'; x.fillText('9:41', 128, 168);
+  const card = (y, head, line, col) => {
+    x.fillStyle = 'rgba(210,225,240,0.16)'; x.beginPath(); x.roundRect(14, y, 228, 62, 14); x.fill();
+    x.textAlign = 'left'; x.fillStyle = col; x.font = '700 13px Arial, sans-serif'; x.fillText(head, 28, y + 25);
+    x.fillStyle = '#c9d4de'; x.font = '400 12px Arial, sans-serif'; x.fillText(line, 28, y + 46);
+  };
+  card(214, 'PHONE', '4 missed calls  ·  Tom, Carol, Sal', '#ff6a5c');
+  card(284, 'VOICEMAIL', '4 new voicemails', '#e9eef3');
+  card(354, 'ALARM', '7:00 AM  ·  dismissed', '#e9eef3');
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.064, 0.136).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(0.25, 0.25, 0.25) }));
-  screen.position.y = 0.0047;
-  g.add(screen);
+  // the cover glass barely there (it mirrored the room over the screen), the frame satin
+  for (const m of meshes(ph, (n) => /Screen_Glass/.test(n))) Object.assign(m.material, { opacity: 0.12, envMapIntensity: 0.15, roughness: 0.05 });
+  for (const m of meshes(ph, (n) => /Frame|Button|Antenna|Circle/.test(n))) m.material.roughness = Math.max(m.material.roughness, 0.42);
+  const screen = meshes(ph, (n) => /Wallpaper/.test(n))[0];
+  screen.material = new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(0.25, 0.25, 0.25), side: THREE.DoubleSide }); // (its face points into the phone)
   g.userData.screen = screen;
   return g;
 }

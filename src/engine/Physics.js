@@ -29,6 +29,14 @@ export class Physics {
     return body;
   }
 
+  // Flat ground `size` metres square about the origin, as a heightfield. A box this big lets the
+  // character controller sink in as it walks (by about 9 cm on a 600 m box, then it sticks): the
+  // box's queries lose precision with its size, while a heightfield's cells stay local.
+  fixedGround(size, y = 0, cells = Math.ceil(size / 10)) {
+    const heights = new Float32Array((cells + 1) * (cells + 1));
+    return this.fixedCollider(RAPIER.ColliderDesc.heightfield(cells, cells, heights, { x: size, y: 1, z: size }).setFriction(0.8), { x: 0, y, z: 0 });
+  }
+
   // Collider for a static mesh's world-space triangles.
   fixedTrimesh(mesh) {
     mesh.updateMatrixWorld(true);

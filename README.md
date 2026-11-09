@@ -180,13 +180,14 @@ block debris, bolts and Hal.
    (where are you; they scrubbed the test), Carol ("come in, we need to talk"). Then the
    apartment is yours: an empty fridge, red-ink bills, the photo of his father, and a rent notice
    slipped under the front door. Leave by the front door.
-2. **Running late:** his old car takes three tries to start. The desert road out to Ferris
-   Aircraft, the gate, the staff lot.
+2. **Running late:** his old '71 muscle car (faded maroon, one door in primer) takes three tries to
+   start. The desert road out to Ferris Aircraft, the gate, the staff lot; he opens the door, swings
+   his feet out, gets out and shuts it behind him.
 3. **Ferris Aircraft:** walk between the hangars to the apron, where the prototype he was meant
    to fly at nine stands fuelled and Carol Ferris is waiting.
 4. **Carol:** the Air Force came out from Edwards and watched an empty cockpit. He can't tell her
    where he was. She fires him.
-5. **Out of work:** Hal on the back of his car, the ring telling him there's no threat.
+5. **Out of work:** Hal sitting on the trunk of his car, the ring telling him there's no threat.
 
 ## Characters and movement
 
@@ -220,6 +221,11 @@ block debris, bolts and Hal.
   - procedural nods and head shakes on dialogue.
 - **Cutscene poses** (lying in bed, sitting, kneeling, floating, carried) are parameter poses in
   `src/characters/Poses.js`; the animator crossfades between them and mocap in quaternion space.
+  Sitting poses in a seat (at the wheel, getting out of the car, on its trunk) solve the legs with
+  two-bone IK for that seat's measured cushion and floor, and the hands go on the steering wheel's
+  rim by arm IK.
+- **Held props:** the scans have no finger bones, so the phone lies flat in Hal's palm (a palm frame
+  measured from the hand's vertices), and his wrist turns so its screen faces his eyes.
 
 ## Environment
 
@@ -227,8 +233,14 @@ block debris, bolts and Hal.
   and offset; near/mid/far detail levels) and clumped broadleaf trees, instanced with per-tree colour
   and a wind sway. The lake's far shore is low wooded hills whose skyline is the tree line; forest
   also stands inland and frames both ends of the bay, and fills the view from the bedroom window.
-- Everything else (rooms, ship, terrain, water, sky, fire, ring, lantern) is procedural, and all
-  sound is synthesised with WebAudio. Spoken lines use the browser's speech synthesiser.
+- **Downloaded models** (Part Three): the cars, the prototype jet, the phone, the palms, Hal's
+  apartment block and the airfield's ground equipment are CC BY 4.0 models from Sketchfab by way of
+  the [Objaverse](https://huggingface.co/datasets/allenai/objaverse) dataset, credited in
+  [CREDITS.md](CREDITS.md). `npm run props` (`tools/build-props.mjs`) builds them from
+  `assets/props/` into `public/models/props/` (turned to face +Z, scaled to metres, textures to WebP).
+- Everything else (rooms, ship, terrain, water, sky, fire, ring, lantern, Oa, the hangars) is
+  procedural, and all sound is synthesised with WebAudio. Spoken lines use the browser's speech
+  synthesiser.
 
 ## Code map
 
@@ -245,7 +257,9 @@ src/powers/                 RingPowers (charge, health, construct wheel, aiming 
                             wall / gatling, damage, flight effects), Constructs (list, shaders, shapes)
 src/scenes/                 Bedroom (+ hallway, kitchenette; night or morning), Dream (airfield), Hyperspace
                             (the transit), CrashSite, Oa (+ Hall: the Guardians' hall), Space (Earth and Oa
-                            from orbit), Ferris (the airfield by day, the road, Hal's car, the prototype)
+                            from orbit), Ferris (the airfield by day, the road, the lots)
+src/props/                  Props (loading the downloaded models), Car (paint, wheels, the driver's door,
+                            seat, pedals and rim points for Hal)
 src/enemies/                Drones (Part Two's training drones: AI, physics, bolts), Sinestro (the sparring duel)
 src/fx/                     sky, particles + fire, water, trees, green light / bubble / shafts, cloth, textures,
                             Rift (the pocket dimension), EarthMap (continents and city lights for Space)
@@ -255,7 +269,8 @@ src/story/                  Story (Part One + the shared chapter plumbing, the l
 src/ui/                     HUD, subtitles, glyph cipher + decode, choice, cards, pause menu, checkpoint
                             notice; PowerHud (health, ring charge, construct wheel, reticle, training panel);
                             TravelHud (flight readout, arrival card, star chart)
-tools/                      asset pipeline (build-assets, autorig, strip-mocap, extract-posters) and debug
+tools/                      asset pipeline (build-assets, autorig, build-props, strip-mocap, extract-posters),
+                            propview.html (a dev page that renders a model from six angles), and debug
                             renderers (inspect-model, inspect-weights, inspect-heads); headswap.mjs is the
                             earlier fix for the old casual scan, kept for reference
 ```
@@ -276,4 +291,5 @@ MIT (see [LICENSE](LICENSE)). It covers the code, the docs and the project's own
 models in `assets/raw` and `public/models`, the reference videos, the concept art and the posters.
 The Mixamo animation clips (`assets/mocap/Xbot.glb`, `Soldier.glb` and the clips stripped from
 them into `public/anims/`) are third-party files from the three.js examples and stay under
-Mixamo's own terms.
+Mixamo's own terms. The downloaded models in `assets/props/` and `public/models/props/` are
+third-party too, each under CC BY 4.0 with its author and source listed in [CREDITS.md](CREDITS.md).

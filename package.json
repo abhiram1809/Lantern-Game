@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "assets": "node tools/build-assets.mjs",
     "posters": "node tools/extract-posters.mjs",
-    "mocap": "node tools/strip-mocap.mjs"
+    "mocap": "node tools/strip-mocap.mjs",
+    "props": "node tools/build-props.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",
