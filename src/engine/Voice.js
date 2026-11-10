@@ -91,14 +91,19 @@ export class Voice {
     const t0 = ctx.currentTime + 0.02, w0 = performance.now() + 20, words = clip.words ?? [], mouth = clip.mouth;
     const over = Math.min(buf.duration, (clip.end ?? buf.duration) + 0.12);
     src.start(t0);
-    let w = 0;
+    let w = 0, ran = ctx.state === 'running';
     return new Promise((resolve) => {
       const tick = () => {
         if (this.current !== token) { resolve(); return; }
-        // the clip's clock; wall-clock time if the context isn't running (no gesture yet), so a line
-        // can never hold a scene up
-        const t = ctx.state === 'running' ? ctx.currentTime - t0 : (performance.now() - w0) / 1000;
-        while (w < words.length && words[w][1] <= t) onWord?.(words[w++][0]);
+        if (this.held) { requestAnimationFrame(tick); return; } // paused: the context is suspended too
+        // the clip's clock; wall-clock time if the context has never run (no gesture yet), so a line
+        // can never hold a scene up. Once it has run, its clock stands still while it's suspended
+        // (a pause, or the moment a resume takes)
+        if (ctx.state === 'running') ran = true;
+        const t = ran ? ctx.currentTime - t0 : (performance.now() - w0) / 1000;
+        // advance outside the call: `onWord?.(words[w++][0])` skips its arguments, w++ included,
+        // when there is no listener, and the loop never ends
+        while (w < words.length && words[w][1] <= t) { const c = words[w++][0]; onWord?.(c); }
         const f = Math.floor(t * MOUTH_RATE);
         this.mouth = f >= 0 && f < mouth.length ? mouth[f] / 255 : 0;
         if (t >= over) { this.end(token); resolve(); return; }
@@ -158,11 +163,13 @@ export class Voice {
   }
 
   pause() {
+    this.held = true;
     if (this.supported) speechSynthesis.pause();
     if (this.current?.src) this.audio.ctx.suspend();
   }
 
   resume() {
+    this.held = false;
     if (this.supported) speechSynthesis.resume();
     this.audio?.ctx?.resume();
   }

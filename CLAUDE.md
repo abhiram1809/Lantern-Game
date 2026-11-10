@@ -1211,11 +1211,18 @@ The checks that have worked:
   `speechSynthesis` may stay silent, so `Voice.speak` has a time-based fallback. A clip's clock
   is the audio context's, or wall time while the context isn't running, so a line can't hold a
   scene up.
+- **`f?.(x++)` skips its arguments when `f` is missing**, side effects included. The voice's word
+  loop advanced its index inside an optional call (`onWord?.(words[w++][0])`); for every line
+  without a word listener (most of them) `w` never moved and the page froze on the first word of
+  the game (the user: "the video stops in between and the game hangs"). Earlier tests missed it:
+  they ran with voices off, or passed a listener. Test voices on, in real time, from a new game.
 - **Spoken text written outside `lines.js` gets no clip.** The ring's warnings were literal
   strings in `RingPowers.js` and would have spoken in the browser's voice; they are lines now.
-- **A hidden browser pane throttles `requestAnimationFrame`** to about once a second and, left
-  long enough, freezes the page (scripts and navigation time out). The voice's tick runs on it;
-  test voice timing with the pane visible, or close the tab and open a new one.
+- **A hidden browser pane throttles `requestAnimationFrame`** to about once a second. The voice's
+  tick runs on it (its clock is the audio context's, so lines still end on time, checked about
+  once a second). A page that stops answering even a one-line script is stuck in a loop, not
+  throttled: leave synchronous breadcrumbs in `localStorage` (a wrapped `requestAnimationFrame`
+  naming each callback) and read them from a new tab after the hang.
 - **Pointer lock:** pressing Esc releases the lock, which pauses the game (`input.onLockLost`).
   When the game releases the lock itself, it sets `input.releasing` so that doesn't count as a
   pause.
@@ -1445,6 +1452,16 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-10: the hang at the first voice line
+- The game froze on Hal's first line of a new game (and on any line without a word listener):
+  an endless loop in `Voice.play`'s word timing (see Gotchas). Fixed; found with localStorage
+  breadcrumbs. Also in `Voice.js`: a paused line now holds (`held`) and resumes where it was
+  (it used to end during the pause, and an audio context's slow `resume()` ended it at once);
+  wall time stands in for the audio clock only before the context has ever run.
+- Verified in the browser, voices on, in real time: a new game through Hal's first two lines to
+  control (the jaw moving, no errors); the light chapter through to the question; a line paused
+  for 4 s finishing on time after resume. The user confirmed the new game plays.
 
 ### 2026-11-10: voices, lip movement, the blanket, a staged wake, Coast City
 - **Voices** (`tools/build-voices.mjs`, `tools/voices.html`, `public/voices/`, new; `Voice.js`
