@@ -283,7 +283,9 @@ Every model faces +Z (`facing: 1`) and has WebP textures.
 6. It calls `audio.init()`. That has to happen after a user click, because of the browser's
    autoplay rules.
 7. It makes the part's story (`Story` for Part One, `Corps` for Part Two) and calls
-   `story.run(id)`.
+   `story.run(id)`. If a step throws, the error is logged and a card ("The story stopped") offers
+   to restart the checkpoint; before, the story just stopped and Hal kept walking a scene that
+   never moved on.
 
 `titleFlow` shows **Begin** on a fresh save, or **Continue**, **New game** and **Chapters** once
 there is a save. Once Part One has reached `free` (or Part Two has a save) it adds **Part Two: The
@@ -361,7 +363,8 @@ dialogue, barks, `perform`, collapse, interactions) is inherited. `main.js` pick
 2. A step in that part's `steps()`.
 3. State setup in its `prepare()`.
 
-Test it by loading `#<id>` directly.
+Test it by loading `#<id>` directly, and by playing on into it from the step before: `prepare()`
+can hide a step that relies on something it hasn't built yet (see Gotchas).
 
 **Restarting** a checkpoint is a page reload (`Save.resumeAfterReload(id)`), which is the
 cleanest way to reset the scenes.
@@ -498,8 +501,12 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
   - `drift` streams dust motes past Hal so speed reads against the stars.
 - **`Oa.js`:** Kilowog's training range, a disc (radius `RANGE_RADIUS` = 42 m) floating far above
   Oa's city.
-  - The deck is a canvas-textured slate: hex flagstones with faint lit inlays, rings, the Corps
-    emblem, six spawn `PADS`. There are hex cover pillars (`blocks`), Kilowog's podium
+  - The deck is a canvas-textured slate (noise, the flagstones' fills and dark seams, faint green
+    grooves). Its lit markings are drawn in the shader (`deckGlow`, an `onBeforeCompile` patch over
+    the emissive): hex flagstones 3.2 m to the corner with about half of them outlined, rings,
+    spokes, the Corps emblem and the six spawn `PADS`, as distance fields anti-aliased over a pixel
+    with `fwidth` (a line thinner than a pixel is drawn a pixel wide and dimmed; far off, the hex
+    sides fade into their average glow). There are hex cover pillars (`blocks`), Kilowog's podium
     (`KILOWOG_SPOT`), pylons, and metal crates as dynamic bodies.
   - An invisible edge wall (`bounds`, ignored in flight). Every collider Hal walks on or against
     is a convex prism (`hullPrism`), never a Rapier cylinder (see Gotchas).
@@ -522,7 +529,8 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
     them include the Guardians' hall.
 - **`Hall.js`:** the Hall of the Guardians, built into the Oa scene (`oa.hall`) on a tower at
   `HALL` (-62, 3, -150), between the range and the battery, so it shows from the range and Hal
-  flies there. A floor disc of polished stone with lit rings and rays; a crescent of seven pillars
+  flies there. A floor disc of polished stone with lit rings and rays (a glow canvas on black,
+  `lit()` drawing each line into it and into the groove layer); a crescent of seven pillars
   on the battery side (`HALL_PILLARS`: radius 10.8, 5.9–7.2 m, the eldest's in the middle), a
   Guardian's platform on each; the dais (`DAIS_TOP`); Abin Sur's bier (`BIER`, dark stone, lit
   edge); a great ring hanging over it; a spotlight on the Guardians. Colliders are hull prisms and
@@ -1100,6 +1108,19 @@ The checks that have worked:
 
 ## Gotchas (learned the hard way)
 
+- **A step can work from its own checkpoint and break when played into.** `targets()` took
+  `this.swarm` at its first line and built the range (`setupOa()`) on the next. Loaded at `#oa`,
+  `prepare()` had already built it; played on from the voyage, `swarm` was undefined, the drill
+  ran, and `swarm.clear()` at its end threw: live fire never started (the user: "it does not link
+  to the more difficult one"). Read what a step builds only after building it, and test each step
+  played on from the one before, not just from its hash.
+- **A canvas with a transparent background makes a bad emissive map.** WebGL uploads it
+  un-premultiplied, so every texel a line's anti-aliasing touched glows at full strength: lines a
+  texel or two wide come out hard, stair-stepped, and crawl as the camera moves (the user: "the
+  floor flickering" on Kilowog's range). Paint glow on opaque black, or draw thin lines in the
+  shader with `fwidth` anti-aliasing (`deckGlow` in `Oa.js`). Diffing two frames 3 cm apart shows
+  crawl as beads along the lines, smooth motion as unbroken edges.
+
 - **A jaw drawn in the shader needs its seam set by eye.** The lips' seam from the front profile was
   2–25 mm off on every scan (Kilowog's mouth is far above his jutting jaw), and 2 mm puts the dark
   gap on a lip. Hold the mouth open (`u.uJaw`) and step the seam until the gap sits between them.
@@ -1234,6 +1255,14 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-10, range fixes) on 5180, voices on: from `#voyage` through the flight, the landing,
+  Kilowog's intro and the targets drill into `livefire`, the gatling learned and "Survive the
+  live-fire drill" up (it stopped dead after the drill before); the targets ended both with direct
+  damage and with real fist strikes; the error card on a forced failure, and its restart into the
+  `livefire` card. The deck in fixed-step captures (the follow camera, a wide view, a low grazing
+  view): smooth lines in place of stair-steps, a 3 cm camera shift showing unbroken edges, not the
+  old beads; the hall floor from above. No console errors; a clean `vite build`.
+
 - (2026-11-10, props, the car, the phone, the walk) in fixed-step captures: Hal walking on Ferris's
   ground after the drive (level at y 0, 1.18 m/s, no sticking; it sank 9 cm and stuck before);
   Hal at the Phoenix's wheel from outside, from the front and in cutaways with the body hidden
@@ -1326,6 +1355,8 @@ Verified by playing in the browser:
 
 Not verified:
 
+- the deck at full frame rate with a real mouse (the captures were fixed-step, the pane hidden);
+  the hall's dais emblem from the range with its new polygon offset (not captured)
 - listening to the voices (the lines worth checking by ear: "Ow. Noted.", "Hm. Quick.", the
   oath's "Beware my power", Kilowog's "Live fire"); the lip sync and tails with the pane visible
   at full frame rate (it was hidden and throttled); frame rate in the city and on the boulevard
@@ -1452,6 +1483,18 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-10: the range's flickering floor, and live fire after the targets
+- **The targets drill never led on to live fire** when played on from the voyage (`Corps.targets`
+  read `this.swarm` before building the range; see Gotchas). Fixed, and `main.js` now catches a
+  step that throws and offers to restart the checkpoint (it also no longer throws itself once the
+  loading screen is gone).
+- **The deck flickered** (`Oa.js`): its glowing lines came from a transparent canvas, uploaded
+  un-premultiplied, so they were hard, stair-stepped and crawled as the camera moved. The lines are
+  now drawn in the deck's shader (`deckGlow`), the same layout as before. The hall floor (`Hall.js`)
+  had the same canvas: its glow is now painted on black (`lit()`), and the dais emblem has a polygon
+  offset (4 mm over the dais was inside a depth step from the range).
+- Verified: see Status (2026-11-10, range fixes). Not verified: a real-input playthrough.
 
 ### 2026-11-10: the hang at the first voice line
 - The game froze on Hal's first line of a new game (and on any line without a word listener):

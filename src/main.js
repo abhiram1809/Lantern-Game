@@ -61,7 +61,16 @@ async function boot() {
   const { part, id } = await titleFlow(ui);
   audio.init();
   story = new ({ corps: Corps, coast: Coast }[part] ?? Story)({ engine, ui, input, audio, voice, assets: { characters, posters } });
-  await story.run(id);
+  try {
+    await story.run(id);
+  } catch (err) {
+    // a step that throws would leave Hal in a scene that never moves on: say so, and offer the
+    // checkpoint again (it rebuilds the scene from scratch)
+    console.error(err);
+    try { story.takeControl(); } catch { /* the card still shows */ }
+    await ui.screen({ kicker: 'Something went wrong', title: 'THE STORY STOPPED', body: `An error stopped this chapter (${err.message}). Restarting the checkpoint usually gets past it.`, buttons: ['Restart checkpoint'] });
+    story.save.resumeAfterReload(story.checkpointId);
+  }
 }
 
 // Title card: Begin, or Continue / New game / Chapters once there's a save; Part Two once Part One
@@ -114,5 +123,6 @@ async function titleFlow(ui) {
 
 boot().catch((err) => {
   console.error(err);
-  document.querySelector('#loading .label').textContent = `Failed to start: ${err.message}`;
+  const label = document.querySelector('#loading .label'); // gone once the title is up
+  if (label) label.textContent = `Failed to start: ${err.message}`;
 });

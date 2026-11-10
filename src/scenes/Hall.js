@@ -65,25 +65,35 @@ export function buildHall(oa) {
       g.beginPath(); g.moveTo(cx + Math.cos(a) * ring * k, cx + Math.sin(a) * ring * k); g.lineTo(cx + Math.cos(a) * (ring + 1.6) * k, cx + Math.sin(a) * (ring + 1.6) * k); g.stroke();
     }
   }
-  const ringL = (r, w, a) => { ge.strokeStyle = `rgba(90,255,150,${a})`; ge.lineWidth = w * k; ge.beginPath(); ge.arc(cx, cx, r * k, 0, Math.PI * 2); ge.stroke(); };
+  // Each lit line goes on the glow canvas at full strength, on black, and on the groove layer `e` at
+  // its own alpha. The glow canvas must be opaque: a transparent one uploads un-premultiplied, so
+  // every texel a line touched glowed at full strength, and the lines stair-stepped and shimmered.
+  const em = document.createElement('canvas');
+  em.width = em.height = size;
+  const gm = em.getContext('2d');
+  gm.fillStyle = '#000';
+  gm.fillRect(0, 0, size, size);
+  const lit = (rgb, a, w, path) => {
+    for (const [ctx, alpha] of [[ge, a], [gm, 1]]) { ctx.strokeStyle = `rgba(${rgb},${alpha})`; ctx.lineWidth = w * k; ctx.stroke(path); }
+  };
+  const circle = (x, y, r) => { const p = new Path2D(); p.arc(x, y, r, 0, Math.PI * 2); return p; };
+  const line = (x0, y0, x1, y1) => { const p = new Path2D(); p.moveTo(x0, y0); p.lineTo(x1, y1); return p; };
+  const ringL = (r, w, a) => lit('90,255,150', a, w, circle(cx, cx, r * k));
   ringL(R - 0.5, 0.25, 0.8); ringL(R - 1.6, 0.06, 0.35); ringL(8.6, 0.08, 0.35); ringL(DAIS.r + 0.5, 0.1, 0.45); ringL(DAIS.r + 0.9, 0.04, 0.3);
   // rays from the dais to each pillar, and between them to the south
   for (let i = 0; i < 28; i++) {
     const a = (i / 28) * Math.PI * 2;
-    ge.strokeStyle = 'rgba(90,255,150,0.16)'; ge.lineWidth = 0.05 * k;
-    ge.beginPath(); ge.moveTo(cx + Math.sin(a) * (DAIS.r + 0.9) * k, cx + Math.cos(a) * (DAIS.r + 0.9) * k); ge.lineTo(cx + Math.sin(a) * 8.6 * k, cx + Math.cos(a) * 8.6 * k); ge.stroke();
+    lit('90,255,150', 0.16, 0.05, line(cx + Math.sin(a) * (DAIS.r + 0.9) * k, cx + Math.cos(a) * (DAIS.r + 0.9) * k, cx + Math.sin(a) * 8.6 * k, cx + Math.cos(a) * 8.6 * k));
   }
   for (const p of HALL_PILLARS) {
     const x = cx + (p.x - C.x) * k, y = cx + (p.z - C.z) * k;
-    ge.strokeStyle = 'rgba(110,255,170,0.5)'; ge.lineWidth = 0.12 * k;
-    ge.beginPath(); ge.arc(x, y, 1.7 * k, 0, Math.PI * 2); ge.stroke();
-    ge.strokeStyle = 'rgba(90,255,150,0.28)'; ge.lineWidth = 0.06 * k;
-    ge.beginPath(); ge.moveTo(cx, cx); ge.lineTo(x, y); ge.stroke();
+    lit('110,255,170', 0.5, 0.12, circle(x, y, 1.7 * k));
+    lit('90,255,150', 0.28, 0.06, line(cx, cx, x, y));
   }
   g.globalAlpha = 0.45;
   g.drawImage(e, 0, 0); // the lit lines read as cut grooves too
   g.globalAlpha = 1;
-  const map = new THREE.CanvasTexture(c), emap = new THREE.CanvasTexture(e);
+  const map = new THREE.CanvasTexture(c), emap = new THREE.CanvasTexture(em);
   map.colorSpace = emap.colorSpace = THREE.SRGBColorSpace;
   map.anisotropy = emap.anisotropy = 8;
   const floorMat = new THREE.MeshStandardMaterial({ map, emissiveMap: emap, emissive: 0xffffff, emissiveIntensity: 0.32, roughness: 0.28, metalness: 0.35 });
@@ -138,8 +148,8 @@ export function buildHall(oa) {
   eg.beginPath(); eg.arc(256, 256, 246, 0, Math.PI * 2); eg.stroke();
   const etex = new THREE.CanvasTexture(ec);
   etex.colorSpace = THREE.SRGBColorSpace;
-  const emblem = new THREE.Mesh(new THREE.CircleGeometry(DAIS.r - 0.15, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: etex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color(0.22, 0.6, 0.36) }));
-  emblem.position.y = DAIS.h + 0.004;
+  const emblem = new THREE.Mesh(new THREE.CircleGeometry(DAIS.r - 0.15, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: etex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color(0.22, 0.6, 0.36), polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+  emblem.position.y = DAIS.h + 0.004; // 4 mm up: from the range that's inside the depth buffer's step, hence the offset
   group.add(emblem);
   const daisRing = new THREE.Mesh(new THREE.TorusGeometry(DAIS.r + 0.02, 0.03, 6, 96), light(0.25, 1.6, 0.7));
   daisRing.rotation.x = Math.PI / 2;

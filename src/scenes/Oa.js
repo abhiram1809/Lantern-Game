@@ -30,6 +30,54 @@ function hullPrism(sides, top, bottom, h, rot = 0) {
   return RAPIER.ColliderDesc.convexHull(new Float32Array(pts));
 }
 
+// The deck's lit markings as distance fields, drawn anti-aliased (see buildPlatform), laid out over
+// the canvas's seams and grooves: hex flagstones 3.2 m to the corner with flat sides to north and
+// south, the rings, the spokes between the inner two, the Corps emblem and the six spawn pads.
+// Colours are the canvas's, in linear light.
+const deckGlow = (R) => /* glsl */ `
+  varying vec2 vDeck;
+  uniform vec2 uPads[6];
+  // a line d from its centre and w wide, its edge smoothed over a pixel; thinner than a pixel, it's
+  // drawn a pixel wide and dimmed to match, so it can't break up into crawling dashes
+  float deckLine(float d, float w) {
+    float px = max(fwidth(d), 1e-4), dw = max(w, px);
+    return clamp((dw * 0.5 - d) / px + 0.5, 0.0, 1.0) * (w / dw);
+  }
+  float deckHash(vec2 c) { c = floor(c * 4.0 + 0.5); return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }
+  vec3 deckGlow(vec2 p) {
+    const vec3 HEX = vec3(0.061, 1.0, 0.262), LINE = vec3(0.102, 1.0, 0.305), EMBLEM = vec3(0.155, 1.0, 0.402), PAD = vec3(1.0, 0.188, 0.08);
+    // the flagstones: the nearer centre of two offset rectangular lattices. About half the stones
+    // have a lit outline; a side is lit if either stone beside it is
+    const vec2 L = vec2(9.6, 5.5425626), N = vec2(0.8660254, 0.5);
+    vec2 a = mod(p, L) - L * 0.5, b = mod(p - L * 0.5, L) - L * 0.5;
+    vec2 q = dot(a, a) < dot(b, b) ? a : b, aq = abs(q);
+    float slant = dot(aq, N), e = 2.7712813 - max(aq.y, slant);
+    vec2 n = aq.y > slant ? vec2(0.0, sign(q.y)) : N * sign(q), c = p - q;
+    float lit = max(step(deckHash(c), 0.45), step(deckHash(c + n * 5.5425626), 0.45));
+    float hex = deckLine(e, 0.09) * lit;
+    hex = mix(hex, 0.023, smoothstep(0.7, 1.6, fwidth(e))); // far off, the sides crowd into a glow
+    vec3 col = mix(vec3(0.0), HEX * 0.85, hex);
+    // the spokes between the inner rings, then the rings
+    float r = length(p), th = atan(p.y, p.x);
+    const float ST = 0.2617994;
+    float sp = deckLine(abs(r * sin(th - ST * floor(th / ST + 0.5))), 0.08) * clamp(min(r - 14.5, 26.5 - r) / max(fwidth(r), 1e-4) + 0.5, 0.0, 1.0);
+    col = mix(col, LINE * 0.5, r > 10.0 ? sp : 0.0); // (atan is undefined at the centre)
+    col = mix(col, LINE * 0.7, deckLine(abs(r - 14.0), 0.12));
+    col = mix(col, LINE * 0.55, deckLine(abs(r - 27.0), 0.09));
+    col = mix(col, LINE * 0.7, deckLine(abs(r - ${(R - 2.2).toFixed(2)}), 0.1));
+    col = mix(col, LINE, deckLine(abs(r - ${(R - 0.6).toFixed(2)}), 0.3));
+    // the emblem: its ring and two bars
+    vec2 bq = abs(vec2(p.x, abs(p.y) - 3.9)) - vec2(8.6, 0.55);
+    float bd = length(max(bq, 0.0)) + min(max(bq.x, bq.y), 0.0);
+    col = mix(col, EMBLEM * 0.85, max(deckLine(abs(r - 4.6), 1.0), clamp(0.5 - bd / max(fwidth(bd), 1e-4), 0.0, 1.0)));
+    for (int i = 0; i < 6; i++) {
+      float d = length(p - uPads[i]);
+      col = mix(col, PAD * 0.9, max(deckLine(abs(d - 1.6), 0.18), deckLine(abs(d - 0.8), 0.18)));
+    }
+    return col;
+  }
+`;
+
 let seed = 11;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
 
@@ -207,10 +255,21 @@ export class Oa {
     g.globalAlpha = 0.5;
     g.drawImage(e, 0, 0); // the lit lines also read as cut grooves
     g.globalAlpha = 1;
-    const map = new THREE.CanvasTexture(c), emap = new THREE.CanvasTexture(e);
-    map.colorSpace = emap.colorSpace = THREE.SRGBColorSpace;
-    map.anisotropy = emap.anisotropy = 8;
-    const deckMat = new THREE.MeshStandardMaterial({ map, emissiveMap: emap, emissive: 0xffffff, emissiveIntensity: 0.5, roughness: 0.55, metalness: 0.25 });
+    const map = new THREE.CanvasTexture(c);
+    map.colorSpace = THREE.SRGBColorSpace;
+    map.anisotropy = 8;
+    // The lit lines themselves are drawn in the shader (deckGlow), not taken from the canvas: lines a
+    // texel or two wide stair-stepped and crawled as the camera moved (the floor "flickered"), and a
+    // canvas with a transparent background uploads un-premultiplied, so every texel a line touched
+    // glowed at full strength. Analytic lines anti-aliased over a pixel hold still at any distance.
+    const deckMat = new THREE.MeshStandardMaterial({ map, emissive: 0xffffff, emissiveIntensity: 0.5, roughness: 0.55, metalness: 0.25 });
+    deckMat.onBeforeCompile = (sh) => {
+      sh.uniforms.uPads = { value: PADS.map((p) => new THREE.Vector2(p.x, p.z)) };
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vDeck;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDeck = position.xz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\n${deckGlow(R)}`)
+        .replace('#include <emissivemap_fragment>', 'totalEmissiveRadiance *= deckGlow(vDeck);');
+    };
     this.deckMat = deckMat;
     const deck = new THREE.Mesh(new THREE.CircleGeometry(R, 128).rotateX(-Math.PI / 2), deckMat);
     deck.receiveShadow = true;

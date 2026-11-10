@@ -317,9 +317,10 @@ export class Corps extends Story {
 
   // ---------------------------------------------------------------- 3. Oa: the arrival and the targets
   async targets() {
-    const { ui, director, player, powers, swarm } = this;
+    const { ui, director, player, powers } = this;
     this.takeControl();
     this.setupOa();
+    const swarm = this.swarm; // after setupOa: coming from the voyage, the range is only built now
     this.travel = null;
     const fromSpace = this.engine.gradeUniforms.uFlash.value > 0.5;
     this.enterOa();
