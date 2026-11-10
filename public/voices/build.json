@@ -1947,6 +1947,14 @@
    "f0dry": 111.5,
    "f0wet": 109.8,
    "beta": 0.946
+  },
+  "halGraveWay": {
+   "hash": "e06d027431d2e6e9",
+   "ps": "ˈɔːl ðə wˈeɪ dˌaʊn ðə pˈæθ. ˌʌndɚ ðə tˈuː sˈaɪpɹəsᵻz, baɪ ðə bˈɛntʃ.",
+   "f0raw": 125.9,
+   "f0dry": 119.6,
+   "f0wet": 118.7,
+   "beta": 0.959
   }
  },
  "characters": {

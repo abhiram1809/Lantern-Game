@@ -2025,13 +2025,31 @@ export class Coast extends Story {
     const graveAt = C.clone().add(GRAVE), stand = graveAt.clone().add(V(1.95, 0, 0.1)); // (the kneel puts a knee 0.6 m ahead)
     f.follow = () => player.position;
     this.director.mode = 'follow';
-    this.giveControl('Visit your father’s grave');
-    await new Promise((resolve) => {
-      f.interact({ position: stand, radius: 1.8, look: graveAt.clone().setY(0.7), label: 'Your father', action: () => { this.takeControl(); resolve(); } });
+    this.giveControl('Visit your father’s grave, at the end of the path');
+    this.bark('halGraveWay');
+    // a marker on his stone while the player looks for it (the ring's HUD is off: drawn here)
+    const mark = graveAt.clone().setY(1.3), scr = new THREE.Vector3();
+    const markOff = onFrame(() => {
+      if (!player.control) { this.hud.setMarker(null); return; }
+      scr.copy(mark).project(engine.camera);
+      const behind = scr.z > 1;
+      let x = behind ? -scr.x : scr.x, y = behind ? -scr.y : scr.y;
+      const off = behind || Math.abs(x) > 0.92 || Math.abs(y) > 0.86;
+      if (off) { const k = 1 / Math.max(Math.abs(x) / 0.92, Math.abs(y) / 0.86, 1e-3); x *= k; y *= k; }
+      const d = player.position.distanceTo(graveAt);
+      this.hud.setMarker((x * 0.5 + 0.5) * innerWidth, (-y * 0.5 + 0.5) * innerHeight, `Martin Jordan${d > 4 ? ` · ${Math.round(d)} m` : ''}`, off);
     });
+    await new Promise((resolve) => {
+      // (generous: anywhere round it, or on the path beside it)
+      f.interact({ position: graveAt.clone().add(V(0.4, 0, -1.5)), radius: 4.6, look: graveAt.clone().setY(0.7), label: 'Your father', action: () => { this.takeControl(); resolve(); } });
+    });
+    markOff();
+    this.hud.setMarker(null);
     f.interactables.length = 0;
     f.follow = null;
     f.focus(graveAt);
+    // round to the front of the stone (it faces east, away from the gate), not through it
+    if (player.position.x < graveAt.x + 0.6) await player.walkTo(graveAt.clone().add(V(1.5, 0, -1.4)), player.walkSpeed * 0.8);
     if (player.position.distanceTo(stand) > 0.4) await player.walkTo(stand, player.walkSpeed * 0.8);
     player.turnTo(-Math.PI / 2);
     player.lookAt(graveAt.clone().setY(0.6), 0.8);
@@ -2054,7 +2072,7 @@ export class Coast extends Story {
     await this.say('halGrave3');
     // the ring answers what he's thinking of: his father, out of its light, beside the stone
     const martin = (this.martin = createLightFigure(this.assets.characters.casual, { jaw: JAW.casual }));
-    const mAt = graveAt.clone().add(V(-0.2, 0, -1.25));
+    const mAt = graveAt.clone().add(V(0.35, 0, -1.3)); // beside the stone, clear of the cypress behind it
     martin.root.position.copy(mAt);
     martin.root.rotation.y = Math.atan2(stand.x - mAt.x, stand.z - mAt.z);
     f.scene.add(martin.root);

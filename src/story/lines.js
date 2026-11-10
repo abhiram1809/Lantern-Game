@@ -266,6 +266,7 @@ export const LINES = {
   halSin2: { who: 'hal', name: 'Green Lantern', text: 'Empty. What was in it?' },
   sinFerris5: { who: 'sinestro', text: 'Something that hates us. Rest while you can. Your people are coming, and they should not find you here.' },
   // the grave, at dusk
+  halGraveWay: { who: 'thought', text: 'All the way down the path. Under the two cypresses, by the bench.' },
   halGrave1: { who: 'hal', text: 'Hey, Dad.' },
   halGrave2: { who: 'hal', text: 'I got fired today. Caught a jet with my hand. A guy with a big head read my mind. Long day.' },
   halGrave3: { who: 'hal', text: 'There’s something out there. The one who knows says it hates us.' },

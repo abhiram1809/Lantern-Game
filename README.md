@@ -216,8 +216,9 @@ block debris, bolts and Hal.
    shield, wall or fist between Carol and what he throws at her (the ring warns you). When it
    breaks he gets into Hal's head and finds his name; Sinestro's fist ends it. Abin Sur's ship
    was carrying a prisoner, and the cell is empty.
-10. **Martin Jordan:** dusk at the memorial park on the edge of town. Hal at his father's grave,
-    and the ring makes his father out of its light.
+10. **Martin Jordan:** dusk at the memorial park on the edge of town. His father's grave is at the
+    far end of the path, under two cypresses by a bench (a marker shows it; **E** there). The ring
+    makes his father out of its light.
 
 ## Characters and movement
 

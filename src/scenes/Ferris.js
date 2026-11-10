@@ -20,7 +20,7 @@ export const CAR_SPOT = V(36, 0, 54); // Hal's space in the staff lot, nose to t
 export const GATE = V(4, 0, 112);
 export const LOT = V(0, 0, 6000); // behind the apartment building (Hal's car)
 export const CEMETERY = V(150, 0, 5150); // the memorial park on the edge of town, east of the road (Martin Jordan's grave)
-export const GRAVE = V(6, 0, 7); // his father's stone, in the park's frame (CEMETERY)
+export const GRAVE = V(24, 0, 4); // his father's stone, in the park's frame (CEMETERY): at the far end of the path, past the rows, under two cypresses by a bench
 export const RUNWAY_Z = -150;
 const JET_PARTS = /Fuselage|Wing|Keel|Stabilizer|Nozzle|Gear/;
 const HANGARS = [{ x: -62, n: '1' }, { x: 0, n: '2' }, { x: 62, n: '3' }];
@@ -773,7 +773,7 @@ export class Ferris {
     }
     if (hasProp('bench')) put(prop('bench'), GRAVE.x - 0.4, GRAVE.z + 3.2, 0);
     if (hasProp('cypress')) {
-      for (const [x, z] of [[GRAVE.x + 1.4, GRAVE.z + 4.6], [GRAVE.x + 2.2, GRAVE.z - 3.8]]) put(prop('cypress'), x, z, rnd() * 6);
+      for (const [x, z] of [[GRAVE.x - 1.7, GRAVE.z - 1.8], [GRAVE.x - 1.5, GRAVE.z + 1.9]]) put(prop('cypress'), x, z, rnd() * 6); // behind it, either side
       for (let x = -28; x <= 28; x += 7) for (const side of [-1, 1]) put(prop('cypress'), x + (rnd() - 0.5) * 2, side * (D / 2 + 1.5), rnd() * 6).scale.setScalar(0.85 + rnd() * 0.35);
       for (let z = -22; z <= 22; z += 7) put(prop('cypress'), W / 2 + 1.5, z + (rnd() - 0.5) * 2, rnd() * 6).scale.setScalar(0.85 + rnd() * 0.35);
     }

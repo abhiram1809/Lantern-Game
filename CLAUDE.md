@@ -137,7 +137,9 @@ afternoon in the suit:
    streaks down (`createShaft`), says Ganthet sent him and the prisoner cell is empty (the Part Four
    hook), sirens, he leaves; Hal checks on Carol and flies off.
 10. **Martin Jordan** (`grave`, `Ferris.dusk()`, `Ferris.cemetery()` at `CEMETERY`): Hal's car at the
-   gate, walk to the stone (`GRAVE`, the engraving drawn on a plate), kneel; the ring makes his
+   gate, walk to the stone (`GRAVE`: alone at the far end of the central path, past the rows, two
+   cypresses behind it and a bench; a marker drawn by `grave()` itself, since the ring's HUD is off;
+   Hal's hint `halGraveWay`; E from anywhere round it or on the path beside it), kneel; the ring makes his
    father (`createLightFigure`), who waves the way he did from the airfield and goes back into the
    light; the end card ("FIRST LIGHT").
 
@@ -1710,6 +1712,16 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-11: finding Martin Jordan's grave
+- The user couldn't find it: the stone stood between the rows among about 120 others, with no
+  marker, and E only worked within 1.8 m of one spot behind it. `GRAVE` moved to the far end of the
+  central path, past the rows, its two cypresses behind it (one had stood on the path) and the
+  bench beside it; a marker on it with the distance (`grave()` draws it with `hud.setMarker`, as the
+  ring's HUD is off), the objective says where, Hal's thought `halGraveWay` (voiced), E within 4.6 m
+  (from the path beside it), and Hal walks round to the stone's front.
+- Verified: the marker through the gate, the prompt from the path, the walk round, the kneel, his
+  father forming clear of the trees. Not verified: real input.
 
 ### 2026-11-11: Part Three's ending, from Secret Origin
 - **Story** (`Coast.js`, `lines.js`, `Save.js`): new checkpoints `wreck`, `test`, `catch`, `hector`,
