@@ -1,0 +1,179 @@
+<!doctype html>
+<!-- Dev-only voice audition page: /tools/voices.html on the dev server.
+     Lists every character's pre-rendered lines (public/voices, built by `npm run voices`) with a
+     play button, the words lighting up on their timings and a mouth drawn from the lip-sync
+     curve, so voices, timings and the mouth track can be judged together. -->
+<html>
+<head><meta charset="utf-8"><title>Voices</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #121315; color: #c9cdd2; font: 14px/1.45 system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 2; background: #121315ee; backdrop-filter: blur(4px); padding: 12px 20px; border-bottom: 1px solid #26292d; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; color: #e8ecef; font-weight: 600; }
+  header .stat { color: #7d858d; font-size: 12px; }
+  header label { font-size: 12px; color: #9aa2aa; display: flex; gap: 6px; align-items: center; }
+  main { padding: 8px 20px 60px; max-width: 1100px; }
+  section { border-bottom: 1px solid #22252a; padding: 14px 0; }
+  section h2 { margin: 0; font-size: 15px; color: #e8ecef; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  section h2 .who { color: #59d38a; font-family: ui-monospace, monospace; }
+  .meta { color: #7d858d; font-size: 12px; margin: 3px 0 8px; font-family: ui-monospace, monospace; }
+  .line { display: grid; grid-template-columns: 34px 44px 1fr 64px; gap: 10px; align-items: center; padding: 4px 0; }
+  .line.hidden { display: none; }
+  button.play { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #3a3f45; background: #1d2024; color: #59d38a; cursor: pointer; font-size: 12px; }
+  button.play:hover { border-color: #59d38a; }
+  button.play.on { background: #59d38a; color: #111; }
+  canvas.mouth { width: 44px; height: 30px; }
+  .text { color: #b6bcc2; }
+  .text .k { color: #5b636b; font-family: ui-monospace, monospace; font-size: 11px; margin-right: 6px; }
+  .text span.w { transition: color 60ms; }
+  .text span.w.said { color: #f2f5f7; }
+  .text span.w.now { color: #59d38a; }
+  .dur { color: #6c747c; font-size: 12px; text-align: right; font-family: ui-monospace, monospace; }
+  button.more { background: none; border: none; color: #6aa9ff; cursor: pointer; font-size: 12px; padding: 4px 0 0 88px; }
+  .empty { color: #c98a5a; padding: 30px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Voices</h1>
+  <span class="stat" id="stat"></span>
+  <label><input type="checkbox" id="all"> show every line</label>
+  <label><input type="checkbox" id="chain" checked> play the next line after</label>
+</header>
+<main id="list"></main>
+<script type="module">
+const MOUTH_RATE = 60;
+const SAMPLES = { hal: ['halHurt', 'halMorning', 'halHall1'], thought: ['photo1', 'bills2', 'notice'], sinestro: ['sin2', 'sin3', 'sinEnd2'],
+  kilowog: ['kwIntro2', 'kwFire2', 'kwShield'], guardian: ['gHall2', 'gHall4', 'gRite'], carol: ['carol2', 'carol5', 'carol6'],
+  abin: ['abin4', 'abin5', 'abin6'], light: ['light2', 'light3', 'lightAgain'], ring: ['ringBond', 'ringOnline', 'ringOa'],
+  dad: ['dad1', 'dad2'], kid: ['kid1', 'kid2', 'kid3'], tom: ['vmTom1', 'vmTom2'], landlord: ['vmLandlord'] };
+const ORDER = Object.keys(SAMPLES);
+
+const list = document.getElementById('list');
+const man = await fetch('/voices/manifest.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const build = await fetch('/voices/build.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+if (!man) list.innerHTML = '<p class="empty">No /voices/manifest.json. Run <code>npm run voices</code>.</p>';
+
+const rows = []; // { key, line, el, words: [span], canvas, btn }
+const audio = new Audio();
+let playing = null, raf = 0;
+
+const voiceName = (v) => (typeof v === 'string' ? v : v?.mix ? v.mix.map(([n, w]) => `${n} ${Math.round(w * 100)}%`).join(' + ') : '?');
+
+function drawMouth(cv, open) {
+  const g = cv.getContext('2d'), w = cv.width, h = cv.height;
+  g.clearRect(0, 0, w, h);
+  const o = Math.max(0.04, open);
+  g.fillStyle = '#2b1416'; g.strokeStyle = '#d07a72'; g.lineWidth = 2.5;
+  g.beginPath(); g.ellipse(w / 2, h / 2, w * (0.36 - 0.06 * o), h * 0.08 + h * 0.36 * o, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+  if (o > 0.25) { g.fillStyle = '#e9e3da'; g.fillRect(w * 0.3, h / 2 - h * 0.36 * o, w * 0.4, h * 0.1); }
+}
+
+function stop() {
+  audio.pause();
+  cancelAnimationFrame(raf);
+  if (playing) { playing.btn.classList.remove('on'); playing.btn.textContent = '▶'; drawMouth(playing.canvas, 0); playing.words.forEach((s) => s.classList.remove('said', 'now')); }
+  playing = null;
+}
+
+function play(row) {
+  const was = playing === row;
+  stop();
+  if (was) return;
+  playing = row;
+  row.btn.classList.add('on'); row.btn.textContent = '■';
+  audio.src = '/' + row.line.file;
+  audio.play();
+  const tick = () => {
+    if (playing !== row) return;
+    const t = audio.currentTime, wt = row.line.words;
+    let cur = -1;
+    for (let i = 0; i < wt.length; i++) if (wt[i][1] <= t) cur = i;
+    row.words.forEach((s, i) => { s.classList.toggle('said', i < cur); s.classList.toggle('now', i === cur); });
+    const f = Math.floor(t * MOUTH_RATE);
+    drawMouth(row.canvas, f < row.mouth.length ? row.mouth[f] / 255 : 0);
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+}
+
+audio.addEventListener('ended', () => {
+  const row = playing;
+  stop();
+  if (!row || !document.getElementById('chain').checked) return;
+  const visible = rows.filter((r) => !r.el.classList.contains('hidden'));
+  const next = visible[visible.indexOf(row) + 1];
+  if (next) setTimeout(() => play(next), 250);
+});
+
+function lineRow(key, line) {
+  const el = document.createElement('div');
+  el.className = 'line';
+  const btn = document.createElement('button');
+  btn.className = 'play'; btn.textContent = '▶'; btn.title = key;
+  const canvas = document.createElement('canvas');
+  canvas.className = 'mouth'; canvas.width = 88; canvas.height = 60;
+  const text = document.createElement('div');
+  text.className = 'text';
+  text.innerHTML = `<span class="k">${key}</span>`;
+  // split the text at the word starts from the manifest
+  const words = [], starts = line.words.map((w) => w[0]);
+  let pos = 0;
+  starts.forEach((c, i) => {
+    if (c > pos) text.append(line.text.slice(pos, c));
+    const end = i + 1 < starts.length ? starts[i + 1] : line.text.length;
+    const span = document.createElement('span');
+    span.className = 'w'; span.textContent = line.text.slice(c, end);
+    text.append(span); words.push(span);
+    pos = end;
+  });
+  if (pos < line.text.length) text.append(line.text.slice(pos));
+  const dur = document.createElement('div');
+  dur.className = 'dur'; dur.textContent = `${line.dur.toFixed(2)} s`;
+  el.append(btn, canvas, text, dur);
+  const raw = atob(line.mouth || ''), mouth = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) mouth[i] = raw.charCodeAt(i);
+  const row = { key, line, el, words, canvas, btn, mouth };
+  btn.onclick = () => play(row);
+  drawMouth(canvas, 0);
+  rows.push(row);
+  return el;
+}
+
+if (man) {
+  const entries = Object.entries(man.lines);
+  const total = entries.reduce((a, [, l]) => a + l.dur, 0);
+  document.getElementById('stat').textContent = `${entries.length} lines · ${(total / 60).toFixed(1)} min of audio`;
+  const whos = [...new Set([...ORDER, ...entries.map(([, l]) => l.who)])].filter((w) => entries.some(([, l]) => l.who === w));
+  for (const who of whos) {
+    const mine = entries.filter(([, l]) => l.who === who);
+    const c = build?.characters?.[who] ?? {};
+    const sec = document.createElement('section');
+    sec.innerHTML = `<h2><span class="who">${who}</span> ${c.desc ?? ''}</h2>
+      <div class="meta">${voiceName(c.voice)} · speed ${c.speed ?? '?'} · formant ${c.formant ?? 1} · PSOLA ${c.psola ?? '?'}${c.f0 ? ` · target ${c.f0} Hz` : ''}${c.fx ? ` · ${c.fx}` : ''}</div>`;
+    const picks = new Set((SAMPLES[who] ?? []).filter((k) => man.lines[k]));
+    if (!picks.size) mine.slice(0, 3).forEach(([k]) => picks.add(k));
+    for (const [k, l] of mine) {
+      const el = lineRow(k, l);
+      if (!picks.has(k)) el.classList.add('hidden', 'extra');
+      sec.append(el);
+    }
+    if (mine.length > picks.size) {
+      const more = document.createElement('button');
+      more.className = 'more';
+      const label = () => (more.textContent = sec.querySelector('.extra.hidden') ? `all ${mine.length} lines` : 'fewer');
+      more.onclick = () => { const show = !!sec.querySelector('.extra.hidden'); sec.querySelectorAll('.extra').forEach((e) => e.classList.toggle('hidden', !show)); label(); };
+      label();
+      sec.append(more);
+    }
+    list.append(sec);
+  }
+  document.getElementById('all').onchange = (e) => {
+    document.querySelectorAll('.extra').forEach((el) => el.classList.toggle('hidden', !e.target.checked));
+    document.querySelectorAll('button.more').forEach((b) => (b.textContent = e.target.checked ? 'fewer' : b.textContent.replace('fewer', 'all lines')));
+  };
+}
+window.addEventListener('keydown', (e) => { if (e.code === 'Escape') stop(); });
+</script>
+</body>
+</html>

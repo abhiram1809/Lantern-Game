@@ -1,0 +1,1618 @@
+{
+ "calib": {
+  "hal:2ae31399dec7": {
+   "base": 124.1,
+   "beta": 0.946
+  },
+  "thought:f7c1b84ed520": {
+   "base": 123,
+   "beta": 0.9586
+  },
+  "dad:3f49cac50c7d": {
+   "base": 107.5,
+   "beta": 0.9873
+  },
+  "kid:c2ba20654011": {
+   "base": 226.5,
+   "beta": 0.996
+  },
+  "light:867f35d17ac0": {
+   "base": 139.4,
+   "beta": 1.0726
+  },
+  "abin:fb01ddf7693d": {
+   "base": 96,
+   "beta": 0.9908
+  },
+  "ring:7bc6b76a84af": {
+   "base": 181.7,
+   "beta": 1
+  },
+  "guardian:6d6e74fb275a": {
+   "base": 122.1,
+   "beta": 1.0013
+  },
+  "kilowog:4e340c5becd2": {
+   "base": 109,
+   "beta": 0.7326
+  },
+  "sinestro:047d059fd0e3": {
+   "base": 144.6,
+   "beta": 0.7736
+  },
+  "tom:f55417ae383a": {
+   "base": 155.3,
+   "beta": 0.8118
+  },
+  "carol:b59920a6109c": {
+   "base": 210.3,
+   "beta": 0.9323
+  },
+  "landlord:c6e043a74e1b": {
+   "base": 113.4,
+   "beta": 0.9195
+  }
+ },
+ "lines": {
+  "home1": {
+   "hash": "a64f56c8aaadc6b0",
+   "ps": "lˈɔŋ dˈeɪ. kˈæɹəlz ɡˌoʊɪŋ tə hæv maɪ hˈɛd fɔːɹ ðæt lˈændɪŋ.",
+   "f0raw": 126.4,
+   "f0dry": 120.8,
+   "f0wet": 117.9,
+   "beta": 0.946
+  },
+  "home2": {
+   "hash": "ea7d547ac0ef6dd6",
+   "ps": "tˈɛn mˈɪnɪts. aɪ dʒˈʌst nˈiːd tˈɛn mˈɪnɪts.",
+   "f0raw": 127.6,
+   "f0dry": 115.1,
+   "f0wet": 115.9,
+   "beta": 0.959
+  },
+  "keys": {
+   "hash": "c109064e7ae6847f",
+   "ps": "kˈiːz ɔnðə tˈeɪbəl, lˈaɪk ɐ ɡɹˈoʊnˈʌp.",
+   "f0raw": 126.5,
+   "f0dry": 116.6,
+   "f0wet": 117.8,
+   "beta": 0.959
+  },
+  "photo1": {
+   "hash": "7b705fc839dd6b7f",
+   "ps": "dˈæd. mˈɑːɹtɪn dʒˈoːɹdən. bˈɛst tˈɛst pˈaɪlət fˈɛɹɪs ˈɛɹkɹæft ˈɛvɚ hˌæd.",
+   "f0raw": 124.4,
+   "f0dry": 121.9,
+   "f0wet": 111.6,
+   "beta": 0.959
+  },
+  "photo2": {
+   "hash": "6620a6066b718b13",
+   "ps": "fˈɪftiːn jˈɪɹz tənˈaɪt.",
+   "f0raw": 135.9,
+   "f0dry": 124.7,
+   "f0wet": 124.6,
+   "beta": 0.959
+  },
+  "posters": {
+   "hash": "bdefaaaba6df1d70",
+   "ps": "ˈɛvɹi kˈɪd ɔnðə bˈeɪs wˈɔntᵻd tə flˈaɪ. aɪ wʌzðə wˈʌn hˌuː nˈɛvɚ stˈɑːpt.",
+   "f0raw": 121.7,
+   "f0dry": 110.6,
+   "f0wet": 113.5,
+   "beta": 0.959
+  },
+  "window": {
+   "hash": "311c996e29d65e4b",
+   "ps": "stˈoːɹmz ɹˈoʊlɪŋ ɪn ˈɔf ðə lˈeɪk.",
+   "f0raw": 113.6,
+   "f0dry": 103.6,
+   "f0wet": 121.3,
+   "beta": 0.959
+  },
+  "dad1": {
+   "hash": "ae37186be36144ed",
+   "ps": "kˈiːp jʊɹ ˈaɪz ɔnðə skˈaɪ, hˈæl. wˌɛn aɪ kˈʌm ɚɹˈaʊnd, aɪl tˈɪp maɪ wˈɪŋz fɔːɹ juː.",
+   "f0raw": 98.7,
+   "f0dry": 96,
+   "f0wet": 100.2,
+   "beta": 0.987
+  },
+  "kid1": {
+   "hash": "bed004ea78ce899e",
+   "ps": "pɹˈɑːmɪs?",
+   "f0raw": 243.2,
+   "f0dry": 282.9,
+   "f0wet": 285.7,
+   "beta": 0.996
+  },
+  "dad2": {
+   "hash": "c97fbab5c89fdd2e",
+   "ps": "pɹˈɑːmɪs. nˈʌθɪŋ ˌʌp ðɛɹ təbi skˈɛɹd ʌv.",
+   "f0raw": 107.4,
+   "f0dry": 105,
+   "f0wet": 105.3,
+   "beta": 0.987
+  },
+  "kid2": {
+   "hash": "0eb01d29dd01ace5",
+   "ps": "dˈæd…?",
+   "f0raw": 217.6,
+   "f0dry": 256.2,
+   "f0wet": 253.5,
+   "beta": 0.996
+  },
+  "kid3": {
+   "hash": "24f836a69ac2ee76",
+   "ps": "dˈæd!",
+   "f0raw": 225.5,
+   "f0dry": 252.8,
+   "f0wet": 264.7,
+   "beta": 0.996
+  },
+  "halMemory": {
+   "hash": "55da959bd37f25c9",
+   "ps": "aɪ wʌz ˈeɪt. ðæt nˈaɪt aɪ dᵻsˈaɪdᵻd aɪ wʊd nˈɛvɚ biː ɐfɹˈeɪd ʌv ˈɛnɪθˌɪŋ ɐɡˈɛn.",
+   "f0raw": 113.1,
+   "f0dry": 104.2,
+   "f0wet": 104.5,
+   "beta": 0.959
+  },
+  "light1": {
+   "hash": "fa7cc9f1c00acb2f",
+   "ps": "hˈæl dʒˈoːɹdən.",
+   "f0raw": 141.9,
+   "f0dry": 159.5,
+   "f0wet": 163.4,
+   "beta": 1.073
+  },
+  "hal1": {
+   "hash": "2cea75021de28cdf",
+   "ps": "wˈʌ— hˌuːz ðˈɛɹ? wˌʌt ɪz ðˈɪs?",
+   "f0raw": 110.8,
+   "f0dry": 114.4,
+   "f0wet": 108,
+   "beta": 0.946
+  },
+  "light2": {
+   "hash": "52a7fae288260241",
+   "ps": "ðə ɹˈɪŋ hɐz kɹˈɔst ðə stˈɑːɹz tə fˈaɪnd juː.",
+   "f0raw": 130.3,
+   "f0dry": 138.7,
+   "f0wet": 164,
+   "beta": 1.073
+  },
+  "light3": {
+   "hash": "b428c756533c6dd3",
+   "ps": "ɪt sˈiːks wˈʌn wɪððə wˈɪltʊ ˌoʊvɚkˈʌm ɡɹˈeɪt fˈɪɹ.",
+   "f0raw": 133.9,
+   "f0dry": 146.6,
+   "f0wet": 153,
+   "beta": 1.073
+  },
+  "light4": {
+   "hash": "a9d5721e2e938bdd",
+   "ps": "ˈænsɚ tɹˈuːθfəli.",
+   "f0raw": 143.2,
+   "f0dry": 147.3,
+   "f0wet": 162.6,
+   "beta": 1.073
+  },
+  "halYes": {
+   "hash": "2fb1ad2bae80acc6",
+   "ps": "jˈɛs. aɪm ɐfɹˈeɪd.",
+   "f0raw": 128.5,
+   "f0dry": 115.7,
+   "f0wet": 127.1,
+   "beta": 0.946
+  },
+  "lightYes": {
+   "hash": "a7e16eeec11e1e79",
+   "ps": "ðˈɛn juː ɑːɹ nˌɑːt ɹˈɛdi.",
+   "f0raw": 136.6,
+   "f0dry": 159.3,
+   "f0wet": 166.3,
+   "beta": 1.073
+  },
+  "lightAgain": {
+   "hash": "9a131db1c4a9c06a",
+   "ps": "lˈʊk ɪnsˈaɪd joːɹsˈɛlf, hˈæl dʒˈoːɹdən. ˈænsɚɹ ɐɡˈɛn.",
+   "f0raw": 139.3,
+   "f0dry": 155.1,
+   "f0wet": 161.1,
+   "beta": 1.073
+  },
+  "halNo": {
+   "hash": "da6558b2a46d5b34",
+   "ps": "nˈoʊ.",
+   "f0raw": 118.5,
+   "f0dry": 108.4,
+   "f0wet": 109.6,
+   "beta": 0.946
+  },
+  "light5": {
+   "hash": "5fd5ecbb6aaaf6cd",
+   "ps": "ðˈɛn ɹˈaɪz.",
+   "f0raw": 140.3,
+   "f0dry": 154.9,
+   "f0wet": 155.6,
+   "beta": 1.073
+  },
+  "arrive1": {
+   "hash": "98c2f88628b2eab0",
+   "ps": "wˈʌt ðə—? wˌɛɹ æm ˈaɪ?",
+   "f0raw": 119.2,
+   "f0dry": 119.5,
+   "f0wet": 105.8,
+   "beta": 0.946
+  },
+  "arrive2": {
+   "hash": "3d3aa1794914b103",
+   "ps": "hˈeɪ! ɪz ˈɛnɪwˌʌn ɪn ðˈɛɹ?",
+   "f0raw": 112.2,
+   "f0dry": 104,
+   "f0wet": 105.3,
+   "beta": 0.946
+  },
+  "halHurt": {
+   "hash": "3ec2ea38db0cd452",
+   "ps": "jʊɹ hˈɜːt. dˈoʊnt mˈuːv — aɪl ɡɛt hˈɛlp.",
+   "f0raw": 126.3,
+   "f0dry": 115.2,
+   "f0wet": 119.2,
+   "beta": 0.946
+  },
+  "halConfused": {
+   "hash": "dbf3d54272cfc784",
+   "ps": "aɪ kˈænt ˌʌndɚstˈænd juː. aɪ dˈoʊnt nˈoʊ wʌt juː wˈɔnt.",
+   "f0raw": 128.7,
+   "f0dry": 116.6,
+   "f0wet": 118.7,
+   "beta": 0.946
+  },
+  "abin3": {
+   "hash": "1702c21c1280e77a",
+   "ps": "nˈaʊ juː ˌʌndəstˈand mˌiː. ðə ɹˈɪŋ spˈiːks ˈɛvɹɪ tˈʌŋ.",
+   "f0raw": 108.9,
+   "f0dry": 109.9,
+   "f0wet": 110.6,
+   "beta": 0.991
+  },
+  "halChose": {
+   "hash": "194705b09908013b",
+   "ps": "ɪt tʃˈoʊz mˌiː? fɔːɹ wˈʌt?",
+   "f0raw": 107.1,
+   "f0dry": 97,
+   "f0wet": 100.6,
+   "beta": 0.946
+  },
+  "abin4": {
+   "hash": "c4570a9f7642dfa9",
+   "ps": "ɪt tʃˈuːzɪz ðəʊz hˌuː kan ˌəʊvəkˈʌm ɡɹˈeɪt fˈiə. juː hav ðat wˈɪl, hˈæl dʒˈɔːdən.",
+   "f0raw": 82.1,
+   "f0dry": 72.8,
+   "f0wet": 75.1,
+   "beta": 0.991
+  },
+  "abin5": {
+   "hash": "5f44f0ab13e622a1",
+   "ps": "aɪˈam ˈeɪbɪn sˈɜː. aɪ ɡˈɑːdɪd ðɪs sˈɛktəɹ ɒv spˈeɪs. sˈɛktə tˈuː ˈeɪt wˈɒn fˈɔː.",
+   "f0raw": 83,
+   "f0dry": 73.8,
+   "f0wet": 70.6,
+   "beta": 0.991
+  },
+  "abin6": {
+   "hash": "297876b3657081c2",
+   "ps": "tˈeɪk ðə lˈantən. spˈiːk ðɪ ˈəʊθ. and bˈiː… wˈɜːði ɒv ɪt.",
+   "f0raw": 95.3,
+   "f0dry": 89.9,
+   "f0wet": 89.8,
+   "beta": 0.991
+  },
+  "halStay": {
+   "hash": "0b3b42a1d1f01b9c",
+   "ps": "hˈeɪ. hˈeɪ! stˈeɪ wɪð mˌiː!",
+   "f0raw": 126.6,
+   "f0dry": 114.4,
+   "f0wet": 116.8,
+   "beta": 0.946
+  },
+  "halGone": {
+   "hash": "117aedb62375ebf1",
+   "ps": "hiːz ɡˈɔn.",
+   "f0raw": 136.3,
+   "f0dry": 119.9,
+   "f0wet": 116.8,
+   "beta": 0.959
+  },
+  "oath1": {
+   "hash": "17f3f191c33bd500",
+   "ps": "ɪn bɹˈaɪɾɪst dˈeɪ, ɪn blˈækɪst nˈaɪt,",
+   "f0raw": 116,
+   "f0dry": 101.5,
+   "f0wet": 102,
+   "beta": 0.946
+  },
+  "oath2": {
+   "hash": "169a8c394f6bbdc7",
+   "ps": "nˈoʊ ˈiːvəl ʃˌæl ɛskˈeɪp maɪ sˈaɪt.",
+   "f0raw": 132.6,
+   "f0dry": 129.7,
+   "f0wet": 127.8,
+   "beta": 0.946
+  },
+  "oath3": {
+   "hash": "9b90dca7346aef42",
+   "ps": "lˈɛt ðoʊz hˌuː wˈɜːʃɪp ˈiːvəlz mˈaɪt",
+   "f0raw": 124.6,
+   "f0dry": 116.2,
+   "f0wet": 123.8,
+   "beta": 0.946
+  },
+  "oath4": {
+   "hash": "28f758287abcd687",
+   "ps": "bᵻwˈɛɹ maɪ pˈaʊɚ — ɡɹˈiːn lˈæntɚnz lˈaɪt!",
+   "f0raw": 115,
+   "f0dry": 116.4,
+   "f0wet": 108.5,
+   "beta": 0.946
+  },
+  "recharge": {
+   "hash": "e068b9ffd25d8ffc",
+   "ps": "ɪn bɹˈaɪɾɪst dˈeɪ…",
+   "f0raw": 125.7,
+   "f0dry": 125.6,
+   "f0wet": 109.8,
+   "beta": 0.946
+  },
+  "halWhoa": {
+   "hash": "4a6b867f62259865",
+   "ps": "wˈoʊ.",
+   "f0raw": 116.3,
+   "f0dry": 108.1,
+   "f0wet": 108.3,
+   "beta": 0.946
+  },
+  "ringPocket": {
+   "hash": "f803073c3c8a52cf",
+   "ps": "ðə pˈaʊə bˈatəɹi kan biː kˈɛpt ɪnðə ɹˈɪŋz pˈɒkɪt daɪmˈɛnʃən ʌntˈɪl ɪt ɪz nˈiːdɪd.",
+   "f0raw": 179.3,
+   "f0dry": 179.3,
+   "f0wet": 179.3,
+   "beta": 1
+  },
+  "ringStowed": {
+   "hash": "049f73a9e13420b1",
+   "ps": "pˈaʊə bˈatəɹi stˈɔːd.",
+   "f0raw": 186.1,
+   "f0dry": 186.1,
+   "f0wet": 191,
+   "beta": 1
+  },
+  "halPocket": {
+   "hash": "7e939c5e02e99731",
+   "ps": "ɐ pˈɑːkɪt dᵻmˈɛnʃən. ʌv kˈoːɹs ðɛɹˈɪz.",
+   "f0raw": 112.2,
+   "f0dry": 100.4,
+   "f0wet": 107,
+   "beta": 0.946
+  },
+  "halPunch": {
+   "hash": "1be6555df0823cf7",
+   "ps": "oʊkˈeɪ. ðˈæts… nˈuː.",
+   "f0raw": 119,
+   "f0dry": 107.3,
+   "f0wet": 106.1,
+   "beta": 0.946
+  },
+  "halShield": {
+   "hash": "c5bc95897e9dea0a",
+   "ps": "dˈɪdnt ˈiːvən fˈiːl ɪt.",
+   "f0raw": 133.8,
+   "f0dry": 123.3,
+   "f0wet": 120.5,
+   "beta": 0.946
+  },
+  "halHit": {
+   "hash": "a10b870b78e62143",
+   "ps": "ˈaʊ. nˈoʊɾᵻd.",
+   "f0raw": 131.6,
+   "f0dry": 119.3,
+   "f0wet": 119.2,
+   "beta": 0.946
+  },
+  "halFly": {
+   "hash": "2236b292e0db2aa0",
+   "ps": "nˈʌθɪŋ ˌʌp hˈɪɹ təbi skˈɛɹd ʌv. juː wɜː ɹˈaɪt, dˈæd.",
+   "f0raw": 126.3,
+   "f0dry": 115.4,
+   "f0wet": 115.1,
+   "beta": 0.946
+  },
+  "ringBond": {
+   "hash": "de6b2f9ce3260ef6",
+   "ps": "bˈeəɹəɹ ɐksˈɛptɪd. pˈaʊə ɹɪzˈɜːv: twˈɛlv pəsˈɛnt. ɹɪtʃˈɑːdʒ at ðə pˈaʊə bˈatəɹi.",
+   "f0raw": 188.7,
+   "f0dry": 188.7,
+   "f0wet": 190,
+   "beta": 1
+  },
+  "ringFull": {
+   "hash": "8b639a61223867c7",
+   "ps": "tʃˈɑːdʒ: wˈɒn hˈʌndɹɪd pəsˈɛnt.",
+   "f0raw": 190,
+   "f0dry": 190,
+   "f0wet": 192.7,
+   "beta": 1
+  },
+  "ringOnline": {
+   "hash": "3f5c90b1a5f3a09d",
+   "ps": "kˈɒnstɹʌkt ˈɪntəfˌeɪs ˈɒnlaɪn. ðə ɹˈɪŋ ɡˈɪvz jɔː wɪl ɐ ʃˈeɪp.",
+   "f0raw": 184.2,
+   "f0dry": 184.2,
+   "f0wet": 184,
+   "beta": 1
+  },
+  "ringDebris": {
+   "hash": "7716c84527e1a420",
+   "ps": "bˈɜːnɪŋ dˈɛbɹiː bɪsˈaɪd ˈeɪbɪn sˈɜː.",
+   "f0raw": 180.1,
+   "f0dry": 180.1,
+   "f0wet": 187.2,
+   "beta": 1
+  },
+  "ringCore": {
+   "hash": "ba754a13ae2ca284",
+   "ps": "wˈɔːnɪŋ: ðə vˈɛsəlz pˈaʊə kˈɔːɹ ɪz fˈeɪlɪŋ.",
+   "f0raw": 179.3,
+   "f0dry": 179.3,
+   "f0wet": 178.2,
+   "beta": 1
+  },
+  "ringBreach": {
+   "hash": "4fe861cf348de0a8",
+   "ps": "kˈɔː bɹˈiːtʃ.",
+   "f0raw": 189,
+   "f0dry": 189,
+   "f0wet": 196.7,
+   "beta": 1
+  },
+  "ringHeld": {
+   "hash": "3f90e45c23d99d60",
+   "ps": "ʃˈiːld hˈɛld.",
+   "f0raw": 181.2,
+   "f0dry": 181.2,
+   "f0wet": 161.7,
+   "beta": 1
+  },
+  "ringHurt": {
+   "hash": "d6e8c5940410f4a8",
+   "ps": "bˈeəɹəɹ ˈɪndʒəd. ɹˈeɪz ðə ʃˈiːld təwˈɔːd ðə θɹˈɛt.",
+   "f0raw": 194.3,
+   "f0dry": 194.3,
+   "f0wet": 195.6,
+   "beta": 1
+  },
+  "ringWall": {
+   "hash": "d0103b97853b4053",
+   "ps": "bˈaɹiə kˈɒnstɹʌkts hˈəʊld fɔː twˈɛnti sˈɛkəndz.",
+   "f0raw": 188.8,
+   "f0dry": 188.8,
+   "f0wet": 192.7,
+   "beta": 1
+  },
+  "ringFlight": {
+   "hash": "fd325f4d128b0ae4",
+   "ps": "flˈaɪt ɛnˈeɪbəld.",
+   "f0raw": 180.8,
+   "f0dry": 180.8,
+   "f0wet": 180,
+   "beta": 1
+  },
+  "ringDone": {
+   "hash": "f9245ebd024b5ab0",
+   "ps": "tɹˈeɪnɪŋ kəmplˈiːt. ɹɪtʃˈɑːdʒ at ðə pˈaʊə bˈatəɹi ˈɛvɹɪ twˈɛntifˈɔːɹ ˈaʊəz, ɔː wɛn ðə lˈaɪt ɹˈʌnz lˈəʊ.",
+   "f0raw": 177.2,
+   "f0dry": 177.2,
+   "f0wet": 177.9,
+   "beta": 1
+  },
+  "ringRecharged": {
+   "hash": "28006f3b16399009",
+   "ps": "tʃˈɑːdʒ ɹɪstˈɔːd.",
+   "f0raw": 184.7,
+   "f0dry": 184.7,
+   "f0wet": 181.8,
+   "beta": 1
+  },
+  "ringSummons": {
+   "hash": "8ea4d38e7d5346b3",
+   "ps": "pɹaɪˈɒɹɪti tɹansmˈɪʃən fɹɒm ˈəʊə, fəðə bˈeəɹəɹ ɒv ˈeɪbɪn sˈɜːz ɹˈɪŋ.",
+   "f0raw": 178.3,
+   "f0dry": 178.3,
+   "f0wet": 178.8,
+   "beta": 1
+  },
+  "guardian1": {
+   "hash": "b96ec4e5381a711b",
+   "ps": "hˈæl dʒˈɔːdən ɒv ˈɜːθ. ðə ɹˈɪŋ ɒv ˈeɪbɪn sˈɜː hɐz tʃˈəʊzən juː.",
+   "f0raw": 120.8,
+   "f0dry": 116.1,
+   "f0wet": 147.6,
+   "beta": 1.001
+  },
+  "guardian2": {
+   "hash": "3ba85b837033e537",
+   "ps": "kˈʌm tuː ˈəʊə, and lˈɜːn wɒt ɪt ɪz təbi ɐ ɡɹˈiːn lˈantən.",
+   "f0raw": 122.3,
+   "f0dry": 116.6,
+   "f0wet": 128,
+   "beta": 1.001
+  },
+  "halWhere": {
+   "hash": "ff97a1e559d74436",
+   "ps": "ˈoʊə? wˈɛɹ ɪz ˈoʊə?",
+   "f0raw": 133.8,
+   "f0dry": 123.1,
+   "f0wet": 123.1,
+   "beta": 0.946
+  },
+  "ringCourse": {
+   "hash": "3bce6f441801b2ce",
+   "ps": "sˈɛktə zˈiəɹəʊ, at ðə sˈɛntəɹ ɒvðə jˈuːnɪvˌɜːs. kˈɔːs plˈɒtɪd. klˈaɪm, and aɪ wɪl tˈeɪk juː ðˈeə.",
+   "f0raw": 176.3,
+   "f0dry": 176.3,
+   "f0wet": 174.6,
+   "beta": 1
+  },
+  "halAbin": {
+   "hash": "a1f36b52f6f3f78e",
+   "ps": "ɹˈɛst ˈiːzi, ˈeɪbɪn sˈɜːɹ. aɪl tˈeɪk ɪt fɹʌm hˈɪɹ.",
+   "f0raw": 114.8,
+   "f0dry": 111.5,
+   "f0wet": 111.1,
+   "beta": 0.946
+  },
+  "ringClimb": {
+   "hash": "27fa84d095c6fd22",
+   "ps": "ˈaltɪtjˌuːd səfˈɪʃənt. ɹˈɛdi fəðə dʒˈʌmp.",
+   "f0raw": 188.7,
+   "f0dry": 188.7,
+   "f0wet": 189.8,
+   "beta": 1
+  },
+  "ringOrbit": {
+   "hash": "3a0d95a348ab7f5d",
+   "ps": "lˈiːvɪŋ sˈɛktə twˈɛntiˈeɪt fˈɔːtiːn. kˈɔːs lˈɒkt: ˈəʊə.",
+   "f0raw": 184.4,
+   "f0dry": 184.4,
+   "f0wet": 180.2,
+   "beta": 1
+  },
+  "halEarth": {
+   "hash": "bef73e55bbdc21a6",
+   "ps": "dˈæd wʊdhɐv ɡˈɪvən ˈɛnɪθˌɪŋ tə sˈiː ðˈɪs.",
+   "f0raw": 114.7,
+   "f0dry": 100.4,
+   "f0wet": 98.9,
+   "beta": 0.946
+  },
+  "ringJump": {
+   "hash": "28857ee459ee9e60",
+   "ps": "hˌaɪpəlˈuːmɪnəl spˈiːd.",
+   "f0raw": 187,
+   "f0dry": 187,
+   "f0wet": 193.2,
+   "beta": 1
+  },
+  "halFast": {
+   "hash": "9228882938190cc2",
+   "ps": "oʊkˈeɪ. nˈaʊ ðɪs ɪz flˈaɪɪŋ.",
+   "f0raw": 120.5,
+   "f0dry": 140.1,
+   "f0wet": 114.3,
+   "beta": 0.946
+  },
+  "ringApproach": {
+   "hash": "43d12397529ed65a",
+   "ps": "ˈɔːbɪtəl ɐpɹˈəʊtʃ. ˈəʊə, sˈɛktə zˈiəɹəʊ.",
+   "f0raw": 179.2,
+   "f0dry": 179.2,
+   "f0wet": 177.7,
+   "beta": 1
+  },
+  "halOa": {
+   "hash": "fe25c585ae7d43c0",
+   "ps": "sˌoʊ ðˈæts ˈoʊə.",
+   "f0raw": 123.6,
+   "f0dry": 112,
+   "f0wet": 112.4,
+   "beta": 0.946
+  },
+  "kwEarth": {
+   "hash": "e7475ea1b5ac35e4",
+   "ps": "ˈænd pˈuːzɚ: sˈɛktɚ twˈɛntiˈeɪt fˈoːɹtiːn stˈɪl nˈiːdz ɪts lˈæntɚn. ɡˌoʊ hˈoʊm wɛn jʊɹ nˈiːdᵻd. ðə ɹˈɪŋ nˈoʊz ðə wˈeɪ.",
+   "f0raw": 98.9,
+   "f0dry": 57.7,
+   "f0wet": 57.6,
+   "beta": 0.733
+  },
+  "ringRoutes": {
+   "hash": "011160d9a695fe08",
+   "ps": "hˈaɪpəspˌeɪs ɹˈuːts tʃˈɑːtɪd: ˈɜːθ and ˈəʊə. flˈaɪ hˈaɪ and pɹˈɛs ˈiː tə sˈɛt ɐ kˈɔːs.",
+   "f0raw": 186.3,
+   "f0dry": 186.3,
+   "f0wet": 188.1,
+   "beta": 1
+  },
+  "ringHigher": {
+   "hash": "f93a3cc73434dda4",
+   "ps": "klˈaɪm hˈaɪə tə mˌeɪk ðə dʒˈʌmp.",
+   "f0raw": 195.9,
+   "f0dry": 195.9,
+   "f0wet": 201.5,
+   "beta": 1
+  },
+  "kwBack": {
+   "hash": "1f7182bc97497fe5",
+   "ps": "bˈæk ɔːlɹˈɛdi, pˈuːzɚ? ðə ɹˈeɪndʒ ɪz jˈoːɹz.",
+   "f0raw": 97.6,
+   "f0dry": 57,
+   "f0wet": 57.1,
+   "beta": 0.733
+  },
+  "halHome": {
+   "hash": "806b321c3be6d679",
+   "ps": "hˈoʊm. ɪt lˈʊks smˈɔːlɚɹ ɔːlɹˈɛdi.",
+   "f0raw": 126.9,
+   "f0dry": 114.7,
+   "f0wet": 114.4,
+   "beta": 0.946
+  },
+  "ringAbin": {
+   "hash": "a932d8d56caa54ec",
+   "ps": "ˈeɪbɪn sˈɜːz ɹɪmˈeɪnz hɐvbɪn kˈaɹid hˈəʊm tuː ˈəʊə baɪ ðə kˈɔː.",
+   "f0raw": 178.8,
+   "f0dry": 178.8,
+   "f0wet": 179.1,
+   "beta": 1
+  },
+  "ringOa": {
+   "hash": "13b53a6ed6ef60bb",
+   "ps": "ˈəʊə. sˈɛktə zˈiəɹəʊ. sˈɛntɹəl pˈaʊə bˈatəɹi ɪn ɹˈeɪndʒ: ɹɪtʃˈɑːdʒɪŋ kəntˈɪnjuːəsli.",
+   "f0raw": 177.5,
+   "f0dry": 177.5,
+   "f0wet": 182.9,
+   "beta": 1
+  },
+  "kwIntro1": {
+   "hash": "0fc9cdaabc111c0f",
+   "ps": "sˈoʊ jʊɹ ˈeɪbɪn sˈɜːɹz pˈɪk. ɐ hjˈuːmən.",
+   "f0raw": 124.5,
+   "f0dry": 72,
+   "f0wet": 71.8,
+   "beta": 0.733
+  },
+  "halIntro": {
+   "hash": "9420e7a4ad9f735a",
+   "ps": "hˈæl dʒˈoːɹdən. ænd juː ˈɑːɹ…?",
+   "f0raw": 118.5,
+   "f0dry": 107.9,
+   "f0wet": 118.4,
+   "beta": 0.946
+  },
+  "kwIntro2": {
+   "hash": "de1e945f442d6000",
+   "ps": "kˈɪləwˌɑːɡ. ˈɛvɹi ɹˈʊki hˌuː kˈʌmz tuː ˈoʊə kˈʌmz θɹˈuː mˌiː, ænd mˈoʊst əv ðˌɛm wˈɑːʃ ˈaʊt. tˈɪl aɪ sˈeɪ ˈʌðɚwˌaɪz, jʊɹ ˈeɪ pˈuːzɚ.",
+   "f0raw": 104.1,
+   "f0dry": 62.4,
+   "f0wet": 62.8,
+   "beta": 0.733
+  },
+  "halPoozer": {
+   "hash": "2ca16a32270030e7",
+   "ps": "ɐ wˈʌt?",
+   "f0raw": 117.4,
+   "f0dry": 106.8,
+   "f0wet": 106.9,
+   "beta": 0.946
+  },
+  "kwIntro3": {
+   "hash": "e0e1f388b7887460",
+   "ps": "mˈiːnz jʊɹ nˈuː. mˈiːnz jʊɹ mˈaɪn. tˈɑːɹɡɪts ɑːɹ ˈʌp. bɹˈeɪk əm.",
+   "f0raw": 119.2,
+   "f0dry": 67.2,
+   "f0wet": 65,
+   "beta": 0.733
+  },
+  "kwTargetsDone": {
+   "hash": "a846adf1804aee29",
+   "ps": "hˈʌmf. tˈɑːɹɡɪts dˈoʊnt fˈaɪt bˈæk.",
+   "f0raw": 134.4,
+   "f0dry": 77.4,
+   "f0wet": 76.7,
+   "beta": 0.733
+  },
+  "kwFire1": {
+   "hash": "c180cd6527e01614",
+   "ps": "fˈɪsts ɑːɹ fɔːɹ bˈɑːɹ fˈaɪts. ˈaʊt ðˈɛɹ, θˈɪŋz ʃˈuːt bˈæk, ænd ðeɪ dˈoʊnt lˈaɪn ˌʌp təbi pˈʌntʃt.",
+   "f0raw": 107.2,
+   "f0dry": 61.6,
+   "f0wet": 64.7,
+   "beta": 0.733
+  },
+  "kwFire2": {
+   "hash": "2853e0cdfa52ee56",
+   "ps": "juː nˈiːd ɹˈiːtʃ. pˈɪktʃɚɹ ɐ kˈænən. ˈɛvɹi bˈæɹəl, ˈɛvɹi ɹˈaʊnd. ɪf juː kæn sˈiː ɪt, ðə ɹˈɪŋ kæn mˈeɪk ɪt.",
+   "f0raw": 100.9,
+   "f0dry": 60.3,
+   "f0wet": 61.1,
+   "beta": 0.733
+  },
+  "halCannon": {
+   "hash": "0da2cefb70b4c526",
+   "ps": "ɐ kˈænən. ʃˈʊɹ. wˌaɪ nˈɑːt.",
+   "f0raw": 111,
+   "f0dry": 103.5,
+   "f0wet": 101,
+   "beta": 0.946
+  },
+  "ringGatling": {
+   "hash": "669233ea26c10ad9",
+   "ps": "kˈɒnstɹʌkt pˈatən lˈɜːnd: ɡˈatəlɪŋ.",
+   "f0raw": 163.9,
+   "f0dry": 163.9,
+   "f0wet": 183,
+   "beta": 1
+  },
+  "kwLive": {
+   "hash": "999626aecfe45871",
+   "ps": "lˈaɪv fˈaɪɚ, pˈuːzɚ. ðiːz wˈʌnz bˈaɪt.",
+   "f0raw": 101.4,
+   "f0dry": 53.8,
+   "f0wet": 57.4,
+   "beta": 0.733
+  },
+  "kwShield": {
+   "hash": "94e35d088f0ca00b",
+   "ps": "ʃˈiːld! juːv ɡˈɑːt wˌʌn. jˈuːs ɪt!",
+   "f0raw": 133.9,
+   "f0dry": 77.1,
+   "f0wet": 75.7,
+   "beta": 0.733
+  },
+  "kwCover": {
+   "hash": "fbc8a87aa53f35d9",
+   "ps": "jʊɹ blˈiːdɪŋ lˈaɪt. ɡɛt bᵻhˌaɪnd sˈʌmθɪŋ!",
+   "f0raw": 125.4,
+   "f0dry": 76.4,
+   "f0wet": 75.9,
+   "beta": 0.733
+  },
+  "kwKill1": {
+   "hash": "7d8dfdfd1be550c8",
+   "ps": "bˈɛɾɚ.",
+   "f0raw": 114.2,
+   "f0dry": 65.4,
+   "f0wet": 65.3,
+   "beta": 0.733
+  },
+  "kwKill2": {
+   "hash": "cf4dba5e41502eea",
+   "ps": "ðˈæts wˌʌn.",
+   "f0raw": 81,
+   "f0dry": 76.2,
+   "f0wet": 76.3,
+   "beta": 0.733
+  },
+  "kwKill3": {
+   "hash": "ec4fa770a779bda2",
+   "ps": "kˈiːp mˈuːvɪŋ!",
+   "f0raw": 129.5,
+   "f0dry": 76.9,
+   "f0wet": 75.7,
+   "beta": 0.733
+  },
+  "kwWave": {
+   "hash": "319f89837888383c",
+   "ps": "ɐɡˈɛn. mˈoːɹ ʌv əm.",
+   "f0raw": 120.4,
+   "f0dry": 69.1,
+   "f0wet": 68.6,
+   "beta": 0.733
+  },
+  "kwDone": {
+   "hash": "2928e0caba5d2e5a",
+   "ps": "nˌɑːt bˈæd. fɚɹˈə pˈuːzɚ.",
+   "f0raw": 116.5,
+   "f0dry": 62.4,
+   "f0wet": 74.7,
+   "beta": 0.733
+  },
+  "halTake": {
+   "hash": "5cb97723edd706ed",
+   "ps": "aɪl tˈeɪk ɪt.",
+   "f0raw": 130.7,
+   "f0dry": 132.1,
+   "f0wet": 135.5,
+   "beta": 0.946
+  },
+  "kwRange": {
+   "hash": "93ab6c7ece7b4559",
+   "ps": "ðə ɹˈeɪndʒ ɪz jˈoːɹz. kˈʌm sˈiː mˌiː wɛn juː wˈɔnt ɐnˈʌðɚ ɹˈaʊnd.",
+   "f0raw": 106.1,
+   "f0dry": 62.1,
+   "f0wet": 60.9,
+   "beta": 0.733
+  },
+  "kwSinestro": {
+   "hash": "d6bb2c4b6d6eb4b7",
+   "ps": "sɪnˈɛstɹoʊ.",
+   "f0raw": 124.7,
+   "f0dry": 75.4,
+   "f0wet": 75.2,
+   "beta": 0.733
+  },
+  "sin1": {
+   "hash": "4319c36d7f0eedf2",
+   "ps": "kˈɪləwˌɒɡ. sˌəʊ ðɪs ɪz ðə hjˈuːmən ˈeɪbɪn sˈɜːz ɹˈɪŋ tʃˈəʊz.",
+   "f0raw": 145.6,
+   "f0dry": 97.9,
+   "f0wet": 97.8,
+   "beta": 0.774
+  },
+  "sin2": {
+   "hash": "1a75ee675745802a",
+   "ps": "ˈeɪbɪn sˈɜː wɒz maɪ fɹˈɛnd. hɪz ɹˈɪŋ dɪzˈɜːvd bˈɛtə ðˌanə bɹˈɔːlə fɹɒm ɐ bˈakwɔːtə wˈɜːld.",
+   "f0raw": 142.2,
+   "f0dry": 99.5,
+   "f0wet": 99.3,
+   "beta": 0.774
+  },
+  "halSin": {
+   "hash": "850d79b58eb00261",
+   "ps": "nˈaɪs tə mˈiːt juː tˈuː.",
+   "f0raw": 139.2,
+   "f0dry": 131.3,
+   "f0wet": 130.9,
+   "beta": 0.946
+  },
+  "sin3": {
+   "hash": "6d95a469b32b3f24",
+   "ps": "fˈɪsts and kˈanənz. kɹˈuːd. ɐ kˈɒnstɹʌkt ɪz ɐ θˈɔːt, hˈɛld stˈɪl. wˈɒtʃ.",
+   "f0raw": 141.8,
+   "f0dry": 97.1,
+   "f0wet": 97.3,
+   "beta": 0.774
+  },
+  "ringSword": {
+   "hash": "ff901aeaaafa554a",
+   "ps": "kˈɒnstɹʌkt pˈatən lˈɜːnd: sˈɔːd.",
+   "f0raw": 174.5,
+   "f0dry": 174.5,
+   "f0wet": 181.6,
+   "beta": 1
+  },
+  "sin4": {
+   "hash": "7ac68e56c0d1f5f1",
+   "ps": "kˈʌt ðˌɛm dˈaʊn. klˈiːnli.",
+   "f0raw": 139.7,
+   "f0dry": 91.3,
+   "f0wet": 92.4,
+   "beta": 0.774
+  },
+  "sinDrones": {
+   "hash": "668149f345643717",
+   "ps": "ˈadɪkwət. nˈaʊ tɹˈaɪ ɪt ɐɡˈɛnst sˈʌmwɒn hˌuː θˈɪŋks.",
+   "f0raw": 139.5,
+   "f0dry": 95.2,
+   "f0wet": 95.7,
+   "beta": 0.774
+  },
+  "sinDuel": {
+   "hash": "9a70f5006c14309d",
+   "ps": "dɪfˈɛnd jɔːsˈɛlf, dʒˈɔːdən.",
+   "f0raw": 146.4,
+   "f0dry": 106.1,
+   "f0wet": 104.7,
+   "beta": 0.774
+  },
+  "sinQ1": {
+   "hash": "63442ab03c6269e8",
+   "ps": "pɹɪdˈɪktəbəl.",
+   "f0raw": 128.7,
+   "f0dry": 95,
+   "f0wet": 93.3,
+   "beta": 0.774
+  },
+  "sinQ2": {
+   "hash": "29ff422f47bd9d8a",
+   "ps": "jɔː ʃˈiːld, dʒˈɔːdən. jˈuːs ɪt.",
+   "f0raw": 144,
+   "f0dry": 102.4,
+   "f0wet": 101.2,
+   "beta": 0.774
+  },
+  "sinQ3": {
+   "hash": "b5d037ffc4bb8c91",
+   "ps": "fˈiə mˌeɪks juː slˈəʊ.",
+   "f0raw": 163.6,
+   "f0dry": 117.9,
+   "f0wet": 114.9,
+   "beta": 0.774
+  },
+  "sinHurt": {
+   "hash": "0897c5e2422551b8",
+   "ps": "bˈɛtə.",
+   "f0raw": 136.1,
+   "f0dry": 81.6,
+   "f0wet": 76.1,
+   "beta": 0.774
+  },
+  "sinParry": {
+   "hash": "ef10fbe82e8d7350",
+   "ps": "hˈm. kwˈɪk.",
+   "f0raw": 175.9,
+   "f0dry": 124.7,
+   "f0wet": 124.2,
+   "beta": 0.774
+  },
+  "sinSlam": {
+   "hash": "195479ca52e37804",
+   "ps": "lˈʊk ˈʌp.",
+   "f0raw": 162.3,
+   "f0dry": 118.4,
+   "f0wet": 132.2,
+   "beta": 0.774
+  },
+  "sinEnd1": {
+   "hash": "f63090cd6ccbe51e",
+   "ps": "ɪnˈʌf.",
+   "f0raw": 168.3,
+   "f0dry": 117.5,
+   "f0wet": 117.5,
+   "beta": 0.774
+  },
+  "sinEnd2": {
+   "hash": "caac30e00b61f166",
+   "ps": "juː fˈaɪt lˈaɪk ɐ mˈan hˌuː hɐz nˈɛvə wˈʌns kənsˈɪdəd ðat hiː mˌaɪt lˈuːz.",
+   "f0raw": 142.4,
+   "f0dry": 99.5,
+   "f0wet": 99.4,
+   "beta": 0.774
+  },
+  "halFearless": {
+   "hash": "40aceba092ec414a",
+   "ps": "aɪv bˌɪn tˈoʊld aɪm fˈɪɹləs.",
+   "f0raw": 134.6,
+   "f0dry": 123.8,
+   "f0wet": 122.9,
+   "beta": 0.946
+  },
+  "sinEnd3": {
+   "hash": "1cdf47507d9b25df",
+   "ps": "fˈiələs ɪz nˌɒt ðə sˈeɪm az wˈaɪz. wiː wɪl kəntˈɪnjuː, ɹˈʊki.",
+   "f0raw": 142.4,
+   "f0dry": 96.9,
+   "f0wet": 97.4,
+   "beta": 0.774
+  },
+  "kwLikes": {
+   "hash": "236df174d1a0ad31",
+   "ps": "hiː lˈaɪks juː, pˈuːzɚ. ðæts æz wˈɔːɹm æz hiː ɡˈɛts.",
+   "f0raw": 102.9,
+   "f0dry": 59.6,
+   "f0wet": 59.8,
+   "beta": 0.733
+  },
+  "kwGuardians": {
+   "hash": "c5e32db9efffc89e",
+   "ps": "nˈaʊ ɡɛt mˈuːvɪŋ. ðə ɡˈɑːɹdiənz wˈɔnt tə sˈiː juː. ðɛɹ hˈɔːl, ˈaʊt təwˈɔːɹd ðə bˈæɾɚɹi. ænd dˈoʊnt mˌeɪk mˌiː lˈʊk bˈæd.",
+   "f0raw": 102.2,
+   "f0dry": 63.2,
+   "f0wet": 63.3,
+   "beta": 0.733
+  },
+  "ringHall": {
+   "hash": "afc29eaed242eef2",
+   "ps": "sˈʌmənz ɹɪsˈiːvd: ðə ɡˈɑːdiənz ɒvðə jˈuːnɪvˌɜːs. kˈɔːs lˈeɪd ɪn tə ðeə hˈɔːl.",
+   "f0raw": 182.5,
+   "f0dry": 182.5,
+   "f0wet": 182,
+   "beta": 1
+  },
+  "gHall1": {
+   "hash": "adb7578aef45395c",
+   "ps": "hˈæl dʒˈɔːdən ɒv ˈɜːθ. stˈand bɪfˈɔːɹ ˌʌs.",
+   "f0raw": 133,
+   "f0dry": 127.8,
+   "f0wet": 153.6,
+   "beta": 1.001
+  },
+  "gHall2": {
+   "hash": "fd5e1257eb0d6493",
+   "ps": "ˈeɪbɪn sˈɜː sˈɜːvd ðə kˈɔː sˈɪns bɪfˌɔː jɔː wˈɜːld ɹˈeɪzd ɪts fˈɜːst sˈɪti. ɪn hɪz lˈast ˈaʊə hɪz ɹˈɪŋ wɛnt sˈɜːtʃɪŋ, and ɪt fˈaʊnd juː.",
+   "f0raw": 117.4,
+   "f0dry": 113.4,
+   "f0wet": 138.3,
+   "beta": 1.001
+  },
+  "gHall3": {
+   "hash": "91e64ef08b25cc94",
+   "ps": "nˈəʊ hjˈuːmən hɐz wˈɔːn ðə ɹˈɪŋ bɪfˈɔː. jɔː kˈaɪnd ɪz jˈʌŋ, and kwˈɪk tə fˈiə.",
+   "f0raw": 123.4,
+   "f0dry": 117.6,
+   "f0wet": 139.6,
+   "beta": 1.001
+  },
+  "sinHall1": {
+   "hash": "0c8581f1b5eac3f0",
+   "ps": "ðˈɛn lˈɛt ɪt pˈas tə wˈɒn hˌuː hɐz ˈɜːnd ɪt. sˈɛktə twˈɛntiˈeɪt fˈɔːtiːn wɒz hˈɪz. ɪt dɪzˈɜːvz mˈɔː ðɐn huːˈɛvə stˈʊd nˌiəɹɪst wɛn hiː fˈɛl.",
+   "f0raw": 141.5,
+   "f0dry": 98.4,
+   "f0wet": 99.7,
+   "beta": 0.774
+  },
+  "gHall4": {
+   "hash": "51092b74aa045e3a",
+   "ps": "ðə ɹˈɪŋ dʌznˌɒt tʃˈuːz ɪn ˈɛɹə, sɪnˈɛstɹəʊ. ɪt sˈɔːt wˈɒn hˌuː kʊd ˌəʊvəkˈʌm ɡɹˈeɪt fˈiə.",
+   "f0raw": 126.8,
+   "f0dry": 122,
+   "f0wet": 148.4,
+   "beta": 1.001
+  },
+  "halHall1": {
+   "hash": "c67e15c5216c6cda",
+   "ps": "aɪ dˈɪdnt ˈæsk fɔːɹ ðˈɪs. hiː dˈɪd, wɪð hɪz lˈæst bɹˈɛθ. aɪm nˌɑːt ɡˈɪvɪŋ ɪt bˈæk.",
+   "f0raw": 124,
+   "f0dry": 116.3,
+   "f0wet": 113.2,
+   "beta": 0.946
+  },
+  "gHall5": {
+   "hash": "715ea959cf836404",
+   "ps": "ðˈɛn fˈɜːst, wiː ˈɒnə hˌɪm.",
+   "f0raw": 113.7,
+   "f0dry": 111.4,
+   "f0wet": 181.4,
+   "beta": 1.001
+  },
+  "gRite": {
+   "hash": "0091d6b37933160e",
+   "ps": "ˈeɪbɪn sˈɜː ˈɒv ʊŋɡˈɑːɹə. jɔː lˈaɪt ɹɪtˈɜːnz tə ðə lˈaɪt.",
+   "f0raw": 132,
+   "f0dry": 126.1,
+   "f0wet": 133.2,
+   "beta": 1.001
+  },
+  "sinFarewell": {
+   "hash": "12af66e664bea7cd",
+   "ps": "feəwˈɛl, ˈəʊld fɹˈɛnd.",
+   "f0raw": 156.6,
+   "f0dry": 111.5,
+   "f0wet": 111.6,
+   "beta": 0.774
+  },
+  "gHall6": {
+   "hash": "7cf5057e3d00a1f4",
+   "ps": "hˈæl dʒˈɔːdən. sˈɛktə twˈɛntiˈeɪt fˈɔːtiːn ɪz jˈɔːz tə ɡˈɑːd. ɹɪtˈɜːn tə jɔː wˈɜːld, and kˈiːp ɪt.",
+   "f0raw": 121.5,
+   "f0dry": 117.3,
+   "f0wet": 132.9,
+   "beta": 1.001
+  },
+  "ring2814": {
+   "hash": "b919181e1679ddf6",
+   "ps": "sˈɛktə twˈɛntiˈeɪt fˈɔːtiːn ɐsˈaɪnd. ɡɹˈiːn lˈantən hˈæl dʒˈɔːdən.",
+   "f0raw": 179.6,
+   "f0dry": 179.6,
+   "f0wet": 180.2,
+   "beta": 1
+  },
+  "sinHall2": {
+   "hash": "8608093d43e7083e",
+   "ps": "wˈeə hɪz ɹˈɪŋ wˈɛl, hjˈuːmən. aɪ wɪl biː wˈɒtʃɪŋ.",
+   "f0raw": 150.1,
+   "f0dry": 105,
+   "f0wet": 105.3,
+   "beta": 0.774
+  },
+  "halHall2": {
+   "hash": "58693994964eed4b",
+   "ps": "ðˈɛn wˈɑːtʃ.",
+   "f0raw": 127.1,
+   "f0dry": 112.2,
+   "f0wet": 112.2,
+   "beta": 0.946
+  },
+  "ringHome": {
+   "hash": "23c69a840c4d7bec",
+   "ps": "kˈɔːs plˈɒtɪd: sˈɛktə twˈɛntiˈeɪt fˈɔːtiːn, ˈɜːθ. klˈaɪm, and mˌeɪk ðə dʒˈʌmp.",
+   "f0raw": 174.2,
+   "f0dry": 174.2,
+   "f0wet": 179.4,
+   "beta": 1
+  },
+  "halBack": {
+   "hash": "fe49027ac5c3a847",
+   "ps": "fˈoːɹ ɪnðə mˈɔːɹnɪŋ. ðɪ ˈɛɹ fˈoːɹs tˈɛst ɪz æt nˈaɪn. θɹˈiː ˈaʊɚz. aɪ kæn dˈuː θɹˈiː ˈaʊɚz.",
+   "f0raw": 124.5,
+   "f0dry": 115.7,
+   "f0wet": 114.4,
+   "beta": 0.959
+  },
+  "ringMorning": {
+   "hash": "4950b0569004568e",
+   "ps": "ɡˈʊd mˈɔːnɪŋ, lˈantən dʒˈɔːdən. sˈɛktə twˈɛntiˈeɪt fˈɔːtiːn: nˈəʊ θɹˈɛts dɪtˈɛktɪd.",
+   "f0raw": 181.7,
+   "f0dry": 181.7,
+   "f0wet": 178.8,
+   "beta": 1
+  },
+  "halLate1": {
+   "hash": "f5346e935cdaed9a",
+   "ps": "nˈaɪn fˈɔːɹɾiwˌʌn. nˈaɪn fˈɔːɹɾiwˌʌn?",
+   "f0raw": 133.2,
+   "f0dry": 121.9,
+   "f0wet": 120.6,
+   "beta": 0.946
+  },
+  "halLate2": {
+   "hash": "14dac3392d1dc6dc",
+   "ps": "nˈoʊ. nˈoʊ, nˈoʊ, nˈoʊ.",
+   "f0raw": 123.7,
+   "f0dry": 119.5,
+   "f0wet": 117.6,
+   "beta": 0.946
+  },
+  "halCalls": {
+   "hash": "6fcdda8420fa0687",
+   "ps": "fˈoːɹ vˈɔɪsmeɪlz. ðæts nˈɛvɚ ɡˈʊd.",
+   "f0raw": 124.1,
+   "f0dry": 102.8,
+   "f0wet": 104.9,
+   "beta": 0.959
+  },
+  "vmTom1": {
+   "hash": "670df033be2a2d55",
+   "ps": "hˈæl, ɪts tˈɑːm. wˈɛɹ ɑːɹ juː, mˈæn? ðɪ ˈɛɹ fˈoːɹs ɡˈaɪz ɑːɹ hˈɪɹ, ðə bˈɜːdz fjˈuːəld, ænd kˈæɹəlz dˌuːɪŋ ðə θˈɪŋ wɪð hɜː pˈɛn. kˈɔːl mˌiː.",
+   "f0raw": 155.3,
+   "f0dry": 124.6,
+   "f0wet": 140.5,
+   "beta": 0.812
+  },
+  "vmTom2": {
+   "hash": "f42523c97a724337",
+   "ps": "oʊkˈeɪ. ðeɪ skɹˈʌbd ɪt. hˈæməndz pˈiːpəl dʒˈʌst dɹˈoʊv ˈɔf. aɪ dˈoʊnt nˈoʊ wˌɛɹ juː wɜː lˈæst nˈaɪt, bˈʌdi, bˌʌt juːd bˈɛɾɚ hæv wˈʌn hˈɛl əvə stˈoːɹi.",
+   "f0raw": 151.9,
+   "f0dry": 123,
+   "f0wet": 161,
+   "beta": 0.812
+  },
+  "vmCarol": {
+   "hash": "b811b4c664c3b45c",
+   "ps": "hˈæl. ɪts kˈæɹəl. kˈʌm ˈɪn. wiː nˈiːd tə tˈɔːk.",
+   "f0raw": 197.6,
+   "f0dry": 179.3,
+   "f0wet": 186.8,
+   "beta": 0.932
+  },
+  "vmLandlord": {
+   "hash": "17a369d3934eef5c",
+   "ps": "mˈɪstɚ dʒˈoːɹdən, sˈæl dɛlɡˈɑːdoʊ. ɹˈɛnt wʌz dˈuː ɔnðə fˈɜːst. ðæt mˌeɪks tˈuː mˈʌnθs. aɪ nˈiːd ɪt baɪ fɹˈaɪdeɪ, ɔːɹ aɪ stˈɑːɹt ðə pˈeɪpɚwˌɜːk. hæv ɐ nˈaɪs dˈeɪ.",
+   "f0raw": 113.9,
+   "f0dry": 100.5,
+   "f0wet": 101.6,
+   "beta": 0.92
+  },
+  "halMorning": {
+   "hash": "8ba6c88d83dc2f1c",
+   "ps": "aɪ flˈuː əkɹˌɑːs ðə jˈuːnɪvˌɜːs lˈæst nˈaɪt. ænd aɪ stˈɪl kˈænt mˌeɪk ɐ nˈaɪn əklˈɑːk.",
+   "f0raw": 113,
+   "f0dry": 104.4,
+   "f0wet": 104.3,
+   "beta": 0.946
+  },
+  "fridge": {
+   "hash": "4141f64cc1e6c25d",
+   "ps": "kˈɛtʃʌp. hˈæf ɐ lˈɛmən. sˈʌmθɪŋ ðæt jˈuːzd təbi mˈɪlk.",
+   "f0raw": 118.8,
+   "f0dry": 101.2,
+   "f0wet": 103.7,
+   "beta": 0.959
+  },
+  "bills1": {
+   "hash": "7064f841d7ea7bed",
+   "ps": "pˈæst dˈuː. pˈæst dˈuː. fˈaɪnəl nˈoʊɾɪs.",
+   "f0raw": 116.4,
+   "f0dry": 108.3,
+   "f0wet": 114.3,
+   "beta": 0.959
+  },
+  "bills2": {
+   "hash": "bdadeefdc60b7ff9",
+   "ps": "ðɪ ᵻlˈɛktɹɪk kˈʌmpəni hɐz stˈɑːɹɾᵻd jˈuːzɪŋ ɹˈɛd ˈɪŋk. ðæt sˈiːmz pˈɜːsənəl.",
+   "f0raw": 113.7,
+   "f0dry": 105.1,
+   "f0wet": 105.8,
+   "beta": 0.959
+  },
+  "photoMorning": {
+   "hash": "c6711459ccc19eeb",
+   "ps": "hiː nˈɛvɚ mˈɪst ɐ flˈaɪt ɪn hɪz lˈaɪf.",
+   "f0raw": 125.6,
+   "f0dry": 113.3,
+   "f0wet": 113,
+   "beta": 0.959
+  },
+  "windowMorning": {
+   "hash": "e7b11dcb0f463cbc",
+   "ps": "stˈoːɹmz ɡˈɔn. kˈoʊst sˈɪɾi lˈʊks lˈaɪk nˈʌθɪŋ hˈæpənd lˈæst nˈaɪt.",
+   "f0raw": 115.8,
+   "f0dry": 103.2,
+   "f0wet": 102.1,
+   "beta": 0.959
+  },
+  "notice": {
+   "hash": "b820661e4a143719",
+   "ps": "\"nˈoʊɾɪs tə pˈeɪ ɹˈɛnt ɔːɹ kwˈɪt. sˈɛvəntitˈuː ˈaʊɚz.\" hiː slˈɪd ɪɾ ˌʌndɚ ðə dˈoːɹ. klˈæsi, sˈæl.",
+   "f0raw": 124.3,
+   "f0dry": 114.8,
+   "f0wet": 117.4,
+   "beta": 0.959
+  },
+  "halDoor": {
+   "hash": "8c0e4b94f167ee66",
+   "ps": "oʊkˈeɪ. kˈiːz, wˈɔlɪt, ɹˈɪŋ. lˈɛts ɡˌoʊ ɡɛt jˈɛld æt.",
+   "f0raw": 124.1,
+   "f0dry": 112.8,
+   "f0wet": 132,
+   "beta": 0.946
+  },
+  "car1": {
+   "hash": "541d890b0858c132",
+   "ps": "kˈʌm ˈɔn. kˈʌm ˈɔn.",
+   "f0raw": 121.7,
+   "f0dry": 111.4,
+   "f0wet": 105.9,
+   "beta": 0.946
+  },
+  "car2": {
+   "hash": "1cfbb6245819a99e",
+   "ps": "nˌɑːt tədˈeɪ. plˈiːz, nˌɑːt tədˈeɪ.",
+   "f0raw": 114,
+   "f0dry": 113.8,
+   "f0wet": 119.8,
+   "beta": 0.946
+  },
+  "car3": {
+   "hash": "c90dd43cd9dc9de9",
+   "ps": "ˈæɾə ɡˈɜːl.",
+   "f0raw": 130.1,
+   "f0dry": 117.6,
+   "f0wet": 117.8,
+   "beta": 0.946
+  },
+  "halDrive": {
+   "hash": "39b8eced88975f85",
+   "ps": "hˈæmənd kˈeɪm ˈaʊt fɹʌm ˈɛdwɚdz fɔːɹ ðˈɪs. kˈæɹəlz bˌɪn tʃˈeɪsɪŋ ðæt kˈɑːntɹækt fɚɹə jˈɪɹ.",
+   "f0raw": 118.4,
+   "f0dry": 107.6,
+   "f0wet": 107,
+   "beta": 0.959
+  },
+  "halFerris": {
+   "hash": "b00b98f9039a559a",
+   "ps": "dˈæd flˈuː ˌaʊɾəv ðɪs fˈiːld fɔːɹ twˈɛnti jˈɪɹz. ðɪs ɪz ðə fˈɜːst mˈɔːɹnɪŋ aɪ dˈɪdnt wˈɔnt təbi hˈɪɹ.",
+   "f0raw": 112.9,
+   "f0dry": 109.7,
+   "f0wet": 104.5,
+   "beta": 0.959
+  },
+  "carol1": {
+   "hash": "226c54ee1e57ea1e",
+   "ps": "jʊɹ lˈeɪt, hˈæl. ɐbˌaʊt ɐn ˈaʊɚ ænd ɐ hˈæf lˈeɪt.",
+   "f0raw": 210.3,
+   "f0dry": 195.4,
+   "f0wet": 195.4,
+   "beta": 0.932
+  },
+  "halCarol1": {
+   "hash": "570bbe1122385b30",
+   "ps": "kˈæɹəl, aɪ kæn ɛksplˈeɪn.",
+   "f0raw": 129.2,
+   "f0dry": 118.6,
+   "f0wet": 119,
+   "beta": 0.946
+  },
+  "carol2": {
+   "hash": "e3f4d57b58149d38",
+   "ps": "ðˈɛn ɛksplˈeɪn. dʒˈɛnɚɹəl hˈæmənd flˈuː ɪn fɹʌm ˈɛdwɚdz. hɪz ˌɛndʒɪnˈɪɹz stˈʊd ˌɔn ðæt ɹˈʌnweɪ ænd wˈɑːtʃt ɐn ˈɛmpti kˈɑːkpɪt fɔːɹ fˈɔːɹɾi mˈɪnɪts.",
+   "f0raw": 198.9,
+   "f0dry": 187.3,
+   "f0wet": 187.1,
+   "beta": 0.932
+  },
+  "carol3": {
+   "hash": "afb563a9e8dfcf50",
+   "ps": "sˌoʊ ɡˌoʊ ˈɔn. wˈɛɹ wɜː juː?",
+   "f0raw": 215.4,
+   "f0dry": 205.3,
+   "f0wet": 208.8,
+   "beta": 0.932
+  },
+  "halCarol2": {
+   "hash": "02613fe36173895d",
+   "ps": "aɪ kˈænt tˈɛl juː.",
+   "f0raw": 138,
+   "f0dry": 141.2,
+   "f0wet": 91.3,
+   "beta": 0.946
+  },
+  "carol4": {
+   "hash": "971f6d62d4c99658",
+   "ps": "juː kˈænt.",
+   "f0raw": 241.2,
+   "f0dry": 229.1,
+   "f0wet": 234.4,
+   "beta": 0.932
+  },
+  "carol5": {
+   "hash": "bc4ef85391c923ee",
+   "ps": "maɪ fˈɑːðɚ hˈaɪɚd juː bɪkˈʌz ʌv jˈoːɹz. aɪv kˈʌvɚd fɔːɹ juː ˈɛvɹi tˈaɪm juː pˈʊld sˈʌmθɪŋ lˈaɪk ðˈɪs. ðə bˈæɹəl ɹˈoʊl æt ðɪ ˈɛɹ ʃˈoʊ. ðə lˈændɪŋ lˈæst nˈaɪt. ˈɛvɹi tˈaɪm.",
+   "f0raw": 200.6,
+   "f0dry": 188.1,
+   "f0wet": 187.9,
+   "beta": 0.932
+  },
+  "halCarol3": {
+   "hash": "9bff8232dacd9ed2",
+   "ps": "aɪ nˈoʊ.",
+   "f0raw": 131.5,
+   "f0dry": 117.2,
+   "f0wet": 119.9,
+   "beta": 0.946
+  },
+  "carol6": {
+   "hash": "c61b3e2bbb7efeec",
+   "ps": "nˌɑːt ðɪs tˈaɪm. jʊɹ ɡɹˈaʊndᵻd, hˈæl. jʊɹ dˈʌn æt fˈɛɹɪs. klˈiːn ˈaʊt jʊɹ lˈɑːkɚ.",
+   "f0raw": 200.1,
+   "f0dry": 188.3,
+   "f0wet": 185.6,
+   "beta": 0.932
+  },
+  "halCarol4": {
+   "hash": "d06f8cb37ee38f7f",
+   "ps": "kˈæɹəl…",
+   "f0raw": 119.9,
+   "f0dry": 127.3,
+   "f0wet": 119.2,
+   "beta": 0.946
+  },
+  "carol7": {
+   "hash": "e9df8376b43e2ad3",
+   "ps": "dˈoʊnt. dʒˈʌst ɡˈoʊ.",
+   "f0raw": 248.4,
+   "f0dry": 243.6,
+   "f0wet": 243.6,
+   "beta": 0.932
+  },
+  "ringAfter": {
+   "hash": "eccc37790271f548",
+   "ps": "lˈantən dʒˈɔːdən, jɔː hˈɑːt ɹˈeɪt ɪz ˈɛlɪvˌeɪtɪd. nˈəʊ θɹˈɛt dɪtˈɛktɪd.",
+   "f0raw": 191.4,
+   "f0dry": 191.4,
+   "f0wet": 189.1,
+   "beta": 1
+  },
+  "halAfter1": {
+   "hash": "3c55e469e5c3ed99",
+   "ps": "nˈoʊ θɹˈɛt. ɹˈaɪt.",
+   "f0raw": 133.8,
+   "f0dry": 128.8,
+   "f0wet": 127.8,
+   "beta": 0.946
+  },
+  "halAfter2": {
+   "hash": "693fc4799b044b11",
+   "ps": "nˈoʊ dʒˈɑːb. tˈuː mˈʌnθs bᵻhˌaɪnd ˌɔn ɹˈɛnt. ænd ɐ ɹˈɪŋ ðæt tˈɔːks.",
+   "f0raw": 128.6,
+   "f0dry": 128.3,
+   "f0wet": 126.1,
+   "beta": 0.959
+  },
+  "halAfter3": {
+   "hash": "c7d23f3e55c83c40",
+   "ps": "juːd hæv lˈæft æt ðˈɪs, dˈæd.",
+   "f0raw": 128.7,
+   "f0dry": 124.6,
+   "f0wet": 124.2,
+   "beta": 0.946
+  },
+  "ringOffline": {
+   "hash": "4cee398d6768d7a3",
+   "ps": "kˈɒnstɹʌkt ˈɪntəfˌeɪs ˈɒflaɪn. ɹɪtʃˈɑːdʒ at ðə pˈaʊə bˈatəɹi.",
+   "f0raw": 177.3,
+   "f0dry": 177.3,
+   "f0wet": 171.3,
+   "beta": 1
+  },
+  "ringLowCharge": {
+   "hash": "e800e147343c7c39",
+   "ps": "ɪnsəfˈɪʃənt tʃˈɑːdʒ. ɹɪtʃˈɑːdʒ at ðə pˈaʊə bˈatəɹi.",
+   "f0raw": 181,
+   "f0dry": 181,
+   "f0wet": 183.9,
+   "beta": 1
+  },
+  "ringBelow20": {
+   "hash": "e51716db0ba5a2f5",
+   "ps": "tʃˈɑːdʒ bɪlˌəʊ twˈɛnti pəsˈɛnt.",
+   "f0raw": 181.8,
+   "f0dry": 181.8,
+   "f0wet": 189.6,
+   "beta": 1
+  },
+  "ringDepleted": {
+   "hash": "ec8754fc9bec1f32",
+   "ps": "tʃˈɑːdʒ dɪplˈiːtɪd.",
+   "f0raw": 193.7,
+   "f0dry": 193.7,
+   "f0wet": 195.4,
+   "beta": 1
+  }
+ },
+ "characters": {
+  "hal": {
+   "desc": "Hal Jordan: young American test pilot, warm, wry, confident",
+   "voice": "am_michael",
+   "speed": 1,
+   "f0": 115,
+   "formant": 0.96,
+   "psola": 0.946,
+   "fx": "hp → lowshelf → peak → comp"
+  },
+  "thought": {
+   "desc": "Hal’s inner voice: close, soft, no room",
+   "voice": "am_michael",
+   "speed": 0.97,
+   "f0": 112,
+   "formant": 0.96,
+   "psola": 0.9586,
+   "fx": "hp → lowshelf → lp → highshelf → comp"
+  },
+  "sinestro": {
+   "desc": "Sinestro: British, measured, cold, aristocratic menace",
+   "voice": "bm_george",
+   "speed": 0.92,
+   "f0": 100,
+   "formant": 0.9,
+   "psola": 0.7736,
+   "fx": "hp → lowshelf → peak → highshelf → comp → reverb"
+  },
+  "kilowog": {
+   "desc": "Kilowog: huge alien drill sergeant, monstrous",
+   "voice": {
+    "mix": [
+     [
+      "am_onyx",
+      0.6
+     ],
+     [
+      "am_fenrir",
+      0.4
+     ]
+    ]
+   },
+   "speed": 0.96,
+   "f0": 65,
+   "formant": 0.78,
+   "psola": 0.7326,
+   "fx": "hp → octave → growl → sat → lowshelf → peak → peak → comp → reverb"
+  },
+  "guardian": {
+   "desc": "The Guardians: ancient, calm, many-voiced",
+   "voice": "bm_fable",
+   "speed": 0.88,
+   "f0": 120,
+   "formant": 0.96,
+   "psola": 1.0013,
+   "fx": "hp → octave → octave → octave → lowshelf → highshelf → comp → reverb"
+  },
+  "carol": {
+   "desc": "Carol Ferris: American executive, confident, clipped when angry",
+   "voice": "af_heart",
+   "speed": 1.04,
+   "f0": 195,
+   "formant": 1,
+   "psola": 0.9323,
+   "fx": "hp → peak → comp"
+  },
+  "abin": {
+   "desc": "Abin Sur: dying alien Lantern, deep, gentle, tired, breathy",
+   "voice": "bm_lewis",
+   "speed": 0.86,
+   "f0": 90,
+   "formant": 0.93,
+   "psola": 0.9908,
+   "fx": "hp → breath → lowshelf → lp → comp → reverb"
+  },
+  "light": {
+   "desc": "The ring’s summoning light: ethereal, androgynous, airy",
+   "voice": {
+    "mix": [
+     [
+      "af_nicole",
+      0.55
+     ],
+     [
+      "am_michael",
+      0.45
+     ]
+    ]
+   },
+   "speed": 0.86,
+   "f0": 155,
+   "formant": 1.02,
+   "psola": 1.0726,
+   "fx": "hp → breath → octave → octave → highshelf → comp → reverb"
+  },
+  "ring": {
+   "desc": "The ring’s readout: cool synthetic female, band-limited, faintly metallic",
+   "voice": "bf_emma",
+   "speed": 1.02,
+   "f0": null,
+   "formant": 1,
+   "psola": 1,
+   "fx": "hp → lp → comb → peak → comp → reverb"
+  },
+  "dad": {
+   "desc": "Martin Jordan: warm older American man (in a dream)",
+   "voice": {
+    "mix": [
+     [
+      "am_michael",
+      0.5
+     ],
+     [
+      "am_onyx",
+      0.5
+     ]
+    ]
+   },
+   "speed": 0.95,
+   "f0": 105,
+   "formant": 0.97,
+   "psola": 0.9873,
+   "fx": "hp → lowshelf → lp → comp → reverb"
+  },
+  "kid": {
+   "desc": "Hal aged eight (in a dream)",
+   "voice": "af_bella",
+   "speed": 1.03,
+   "f0": 260,
+   "formant": 1.15,
+   "psola": 0.996,
+   "fx": "hp → lp → comp → reverb"
+  },
+  "tom": {
+   "desc": "Tom Kalmaku: friendly mechanic, quick",
+   "voice": "am_eric",
+   "speed": 1,
+   "f0": 125,
+   "formant": 1,
+   "psola": 0.8118,
+   "fx": "hp → comp"
+  },
+  "landlord": {
+   "desc": "Sal Delgado: older gruff American landlord",
+   "voice": "am_echo",
+   "speed": 0.95,
+   "f0": 100,
+   "formant": 0.94,
+   "psola": 0.9195,
+   "fx": "hp → sat → lowshelf → comp"
+  }
+ }
+}

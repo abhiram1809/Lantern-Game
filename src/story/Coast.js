@@ -96,7 +96,7 @@ export class Coast extends Story {
 
   async prepare(id) {
     const { ui, player } = this;
-    await loadProps([...FERRIS_PROPS, 'phone']);
+    await loadProps([...FERRIS_PROPS, 'phone', 'fridge', 'coffee']);
     ui.clock(this.save.info(id).clock);
     this.ring = createRing();
     this.attachRing(this.ring, this.hal);
@@ -243,22 +243,24 @@ export class Coast extends Story {
     await tween(1.6, (k) => (sleep.unrest = 0.25 + k * 0.6));
     await wait(0.8);
     await this.buzzPhone(3);
-    await tween(1.2, (k) => (sleep.roll = -k * 0.8), ease.inOut);
-    // he throws the blanket back and sits up on the edge of the bed, facing the window
-    this.rollUpdater();
-    room.bodyCapsules = null;
-    const o = player.object;
-    const q0 = o.quaternion.clone(), q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
-    const p0 = o.position.clone(), p1 = V(-0.5, 0, -1.15);
-    player.animator.play(still(SEATED, 1.6), 1.4);
-    this.handsOnKnees(true);
-    director.move(V(0.6, 1.3, -0.35), V(-0.45, 1.05, -1.15), 1.8, ease.out, 46);
-    await tween(1.4, (k) => { o.quaternion.slerpQuaternions(q0, q1, k); o.position.lerpVectors(p0, p1, k); });
-    // the clock
+    // awake in stages: rolled to the edge, up on an elbow to squint at the clock, the blanket thrown
+    // back, the legs off the edge, sitting; then both hands down over his face
     const clock = V(0.02, 0.62, -1.7);
-    player.lookAt(clock, 0.9);
-    await wait(0.6);
-    await this.say('halLate1');
+    director.move(V(0.7, 1.25, -0.2), V(-0.5, 0.85, -1.15), 3.2, ease.inOut, 46);
+    await this.getUpFromBed({
+      to: V(-0.5, 0, -1.15),
+      whilePropped: async () => {
+        player.lookAt(clock, 0.9);
+        await wait(0.5);
+        await this.say('halLate1');
+        await wait(0.2);
+      },
+    });
+    director.move(V(0.6, 1.3, -0.35), V(-0.45, 1.05, -1.15), 1.4, ease.inOut, 46);
+    player.lookAt(null);
+    await this.rubFace();
+    this.handsOnKnees(true);
+    player.lookAt(clock, 0.7);
     player.animator.gesture('shake', 0.9, 0.5);
     await this.say('halLate2');
     // the phone: picked up, on speaker, four voicemails
@@ -294,6 +296,7 @@ export class Coast extends Story {
     player.autoAnim = true;
     player.animator.play(player.loco, 0.9);
     const p2 = V(-0.05, 0, -1.1);
+    const o = player.object, p1 = o.position.clone();
     await tween(0.9, (k) => o.position.lerpVectors(p1, p2, k), ease.inOut);
     player.place(p2, Math.PI / 2);
     this.giveControl('Get to Ferris Aircraft');
@@ -338,28 +341,16 @@ export class Coast extends Story {
     this.takeControl();
     ui.objective(null);
     this.ambience(audio.traffic(0.05), audio.wind(0.03));
-    // Hal at the wheel (out of the physics: the car carries him)
-    player.removeFromPhysics();
-    this.playerActive = false;
-    player.autoAnim = false;
-    player.lookAt(null);
-    car.add(player.object);
-    const seat = car.userData.seat;
-    player.object.position.set(seat.x, 0, seat.z);
-    player.object.rotation.set(0, 0, 0);
-    player.pivot.quaternion.identity();
-    car.userData.openDoor(0);
-    player.animator.play(still(drivingPose(this.hal, car), 0.6), 0);
-    this.driveHands(car, true);
-    const animOff = onFrame((dt) => player.animator.update(dt));
     const placeCar = (p, yaw) => { car.position.copy(p); car.rotation.y = yaw; };
     placeCar(f.lotCarSpot, 0);
     f.focus(f.lotCarSpot);
     const local = (x, y, z) => V(x, y, z).applyAxisAngle(V(0, 1, 0), car.rotation.y).add(car.position);
+    // out of his building's door and into the car (out of the physics: the car carries him)
+    await this.getIn(car);
+    const animOff = onFrame((dt) => player.animator.update(dt));
     // turning it over: twice nothing, then it catches (through the windscreen, from the driver's side)
-    director.cut(local(2.3, 1.35, 2.7), local(0.3, 0.98, -0.3), 36);
-    await ui.fade(0, 1.4);
-    await wait(0.8);
+    director.move(local(2.3, 1.35, 2.7), local(0.3, 0.98, -0.3), 1.6, ease.inOut, 36);
+    await wait(1.4);
     const shake = (dur, amt) => tween(dur, () => (car.position.y = (Math.random() - 0.5) * amt), ease.linear).then(() => (car.position.y = 0));
     for (const [d, key] of [[1.3, 'car1'], [1.7, 'car2']]) {
       audio.starter(d, false);
@@ -382,7 +373,7 @@ export class Coast extends Story {
     await this.say('car3');
     // out of the bay backwards, round, and away up the road
     const wheels = car.userData.wheels, spin = (d) => wheels.forEach((w) => (w.rotation.x += d / 0.33));
-    director.move(LOT.clone().add(V(-10, 2.8, -11)), LOT.clone().add(V(-1.6, 0.8, -1)), 4, ease.inOut, 46);
+    director.move(LOT.clone().add(V(-15, 3.4, -16)), LOT.clone().add(V(0, 0.8, -3)), 4, ease.inOut, 44);
     const back0 = car.position.clone();
     motor.set(0.2);
     let last = 0;
@@ -397,6 +388,24 @@ export class Coast extends Story {
       spin(d - last);
       last = d;
       if (Math.random() < 0.4) puff(1, 0.5);
+    }, ease.linear);
+    // out through town: down the boulevard from the kerb, under the palms and the office blocks,
+    // through the lights at the crossing
+    const town = (x, z) => LOT.clone().add(V(x, 0, z));
+    await ui.fade(1, 0.35);
+    motor.set(0.6);
+    placeCar(town(4.1, -95), Math.PI);
+    f.focus(town(6, -120));
+    director.cut(town(11.8, -170).setY(1.15), town(4.1, -60).setY(1.0), 38);
+    await ui.fade(0, 0.35);
+    const look0 = new THREE.Vector3();
+    await tween(7, (k) => {
+      const z = -95 - k * 105; // town speed, about 50 km/h
+      placeCar(town(4.1, z), Math.PI);
+      spin(105 / 7 / 60);
+      look0.copy(car.position).y += 0.9;
+      director.look.lerp(look0, 0.12);
+      f.focus(car.position);
     }, ease.linear);
     // the desert road: a low shot from the verge as he goes by, then the long view
     await ui.fade(1, 0.5);
@@ -458,6 +467,64 @@ export class Coast extends Story {
     if (!on) { anim.reach('L', null); anim.reach('R', null); return; }
     anim.reach('L', () => car.localToWorld(ud.rim('L', 10)), { pole: V(0.9, -1, -0.2), rate: 8 });
     anim.reach('R', () => car.localToWorld(ud.rim('R', 2)), { pole: V(-0.9, -1, -0.2), rate: 8 });
+  }
+
+  // Into the car, the way out run backwards: from his building's door to the car, the door pulled
+  // open by its edge (standing clear of its swing), a step into the opening, sat down sideways onto
+  // the seat, the legs swung in under the wheel, and the door pulled shut by its handle inside.
+  async getIn(car) {
+    const { player, audio, director, ui } = this, ud = car.userData, rig = this.hal, anim = player.animator, o = player.object;
+    const local = (x, y, z) => car.localToWorld(V(x, y, z));
+    const f = this.ferrisScene, door = ud.door;
+    ud.openDoor(0);
+    this.enterFerris(LOT.clone().add(V(0.4, 0, 13.2)), Math.PI);
+    player.autoAnim = true;
+    director.cut(local(5.6, 2.0, -4.6), local(0.9, 0.95, 0.6), 44);
+    await ui.fade(0, 1.4);
+    await player.walkTo(local(2.45, 0, -0.45), player.walkSpeed);
+    player.turnTo(car.rotation.y - 0.44);
+    await wait(0.45);
+    const tip = V(0.03, 0.3, -1.34);
+    anim.reach('R', () => door.localToWorld(tip.clone()), { pole: V(-1, -0.6, -0.3), rate: 7 });
+    await wait(0.35);
+    audio.carDoor();
+    await tween(0.8, (k) => ud.openDoor(ease.inOut(k)));
+    anim.reach('R', null);
+    // into the opening, his back to the seat
+    await player.walkTo(local(1.26, 0, ud.seat.z), player.walkSpeed * 0.7);
+    player.turnTo(car.rotation.y + Math.PI / 2);
+    await wait(0.6);
+    player.removeFromPhysics();
+    this.playerActive = false;
+    player.autoAnim = false;
+    player.lookAt(null);
+    car.attach(o);
+    o.rotation.set(0, Math.PI / 2, 0);
+    o.position.y = 0;
+    player.pivot.quaternion.identity();
+    const C = outPose(rig, car), B = swingPose(rig, car), A = drivingPose(rig, car), st = { k: 0 };
+    // down onto the seat's edge, the head ducked under the roof
+    anim.play(still(C, 0.4), 0.9);
+    const p1 = o.position.clone();
+    await tween(1.0, (k) => o.position.set(p1.x + (ud.seat.x + 0.26 - p1.x) * ease.inOut(k), 0, ud.seat.z), ease.linear);
+    // round on the seat, the legs lifted in over the sill, to the wheel
+    anim.play((out) => (st.k < 0.5 ? blendInto(out, C, B, st.k * 2) : blendInto(out, B, A, st.k * 2 - 1)), 0.2);
+    const p2 = o.position.clone();
+    await tween(1.3, (k) => {
+      st.k = ease.inOut(k);
+      o.rotation.y = (Math.PI / 2) * (1 - ease.inOut(Math.min(1, k * 1.2)));
+      o.position.set(p2.x + (ud.seat.x - p2.x) * ease.inOut(k), 0, ud.seat.z);
+    });
+    anim.play(still(A, 0.6), 0.3);
+    // the door pulled shut by its handle
+    const handle = V(-0.14, 0.24, -0.86);
+    anim.reach('L', () => door.localToWorld(handle.clone()), { pole: V(1, -0.6, -0.4), rate: 6 });
+    await wait(0.4);
+    await tween(0.45, (k) => ud.openDoor(1 - ease.in(k)), ease.linear);
+    audio.carDoor();
+    anim.reach('L', null);
+    await wait(0.3);
+    this.driveHands(car, true);
   }
 
   // Out of the car, the way people get out of a low coupe: a hand to the door handle and the door

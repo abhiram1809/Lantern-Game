@@ -86,6 +86,30 @@ export function fabricTexture({ base = '#556', repeat = [4, 4], weave = 0.08, bl
   return finish(c, { repeat });
 }
 
+// Brushed flannel in a plaid: wide soft-edged bands in two directions, a twill grain and fuzz.
+export function plaidTexture({ base = '#4b4438', bands = ['rgba(120,40,34,0.55)', 'rgba(30,38,46,0.45)', 'rgba(210,190,150,0.18)'], repeat = [2, 2] } = {}) {
+  const size = 512;
+  const [c, g] = canvas(size);
+  g.fillStyle = base;
+  g.fillRect(0, 0, size, size);
+  const sett = [[0, 90, 0], [120, 34, 1], [180, 10, 2], [230, 70, 0], [330, 34, 1], [400, 10, 2]];
+  for (const vertical of [false, true]) for (const [at, w, k] of sett) {
+    g.fillStyle = bands[k];
+    if (vertical) g.fillRect(at, 0, w, size); else g.fillRect(0, at, size, w);
+  }
+  // twill: fine diagonal grain, then fuzz
+  g.globalAlpha = 0.07;
+  for (let i = -size; i < size; i += 4) { g.strokeStyle = i % 8 ? '#000' : '#fff'; g.beginPath(); g.moveTo(i, 0); g.lineTo(i + size, size); g.stroke(); }
+  g.globalAlpha = 1;
+  for (let i = 0; i < 5000; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},${Math.random() * 0.06})`; g.fillRect(Math.random() * size, Math.random() * size, 1 + Math.random() * 2, 1 + Math.random() * 2); }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(...repeat);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
 export function glowTexture(inner = 'rgba(255,255,255,1)', mid = 'rgba(120,255,170,0.35)') {
   const [c, g] = canvas(256);
   const grad = g.createRadialGradient(128, 128, 0, 128, 128, 128);
@@ -150,4 +174,32 @@ export function photoTexture() {
   g.fillStyle = v;
   g.fillRect(0, 0, 256, 320);
   return finish(c);
+}
+
+// A material from one of the downloaded surface textures (tools/fetch-textures.mjs, Poly Haven,
+// CC0): colour, normal and roughness at 1K, each with its own repeat. `repeat` is how many times it
+// tiles across the surface's UVs; `tint` multiplies the colour; `map` replaces the colour (a canvas
+// with markings painted on it, say) while the normal and roughness keep the surface's grain.
+const pbrCache = new Map();
+const pbrLoader = new THREE.TextureLoader();
+function pbrTexture(id, name, colour) {
+  const key = `${id}/${name}`;
+  if (!pbrCache.has(key)) {
+    const t = pbrLoader.load(`/textures/pbr/${id}/${name}.webp`);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 8;
+    if (colour) t.colorSpace = THREE.SRGBColorSpace;
+    pbrCache.set(key, t);
+  }
+  return pbrCache.get(key).clone(); // its own repeat, the same image
+}
+export function pbrMaterial(id, { repeat = [1, 1], tint = 0xffffff, map = null, normalScale = 1, roughness = 1, metalness = 0, detailRepeat = repeat } = {}) {
+  const set = (t, r) => { t.repeat.set(...r); return t; };
+  return new THREE.MeshStandardMaterial({
+    map: map ?? set(pbrTexture(id, 'diff', true), repeat),
+    normalMap: set(pbrTexture(id, 'nor'), detailRepeat),
+    roughnessMap: set(pbrTexture(id, 'rough'), detailRepeat),
+    normalScale: new THREE.Vector2(normalScale, normalScale),
+    color: tint, roughness, metalness,
+  });
 }

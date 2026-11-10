@@ -6,8 +6,8 @@ import { Save, CorpsSave, allUnlocks } from '../engine/Save.js';
 import { Player } from '../characters/Player.js';
 import { Animator } from '../characters/Rig.js';
 import { MocapClip } from '../characters/Mocap.js';
-import { POSES, still, asleep, makePose } from '../characters/Poses.js';
-import { createHal, createAbinSur, createRing, createLantern } from '../characters/Characters.js';
+import { POSES, still, asleep, makePose, blendInto } from '../characters/Poses.js';
+import { createHal, createAbinSur, createRing, createLantern, JAW } from '../characters/Characters.js';
 import { Bedroom, BED } from '../scenes/Bedroom.js';
 import { Dream } from '../scenes/Dream.js';
 import { Hyperspace } from '../scenes/Hyperspace.js';
@@ -18,9 +18,12 @@ import { Rift } from '../fx/Rift.js';
 import { RingPowers } from '../powers/RingPowers.js';
 import { PowerHud } from '../ui/PowerHud.js';
 import { LINES } from './lines.js';
+import { loadProps } from '../props/Props.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const ORB_SPOT = V(0.55, 1.5, -0.75);
+// how wide each character opens their mouth on a full syllable (uJaw; 1 is about 2 cm)
+const MOUTH_GAIN = { hal: 0.55, abin: 0.4, dad: 0.5, kilowog: 0.95, sinestro: 0.42, guardian: 0.34, carol: 0.5 };
 const SEATED = makePose({ ...POSES.sitEdge, sx: 0.05, nx: -0.1, kx: -0.15, ky: 0.05 });
 export const STARTER_CONSTRUCTS = ['fist', 'shield', 'wall'];
 export const POWER_KEYS = '<b>4</b> constructs (time stops) &nbsp; <b>Click</b> use &nbsp; <b>Q</b> holster &nbsp; <b>Space</b> ×2 fly / drop &nbsp; <b>C</b> descend &nbsp; <b>L</b> lantern';
@@ -43,7 +46,7 @@ export class Story {
     this.mocap = assets.characters.mocap;
     this.director = new CameraDirector(engine.camera);
     this.player = new Player({ input, audio, director: this.director, mocap: this.mocap });
-    this.hal = createHal(assets.characters.casual, { roughMin: 0.62 }); // skin and cotton, not wax
+    this.hal = createHal(assets.characters.casual, { roughMin: 0.62, jaw: JAW.casual }); // skin and cotton, not wax
     this.player.setRig(this.hal);
     this.hud = new PowerHud();
     this.powers = new RingPowers({ engine, input, audio, voice, hud: this.hud, player: this.player, director: this.director });
@@ -69,11 +72,32 @@ export class Story {
       this.ui.toast(this.voice.enabled ? 'Voices on' : 'Voices off');
     }
     if (this.playerActive) this.player.update(dt);
+    this.updateMouths(real);
     if (this.lanternReady && this.player.control && !this.player.inputBlocked && !this.busy && !this.lanternMoving && this.input.hit('KeyL')) this.toggleLantern();
     this.powers.update(dt, real);
     if (dt > 0) this.current?.update(dt, t, engine.camera, engine.renderer); // frozen while time is stopped
     this.updateInteractions();
     this.director.update(dt, t);
+  }
+
+  // Lip sync: the speaker's jaw follows the voice's mouth curve (each character opening it by their
+  // own amount); everyone else's mouth closes.
+  updateMouths(dt) {
+    const v = this.voice, speaker = v.who ? this.mouthOf(v.who) : null;
+    for (const rig of this.mouths ??= new Set()) if (rig !== speaker) rig.u.uJaw.value = Math.max(0, rig.u.uJaw.value - dt * 8);
+    if (!speaker?.u?.uJawOn.value) return;
+    this.mouths.add(speaker);
+    const target = v.mouth * (MOUTH_GAIN[v.who] ?? 0.5), j = speaker.u.uJaw;
+    j.value += (target - j.value) * Math.min(1, dt * (target > j.value ? 38 : 22));
+  }
+
+  // Whose face speaks a line (null: an offscreen voice, the ring, thoughts).
+  mouthOf(who) {
+    if (this.speakingRig) return this.speakingRig; // a line performed by a character (Story.perform)
+    if (who === 'hal') return this.player.rig;
+    if (who === 'abin') return this.abin ?? this.bierAbin;
+    if (who === 'dad') return this.dad;
+    return null;
   }
 
   updateInteractions() {
@@ -152,11 +176,13 @@ export class Story {
     let heard = false, t = 0;
     const stop = onFrame((dt) => { t += dt; if (!heard) for (const c of at) if (t >= 0.15 + c.i / 14) fire(c); });
     body.talk(true);
+    this.speakingRig = body.rig; // whose mouth moves (see mouthOf)
     try {
       await this.say(key, { ...extra, onWord: (ci) => { heard = true; for (const c of at) if (ci >= c.i) fire(c); } });
     } finally {
       stop();
       body.talk(false);
+      if (this.speakingRig === body.rig) this.speakingRig = null;
     }
   }
   async lines(...keys) { for (const k of keys) await this.say(k); }
@@ -171,7 +197,7 @@ export class Story {
     this.paused = true;
     this.engine.paused = true;
     this.audio.ctx?.suspend();
-    if (this.voice.supported) speechSynthesis.pause();
+    this.voice.pause();
     const wasLook = this.input.lookEnabled;
     const cp = this.save.info(this.checkpointId);
     for (;;) {
@@ -195,7 +221,7 @@ export class Story {
     this.engine.paused = false;
     this.ui.closePause();
     this.audio.ctx?.resume();
-    if (this.voice.supported) speechSynthesis.resume();
+    this.voice.resume();
     this.input.setLook(look && this.player.control);
   }
 
@@ -213,7 +239,7 @@ export class Story {
   // the game is resumed from it.
   async run(start = 'home') {
     this.started = true;
-    this.voice.enabled = this.voice.supported && Save.setting('voice') !== false;
+    this.voice.enabled = Save.setting('voice') !== false;
     this.ui.chapter(this.save.label);
     const steps = this.steps();
     const list = this.save.checkpoints;
@@ -240,6 +266,7 @@ export class Story {
   }
 
   async prepare(id) {
+    await loadProps(['fridge', 'coffee', 'f104']); // the kitchenette's fridge and coffee maker, the dream's jet
     const { ui, player } = this;
     ui.clock(this.save.info(id).clock);
     if (['home', 'bedroom', 'light', 'question'].includes(id)) this.setupBedroom();
@@ -351,13 +378,106 @@ export class Story {
       if (extend) pb.addScaledVector(pb.clone().sub(pa).normalize(), extend);
       return { a: pa, b: pb, r, arm };
     };
+    // the feet: lying on his back his toes point up, past the drape round the ankle
+    const toe = (side) => {
+      const f = rig.bonePosition(`foot_${side}`, new THREE.Vector3());
+      const tip = new THREE.Vector3(0, -0.45, 1).normalize().multiplyScalar(0.19).applyQuaternion(rig.bones[`foot_${side}`].getWorldQuaternion(new THREE.Quaternion())).add(f);
+      return { a: f, b: tip, r: 0.06, arm: false };
+    };
     // arms rest on top of the blanket (as in the concept art), so they only count for settling
     return [
-      cap('hips', 'chest', 0.15), cap('chest', 'neck', 0.16), cap('thigh_L', 'shin_L', 0.09), cap('shin_L', 'foot_L', 0.07, 0.15),
+      { ...cap('hips', 'chest', 0.17), torso: true }, { ...cap('chest', 'neck', 0.17), torso: true }, cap('thigh_L', 'shin_L', 0.09), cap('shin_L', 'foot_L', 0.07, 0.15),
       cap('thigh_R', 'shin_R', 0.09), cap('shin_R', 'foot_R', 0.07, 0.15), cap('foot_L', 'foot_L', 0.13), cap('foot_R', 'foot_R', 0.13),
+      toe('L'), toe('R'),
       cap('upperArm_L', 'foreArm_L', 0.055, 0, true), cap('foreArm_L', 'hand_L', 0.05, 0.12, true),
       cap('upperArm_R', 'foreArm_R', 0.055, 0, true), cap('foreArm_R', 'hand_R', 0.05, 0.12, true),
     ];
+  }
+
+  // Out of bed in stages, the way people get up: rolled toward the open edge (on his left side,
+  // facing it), up on that elbow (turned about the hips, so the legs stay on the mattress), the
+  // blanket thrown back toward the wall with a sweep of the other arm, then the legs swung off the
+  // edge as the body comes upright, and settled on the edge at `to`, facing +x. `whilePropped` runs
+  // on the elbow (a look at the clock); `pace` < 1 is a startled wake; `sweep: false` keeps the
+  // right arm free (to shield his eyes).
+  async getUpFromBed({ to, seat = SEATED, pace = 1, whilePropped = null, sweep = true }) {
+    const { player } = this, room = this.bedroom, o = player.object, rig = this.hal, anim = player.animator, sleep = this.sleep;
+    const r0 = sleep.roll;
+    await tween(1.0 * pace, (k) => (sleep.roll = r0 + (0.85 - r0) * k), ease.inOut);
+    this.rollUpdater?.();
+    this.rollUpdater = null;
+    // up on the left elbow, the hand flat on the mattress in front of his chest: a sideways bend of
+    // the spine (he lies on his side), so the legs stay where they are
+    const lying = blendInto(makePose(), POSES.lieBack, POSES.lieSideL, 0.85);
+    const propped = makePose({ ...lying, sz: 0.32, cz: 0.26, nz: 0.12, nx: -0.05 });
+    const st = { k: 0 };
+    anim.play((out) => blendInto(out, lying, propped, st.k), 0.25);
+    const hips = rig.bonePosition('hips', new THREE.Vector3());
+    anim.reach('L', new THREE.Vector3(hips.x + 0.22, BED.top + 0.06, hips.z - 0.42), { pole: new THREE.Vector3(0.3, -1, -0.6), rate: 4 });
+    await tween(1.0 * pace, (k) => { st.k = k; room.blanketWaist = k; }, ease.inOut); // it slides off his shoulders
+    if (whilePropped) await whilePropped();
+    // the blanket back toward the wall
+    if (sweep) anim.reach('R', new THREE.Vector3(BED.x0 + 0.4, BED.top + 0.25, hips.z + 0.1), { pole: new THREE.Vector3(-0.6, 0.4, -1), rate: 6 });
+    this.audio.whoosh?.(0.5, 0.12);
+    await tween(0.9 * pace, (k) => (room.blanketOff = k), ease.inOut);
+    if (sweep) anim.reach('R', null);
+    anim.reach('L', null);
+    // up to sitting, facing the foot of the bed with the legs still along it (the thighs flexing as
+    // the body rises, so the legs stay put); the turn is about his hips
+    const qA = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0));
+    const longSit = makePose({ ...seat, sx: 0.28, cx: 0.1, lLx: -1.52, kL: 0.15, lRx: -1.55, kR: 0.2, lLz: 0.05, lRz: -0.05, fL: 0.4, fR: 0.4,
+      aL: [0.45, -0.8, -0.35], eL: 0.15, aR: [-0.45, -0.8, -0.35], eR: 0.15 });
+    const pose = makePose(), local = new THREE.Vector3();
+    const around = (hp, gen, k) => { gen(pose, k); local.set(pose.hx, rig.hipsHeight + pose.hy, pose.hz).applyQuaternion(o.quaternion); o.position.copy(hp).sub(local); };
+    const q2 = o.quaternion.clone(), h0 = rig.bonePosition('hips', new THREE.Vector3());
+    const hA = h0.clone().setY(Math.max(h0.y, BED.top + 0.1)); // sitting on the mattress
+    const up = (out, k) => blendInto(out, propped, longSit, ease.inOut(k));
+    st.k = 0;
+    anim.play((out) => up(out, st.k), 0.2);
+    await tween(1.2 * pace, (k) => {
+      st.k = k;
+      o.quaternion.slerpQuaternions(q2, qA, ease.inOut(k));
+      around(h0.clone().lerp(hA, ease.inOut(k)), up, k);
+    }, ease.linear);
+    // then round on his hips to the edge, the legs sweeping off it, the knees bending once they're
+    // clear of the mattress, onto the edge at `to`
+    const q3 = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
+    const h1 = to.clone().setY(to.y + rig.hipsHeight + seat.hy);
+    const round = (out, k) => {
+      blendInto(out, longSit, seat, ease.inOut(k));
+      const kn = ease.inOut(THREE.MathUtils.smoothstep(k, 0.5, 1));
+      out.kL = longSit.kL + (seat.kL - longSit.kL) * kn;
+      out.kR = longSit.kR + (seat.kR - longSit.kR) * kn;
+      out.lLx = longSit.lLx + (seat.lLx - longSit.lLx) * kn;
+      out.lRx = longSit.lRx + (seat.lRx - longSit.lRx) * kn;
+      return out;
+    };
+    st.k = 0;
+    anim.play((out) => round(out, st.k), 0.1);
+    await tween(1.3 * pace, (k) => {
+      st.k = k;
+      o.quaternion.slerpQuaternions(qA, q3, ease.inOut(k));
+      around(hA.clone().lerp(h1, ease.inOut(k)), round, k);
+    }, ease.linear);
+    room.bodyCapsules = null;
+    anim.play(still(seat, 1.4), 0.6);
+  }
+
+  // Both palms dragged slowly down over his face, still half asleep.
+  async rubFace(dur = 1.5) {
+    const rig = this.hal, anim = this.player.animator, head = new THREE.Vector3(), q = new THREE.Quaternion(), st = { k: 0 };
+    const at = (s) => () => {
+      rig.bonePosition('head', head);
+      rig.bones.head.getWorldQuaternion(q);
+      return new THREE.Vector3(0.05 * s, -0.02 - 0.08 * st.k, 0.15 - 0.02 * st.k).applyQuaternion(q).add(head);
+    };
+    anim.reach('L', at(1), { pole: new THREE.Vector3(0.6, -1, 0.2), rate: 5 });
+    anim.reach('R', at(-1), { pole: new THREE.Vector3(-0.6, -1, 0.2), rate: 5 });
+    await wait(0.5);
+    await tween(dur, (k) => (st.k = k), ease.inOut);
+    anim.reach('L', null);
+    anim.reach('R', null);
+    await wait(0.3);
   }
 
   putInBed(unrest = 0) {
@@ -370,6 +490,8 @@ export class Story {
     const sleep = (this.sleep = { roll: 0, unrest });
     player.animator.play(asleep(sleep), 0);
     room.bodyCapsules = () => this.bedCapsules();
+    room.blanketOff = 0;
+    room.blanketWaist = 0;
     this.rollUpdater?.();
     this.rollUpdater = onFrame(() => this.layInBed(sleep.roll * 1.25));
     room.lampLight.intensity = 0;
@@ -434,7 +556,7 @@ export class Story {
     await ui.fade(1, 1.2);
     if (!this.dream) {
       const d = (this.dream = new Dream(this).build());
-      const dad = (this.dad = createHal(this.assets.characters.casual, { roughMin: 0.62 }));
+      const dad = (this.dad = createHal(this.assets.characters.casual, { roughMin: 0.62, jaw: JAW.casual }));
       dad.u.uTint.value.setRGB(0.95, 0.9, 0.78);
       dad.root.position.set(-5, 0, -13);
       dad.root.rotation.y = 0.37;
@@ -468,9 +590,11 @@ export class Story {
       const jet = d.jet;
       const path = new THREE.CatmullRomCurve3([V(-40, 1.1, -34), V(10, 1.1, -34), V(60, 5, -36), V(110, 30, -60), V(150, 52, -130), V(175, 38, -215), V(160, 2, -300)]);
       const pivot = new THREE.Group();
+      pivot.position.copy(path.getPointAt(0)); // (not on the camera for its first frame)
+      pivot.lookAt(path.getPointAt(0.01));
       d.scene.add(pivot);
       pivot.add(jet);
-      jet.position.set(0, 0, 0);
+      jet.position.copy(jet.userData.offset ?? V(0, 0, 0));
       jet.rotation.set(0, -Math.PI / 2, 0);
       jet.userData.flame.material.opacity = 0.9;
       director.cut(V(0, 1.1, 0), V(-30, 2, -34), 45);
@@ -577,24 +701,18 @@ export class Story {
     room.hemi.color.setRGB(0.4, 1, 0.6);
     director.shake(0.25, 1);
 
-    // Hal wakes and sits up into the light, shielding his eyes
+    // Hal wakes with a start: up on his elbow into the light, a hand up against it, then onto the
+    // edge of the bed (quicker than a morning)
     this.sleep.unrest = 1;
-    await wait(0.8);
-    this.rollUpdater();
-    const o = player.object;
-    const q0 = o.quaternion.clone(), q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
-    const p0 = o.position.clone(), p1 = V(-0.5, 0, -0.9);
-    player.animator.play(still(makePose({ ...POSES.sitEdge, sx: -0.08, cx: -0.1, kx: -0.1, ky: 0.2 }), 2), 1.4);
-    this.shieldEyes(true);
-    this.handsOnKnees(true, ['L']);
+    await wait(0.6);
     player.lookAt(ORB_SPOT, 0.6);
-    director.move(V(0.55, 1.25, 0.45), V(-0.45, 1.1, -0.95), 1.6, ease.out, 50);
-    await tween(1.4, (k) => {
-      o.quaternion.slerpQuaternions(q0, q1, k);
-      o.position.lerpVectors(p0, p1, k);
+    director.move(V(0.55, 1.25, 0.45), V(-0.45, 1.0, -0.95), 2.2, ease.out, 50);
+    await this.getUpFromBed({
+      to: V(-0.5, 0, -0.9), seat: makePose({ ...POSES.sitEdge, sx: -0.08, cx: -0.1, kx: -0.1, ky: 0.2 }), pace: 0.6, sweep: false,
+      whilePropped: async () => { this.shieldEyes(true); await wait(0.5); },
     });
-    this.bedroom.bodyCapsules = null;
-    await wait(1.2);
+    this.handsOnKnees(true, ['L']);
+    await wait(1.0);
     for (const c of room.curtains) { c.wind.set(-2, 0.4, 0); c.gust = 0.8; }
     this.shieldEyes(false);
     this.handsOnKnees(true);
@@ -1063,7 +1181,7 @@ export class Story {
   }
 
   putOnSuit() {
-    const suit = (this.suit ??= createHal(this.assets.characters.lantern, { glow: 1.4 }));
+    const suit = (this.suit ??= createHal(this.assets.characters.lantern, { glow: 1.4, jaw: JAW.lantern }));
     this.player.setRig(suit);
     this.attachRing(this.ring, suit);
     this.powers.ring = this.ring;
@@ -1147,7 +1265,7 @@ export class Story {
     this.hud.ringhud.classList.remove('force');
 
     // the suit: casual Hal sweeps away as the Lantern uniform sweeps in (both bodies, one motion)
-    const suit = (this.suit = createHal(this.assets.characters.lantern, { glow: 1.4 }));
+    const suit = (this.suit = createHal(this.assets.characters.lantern, { glow: 1.4, jaw: JAW.lantern }));
     player.mount(suit);
     player.animator.addRig(suit);
     const uOld = this.hal.u, uNew = suit.u;

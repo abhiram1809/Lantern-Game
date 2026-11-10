@@ -14,6 +14,8 @@ export function loadProps(names) {
   }));
 }
 
+export const hasProp = (name) => ready.has(name);
+
 // A copy of a loaded prop. Meshes and materials are shared with the other copies unless
 // `ownMaterials` (when this copy will be recoloured).
 export function prop(name, { ownMaterials = false } = {}) {
@@ -54,6 +56,25 @@ export function pivot(space, list, at) {
   space.updateMatrixWorld(true);
   for (const o of list) p.attach(o);
   return p;
+}
+
+// One part of a prop kit as an object of its own, standing at its origin (the centre of its base):
+// a cone out of a pack, a lamp post out of a street kit. Shares the kit's meshes and materials.
+export function piece(name, test) {
+  const kit = prop(name);
+  kit.updateMatrixWorld(true);
+  const src = meshes(kit, (n) => test.test(n));
+  const b = boundsIn(kit, src), c = b.getCenter(new THREE.Vector3());
+  const g = new THREE.Group(), at = new THREE.Matrix4().makeTranslation(-c.x, -b.min.y, -c.z);
+  for (const m of src) {
+    const o = new THREE.Mesh(m.geometry, m.material);
+    o.castShadow = m.castShadow;
+    o.receiveShadow = true;
+    o.matrixAutoUpdate = false;
+    o.matrix.copy(at).multiply(m.matrixWorld);
+    g.add(o);
+  }
+  return g;
 }
 
 function prepare(root) {

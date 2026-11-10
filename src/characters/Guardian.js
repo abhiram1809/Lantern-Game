@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createCharacter } from './Characters.js';
+import { createCharacter, JAW } from './Characters.js';
 import { Animator } from './Rig.js';
 import { MocapClip } from './Mocap.js';
 import { BodyLanguage } from './BodyLanguage.js';
@@ -191,7 +191,9 @@ function headShape(gu) {
 }
 
 export function createGuardian(abinGltf, mocap, { robe = '#8e1512', seed = 0, hairCount = 2200 } = {}) {
-  const rig = createCharacter(abinGltf, { glow: 0 });
+  // the jaw's hinge where the head-scaling puts it (the jaw turns after the head is reshaped)
+  const jS = 1.58, jP = 1.64, jaw = { ...JAW.abin, hinge: [jP + (JAW.abin.hinge[0] - jP) * jS, JAW.abin.hinge[1] * jS] };
+  const rig = createCharacter(abinGltf, { glow: 0, jaw });
   const gu = (rig.gu = {
     uSkin: { value: new THREE.Color(0.2, 0.36, 0.78) }, uSkinTop: { value: new THREE.Color(1.08, 1.06, 1.02) }, uSkinLum: { value: 0.3 }, uSkinGamma: { value: 0.8 },
     uHeadZ: { value: 0.033 },

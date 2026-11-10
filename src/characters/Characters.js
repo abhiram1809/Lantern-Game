@@ -27,24 +27,69 @@ export async function loadCharacters(manager) {
   return { casual, lantern, abin, kilowog, carol, mocap: new MocapSource(xbot) };
 }
 
-// Adds suit glow, a sweep dissolve for the transformation, a tint, and an optional hidden bone.
-// Pass `u` to share one set of uniforms across all of a character's meshes.
-export function makeUniforms({ glow = 0, hideBone = -1, roughMin = 0 } = {}) {
+// The mouth of each scan for speech (the scans have no face bones): the lips' seam, the bottom of
+// the chin, the lips' front, the mouth's half-width at the seam, and the jaw's hinge (height,
+// depth), in the bind pose's object space: estimated from each face's front profile, then set by
+// eye with the mouth held open (a seam 2 mm off puts the gap on a lip). Kilowog's jaw juts forward.
+export const JAW = {
+  casual: { seam: 1.6045, chin: 1.553, front: 0.118, width: 0.023, hinge: [1.634, 0.028] },
+  lantern: { seam: 1.6155, chin: 1.563, front: 0.095, width: 0.022, hinge: [1.6455, 0.005] },
+  abin: { seam: 1.7295, chin: 1.665, front: 0.12, width: 0.025, hinge: [1.761, 0.03] },
+  carol: { seam: 1.498, chin: 1.452, front: 0.092, width: 0.02, hinge: [1.525, 0.004] },
+  kilowog: { seam: 2.122, chin: 1.955, front: 0.31, width: 0.06, hinge: [2.166, 0.16] },
+};
+
+// Adds suit glow, a sweep dissolve for the transformation, a tint, an optional hidden bone, and the
+// jaw (`uJaw` 0 shut .. 1 open, set by the speech). Pass `u` to share one set of uniforms across all
+// of a character's meshes.
+export function makeUniforms({ glow = 0, hideBone = -1, roughMin = 0, jaw = null } = {}) {
   return {
     uRoughMin: { value: roughMin },
     uDissolve: { value: 0 }, uDissolveOn: { value: 0 }, uDissolveSign: { value: 1 },
     uGlow: { value: glow }, uTint: { value: new THREE.Color(1, 1, 1) },
     uEdgeColor: { value: new THREE.Color(0.5, 4, 1.4) }, uHideBone: { value: hideBone },
+    uJaw: { value: 0 }, uJawOn: { value: jaw ? 1 : 0 },
+    uMouth: { value: new THREE.Vector4(jaw?.seam ?? 0, jaw?.chin ?? 0, jaw?.front ?? 0, jaw?.width ?? 0.02) },
+    uHinge: { value: new THREE.Vector2(...(jaw?.hinge ?? [0, 0])) },
   };
 }
+
+// The jaw, before skinning (and after any reshaping of the head in begin_vertex): the lower face
+// turned down about the hinge. Weighted from the bind-pose position: below the seam, down to the
+// chin and not the neck, the front of the face, narrowing to the mouth's corners at the seam.
+const JAW_VERTEX = /* glsl */ `
+  if (uJawOn > 0.5 && uJaw > 0.001) {
+    vec3 jp = position;
+    float jwd = mix(uMouth.w, uMouth.w * 2.2, smoothstep(uMouth.x, uMouth.y, jp.y));
+    float jw = (1.0 - smoothstep(uMouth.x - 0.006, uMouth.x + 0.0005, jp.y))
+             * smoothstep(uMouth.y - 0.03, uMouth.y + 0.006, jp.y)
+             * smoothstep(uHinge.y, uHinge.y + 0.04, jp.z)
+             * (1.0 - smoothstep(jwd, jwd * 1.9, abs(jp.x)));
+    float ja = uJaw * 0.2 * jw;
+    vec2 jd = transformed.yz - uHinge;
+    float jc = cos(ja), js = sin(ja);
+    transformed.yz = uHinge + vec2(jd.x * jc - jd.y * js, jd.x * js + jd.y * jc);
+  }
+`;
+// ...and the gap between the lips, dark as it opens (the scans' mouths are sealed)
+const JAW_FRAGMENT = /* glsl */ `
+  if (uJawOn > 0.5) {
+    float jx = clamp(abs(vDPos.x) / uMouth.w, 0.0, 1.0), jt = 0.0034 * (1.0 - jx * jx) * smoothstep(0.0, 0.5, uJaw) + 0.0004;
+    float jb = (1.0 - smoothstep(jt * 0.5, jt, abs(vDPos.y - (uMouth.x - 0.0018))))
+             * (1.0 - smoothstep(0.85, 1.0, jx))
+             * smoothstep(uMouth.z - 0.035, uMouth.z - 0.012, vDPos.z);
+    diffuseColor.rgb *= 1.0 - 0.88 * jb * smoothstep(0.02, 0.35, uJaw);
+  }
+`;
 
 export function patchMaterial(mat, { glow = 0, hideBone = -1, u = makeUniforms({ glow, hideBone }) } = {}) {
   mat.userData.u = u;
   mat.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, u);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vDPos;\nvarying float vHide;\nuniform float uHideBone;')
-      .replace('#include <skinning_vertex>', `#include <skinning_vertex>
+      .replace('#include <common>', '#include <common>\nvarying vec3 vDPos;\nvarying float vHide;\nuniform float uHideBone, uJaw, uJawOn;\nuniform vec4 uMouth;\nuniform vec2 uHinge;')
+      .replace('#include <skinning_vertex>', `${JAW_VERTEX}
+        #include <skinning_vertex>
         vDPos = position;
         vHide = 0.0;
         #ifdef USE_SKINNING
@@ -53,8 +98,9 @@ export function patchMaterial(mat, { glow = 0, hideBone = -1, u = makeUniforms({
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
         varying vec3 vDPos; varying float vHide;
-        uniform float uDissolve, uDissolveOn, uDissolveSign, uGlow, uRoughMin;
+        uniform float uDissolve, uDissolveOn, uDissolveSign, uGlow, uRoughMin, uJaw, uJawOn;
         uniform vec3 uEdgeColor, uTint;
+        uniform vec4 uMouth;
         float dHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
         float dNoise(vec3 x) {
           vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -64,6 +110,7 @@ export function patchMaterial(mat, { glow = 0, hideBone = -1, u = makeUniforms({
       .replace('#include <map_fragment>', `#include <map_fragment>
         if (vHide > 0.5) discard;
         diffuseColor.rgb *= uTint;
+        ${JAW_FRAGMENT}
         float dEdge = 0.0;
         if (uDissolveOn > 0.5) {
           float field = vDPos.y / 1.9 * 0.6 + (dNoise(vDPos * 11.0) * 0.6 + dNoise(vDPos * 31.0) * 0.4) * 0.4;
@@ -85,9 +132,9 @@ export function patchMaterial(mat, { glow = 0, hideBone = -1, u = makeUniforms({
 }
 
 // A character from one of the rigged scans, with its own skeleton and shared material uniforms.
-export function createCharacter(gltf, { glow = 0, roughMin = 0 } = {}) {
+export function createCharacter(gltf, { glow = 0, roughMin = 0, jaw = null } = {}) {
   const root = SkeletonUtils.clone(gltf.scene);
-  const u = makeUniforms({ glow, roughMin });
+  const u = makeUniforms({ glow, roughMin, jaw });
   root.traverse((o) => {
     if (!o.isSkinnedMesh) return;
     o.material = o.material.clone();
@@ -101,17 +148,17 @@ export function createCharacter(gltf, { glow = 0, roughMin = 0 } = {}) {
 export const createHal = (gltf, opts) => createCharacter(gltf, opts);
 
 // Abin Sur, from his own scan: the suit's green panels glow faintly until he dies.
-export const createAbinSur = (gltf) => createCharacter(gltf, { glow: 0.32 });
+export const createAbinSur = (gltf) => createCharacter(gltf, { glow: 0.32, jaw: JAW.abin });
 
 // Kilowog, the Corps' drill sergeant, from his own scan.
-export const createKilowog = (gltf) => createCharacter(gltf, { glow: 0.6, roughMin: 0.45 });
+export const createKilowog = (gltf) => createCharacter(gltf, { glow: 0.6, roughMin: 0.45, jaw: JAW.kilowog });
 
 // Carol Ferris, from her own scan (Part Three). Matte like casual Hal: skin and cotton. Her scan's
 // normal map is broken over the skin (pale rims round the face, white flecks on the lips and
 // nostrils, whichever way its green channel is read), so on skin-coloured texels the surface's own
 // normal is used; the hair and clothes keep the map's detail.
 export function createCarol(gltf) {
-  const rig = createCharacter(gltf, { roughMin: 0.55 });
+  const rig = createCharacter(gltf, { roughMin: 0.55, jaw: JAW.carol });
   for (const m of rig.meshes) {
     const mat = m.material, base = mat.onBeforeCompile;
     mat.onBeforeCompile = (sh, r) => {
@@ -256,7 +303,7 @@ const SINESTRO_NORMAL = /* glsl */ `
 `;
 
 export function createSinestro(abinGltf) {
-  const rig = createCharacter(abinGltf, { glow: 0.45 });
+  const rig = createCharacter(abinGltf, { glow: 0.45, jaw: JAW.abin });
   const su = (rig.su = {
     uSkin: { value: new THREE.Color(0.86, 0.13, 0.065) }, uSkinLum: { value: 0.3 }, uSkinGamma: { value: 0.75 },
     uEyeX: { value: 0.031 }, uEyeY: { value: 1.806 }, uEyeW: { value: 0.0125 }, uEyeH: { value: 0.0035 }, uEyeTilt: { value: 0.12 },

@@ -19,6 +19,7 @@ async function boot() {
   const input = new Input(engine.renderer.domElement);
   const audio = new AudioBank();
   const voice = new Voice();
+  voice.audio = audio; // clips play through the game's own mix
   const ui = new UI({ input, audio, voice });
 
   const manager = new THREE.LoadingManager();

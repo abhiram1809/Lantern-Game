@@ -11,7 +11,8 @@
     "assets": "node tools/build-assets.mjs",
     "posters": "node tools/extract-posters.mjs",
     "mocap": "node tools/strip-mocap.mjs",
-    "props": "node tools/build-props.mjs"
+    "props": "node tools/build-props.mjs",
+    "voices": "node tools/build-voices.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",
@@ -21,6 +22,7 @@
     "@gltf-transform/core": "^4.5.1",
     "@gltf-transform/extensions": "^4.5.1",
     "@gltf-transform/functions": "^4.5.1",
+    "kokoro-js": "^1.2.1",
     "meshoptimizer": "^1.3.0",
     "sharp": "^0.35.5",
     "vite": "^8.3.6"

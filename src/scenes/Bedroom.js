@@ -5,12 +5,15 @@ import { createSky } from '../fx/Sky.js';
 import { Particles } from '../fx/Particles.js';
 import { Cloth } from '../fx/Cloth.js';
 import { treeKit, foliageMaterial, forest } from '../fx/Trees.js';
-import { noiseTexture, woodTexture, fabricTexture, ClockFace, photoTexture, glowTexture } from '../fx/Textures.js';
+import { noiseTexture, woodTexture, fabricTexture, plaidTexture, ClockFace, photoTexture, glowTexture, pbrMaterial } from '../fx/Textures.js';
+import { prop, piece, hasProp, meshes, boundsIn, pivot } from '../props/Props.js';
+import { makeCar } from '../props/Car.js';
 
 const ROOM = { x0: -2.2, x1: 2.2, z0: -2.0, z1: 2.0, h: 2.6 };
 const HALL = { x0: -4.6, x1: 1.2, z0: 2.12, z1: 3.52 };
 const DOOR = { x0: -1.75, x1: -0.85, h: 2.05 };
 const WALL = 0.12;
+const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 export const BED = { x0: -1.825, x1: -0.375, z0: -1.95, z1: 0.1, top: 0.56 };
 const WINDOW = { z0: -1.2, z1: 0.5, y0: 0.95, y1: 2.15 };
 
@@ -56,7 +59,7 @@ export class Bedroom {
       darkWood: new THREE.MeshStandardMaterial({ map: woodTexture({ base: '#4a3424', repeat: [1, 1] }), roughness: 0.55 }),
       trim: new THREE.MeshStandardMaterial({ color: 0xb9b2a6, roughness: 0.6 }),
       sheet: new THREE.MeshStandardMaterial({ map: fabricTexture({ base: '#7d858a', repeat: [3, 3], weave: 0.04, blotches: 0 }), roughness: 0.95 }),
-      blanket: new THREE.MeshStandardMaterial({ map: fabricTexture({ base: '#5a5246', repeat: [3, 3], weave: 0.06, blotches: 0 }), roughness: 1, side: THREE.DoubleSide }),
+      blanket: new THREE.MeshStandardMaterial({ map: plaidTexture({ repeat: [2.2, 1.9] }), roughness: 1, side: THREE.DoubleSide }),
       pillow: new THREE.MeshStandardMaterial({ map: fabricTexture({ base: '#a9a69e', repeat: [2, 2], weave: 0.03, blotches: 0 }), roughness: 0.95 }),
       metal: new THREE.MeshStandardMaterial({ color: 0x777777, metalness: 0.8, roughness: 0.35 }),
       black: new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5 }),
@@ -161,6 +164,37 @@ export class Bedroom {
     const { m } = this;
     const enamel = new THREE.MeshStandardMaterial({ color: 0xe6e1d4, roughness: 0.32, metalness: 0.05 });
     const fx = 0.8, fz = HALL.z1 - 0.33, fw = 0.7, fd = 0.62, fh = 1.72;
+    if (hasProp('fridge')) this.buildFridge(fx, fz);
+    else this.buildBoxFridge(fx, fz, fw, fd, fh, enamel);
+    this.buildCounter();
+  }
+
+  // The fridge (the downloaded "Old Fridge", CREDITS.md): turned to face the hall, its door (the parts
+  // at its front) on a hinge on the side away from the counter, a light inside, the shelves bare
+  // but for a bottle of ketchup, half a lemon and a carton.
+  buildFridge(fx, fz) {
+    const f = prop('fridge');
+    f.rotation.y = Math.PI;
+    f.position.set(fx, 0, fz);
+    this.scene.add(f);
+    f.updateMatrixWorld(true);
+    const parts = meshes(f, () => true), c = new THREE.Vector3();
+    const door = parts.filter((m) => boundsIn(f, [m]).getCenter(c).z > 0.2);
+    this.fridgeHinge = pivot(f, door, new THREE.Vector3(-0.35, 0, 0.33));
+    this.fridgeSign = -1;
+    this.fridgeGlow = 0.28; // its white enamel inside blooms under a brighter bulb
+    this.physics.fixedBox({ x: fx, y: 0.76, z: fz }, { x: 0.37, y: 0.76, z: 0.36 });
+    this.fridgeLight = new THREE.PointLight(0xfff2dc, 0, 1.6, 2);
+    this.fridgeLight.position.set(fx, 1.0, fz - 0.15);
+    this.scene.add(this.fridgeLight);
+    this.add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.032, 0.17, 14), new THREE.MeshStandardMaterial({ color: 0xa3150f, roughness: 0.35 })), fx - 0.12, 0.83, fz + 0.02);
+    const lemon = this.add(new THREE.Mesh(new THREE.SphereGeometry(0.035, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xe0c23a, roughness: 0.6 })), fx + 0.1, 0.76, fz + 0.05);
+    lemon.rotation.x = Math.PI;
+    this.add(box(0.07, 0.19, 0.07, new THREE.MeshStandardMaterial({ color: 0xf4f4ef, roughness: 0.7 })), fx + 0.12, 0.48, fz + 0.04);
+  }
+
+  buildBoxFridge(fx, fz, fw, fd, fh, enamel) {
+    const { m } = this;
     this.add(box(fw, fh, fd - 0.04, enamel, 0.02), fx, fh / 2, fz + 0.02, { collide: true });
     // the doors (fridge below, freezer above), hinged on the east side
     const hinge = (this.fridgeHinge = new THREE.Group());
@@ -185,14 +219,22 @@ export class Bedroom {
     // a takeout menu and a photo held on with magnets
     this.add(box(0.16, 0.22, 0.004, new THREE.MeshStandardMaterial({ color: 0xe8d9b0, roughness: 0.9 })), -0.25, 1.0, -0.047, { parent: hinge, shadow: false });
     this.add(box(0.1, 0.07, 0.004, new THREE.MeshStandardMaterial({ map: photoTexture(), roughness: 0.4 })), -0.5, 0.82, -0.047, { parent: hinge, shadow: false });
-    // the counter
+    this.fridgeSign = 1;
+  }
+
+  // the counter: the coffee maker (downloaded where it's loaded), the week's pizza boxes
+  buildCounter() {
+    const { m } = this;
     const cx = -0.08, cw = 1.0, cd = 0.58;
     this.add(box(cw, 0.86, cd, m.darkWood), cx, 0.43, HALL.z1 - cd / 2, { collide: true });
     this.add(box(cw + 0.03, 0.04, cd + 0.03, new THREE.MeshStandardMaterial({ color: 0xcfc6b0, roughness: 0.45 })), cx, 0.88, HALL.z1 - cd / 2);
     for (const x of [cx - 0.25, cx + 0.25]) this.add(box(0.008, 0.6, 0.01, m.black), x, 0.45, HALL.z1 - cd - 0.003);
-    const maker = new THREE.Group();
-    this.add(box(0.18, 0.3, 0.2, m.black, 0.02), 0, 0.15, 0, { parent: maker });
-    this.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.12, 16), new THREE.MeshStandardMaterial({ color: 0x2a1a10, transparent: true, opacity: 0.75, roughness: 0.1 })), 0, 0.08, 0.07, { parent: maker });
+    let maker;
+    if (hasProp('coffee')) { maker = prop('coffee'); maker.rotation.y = Math.PI + 0.15; } else {
+      maker = new THREE.Group();
+      this.add(box(0.18, 0.3, 0.2, m.black, 0.02), 0, 0.15, 0, { parent: maker });
+      this.add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.12, 16), new THREE.MeshStandardMaterial({ color: 0x2a1a10, transparent: true, opacity: 0.75, roughness: 0.1 })), 0, 0.08, 0.07, { parent: maker });
+    }
     maker.position.set(cx + 0.3, 0.9, HALL.z1 - 0.3);
     this.scene.add(maker);
     const pizza = new THREE.MeshStandardMaterial({ color: 0xc7a879, roughness: 0.9 });
@@ -204,8 +246,8 @@ export class Bedroom {
 
   // Open (or close) the fridge door; its light comes on.
   async openFridge(open = true, tweenFn) {
-    const from = this.fridgeHinge.rotation.y, to = open ? 1.6 : 0;
-    await tweenFn(0.7, (k) => { this.fridgeHinge.rotation.y = from + (to - from) * k; this.fridgeLight.intensity = (open ? k : 1 - k) * 1.2; });
+    const from = this.fridgeHinge.rotation.y, to = open ? 1.6 * this.fridgeSign : 0;
+    await tweenFn(0.7, (k) => { this.fridgeHinge.rotation.y = from + (to - from) * k; this.fridgeLight.intensity = (open ? k : 1 - k) * (this.fridgeGlow ?? 1.2); });
   }
 
   buildFurniture() {
@@ -335,26 +377,51 @@ export class Bedroom {
     this.scene.add(this.blanket);
     this.blanketBase = Float32Array.from(geo.attributes.position.array);
     this.blanketCenter = new THREE.Vector3((BED.x0 + BED.x1) / 2, 0, BED.z1 - L / 2 + 0.08);
+    this.blanketGrid = { cols: sx + 1, rows: sz + 1 };
+    this.blanketOff = 0; // 0 over him .. 1 thrown back against the wall
+    this.blanketWaist = 0; // 0 up to his chin .. 1 slid down to his waist (he's sat up)
     this.updateBlanket(0);
   }
 
-  // The blanket is a height field: the mattress top, lifted over Hal's body by a wide parabolic
-  // drape around each capsule (so it falls away like fabric rather than shrink-wrapping), and
-  // hanging down past the mattress edges. Arms rest on top, so they are left out.
+  // The blanket rests on Hal like a sheet of cloth: his body (capsules, each with a little drape)
+  // is a floor it can't pass through, and relaxation passes pull it taut between the high points,
+  // so it tents over the knees, feet and toes instead of shrink-wrapping each limb into a ridge.
+  // Arms rest on top, so they are left out. Past the mattress it hangs down the sides.
+  // `blanketOff` (0..1) throws it back toward the wall, bunched.
   updateBlanket(t) {
     const pos = this.blanket.geometry.attributes.position;
-    const base = this.blanketBase, c = this.blanketCenter;
-    const caps = this.bodyCapsules ? this.bodyCapsules().filter((c) => !c.arm) : [];
-    for (let i = 0; i < pos.count; i++) {
-      let x = base[i * 3] + c.x, z = base[i * 3 + 2] + c.z;
+    const base = this.blanketBase, c = this.blanketCenter, { cols, rows } = this.blanketGrid;
+    const off = this.blanketOff ?? 0, hold = 1 - smoothstep(0.15, 0.7, off);
+    const caps = this.bodyCapsules && hold > 0 ? this.bodyCapsules().filter((c) => !c.arm) : [];
+    const n = pos.count;
+    const X = (this._bx ??= new Float32Array(n)), Z = (this._bz ??= new Float32Array(n)), F = (this._bf ??= new Float32Array(n)), Y = (this._by ??= new Float32Array(n));
+    for (let i = 0; i < n; i++) {
+      let x = base[i * 3] + c.x;
+      const z = base[i * 3 + 2] + c.z;
+      x += (BED.x0 + 0.34 - x) * 0.7 * off; // thrown back toward the wall
       let y = BED.top + 0.025 + Math.sin(x * 9 + z * 5) * 0.006 + Math.sin(z * 13) * 0.004;
       for (const cp of caps) {
         const abx = cp.b.x - cp.a.x, abz = cp.b.z - cp.a.z;
         const tt = Math.max(0, Math.min(1, ((x - cp.a.x) * abx + (z - cp.a.z) * abz) / (abx * abx + abz * abz + 1e-6)));
         const px = cp.a.x + abx * tt, pz = cp.a.z + abz * tt, py = cp.a.y + (cp.b.y - cp.a.y) * tt;
         const d2 = (x - px) ** 2 + (z - pz) ** 2;
-        y = Math.max(y, py + cp.r + 0.035 - d2 / (2.4 * cp.r));
+        const w = cp.torso ? hold * (1 - this.blanketWaist) : hold;
+        y = Math.max(y, BED.top + (py + cp.r + 0.03 - d2 / (1.4 * cp.r) - BED.top) * w);
       }
+      // heaped where it was thrown: folds standing up off the mattress
+      y += off * (0.04 + 0.035 * Math.sin(x * 38 + z * 6) + 0.02 * Math.sin(z * 17 + 1.3)) * smoothstep(BED.x0 + 0.75, BED.x0 + 0.3, x);
+      X[i] = x; Z[i] = z; F[i] = y; Y[i] = y;
+    }
+    // relax: each point to its neighbours' mean, never below the floor (cloth resting on the body)
+    for (let it = 0; it < 14; it++) {
+      for (let r = 1; r < rows - 1; r++) for (let q = 1; q < cols - 1; q++) {
+        const i = r * cols + q;
+        if (X[i] < BED.x0 || X[i] > BED.x1 || Z[i] > BED.z1) continue;
+        Y[i] = Math.max(F[i], (Y[i - 1] + Y[i + 1] + Y[i - cols] + Y[i + cols]) * 0.25);
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      let x = X[i], z = Z[i], y = Y[i];
       // overhang: slide down the side of the mattress (kept slightly apart so no triangle collapses)
       const over = Math.max(BED.x0 - x, x - BED.x1, z - BED.z1, 0);
       if (over > 0) {
@@ -367,8 +434,8 @@ export class Bedroom {
     pos.needsUpdate = true;
     const geo = this.blanket.geometry;
     geo.computeVertexNormals();
-    const n = geo.attributes.normal;
-    for (let i = 0; i < n.count; i++) if (!(Math.abs(n.getX(i)) + Math.abs(n.getY(i)) + Math.abs(n.getZ(i)) > 1e-4)) n.setXYZ(i, 0, 1, 0);
+    const nm = geo.attributes.normal;
+    for (let i = 0; i < nm.count; i++) if (!(Math.abs(nm.getX(i)) + Math.abs(nm.getY(i)) + Math.abs(nm.getZ(i)) > 1e-4)) nm.setXYZ(i, 0, 1, 0);
   }
 
   buildWindow() {
@@ -526,25 +593,59 @@ export class Bedroom {
     s.add(this.greenFill);
   }
 
+  // The street below the window (+x): pavements, the road, palms and lamps at the kerb, parked cars,
+  // the office blocks opposite, and downtown's towers further off through the morning haze.
+  buildStreetView() {
+    const s = this.scene, y0 = -3.4;
+    const put = (o, x, z, yaw = 0, sc = 1) => { o.position.set(x, y0, z); o.rotation.y = yaw; o.scale.setScalar(sc); s.add(o); return o; };
+    const plane = (w, d, x, z, mat, y = 0) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2), mat); m.position.set(x, y0 + y, z); m.receiveShadow = true; s.add(m); };
+    plane(5, 300, 5.2, 0, pbrMaterial('concrete_floor_02', { repeat: [1.7, 100], tint: new THREE.Color(1.12, 1.08, 1.03) }), 0.14);
+    plane(14, 300, 14.7, 0, pbrMaterial('asphalt_02', { repeat: [4.7, 100] }));
+    plane(5, 300, 24.2, 0, pbrMaterial('concrete_floor_02', { repeat: [1.7, 100], tint: new THREE.Color(1.12, 1.08, 1.03) }), 0.14);
+    plane(600, 600, 300, 0, pbrMaterial('asphalt_02', { repeat: [120, 120], tint: new THREE.Color(0.8, 0.78, 0.75) }), -0.02);
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 300).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xd9b23e }));
+    line.position.set(14.7, y0 + 0.01, 0);
+    s.add(line);
+    let z = 60;
+    for (const name of ['office5', 'office2', 'office4', 'office5', 'office1']) {
+      const o = prop(name), b = new THREE.Box3().setFromObject(o), w = b.max.x - b.min.x, dep = b.max.z - b.min.z;
+      put(o, 26.7 + dep / 2 + 1, z - w / 2, -Math.PI / 2);
+      z -= w + 5;
+    }
+    for (const [name, x, zz, sc] of [['office3', 240, -50, 2.2], ['office1', 300, 70, 2.0], ['office3', 210, 160, 1.8], ['office4', 180, -170, 1.7]]) put(prop(name), x, zz, -Math.PI / 2, sc);
+    for (let zz = -60; zz <= 60; zz += 14) {
+      put(prop('palms'), 23, zz, zz * 0.37, 0.6 + (Math.abs(zz) % 3) * 0.04);
+      put(prop('palms'), 6.8, zz + 7, zz * 0.53 + 1, 0.55);
+      put(piece('cityprops', /low_poly012_/), 22.3, zz + 7, Math.PI);
+    }
+    put(makeCar('sialia', { paint: 0x355e80, dust: 0.2 }), 19.8, -6, 0);
+    put(makeCar('negotiator', { paint: 0xb7ad9a, dust: 0.2 }), 19.8, 9, Math.PI);
+    put(makeCar('fairheaven_sw', { paint: 0x4f5b47, dust: 0.2 }), 9.6, 22, Math.PI);
+  }
+
   buildOutside() {
     const s = this.scene;
     this.sky = createSky(this.morning ? 'morning' : 'storm');
     s.add(this.sky);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: this.morning ? 0x46553a : 0x070a07, roughness: 1 }));
-    ground.position.set(0, -2.5, 0);
-    ground.receiveShadow = true;
-    s.add(ground);
-    // tree line through the window
-    const kit = treeKit();
     this.treeTime = { value: 0 };
-    const spots = [[], []];
-    for (let i = 0; i < 140; i++) {
-      const a = -0.95 + (i / 140) * 1.9 + (Math.random() - 0.5) * 0.04;
-      const d = 60 + Math.random() * 70, h = 8 + Math.random() * 9;
-      spots[i % 2].push({ x: Math.cos(a) * d, y: -2.6, z: Math.sin(a) * d, h, w: h * (0.9 + Math.random() * 0.3) });
+    // by day in Part Three: Coast City's street outside, the blocks across it, downtown in the haze;
+    // by night (Part One) the wooded ground and the tree line
+    if (this.morning && hasProp('office1')) this.buildStreetView();
+    else {
+      const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: this.morning ? 0x46553a : 0x070a07, roughness: 1 }));
+      ground.position.set(0, -2.5, 0);
+      ground.receiveShadow = true;
+      s.add(ground);
+      const kit = treeKit();
+      const spots = [[], []];
+      for (let i = 0; i < 140; i++) {
+        const a = -0.95 + (i / 140) * 1.9 + (Math.random() - 0.5) * 0.04;
+        const d = 60 + Math.random() * 70, h = 8 + Math.random() * 9;
+        spots[i % 2].push({ x: Math.cos(a) * d, y: -2.6, z: Math.sin(a) * d, h, w: h * (0.9 + Math.random() * 0.3) });
+      }
+      const mat = foliageMaterial(this.treeTime);
+      spots.forEach((sp, k) => s.add(forest(kit.far[k], mat, sp)));
     }
-    const mat = foliageMaterial(this.treeTime);
-    spots.forEach((sp, k) => s.add(forest(kit.far[k], mat, sp)));
     // the meteor: hot core + trail, flies past the window when the light arrives
     this.meteor = new THREE.Group();
     const glow = glowTexture('rgba(255,255,255,1)', 'rgba(120,255,160,0.5)');

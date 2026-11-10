@@ -3,8 +3,8 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { Physics } from '../engine/Physics.js';
 import { createSky } from '../fx/Sky.js';
 import { Particles } from '../fx/Particles.js';
-import { noiseTexture } from '../fx/Textures.js';
-import { prop, meshes, boundsIn } from '../props/Props.js';
+import { noiseTexture, pbrMaterial } from '../fx/Textures.js';
+import { prop, piece, meshes, boundsIn } from '../props/Props.js';
 import { makeCar } from '../props/Car.js';
 
 // Ferris Aircraft, mid-morning: the airfield in the desert outside Coast City where Martin Jordan
@@ -22,7 +22,14 @@ const RUNWAY_Z = -150;
 const HANGARS = [{ x: -62, n: '1' }, { x: 0, n: '2' }, { x: 62, n: '3' }];
 const HANGAR = { w: 54, d: 30, h: 15, z0: 8 }; // doors on the north face (z0), facing the apron
 // the downloaded models the scene uses (src/props, CREDITS.md): load them before build()
-export const FERRIS_PROPS = ['phoenix', 'fairheaven', 'negotiator', 'sialia', 'fairheaven_sw', 'prototype', 'palms', 'apartment', 'stand', 'fueltruck', 'tug', 'cones', 'toolbox', 'drums', 'forklift'];
+export const FERRIS_PROPS = ['phoenix', 'fairheaven', 'negotiator', 'sialia', 'fairheaven_sw', 'prototype', 'palms', 'apartment', 'stand', 'fueltruck', 'tug', 'cones', 'toolbox', 'drums', 'forklift',
+  'office1', 'office2', 'office3', 'office4', 'office5', 'office6', 'cityprops', 'busstop', 'billboard', 'booth'];
+// the street kit's pieces (cityprops), by part name
+export const KIT = {
+  mast: /low_poly_metal_street_props_0$/, signal: /low_poly011_/, lamp: /low_poly012_/, sign: /low_poly008_/, stop: /low_poly005_/,
+  hydrant: /low_poly002_/, bin: /low_poly001_/, can: /low_poly007_/, dumpster: /low_poly006_/,
+};
+export const BOULEVARD = { x0: 2, x1: 10, z0: -24, z1: -440, cross: -210 }; // in the lot's frame (LOT): the road out of town
 
 let seed = 7;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
@@ -69,6 +76,7 @@ export class Ferris {
     this.buildApronProps();
     this.buildStaffLot();
     this.buildApartmentLot();
+    this.buildCity();
     // Hal's car: sun-faded maroon, the driver's door in primer
     this.car = makeCar('phoenix', { paint: 0x5a1d19, primer: true, dust: 0.7 });
     this.car.position.copy(CAR_SPOT);
@@ -106,7 +114,7 @@ export class Ferris {
   buildGround() {
     const s = this.scene;
     // desert: pale sand, scrubby patches, tyre-worn dirt near the buildings
-    const sand = new THREE.MeshStandardMaterial({ color: 0xbfa17a, roughness: 1 });
+    const sand = pbrMaterial('gravelly_sand', { repeat: [5300, 5300], tint: new THREE.Color(1.15, 1.08, 1.0), normalScale: 0.8 });
     // large-scale variation, by world position: patches of redder hardpan and pale wash, darker
     // where the scrub grows thick, so the flats don't read as one tiled colour
     sand.onBeforeCompile = (sh) => {
@@ -138,12 +146,12 @@ export class Ferris {
     g.strokeStyle = 'rgba(40,36,32,0.55)';
     g.lineWidth = 2;
     for (let k = 0; k <= 1024; k += 128) { g.beginPath(); g.moveTo(k, 0); g.lineTo(k, 1024); g.stroke(); g.beginPath(); g.moveTo(0, k); g.lineTo(1024, k); g.stroke(); }
-    const concrete = new THREE.MeshStandardMaterial({ map: tex(c, [1, 1]), roughness: 0.85 });
+    const canvasTex = tex(c, [1, 1]);
     const slab = (x0, x1, z0, z1) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0).rotateX(-Math.PI / 2), concrete.clone());
-      m.material.map = m.material.map.clone();
-      m.material.map.repeat.set((x1 - x0) / 48, (z1 - z0) / 48);
-      m.material.map.needsUpdate = true;
+      const map = canvasTex.clone();
+      map.repeat.set((x1 - x0) / 48, (z1 - z0) / 48);
+      map.needsUpdate = true;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0).rotateX(-Math.PI / 2), pbrMaterial('concrete_floor_02', { map, detailRepeat: [(x1 - x0) / 3, (z1 - z0) / 3], roughness: 0.95 }));
       m.position.set((x0 + x1) / 2, 0.005, (z0 + z1) / 2);
       m.receiveShadow = true;
       s.add(m);
@@ -172,7 +180,7 @@ export class Ferris {
       const x = (rnd() - 0.5) * 2400, z = -1000 + rnd() * 7400;
       if (x > -160 && x < 160 && z > -200 && z < 130) continue; // the field
       if (Math.abs(x - 6) < 14 && z > 100) continue; // the road
-      if (Math.abs(z - LOT.z) < 120 && Math.abs(x) < 120) continue; // the apartment lot
+      if (z > LOT.z - 480 && z < LOT.z + 320 && Math.abs(x) < 260) continue; // the lot and the city round it
       const r = 0.3 + rnd() * rnd() * 1.4;
       m4.compose(p.set(x, r * 0.25, z), q.setFromAxisAngle(V(0, 1, 0), rnd() * 6), sc.set(r, r, r));
       bushes.setMatrixAt(n, m4);
@@ -195,7 +203,7 @@ export class Ferris {
     g.fillStyle = '#e6e2d6';
     for (let y = 0; y < 2048; y += 128) g.fillRect(124, y, 8, 64); // centre line
     g.fillRect(8, 0, 4, 2048); g.fillRect(244, 0, 4, 2048); // edges
-    const runway = new THREE.Mesh(new THREE.PlaneGeometry(45, 1800).rotateX(-Math.PI / 2).rotateY(Math.PI / 2), new THREE.MeshStandardMaterial({ map: tex(c), roughness: 0.9 }));
+    const runway = new THREE.Mesh(new THREE.PlaneGeometry(45, 1800).rotateX(-Math.PI / 2).rotateY(Math.PI / 2), pbrMaterial('asphalt_02', { map: tex(c), detailRepeat: [15, 600] }));
     runway.position.set(0, 0.01, RUNWAY_Z);
     runway.receiveShadow = true;
     s.add(runway);
@@ -222,15 +230,9 @@ export class Ferris {
   // the great doors slid open onto the apron. Hangar Two has the work lights on.
   buildHangars() {
     const s = this.scene, { w, d, h, z0 } = HANGAR;
-    const [c, g] = canvas(512, 256);
-    g.fillStyle = '#c9c7c0';
-    g.fillRect(0, 0, 512, 256);
-    for (let x = 0; x < 512; x += 8) { g.fillStyle = 'rgba(0,0,0,0.16)'; g.fillRect(x, 0, 3, 256); g.fillStyle = 'rgba(255,255,255,0.18)'; g.fillRect(x + 4, 0, 2, 256); }
-    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(120,90,60,${rnd() * 0.12})`; g.fillRect(rnd() * 512, 200 + rnd() * 56, 4 + rnd() * 30, 3 + rnd() * 20); } // grime at the foot
-    const ribTex = tex(c);
-    ribTex.wrapS = ribTex.wrapT = THREE.RepeatWrapping;
-    const wallMat = (rx, ry) => { const m = new THREE.MeshStandardMaterial({ map: ribTex.clone(), roughness: 0.55, metalness: 0.45 }); m.map.repeat.set(rx, ry); m.map.needsUpdate = true; return m; };
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0x8f8c86, roughness: 0.6, metalness: 0.5 });
+    // corrugated iron (ribs about 11 cm apart, a 1.4 m sheet), painted a pale warm grey
+    const wallMat = (rx, ry) => pbrMaterial('corrugated_iron_02', { repeat: [rx * 5, ry * h / 1.4], tint: new THREE.Color(2.3, 2.25, 2.15), metalness: 0.35, roughness: 0.9 });
+    const roofMat = pbrMaterial('corrugated_iron_02', { repeat: [d / 1.4, w / 2.8], tint: new THREE.Color(1.6, 1.58, 1.55), metalness: 0.4 });
     const trim = new THREE.MeshStandardMaterial({ color: 0x3d4046, roughness: 0.5, metalness: 0.6 });
     const dark = new THREE.MeshStandardMaterial({ color: 0x4a4e54, roughness: 0.8, metalness: 0.2 }); // the inside of the back wall
     const floorMat = new THREE.MeshStandardMaterial({ color: 0x8e8b84, roughness: 0.35, metalness: 0.1 });
@@ -320,7 +322,7 @@ export class Ferris {
     const s = this.scene, g = new THREE.Group();
     g.position.set(-128, 0, -16);
     s.add(g);
-    const concrete = new THREE.MeshStandardMaterial({ color: 0xd8d0c2, roughness: 0.9 });
+    const concrete = pbrMaterial('white_plaster_02', { repeat: [4, 8], tint: new THREE.Color(1.25, 1.18, 1.08) });
     const glass = new THREE.MeshStandardMaterial({ color: 0x2a3a46, metalness: 0.9, roughness: 0.08 });
     const add = (geo, mat, y) => { const m = new THREE.Mesh(geo, mat); m.position.y = y; m.castShadow = m.receiveShadow = true; g.add(m); return m; };
     add(new THREE.BoxGeometry(9, 4, 9), concrete, 2);
@@ -338,7 +340,7 @@ export class Ferris {
     const s = this.scene, g = new THREE.Group();
     g.position.set(98, 0, 62);
     s.add(g);
-    const wall = new THREE.MeshStandardMaterial({ color: 0xe2ddd2, roughness: 0.85 });
+    const wall = pbrMaterial('white_plaster_02', { repeat: [10, 3], tint: new THREE.Color(1.3, 1.25, 1.15) });
     const glass = new THREE.MeshStandardMaterial({ color: 0x31414c, metalness: 0.85, roughness: 0.1 });
     const body = new THREE.Mesh(new THREE.BoxGeometry(34, 8, 18), wall);
     body.position.y = 4;
@@ -371,7 +373,7 @@ export class Ferris {
     roadTex.wrapT = THREE.RepeatWrapping;
     const len = LOT.z - 14 - 80; // to the north edge of the apartment lot
     roadTex.repeat.set(1, len / 40);
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(8, len).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.9 }));
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(8, len).rotateX(-Math.PI / 2), pbrMaterial('asphalt_02', { map: roadTex, detailRepeat: [2.7, len / 3] }));
     road.position.set(6, 0.012, 80 + len / 2);
     road.receiveShadow = true;
     s.add(road);
@@ -384,19 +386,12 @@ export class Ferris {
     for (let i = 0; i < n; i++) { m4.makeTranslation(13, 0, 130 + i * 55); poles.setMatrixAt(i, m4); m4.makeTranslation(13, 9.4, 130 + i * 55); arms.setMatrixAt(i, m4); }
     poles.castShadow = true;
     s.add(poles, arms);
-    // the gate: a guard booth, a raised barrier, the company's sign on a low wall
-    const booth = new THREE.Group();
-    booth.position.copy(GATE).add(V(-6, 0, 0));
+    // the gate: a guard booth with its barrier raised, the company's sign on a low wall
+    const booth = prop('booth');
+    booth.position.copy(GATE).add(V(-6.9, 0, 0.5));
     s.add(booth);
+    this.physics.fixedBox({ x: booth.position.x - 1, y: 1.3, z: booth.position.z }, { x: 1.6, y: 1.3, z: 1.6 });
     const white = new THREE.MeshStandardMaterial({ color: 0xe9e4d8, roughness: 0.7 });
-    const glass = new THREE.MeshStandardMaterial({ color: 0x2b3944, metalness: 0.8, roughness: 0.1 });
-    const b1 = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.6, 3), white); b1.position.y = 1.3; b1.castShadow = true; booth.add(b1);
-    const b2 = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1, 3.1), glass); b2.position.y = 1.8; booth.add(b2);
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.2, 3.6), white); roof.position.y = 2.7; booth.add(roof);
-    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 6, 0.12), new THREE.MeshStandardMaterial({ color: 0xd23a2a }));
-    arm.position.set(1.6, 3.9, 0);
-    arm.rotation.z = 0.12;
-    booth.add(arm);
     const [sc, sg] = canvas(1024, 256);
     sg.fillStyle = '#ece7dc'; sg.fillRect(0, 0, 1024, 256);
     sg.fillStyle = '#a3191b'; sg.font = '900 112px "Arial Black", Arial, sans-serif'; sg.textAlign = 'center'; sg.fillText('FERRIS AIRCRAFT', 512, 140);
@@ -530,6 +525,79 @@ export class Ferris {
       g.add(car);
     }
     this.lotCarSpot = L.clone().add(V(-1.6, 0, 4.8)); // nose in, toward the building
+    this.physics.fixedGround(120, 0, 12, L.x, L.z); // he walks out to his car here
+  }
+
+  // Coast City round the lot: the boulevard out of town (office blocks on both sides, kerbs and
+  // pavements, palms and street lamps, a signalled crossing with a cross street, a bus shelter, a
+  // billboard), and downtown's towers behind Hal's building. Seen from the car and from the lot.
+  buildCity() {
+    const s = this.scene, g = new THREE.Group(), B = BOULEVARD;
+    g.position.copy(LOT);
+    s.add(g);
+    const put = (o, x, z, yaw = 0, sc = 1) => { o.position.set(x, 0, z); o.rotation.y = yaw; o.scale.setScalar(sc); g.add(o); return o; };
+    const len = B.z0 - B.z1;
+    // pavements, kerbs, the cross street
+    const pave = (x0, x1, z0, z1) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z0 - z1).rotateX(-Math.PI / 2), pbrMaterial('concrete_floor_02', { repeat: [(x1 - x0) / 3, (z0 - z1) / 3], tint: new THREE.Color(1.12, 1.08, 1.03) }));
+      m.position.set((x0 + x1) / 2, 0.14, (z0 + z1) / 2);
+      m.receiveShadow = true;
+      g.add(m);
+    };
+    for (const [x0, x1] of [[B.x0 - 5.5, B.x0], [B.x1, B.x1 + 5.5]]) {
+      pave(x0, x1, B.z0, B.cross + 8);
+      pave(x0, x1, B.cross - 8, B.z1);
+    }
+    const kerbMat = new THREE.MeshStandardMaterial({ color: 0xb9b4aa, roughness: 0.85 });
+    for (const x of [B.x0, B.x1]) for (const [z0, z1] of [[B.z0, B.cross + 8], [B.cross - 8, B.z1]]) {
+      const k = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, z0 - z1), kerbMat);
+      k.position.set(x, 0.075, (z0 + z1) / 2);
+      g.add(k);
+    }
+    const cross = new THREE.Mesh(new THREE.PlaneGeometry(320, 12).rotateX(-Math.PI / 2), pbrMaterial('asphalt_02', { repeat: [60, 2.2] }));
+    cross.position.set(6, 0.011, B.cross);
+    cross.receiveShadow = true;
+    g.add(cross);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, len + 520).rotateX(-Math.PI / 2), pbrMaterial('asphalt_02', { repeat: [70, 160], tint: new THREE.Color(0.85, 0.83, 0.8) }));
+    ground.position.set(6, 0.004, (B.z0 + B.z1) / 2 + 120);
+    ground.receiveShadow = true;
+    g.add(ground);
+    // the blocks: fronts to the street, a few metres of plaza between them
+    const blocks = ['office5', 'office2', 'office4', 'office1', 'office6', 'office5', 'office4', 'office2', 'office1', 'office3'];
+    for (const side of [-1, 1]) {
+      let z = B.z0 - 6, i = side > 0 ? 3 : 0;
+      while (z > B.z1 + 20) {
+        const name = blocks[i++ % blocks.length], o = prop(name);
+        const b = new THREE.Box3().setFromObject(o), w = b.max.x - b.min.x, dep = b.max.z - b.min.z;
+        if (z - w < B.cross + 9 && z > B.cross - 9) { z = B.cross - 9; continue; } // leave the crossing clear
+        const x = side < 0 ? B.x0 - 5.5 - dep / 2 - 1 : B.x1 + 5.5 + dep / 2 + 1;
+        put(o, x, z - w / 2, side < 0 ? Math.PI / 2 : -Math.PI / 2);
+        z -= w + 4 + rnd() * 8;
+      }
+    }
+    // the blocks round the lot, so it sits in town and not at the edge of the desert
+    for (const [name, x, z, r] of [['office2', -78, 10, Math.PI / 2], ['office5', -70, -50, Math.PI / 2], ['office4', -76, 70, Math.PI / 2], ['office6', 92, 30, -Math.PI / 2], ['office5', 66, -48, -Math.PI / 2], ['office1', 70, 96, -Math.PI / 2], ['office4', -20, 86, Math.PI], ['office2', 40, 70, Math.PI]]) put(prop(name), x, z, r);
+    // downtown, behind Hal's building: the towers through the haze
+    for (const [name, x, z, sc, r] of [['office3', -120, 190, 2.3, 0.3], ['office1', -40, 260, 2.0, -0.2], ['office3', 70, 230, 1.9, 1.2], ['office4', 150, 170, 1.7, 0.5], ['office6', -210, 120, 1.2, 0.9]]) put(prop(name), x, z, r, sc);
+    // street furniture: palms in the verge, lamps at the kerb, hydrants, bins
+    for (let z = B.z0 - 10, n = 0; z > B.z1 + 10; z -= 18, n++) {
+      if (Math.abs(z - B.cross) < 12) continue;
+      for (const side of [-1, 1]) {
+        const xk = side < 0 ? B.x0 - 0.9 : B.x1 + 0.9;
+        if (n % 2 === 0) put(prop('palms'), xk - side * 0.6, z + side * 4, rnd() * 6, 0.62 + rnd() * 0.12);
+        else put(piece('cityprops', KIT.lamp), xk, z, side < 0 ? 0 : Math.PI);
+        if (n % 5 === 2) put(piece('cityprops', rnd() < 0.5 ? KIT.bin : KIT.can), xk - side * 3.6, z + 2);
+        if (n % 7 === 3) put(piece('cityprops', KIT.hydrant), xk + side * 0.1, z - 3);
+      }
+    }
+    // the crossing: signals on the corners, a sign, a car waiting on the cross street
+    for (const [x, z, yaw] of [[B.x0 - 1, B.cross + 7, 0], [B.x1 + 1, B.cross - 7, Math.PI]]) put(piece('cityprops', KIT.mast), x, z, yaw);
+    for (const [x, z, yaw] of [[B.x1 + 1, B.cross + 7, -Math.PI / 2], [B.x0 - 1, B.cross - 7, Math.PI / 2]]) put(piece('cityprops', KIT.signal), x, z, yaw);
+    put(piece('cityprops', KIT.sign), B.x1 + 1.4, B.cross + 8.5, 0.4);
+    put(makeCar('negotiator', { paint: 0x6b6f72, dust: 0.25 }), 24, B.cross + 2.2, -Math.PI / 2);
+    put(makeCar('fairheaven', { paint: 0x8e8a7c, dust: 0.25 }), -30, B.cross - 2.2, Math.PI / 2);
+    put(prop('busstop'), B.x1 + 3.2, -120, -Math.PI / 2);
+    put(prop('billboard'), -26, -60, 0.6).scale.setScalar(1.3);
   }
 
   // Boxes round a placed model's parts (those whose names pass `test`), so Hal walks round its

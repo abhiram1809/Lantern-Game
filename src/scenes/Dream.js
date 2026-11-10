@@ -3,6 +3,7 @@ import { createSky } from '../fx/Sky.js';
 import { Fire, Particles } from '../fx/Particles.js';
 import { noiseTexture } from '../fx/Textures.js';
 import { buildJet } from './Bedroom.js';
+import { prop, hasProp } from '../props/Props.js';
 
 // Childhood memory: the airfield at sunset, seen from eight-year-old Hal's eye level.
 export class Dream {
@@ -75,8 +76,9 @@ export class Dream {
       m.position.set(Math.cos(a) * 380, 8, Math.sin(a) * 380);
       s.add(m);
     }
-    this.jet = buildJet({ scale: 1, color: 0xc9ced2 });
-    this.jet.position.set(-30, 1.1, -34);
+    const f104 = hasProp('f104');
+    this.jet = f104 ? starfighter() : buildJet({ scale: 1, color: 0xc9ced2 });
+    this.jet.position.set(-30, f104 ? 0 : 1.1, -34);
     s.add(this.jet);
     this.dust = new Particles(200, { additive: false, puffy: true, drag: 0.8 });
     s.add(this.dust.points);
@@ -100,4 +102,19 @@ export class Dream {
       for (const m of [o.material ?? []].flat()) m.dispose();
     });
   }
+}
+
+// Martin Jordan's jet: the F-104 Starfighter (CREDITS.md), turned nose to +x like the built one,
+// with the afterburner's flame at its tail. `offset` keeps its wheels on the runway in flight's pivot.
+function starfighter() {
+  const g = new THREE.Group(), j = prop('f104');
+  j.rotation.y = Math.PI / 2;
+  g.add(j);
+  const b = new THREE.Box3().setFromObject(g);
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.34, 2.0, 16).rotateZ(Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 2, 0.8), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
+  flame.position.set(b.min.x - 0.7, 1.55, 0);
+  g.add(flame);
+  g.userData.flame = flame;
+  g.userData.offset = new THREE.Vector3(0, -1.1, 0);
+  return g;
 }

@@ -175,14 +175,17 @@ block debris, bolts and Hal.
 
 ### Part Three: Coast City (in progress)
 
-1. **The morning after:** 9:41 AM, daylight, the phone buzzing on the nightstand. Hal sits up,
-   sees the clock, and plays four voicemails: the landlord (two months behind), Tom Kalmaku twice
+1. **The morning after:** 9:41 AM, daylight, the phone buzzing on the nightstand, Coast City's
+   street outside the window. Hal wakes by stages (rolls over, props up on an elbow to squint at
+   the clock, throws the blanket back, sits up, swings his legs off the bed, drags his hands down
+   his face), and plays four voicemails: the landlord (two months behind), Tom Kalmaku twice
    (where are you; they scrubbed the test), Carol ("come in, we need to talk"). Then the
    apartment is yours: an empty fridge, red-ink bills, the photo of his father, and a rent notice
    slipped under the front door. Leave by the front door.
-2. **Running late:** his old '71 muscle car (faded maroon, one door in primer) takes three tries to
-   start. The desert road out to Ferris Aircraft, the gate, the staff lot; he opens the door, swings
-   his feet out, gets out and shuts it behind him.
+2. **Running late:** out of his building to his old '71 muscle car (faded maroon, one door in
+   primer); in, and it takes three tries to start. Out through Coast City (a palm-lined boulevard of
+   office blocks), the desert road to Ferris Aircraft, the gate, the staff lot; he opens the door,
+   swings his feet out, gets out and shuts it behind him.
 3. **Ferris Aircraft:** walk between the hangars to the apron, where the prototype he was meant
    to fly at nine stands fuelled and Carol Ferris is waiting.
 4. **Carol:** the Air Force came out from Edwards and watched an empty cockpit. He can't tell her
@@ -226,6 +229,16 @@ block debris, bolts and Hal.
   rim by arm IK.
 - **Held props:** the scans have no finger bones, so the phone lies flat in Hal's palm (a palm frame
   measured from the hand's vertices), and his wrist turns so its screen faces his eyes.
+- **Lip sync:** each speaker's jaw opens with their voice (the scans have no face bones: the lower
+  face turns about a hinge in the vertex shader, the gap between the lips darkening), following a
+  mouth curve measured from each line's audio.
+- **Voices:** every line is spoken by a neural text-to-speech model,
+  [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) (Apache-2.0), rendered ahead of time
+  (`npm run voices`) so the game only plays small MP3s. Each character has their own voice pitched to
+  suit them: Hal a warm baritone, Sinestro lower and colder, Kilowog an octave-layered growl, the
+  Guardians a reverberant choir, Carol, Abin Sur, the ring's band-limited readout. Lines without a
+  clip fall back to the browser's speech synthesiser. `tools/voices.html` on the dev server
+  auditions them.
 
 ## Environment
 
@@ -233,14 +246,16 @@ block debris, bolts and Hal.
   and offset; near/mid/far detail levels) and clumped broadleaf trees, instanced with per-tree colour
   and a wind sway. The lake's far shore is low wooded hills whose skyline is the tree line; forest
   also stands inland and frames both ends of the bay, and fills the view from the bedroom window.
-- **Downloaded models** (Part Three): the cars, the prototype jet, the phone, the palms, Hal's
-  apartment block and the airfield's ground equipment are CC BY 4.0 models from Sketchfab by way of
-  the [Objaverse](https://huggingface.co/datasets/allenai/objaverse) dataset, credited in
-  [CREDITS.md](CREDITS.md). `npm run props` (`tools/build-props.mjs`) builds them from
+- **Downloaded models** (Part Three, and the kitchenette and the dream's jet in Part One): the cars,
+  the prototype jet, the phone, the palms, Hal's apartment block, Coast City's office blocks and
+  street furniture, the airfield's ground equipment and gate booth, the fridge, the coffee maker
+  and the F-104 are CC BY 4.0 models from Sketchfab by way of the
+  [Objaverse](https://huggingface.co/datasets/allenai/objaverse) dataset, credited in
+  [CREDITS.md](CREDITS.md). Surfaces (corrugated iron, concrete, asphalt, sand, plaster) are CC0
+  textures from [Poly Haven](https://polyhaven.com). `npm run props` (`tools/build-props.mjs`) builds them from
   `assets/props/` into `public/models/props/` (turned to face +Z, scaled to metres, textures to WebP).
-- Everything else (rooms, ship, terrain, water, sky, fire, ring, lantern, Oa, the hangars) is
-  procedural, and all sound is synthesised with WebAudio. Spoken lines use the browser's speech
-  synthesiser.
+- Everything else (rooms, ship, terrain, water, sky, fire, ring, lantern, Oa, the hangars' shapes)
+  is procedural, and all sound effects are synthesised with WebAudio.
 
 ## Code map
 
@@ -277,7 +292,7 @@ tools/                      asset pipeline (build-assets, autorig, build-props, 
 
 ## Notes and limits
 
-- No lip sync or hair simulation (as agreed). Physics covers the character controller, props in the
+- The lip movement is a jaw only (no visemes), and there is no hair simulation. Physics covers the character controller, props in the
   bedroom (shoved by the light, floating when Hal rises), debris at the crash, verlet curtains and
   the body-following blanket.
 - Credits: locomotion clips are Mixamo animations shipped with the three.js examples (`Xbot.glb`);
@@ -292,4 +307,6 @@ models in `assets/raw` and `public/models`, the reference videos, the concept ar
 The Mixamo animation clips (`assets/mocap/Xbot.glb`, `Soldier.glb` and the clips stripped from
 them into `public/anims/`) are third-party files from the three.js examples and stay under
 Mixamo's own terms. The downloaded models in `assets/props/` and `public/models/props/` are
-third-party too, each under CC BY 4.0 with its author and source listed in [CREDITS.md](CREDITS.md).
+third-party too, each under CC BY 4.0 with its author and source listed in [CREDITS.md](CREDITS.md). The surface
+textures in `public/textures/pbr/` are CC0 (Poly Haven). The voice clips in `public/voices/` were
+made with Kokoro-82M (Apache-2.0); see [CREDITS.md](CREDITS.md).

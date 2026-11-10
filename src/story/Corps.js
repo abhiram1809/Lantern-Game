@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadProps } from '../props/Props.js';
 import { wait, waitFor, tween, ease, onFrame, damp } from '../engine/Time.js';
 import { CorpsSave, CoastSave, allWorlds } from '../engine/Save.js';
 import { Story } from './Story.js';
@@ -63,6 +64,7 @@ export class Corps extends Story {
   }
 
   async prepare(id) {
+    await loadProps(['fridge', 'coffee']); // the bedroom at 4:16 has the kitchenette
     const { ui, player } = this;
     ui.clock(this.save.info(id).clock);
     this.ring ??= createRing();

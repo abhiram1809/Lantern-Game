@@ -70,6 +70,11 @@ export const LINES = {
   ringFlight: { who: 'ring', text: 'Flight enabled.' },
   ringDone: { who: 'ring', text: 'Training complete. Recharge at the power battery every twenty-four hours, or when the light runs low.' },
   ringRecharged: { who: 'ring', text: 'Charge restored.' },
+  // the ring's warnings (RingPowers)
+  ringOffline: { who: 'ring', text: 'Construct interface offline. Recharge at the power battery.' },
+  ringLowCharge: { who: 'ring', text: 'Insufficient charge. Recharge at the power battery.' },
+  ringBelow20: { who: 'ring', text: 'Charge below twenty percent.' },
+  ringDepleted: { who: 'ring', text: 'Charge depleted.' },
 
   // ---- Part Two: The Corps ----
   // the summons, at the lake

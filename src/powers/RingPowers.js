@@ -4,6 +4,7 @@ import { damp, clamp } from '../engine/Time.js';
 import { Particles } from '../fx/Particles.js';
 import { CONSTRUCTS, constructInfo, constructMesh, ghostMesh, fistGeometry, shieldGeometry, wallGeometry, gatlingGeometry, swordGeometry, Blade, WALL, createBeam, surfaceSamples } from './Constructs.js';
 import { glowTexture } from '../fx/Textures.js';
+import { LINES } from '../story/lines.js';
 
 const WATER = -0.03;
 const KEY4 = ['Digit4', 'Numpad4'];
@@ -137,7 +138,7 @@ export class RingPowers {
     if (this.wheelState) { if (acting) this.updateWheel(real); else this.closeWheel(); }
     else if (acting && input.hit(...KEY4)) {
       if (this.enabled.constructs) this.openWheel();
-      else if (this.enabled.hud) { this.audio.denied(); this.say('Construct interface offline. Recharge at the power battery.'); }
+      else if (this.enabled.hud) { this.audio.denied(); this.say(LINES.ringOffline.text); }
     }
     if (acting && !this.wheelState && this.selected && input.hit('KeyQ')) this.holster();
 
@@ -417,13 +418,13 @@ export class RingPowers {
   spend(n) {
     if (this.charge < n) return false;
     this.charge -= n;
-    if (this.charge < 20 && this.charge + n >= 20) this.say(`Charge at ${Math.round(this.charge)} percent.`);
+    if (this.charge < 20 && this.charge + n >= 20) this.say(LINES.ringBelow20.text);
     return true;
   }
 
   lowCharge() {
     this.audio.denied();
-    this.say('Insufficient charge. Recharge at the power battery.');
+    this.say(LINES.ringLowCharge.text);
   }
 
   ringPos(out) {
@@ -600,7 +601,7 @@ export class RingPowers {
     this.wind ??= this.audio.airflow();
     this.wind.set(smooth(0, 20, speed));
     this.charge = Math.max(0, this.charge - dt * (0.12 + (p.boosting ? 0.35 : 0)));
-    if (this.charge <= 0) { p.stopFlying(true); this.say('Charge depleted.'); }
+    if (this.charge <= 0) { p.stopFlying(true); this.say(LINES.ringDepleted.text); }
     // light trailing off the ring fist and the boots
     if (speed > 3 && dt > 0) {
       const n = speed > 12 ? 3 : 1;

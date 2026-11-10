@@ -87,14 +87,19 @@ Part Two so far (`src/story/Corps.js`):
 
 Part Three so far (`src/story/Coast.js`), a civilian morning (the ring stays on, its powers off):
 
-1. **The morning after** (the apartment by day, `Bedroom.build({ morning: true })`): 9:41 AM, the
-   phone buzzing; he sits up, sees the clock, plays four voicemails on speaker (the landlord Sal
-   Delgado, Tom Kalmaku twice, Carol). Free roam: the fridge (it opens), the bills, the photo, the
-   window, a rent notice under the front door; leave by the front door.
-2. **Running late** (`scenes/Ferris.js`): his car (the downloaded '71 Phoenix, `makeCar`) takes
-   three tries to start behind his building; the desert road; the gate; the staff lot; out of the
-   car (`getOut`: a hand to the handle, the door pushed open, a turn in the seat, feet out over
-   the sill, up, out past the door's tip, the door pulled shut by its edge).
+1. **The morning after** (the apartment by day, `Bedroom.build({ morning: true })`, Coast City's
+   street through the window): 9:41 AM, the phone buzzing; he wakes in stages (`getUpFromBed`:
+   rolled to the edge, up on an elbow to squint at the clock, the blanket thrown back, sitting up
+   with the legs along the bed, round onto the edge), drags his hands down his face (`rubFace`),
+   plays four voicemails on speaker (the landlord Sal Delgado, Tom Kalmaku twice, Carol). Free
+   roam: the fridge (the downloaded one; it opens), the bills, the photo, the window, a rent notice
+   under the front door; leave by the front door.
+2. **Running late** (`scenes/Ferris.js`): out of his building's door to his car (`getIn`: the door
+   pulled open by its edge, sat down sideways, legs swung in, the door pulled shut); the car (the
+   downloaded '71 Phoenix, `makeCar`) takes three tries to start; out through Coast City (the
+   boulevard, from the kerb); the desert road; the gate; the staff lot; out of the car (`getOut`:
+   a hand to the handle, the door pushed open, a turn in the seat, feet out over the sill, up, out
+   past the door's tip, the door pulled shut by its edge).
 3. **Ferris Aircraft:** on foot between the hangars to the apron, where the prototype stands.
 4. **Carol** (her own Tripo scan): she fires him for the missed Air Force test.
 5. **Out of work:** Hal sitting on his car's trunk lid, feet on the bumper; the end card ("to be
@@ -121,8 +126,9 @@ Stack:
 - Vite 8
 - Node tools built on `@gltf-transform`, `meshoptimizer` and `sharp` for the asset pipeline
 
-No audio files are shipped: everything is synthesised with WebAudio, and voices use the browser's
-`speechSynthesis`.
+Sounds and music are synthesised with WebAudio; no sound files are shipped. Spoken lines are
+pre-rendered clips (`public/voices/`, Kokoro-82M from Hugging Face, see *Voices*), with the browser's
+`speechSynthesis` as the fallback for a line that has none.
 
 ## Working with this user
 
@@ -135,14 +141,20 @@ No audio files are shipped: everything is synthesised with WebAudio, and voices 
   the game scream that it was done last minute". They catch contact errors: legs through a car's
   floor, a phone through a hand, a walk with bent elbows and cocked wrists ("looks a bit gay": it
   read as mincing; see `relaxArms`).
+- **Their second round of Part Three notes (2026-11-10):** a body part poking out of the blanket;
+  waking up "should not be just one motion"; lip movement while speaking; better, more versatile
+  TTS voices from Hugging Face, matched by pitch to each character (Kilowog "should be monstrous");
+  "make the environment not feel like a 8th grade project but like actual coast city, keep it
+  efficient though". Efficiency matters to them: small textures for props seen far off, instanced
+  or shared meshes, lazy loading per part.
 - **Props and set dressing: find detailed models, don't build them** (2026-11-10: "better to just
   find one and replace rather than building stuff from scratch"; they pointed at Hugging Face
   datasets). The Sandflow `sand3d-*` sets they named are objects rebuilt as code from primitives,
   without textures, so no better than ours; their source, Objaverse, has the original Sketchfab
   meshes. See *Props*. Use CC BY or CC0 only (no NC, ND, SA or "Free Standard"), check every model
   in the prop viewer before using it, and credit it in `CREDITS.md` (generated).
-- **Physics of movement matters most**: natural running, arm interactions and weight. Hair and lip
-  sync are explicitly optional.
+- **Physics of movement matters most**: natural running, arm interactions and weight. Hair is
+  optional; lip movement they asked for (2026-11-10), lip sync proper (visemes) is not needed.
 - **Borrow established techniques.** The user said to copy physics and animation approaches from
   other games instead of inventing them, so prefer known methods: mocap, IK, motion matching,
   speed-matched blending, momentum steering.
@@ -186,6 +198,8 @@ npm run dev        # Vite on http://localhost:5173 (strictPort)
 npm run build      # production build to dist/ (should be clean, no errors)
 npm run assets     # tools/build-assets.mjs: assets/raw/*.glb → public/models/*.glb (rigged)
 npm run props      # tools/build-props.mjs: assets/props/*.glb → public/models/props/*.glb, and CREDITS.md
+node tools/fetch-textures.mjs  # the Poly Haven surfaces (CC0) → public/textures/pbr/<id>/{diff,nor,rough}.webp
+npm run voices     # tools/build-voices.mjs: every line in lines.js → public/voices/*.mp3 + manifest.json
 npm run mocap      # tools/strip-mocap.mjs: assets/mocap/{Xbot,Soldier}.glb → public/anims/
 npm run posters    # tools/extract-posters.mjs: cuts posters from assets/ref/4.webp
 ```
@@ -236,7 +250,8 @@ and reference videos. The built outputs in `public/` are what the game loads.
 | `assets/raw/gemini_generated_video_6bbb1091.mp4` | Reference for a **later part**: the suited Lantern flying over a neon night city, fighting red-eyed mechs with constructs (minigun, hex shield); combat HUD with minimap, health, ammo and damage numbers. |
 | `assets/ref/1–4.webp` | Concept art. The HUD frame, the 10:00 PM timestamp and the glyph subtitles come from here. `4.webp` is the bedroom; the posters are cut from it. |
 | `assets/mocap/Xbot.glb`, `Soldier.glb` | Mixamo-rigged characters from the three.js examples. Only Xbot's clips are used at runtime (`public/anims/xbot.glb`). |
-| `assets/props/*.glb` | **Downloaded props** (2026-11-10), CC BY 4.0 Sketchfab models from Objaverse, credited in `CREDITS.md`: Hal's car (`phoenix`), four period cars for the lots, the prototype (an F22), the phone, palms, Hal's apartment block, the apron's access stand, tug, fuel truck, cones, tool chest, drums, forklift. `apartment.glb`'s textures were re-encoded as JPEG to keep it under 25 MB. |
+| `assets/props/*.glb` | **Downloaded props** (2026-11-10), CC BY 4.0 Sketchfab models from Objaverse, credited in `CREDITS.md`: Hal's car (`phoenix`), four period cars for the lots, the prototype (an F22), the phone, palms, Hal's apartment block, the apron's access stand, tug, fuel truck, cones, tool chest, drums, forklift; Coast City's six office blocks (`office1`–`6`, one artist), the street kit (`cityprops`: traffic lights, lamps, hydrants, bins, a dumpster, signs), a bus shelter, a billboard; the gate's guard booth; the kitchenette's fridge and coffee maker; the dream's F-104. `apartment.glb`'s textures were re-encoded as JPEG to keep it under 25 MB. |
+| `public/textures/pbr/` | **Surface textures** (CC0, Poly Haven, 1K WebP): corrugated iron (the hangars), concrete (the apron, lots, pavements), asphalt (roads, runway), gravelly sand (the desert), white plaster (the tower and office). `pbrMaterial(id, { repeat, tint, map, detailRepeat })` in `fx/Textures.js`. |
 
 Model build settings (`MODELS` in `tools/build-assets.mjs`):
 
@@ -431,15 +446,26 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
   - A rain window with a treeline outside, lightning, verlet curtains (`fx/Cloth.js`) and an alarm
     clock face.
   - Props that the light shoves with physics.
-  - A blanket that is a height field draping over Hal's body.
+  - A blanket (plaid flannel) that rests on Hal like cloth: his body's capsules (toes included)
+    are a floor it can't pass through, and relaxation passes pull it taut between the high points
+    (`updateBlanket`). `blanketWaist` slides it off his shoulders as he props up; `blanketOff`
+    throws it back toward the wall, bunched.
   - `BED` holds the bed's bounds.
   - `buildJet()` is also used in the dream.
   - A kitchenette at the hallway's dead end (both versions): a fridge whose door opens
     (`openFridge(open, tween)`, with its light), a counter, the week's pizza boxes.
   - `build({ morning: true })` (Part Three): the morning sky through the window, the sun as the
-    window light, no rain on the glass (`glassU.uRain`, `uDay`), the lamp off, brighter fill.
+    window light, no rain on the glass (`glassU.uRain`, `uDay`), the lamp off, brighter fill, and
+    Coast City's street outside (`buildStreetView`: pavements, palms, lamps, parked cars, office
+    blocks across the road, downtown's towers in the haze) in place of the tree line, when the
+    city props are loaded.
+  - The kitchenette's fridge is the downloaded "Old Fridge" where it's loaded (`buildFridge`: its
+    front parts on a hinge, `fridgeSign`, a dimmer light), else the box one (`buildBoxFridge`);
+    the coffee maker likewise. Part One and Part Two load both in `prepare`.
 - **`Dream.js`:** the sepia airfield at sunset, from eight-year-old Hal's eye level. Martin waves
-  (mocap idle plus arm IK), then the jet goes down.
+  (mocap idle plus arm IK), then the jet goes down: the downloaded F-104 Starfighter where it's
+  loaded (`starfighter()`: nose to +x, its afterburner flame, `userData.offset` for the wheels),
+  else `buildJet()`.
 - **`Hyperspace.js`:** the transit, styled after the 93604faf video. Light streaks stretch with
   `warp` (0 = points, 1 = full speed), with a starfield and nebula backdrop, green wisps and
   sparks, and a core burst at the vanishing point.
@@ -508,9 +534,15 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
   their doors open (procedural; Hangar Two lit, a second F22 inside without its canopy, tool
   chests, drums, a forklift, a stand), tower, office, the staff lot (`CAR_SPOT`, nine parked cars
   by `park()`, each with a box collider), gate (`GATE`), fence, power poles, the access road south,
-  mesas, scrub, a desert floor shaded from world-space noise, walked on as a heightfield
-  (`fixedGround`). `LOT` (6 km down the road, out of sight) is the lot behind Hal's building: the
-  downloaded brick apartment block, palms, three neighbours' cars. Hal's car is `makeCar('phoenix',
+  mesas, scrub, a desert floor (Poly Haven's sand, with world-space variation on top), walked on as
+  a heightfield (`fixedGround`). The hangars are corrugated iron, the apron and roads real concrete
+  and asphalt under their painted markings (`pbrMaterial`). The gate's booth is the downloaded one.
+  `LOT` (6 km down the road, out of sight) is the lot behind Hal's building: the downloaded brick
+  apartment block, palms, three neighbours' cars, its own patch of walkable ground; round it
+  **Coast City** (`buildCity`): office blocks ringing the lot, downtown's towers behind his
+  building, and the boulevard out of town (`BOULEVARD`, in the lot's frame: blocks fronting the
+  street on both sides, kerbs and pavements, palms and street lamps from the kit, a signalled
+  crossing with a cross street, a bus shelter, a billboard, two cars at the lights). Hal's car is `makeCar('phoenix',
   { primer: true })` (see *Props*). Everything the scene places from the props is listed in
   `FERRIS_PROPS`, which `Coast.prepare` loads first. `focus(at)` moves the sun's shadow box onto the
   action; the sky dome follows the camera.
@@ -536,8 +568,10 @@ Downloaded models (CC BY 4.0, Sketchfab by way of Objaverse; `CREDITS.md`). How 
 At runtime `loadProps(names)` (`Props.js`) loads a set once; `prop(name, { ownMaterials })` hands
 out clones. Loading also floors every material's roughness (0.12 glass, 0.2 the rest) and dims
 glass reflections: Sketchfab exports are often mirror-smooth, and under the sun they bloomed into
-white lines. `meshes(root, test)`, `boundsIn(space, list)` and `pivot(space, list, at)` (re-parent
-parts under a hinge or hub) are the helpers.
+white lines. `meshes(root, test)`, `boundsIn(space, list)`, `pivot(space, list, at)` (re-parent
+parts under a hinge or hub) and `piece(name, test)` (one part of a kit as its own object, standing
+at its origin: `KIT` in `Ferris.js` names the street kit's parts) are the helpers; `hasProp(name)`
+says whether one is loaded (scenes shared with Part One fall back to their built versions).
 
 `Car.js` `makeCar(name, { paint, primer, dust })` dresses one of the cars: the paint material
 recoloured with dust toward the sills, chrome roughened in the shader (most of it has roughness
@@ -800,6 +834,15 @@ there). `rig.palm(side)` is the palm measured from the hand bone's own vertices 
 `normal` (the side that faces down in the bind pose), `along` (wrist to the hand's centre),
 `thick`, `surface`, in the bone's frame; a prop parented to the hand bone sits flat on it.
 
+**Getting out of bed** (`Story.getUpFromBed({ to, seat, pace, whilePropped, sweep })`, shared by
+Part One's startled wake and Part Three's morning): rolled toward the open edge onto his left
+side; up on that elbow by a sideways bend of the spine (`sz`/`cz`, so the legs stay put; tilting
+the whole body lifted the legs off the bed), the hand flat on the mattress (IK), the blanket
+sliding to his waist; `whilePropped` (the clock); the blanket thrown back with the other arm;
+up to sitting facing the foot of the bed with the legs still along it (the thighs flexing as he
+rises), turned about the hips; then round on the hips to the edge, the knees bending once the
+feet clear the mattress. `rubFace()` drags both palms down his face.
+
 `Poses.js` holds the cutscene parameter poses: lying, on his side, sitting on the bed edge,
 shielding his eyes, floating, carried head-first, reaching, fist raised, and Abin slumped.
 
@@ -940,6 +983,16 @@ crash site. `player.surface` picks the footstep sound.
   Hal with shuffling steps past about 35° (`kwTurn`). His arms are short for his bulk (0.69 m from
   shoulder to wrist): hands can't meet in front of his belly, so there is no clasp or palm-pound.
   He has no face bones, so his "expression" is the head and body.
+- **Lip sync** (`JAW` and the jaw in `patchMaterial`, `Story.updateMouths`): the scans have no face
+  bones, so the jaw turns in the vertex shader, before skinning and after any reshaping of the
+  head (the Guardians' 1.58× head moves their hinge, `Guardian.js`): the lower face below the lips'
+  seam, down to the chin and not the neck, narrowing to the mouth's corners, rotated about a
+  hinge by `uJaw` (0..1, about 0.2 rad); the seam band darkens as it opens (the scans' mouths are
+  sealed). `JAW` holds each scan's seam, chin, lip front, half-width and hinge, set by eye with the
+  mouth held open: casual Hal 1.6045, suited Hal 1.6155, Abin Sur (Sinestro, the Guardians) 1.7295,
+  Carol 1.498, Kilowog 2.122. `Story.updateMouths` drives the speaker's `uJaw` from the voice's
+  mouth curve (`voice.mouth`) times `MOUTH_GAIN` (Kilowog widest, the Guardians least); the speaker
+  is the rig a line is performed on (`Story.perform` sets `speakingRig`) or `mouthOf(who)`.
 - `createRing()` and `createLantern()` are procedural.
 - `loadCharacters()` loads `kilowog.glb` optionally (null if it's missing; Part Two then stands a
   broadened Abin Sur in for him).
@@ -947,6 +1000,44 @@ crash site. `player.surface` picks the footstep sound.
   `transform()` swap between the casual and suit rigs.
 
 ---
+
+### Voices (`tools/build-voices.mjs`, `src/engine/Voice.js`)
+
+Every line in `lines.js` (except `alien: true`, which keeps the synthetic buzz) is pre-rendered
+offline by **Kokoro-82M** (hexgrad, Apache-2.0; the ONNX export with per-phoneme durations,
+`onnx-community/Kokoro-82M-v1.0-ONNX-timestamped`, run on the CPU through `kokoro-js`). Text goes
+through espeak-ng (`phonemizer`) with a small lexicon for names it gets wrong. Each character is a
+Kokoro voice (or a blend) moved to a target pitch (formants by resampling, pitch by TD-PSOLA) and
+run through its own effects chain (`CHARACTERS` in the script):
+
+| Who | Base voice | Target F0 | Processing |
+| --- | --- | --- | --- |
+| hal (and `thought`, closer and softer) | am_michael | 115 Hz | light EQ and compression |
+| sinestro | bm_george | 100 Hz | darker, slower, a small room |
+| kilowog | am_onyx + am_fenrir | 65 Hz | formants down, an octave-down layer, growl, saturation, chest boost: "monstrous" |
+| guardian | bm_fable | 120 Hz | a choir of detuned and octave layers, 3 s reverb |
+| carol | af_heart | 195 Hz | light EQ and compression |
+| abin | bm_lewis | 90 Hz | breath noise, slower |
+| ring | bf_emma | (unchanged) | band-limited, a metallic comb, a short room |
+| light, dad, kid, tom, landlord | blends and others | | see the script |
+
+`style: 'phone'` lines (the voicemails) also get a telephone band. Loudness is levelled (speech
+RMS -19 dBFS, peaks under -1 dBFS). All 176 lines are 3.5 MB of MP3.
+
+- `npm run voices` renders only what changed (text, voice settings or the pipeline, by hash in
+  `build.json`); `ONLY=key1,key2`, `WHO=carol,tom`, `FORCE=1`, `SURVEY=1` (median F0 of every
+  English Kokoro voice). The model downloads once to `~/.cache/lantern-voices` (`HF_CACHE`).
+  **Add a line to `lines.js`, then run it**: a line without a clip falls back to the browser's
+  voice, and a changed text misses its clip (the key is `who|text`).
+- `public/voices/manifest.json`: `{ version: 1, lines: { key: { who, text, file, dur, end, words:
+  [[charIndex, s]...], mouth } } }`; `end` is where the speech stops and a reverb tail begins,
+  `mouth` a base64 openness curve (60 frames/s) taken from the speech's envelope.
+- `Voice.speak(text, who, onWord)` plays the clip through `audio.master` (so the pause muffle and
+  volume apply), fires `onWord` on the word timings, sets `voice.mouth` / `voice.who` for the lip
+  sync, and resolves at `end` (the tail rings on under the next line). Skipping fades it out.
+  `pause()` / `resume()` suspend the audio context.
+- `tools/voices.html` on the dev server is the audition page: every line by character, with the
+  words lighting up on their timings and the mouth curve drawn.
 
 ## Testing in the browser (for agents)
 
@@ -1009,6 +1100,22 @@ The checks that have worked:
 
 ## Gotchas (learned the hard way)
 
+- **A jaw drawn in the shader needs its seam set by eye.** The lips' seam from the front profile was
+  2–25 mm off on every scan (Kilowog's mouth is far above his jutting jaw), and 2 mm puts the dark
+  gap on a lip. Hold the mouth open (`u.uJaw`) and step the seam until the gap sits between them.
+- **Raising someone lying on their side tilts their spine, not their body.** Tilting the whole body
+  about the hips lifted the legs off the bed, and a thigh flex can't put them back (it bends them
+  the wrong way when he's on his side). A sideways bend of the spine (`sz`, `cz`) raises the head
+  and leaves the legs. Likewise the legs can't hang off the edge while he lies on his side: sit
+  up with them along the bed first, then pivot on the hips.
+- **Turn a body about its hips, not the object's origin.** The player object's origin is at his
+  feet; turning it lifted a lying Hal into the air. Place the object so the hips follow a path.
+- **A heightfield-drape blanket shrink-wraps each limb into a ridge** and lets the toes through.
+  Treat it as cloth on a floor: the body as a minimum, relaxation passes, and toe capsules.
+- **A test camera placed by guesswork can sit inside a building** (the city's blocks are big):
+  check positions against the layout before reading a capture as a bug.
+- **Decals on canted, thin fins are fiddly** (`DecalGeometry`): projected horizontally they clip,
+  aligned to the face they missed it entirely. Removed; the prototype keeps its markings.
 - **A big box collider lets the character controller sink in.** Ferris's 16 km ground box: Hal
   stood 0.27 m deep. Cut to 600 m, he still sank 9 cm as soon as he walked, and then stuck in
   place (the user: "can't walk properly after getting off the car"; it wasn't the car). The box's
@@ -1101,7 +1208,14 @@ The checks that have worked:
 - **One NaN pixel** turns into black blocks after bloom. The NaN guard pass handles that; also
   watch for NaNs from normalising zero vectors.
 - **Audio** can only start after a user gesture: `audio.init()` runs after the title click.
-  `speechSynthesis` may stay silent, so `Voice.speak` has a time-based fallback.
+  `speechSynthesis` may stay silent, so `Voice.speak` has a time-based fallback. A clip's clock
+  is the audio context's, or wall time while the context isn't running, so a line can't hold a
+  scene up.
+- **Spoken text written outside `lines.js` gets no clip.** The ring's warnings were literal
+  strings in `RingPowers.js` and would have spoken in the browser's voice; they are lines now.
+- **A hidden browser pane throttles `requestAnimationFrame`** to about once a second and, left
+  long enough, freezes the page (scripts and navigation time out). The voice's tick runs on it;
+  test voice timing with the pane visible, or close the tab and open a new one.
 - **Pointer lock:** pressing Esc releases the lock, which pauses the game (`input.onLockLost`).
   When the game releases the lock itself, it sets `input.releasing` so that doesn't count as a
   pause.
@@ -1193,8 +1307,21 @@ Verified by playing in the browser:
   - All of it with synthetic input and fixed-step captures. The user also played it in the pane
     and reported "all working".
 
+- (2026-11-10, second round) in fixed-step captures: the blanket over Hal in bed (no toes or knees
+  through it) and as he props up; the morning's staged wake (roll, prop up on an elbow, throw the
+  blanket, sit up, swing to the edge) through to rubbing his face; Part One's wake with the light;
+  the jaw of every scan held open (seam between the lips) and Carol's on a real clip's curve; the
+  bedroom's street view; the fridge and coffee maker; the city lot, boulevard and downtown on the
+  drive; getting into the car; the textured hangars, apron and the gate booth; the F-104 in the
+  dream; Kilowog's arms; a clean `vite build`. In the page: a real clip (Carol's first line)
+  played through the master bus, with its ten word cues, resolving at its end; every line in
+  `lines.js` has a clip (checked by script).
+
 Not verified:
 
+- listening to the voices (the lines worth checking by ear: "Ow. Noted.", "Hm. Quick.", the
+  oath's "Beware my power", Kilowog's "Live fire"); the lip sync and tails with the pane visible
+  at full frame rate (it was hidden and throttled); frame rate in the city and on the boulevard
 - the drive and walk with a real mouse and keys; the getting-out sequence at the voice's real pace
 - frame rate with the props (the staff lot's nine cars, two F22s, the palms' alpha fronds)
 - the car's bloom in every shot of the drive (glints were reduced and checked in the lot only)
@@ -1267,7 +1394,6 @@ Not verified:
 - Travel trips are cutscenes of about 12 s every time; a skip (or a shorter repeat) may be wanted.
 - Earth's continents are coarse hand-made outlines; a NASA Blue Marble / Black Marble texture
   would be far better but needs a download (ask first).
-- Kilowog has no face bones: a jaw bone in the auto-rig would allow speech; lip sync stays optional.
 - The voyage's Hal is the suit rig in parameter poses (hover, flyFast); no cape or secondary motion.
 - Unlocking constructs is `powers.unlocked` plus the part's `unlocks`.
 - Oa's city is primitives with a window shader: fine from the range, plain up close (flying low
@@ -1275,7 +1401,9 @@ Not verified:
 - Seen from behind (the usual camera), the fist reads as a rounded block in flight; it reads as a
   fist on impact and from the side.
 - Hal's hands are open in every pose (the scans have no finger bones).
-- Lip sync and hair simulation were deliberately skipped.
+- Hair simulation was deliberately skipped. Lip sync is a jaw only (no visemes, no lips rounding).
+- Voices: an alien line (`alien: true`) still uses the synthetic buzz; Kokoro may mispronounce a
+  new name (add it to the script's lexicon).
 - `public/anims/soldier.glb` is built but unused. It could supply extra clips.
 
 ## Code map
@@ -1285,7 +1413,8 @@ index.html, src/style.css   UI layers (letterbox, HUD, subtitle, choice, cards, 
 src/main.js                 boot, loading, title / continue / chapters, window.__game
 src/engine/                 Engine (renderer + post), Input, Physics (Rapier), CameraDirector
                             (follow / shot / orbit / shake), Time (game-time waits + tweens),
-                            Audio (WebAudio synth), Voice (speech), Save (checkpoints)
+                            Audio (WebAudio synth), Voice (pre-rendered clips, lip-sync curve,
+                            speech fallback), Save (checkpoints)
 src/characters/             Rig + Animator, IK, Mocap, Poses, Player (walk + flight), Characters,
                             BodyLanguage (talking gestures), Guardian + Robe + HairCards (the Guardians)
 src/powers/                 RingPowers (charge, health, wheel, aim, constructs incl. the sword, flight fx),
@@ -1305,9 +1434,10 @@ src/ui/UI.js                HUD, subtitles, glyph cipher + decode, choice, cards
 src/ui/PowerHud.js          vitals, ring charge, armed construct, ring readout, reticle, marker,
                             training panel, target bracket, damage numbers, construct wheel
 src/ui/TravelHud.js         flight readout, arrival card, StarMap (the ring's star chart), WORLDS
-tools/                      build-assets, autorig, build-props, propview.html, strip-mocap, extract-posters,
-                            debug renderers
-public/models, public/anims built GLBs loaded at runtime (props in public/models/props); public/textures/posters
+tools/                      build-assets, autorig, build-props, propview.html, fetch-textures, build-voices,
+                            voices.html, strip-mocap, extract-posters, debug renderers
+public/models, public/anims built GLBs loaded at runtime (props in public/models/props); public/textures/posters,
+                            public/textures/pbr (Poly Haven surfaces); public/voices (clips + manifest.json)
 ```
 
 ---
@@ -1315,6 +1445,28 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-10: voices, lip movement, the blanket, a staged wake, Coast City
+- **Voices** (`tools/build-voices.mjs`, `tools/voices.html`, `public/voices/`, new; `Voice.js`
+  rewritten; `kokoro-js` dev dependency): every line pre-rendered with Kokoro-82M from Hugging Face,
+  each character pitched to a target (Kilowog 65 Hz, layered and growled). See *Voices*. The ring's
+  four warnings moved from `RingPowers.js` into `lines.js` so they have clips too.
+- **Lip movement** (`JAW` and the jaw shader in `Characters.js`, `Guardian.js`, `Story.updateMouths`,
+  `MOUTH_GAIN`): see *Lip sync* under Characters.
+- **Blanket** (`Bedroom.updateBlanket`, a plaid texture, toe capsules, `blanketWaist`): no toes
+  or knees through it; it drapes, and folds to his waist as he props up.
+- **Waking up** (`Story.getUpFromBed`, `rubFace`): in stages, not one motion. Used by Part One's
+  light and Part Three's morning.
+- **Coast City** (`Ferris.buildCity`, `Bedroom.buildStreetView`, new props: six office blocks, a
+  street kit, a bus stop, a billboard, the gate booth; `Coast.drive`'s city leg): a boulevard of
+  offices, palms, lamps and signals round Hal's lot, downtown towers behind, the street outside
+  his window by day. The Ferris hangars, apron, roads and desert use Poly Haven textures
+  (`pbrMaterial`, `tools/fetch-textures.mjs`). Prop textures seen far off are 512 px.
+- **Also:** a downloaded fridge (its door on a hinge) and coffee maker in the kitchenette, the
+  dream's jet is the downloaded F-104 (`Dream.starfighter`), Hal walks to his car and gets in
+  (`Coast.getIn`). Ferris markings on the jet were tried with decals and dropped.
+- Verified: see Status (2026-11-10, second round). Not verified: listening to the voices, frame
+  rate in the city, a real-input playthrough.
 
 ### 2026-11-10: downloaded props, the car and getting out, the phone in the hand, the walk
 - **The walk after the car** (the user: "can't walk properly"): Hal sank 9 cm into Ferris's 600 m

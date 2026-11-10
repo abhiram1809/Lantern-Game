@@ -20,7 +20,7 @@ export function makeCar(name, { paint = 0x8c2a22, primer = false, dust = 0.55 } 
   const all = meshes(car, () => true);
   // chrome a little less mirror-like: the sun in a 0.1-rough bumper blooms into white blobs (the
   // roughness comes from a map on most parts, so the floor goes in the shader)
-  for (const m of new Set(all.map((o) => o.material))) if (m.metalness > 0.5 || m.metalnessMap) roughFloor(m, 0.34);
+  for (const m of new Set(all.map((o) => o.material))) if (m.metalness > 0.5 || m.metalnessMap) roughFloor(m, 0.45);
   // lamp lenses and glass: less of the sky in them (the lenses read as lit)
   for (const m of new Set(all.map((o) => o.material))) if (m.transparent) { m.envMapIntensity = 0.35; if (/light/i.test(m.name)) { m.roughness = Math.max(m.roughness, 0.3); m.color.multiplyScalar(0.75); } }
   // paint, faded, with the desert's dust on the lower body

@@ -101,7 +101,7 @@ export class UI {
     const stop = onFrame(() => { if (skip && this.input.hit(...ADVANCE)) presses++; });
     let voiceDone = Promise.resolve();
     if (voice && alien) voiceDone = wait(this.audio.alienVoice(text));
-    else if (voice && who !== 'thought') voiceDone = this.voice.speak(text, who, onWord);
+    else if (voice && (who !== 'thought' || this.voice.has(text, who))) voiceDone = this.voice.speak(text, who, onWord);
 
     const rate = alien ? 0.03 : 0.024;
     for (let i = 1; i <= shown.length && presses === 0; i++) {
