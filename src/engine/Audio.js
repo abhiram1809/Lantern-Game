@@ -304,6 +304,70 @@ export class AudioBank {
     s.start(t); o.start(t);
     s.stop(t + dur + 0.1); o.stop(t + dur + 0.1);
   }
+  // A jet heard from outside, held as long as it flies: the roar, its rumble, the turbine's whine.
+  // set(level, pitch): the level falls off with distance (the caller works it out); stop().
+  jetEngine() {
+    if (!this.ctx) return { set() {}, stop() {} };
+    const t = this.t, out = this.out(0, 0.35);
+    const roar = this.filter('bandpass', 520, 0.55, out);
+    const s = this.source(this.noiseBuf, true), rumble = this.source(this.brownBuf, true);
+    s.connect(roar);
+    rumble.connect(this.filter('lowpass', 180, 0.7, this.gain(1.3, out)));
+    const whine = this.ctx.createOscillator();
+    whine.type = 'sawtooth';
+    whine.frequency.value = 880;
+    whine.connect(this.gain(0.035, this.filter('bandpass', 2200, 5, out)));
+    for (const x of [s, rumble, whine]) x.start(t);
+    return {
+      set: (level, pitch = 1) => {
+        out.gain.setTargetAtTime(level, this.t, 0.15);
+        roar.frequency.setTargetAtTime(520 * pitch, this.t, 0.25);
+        whine.frequency.setTargetAtTime(880 * pitch, this.t, 0.4);
+      },
+      stop: (fade = 1) => { out.gain.setTargetAtTime(0, this.t, fade / 3); for (const x of [s, rumble, whine]) x.stop(this.t + fade + 0.5); },
+    };
+  }
+  // An engine letting go at altitude: a flat bang and its rolling echo (scale: how near).
+  flameout(scale = 1) {
+    this.burst({ buffer: this.brownBuf, from: 900, to: 80, attack: 0.004, peak: 0.8 * scale, dur: 2.2, wet: 0.6 });
+    this.burst({ from: 3200, to: 300, attack: 0.003, peak: 0.35 * scale, dur: 0.45, wet: 0.4 });
+    this.tone({ freq: 64, to: 28, peak: 0.45 * scale, dur: 1.4, wet: 0.4 });
+  }
+  // Sirens far off, wailing in (the Air Force on its way across the field).
+  siren(dur = 8, peak = 0.05) {
+    if (!this.ctx) return;
+    const t = this.t, out = this.out(0, 0.5), lp = this.filter('lowpass', 1800, 0.7, out);
+    for (const [base, rate] of [[620, 0.22], [700, 0.27]]) {
+      const o = this.ctx.createOscillator(), lfo = this.ctx.createOscillator(), depth = this.gain(260);
+      o.type = 'sawtooth';
+      o.frequency.value = base;
+      lfo.frequency.value = rate;
+      lfo.connect(depth).connect(o.frequency);
+      o.connect(this.gain(0.4, lp));
+      o.start(t); lfo.start(t); o.stop(t + dur + 0.1); lfo.stop(t + dur + 0.1);
+    }
+    out.gain.setValueAtTime(0, t);
+    out.gain.linearRampToValueAtTime(peak, t + dur * 0.6);
+    out.gain.linearRampToValueAtTime(0.0001, t + dur);
+  }
+  // A mind pushing out: a deep throb under a thin, beating whine (Hector Hammond).
+  psychic(scale = 1) {
+    this.tone({ freq: 46, to: 38, peak: 0.5 * scale, dur: 1.4, wet: 0.5 });
+    this.tone({ freq: 1760, to: 1500, peak: 0.035 * scale, dur: 1.6, wet: 0.7, detune: 12 });
+    this.tone({ freq: 1770, to: 1520, peak: 0.035 * scale, dur: 1.6, wet: 0.7, detune: -12 });
+    this.burst({ buffer: this.brownBuf, type: 'lowpass', from: 220, to: 60, attack: 0.2, peak: 0.4 * scale, dur: 1.5, wet: 0.5 });
+  }
+  // Ground giving way: asphalt cracking up out of the runway.
+  rumble(dur = 1.2, peak = 0.5) {
+    this.burst({ buffer: this.brownBuf, type: 'lowpass', from: 180, to: 70, attack: 0.05, peak, dur, wet: 0.3 });
+    for (let i = 0; i < 5; i++) this.burst({ type: 'bandpass', from: 900 + Math.random() * 900, q: 3, peak: peak * 0.3, dur: 0.12, wet: 0.2, delay: i * dur * 0.15 + Math.random() * 0.1 });
+  }
+  // Weight coming onto a construct: metal groaning against it, and the ring's strain.
+  strain(dur = 2.4, peak = 0.3) {
+    this.tone({ type: 'sawtooth', freq: 52, to: 41, peak: peak * 0.6, dur, wet: 0.4 });
+    this.burst({ buffer: this.brownBuf, type: 'lowpass', from: 300, to: 90, peak: peak, dur: dur * 0.8, wet: 0.3 });
+    for (let i = 0; i < 4; i++) this.burst({ type: 'bandpass', from: 700 + Math.random() * 600, to: 300, q: 6, peak: peak * 0.35, dur: 0.5, wet: 0.5, delay: 0.3 + i * dur * 0.2 + Math.random() * 0.2 });
+  }
   bell(freq = 660, peak = 0.18, dur = 2.5, delay = 0) {
     [1, 2.76, 5.4, 8.93].forEach((m, i) => this.tone({ freq: freq * m, peak: peak / (i + 1), dur: dur / (1 + i * 0.6), wet: 0.6, delay }));
   }

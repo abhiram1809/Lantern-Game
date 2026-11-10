@@ -6,15 +6,16 @@ import { MocapSource } from './Mocap.js';
 
 export async function loadCharacters(manager) {
   const loader = new GLTFLoader(manager);
-  const [casual, lantern, abin, xbot, kilowog, carol] = await Promise.all([
+  const [casual, lantern, abin, xbot, kilowog, carol, hammond] = await Promise.all([
     loader.loadAsync('/models/hal_casual.glb'),
     loader.loadAsync('/models/hal_lantern.glb'),
     loader.loadAsync('/models/abin_sur.glb'),
     loader.loadAsync('/anims/xbot.glb'),
     loader.loadAsync('/models/kilowog.glb').catch(() => null), // Part Two; optional until built
     loader.loadAsync('/models/carol.glb').catch(() => null), // Part Three
+    loader.loadAsync('/models/hammond.glb').catch(() => null), // Part Three's end
   ]);
-  for (const g of [casual, lantern, abin, kilowog, carol]) {
+  for (const g of [casual, lantern, abin, kilowog, carol, hammond]) {
     if (!g) continue;
     g.scene.traverse((o) => {
       if (!o.isSkinnedMesh) return;
@@ -24,7 +25,7 @@ export async function loadCharacters(manager) {
       m.envMapIntensity = 0.6;
     });
   }
-  return { casual, lantern, abin, kilowog, carol, mocap: new MocapSource(xbot) };
+  return { casual, lantern, abin, kilowog, carol, hammond, mocap: new MocapSource(xbot) };
 }
 
 // The mouth of each scan for speech (the scans have no face bones): the lips' seam, the bottom of
@@ -37,6 +38,7 @@ export const JAW = {
   abin: { seam: 1.7295, chin: 1.665, front: 0.12, width: 0.025, hinge: [1.761, 0.03] },
   carol: { seam: 1.498, chin: 1.452, front: 0.092, width: 0.02, hinge: [1.525, 0.004] },
   kilowog: { seam: 2.122, chin: 1.955, front: 0.31, width: 0.06, hinge: [2.166, 0.16] },
+  hammond: { seam: 1.531, chin: 1.487, front: 0.075, width: 0.022, hinge: [1.556, -0.005] },
 };
 
 // Adds suit glow, a sweep dissolve for the transformation, a tint, an optional hidden bone, and the
@@ -301,6 +303,148 @@ const SINESTRO_NORMAL = /* glsl */ `
     normal = normalize(normal + sAc * sG * uGroove * sHair);
   }
 `;
+
+// Hector Hammond (Part Three's end), from his own scan (1.78 m; chin 1.49, eyes behind the glasses
+// at 1.62, brow 1.65, crown 1.78; the skull's centre about z -0.05). The wreck's exhaust set his
+// brain growing, and his whole head with it, as in the comics: `rig.hu.uSwell` (0 as scanned .. 1)
+// scales everything above the neck, face, jaw and glasses included, about the base of the neck
+// (HAMMOND_HEAD: up to twice the size, the neck itself left thin and the coat's collar alone), and on
+// top of that inflates the skull above the brow into a smooth dome, an ellipsoid growing up and
+// back: everything inside it is pushed out onto it (nothing pulled in), so the hair's lumps smooth
+// over, and the normals go with it. All weighted by bind-pose position, so the scan's seams stay
+// closed. The hair recedes off the dome from the front; the scalp takes the forehead's own colour
+// (sampled from the scan's texture), taut, with veins showing through that darken as `uThrob` (a
+// psychic effort, 0..1) pulses. Use `rig.setSwell(v)`: the jaw's hinge moves with the head, and
+// `rig.face(out)` is where his eyes are now (the head bone doesn't move with the vertices).
+const HAMMOND_HEAD = { pivot: [1.45, -0.035], grow: 1.0, eyes: 1.62, halfWidth: 0.137 };
+const HAMMOND_COMMON = /* glsl */ `
+  vec3 hC() { return vec3(0.0, 1.655 + 0.03 * uSwell, -0.055 - 0.02 * uSwell); }
+  vec3 hR() { return vec3(0.125, 0.125, 0.14) * (1.0 + uSwell * vec3(0.22, 0.42, 0.3)); }
+  // how much of a point belongs to the dome: above the brow, lower at the back of the skull
+  float hW(vec3 p) { return smoothstep(1.632, 1.712, p.y + max(0.0, -0.09 - p.z) * 0.45) * smoothstep(0.0, 0.12, uSwell); }
+  // how much of a point grows with the head: all of it from the chin up; the neck below blends in,
+  // but not the coat's collar out round it
+  float hHead(vec3 p) {
+    float band = smoothstep(1.44, 1.482, p.y);
+    float collar = 1.0 - smoothstep(0.085, 0.12, length(p.xz - vec2(0.0, ${HAMMOND_HEAD.pivot[1]})));
+    return band * mix(collar, 1.0, smoothstep(1.465, 1.49, p.y));
+  }
+`;
+const HAMMOND_NORMAL_V = /* glsl */ `
+  {
+    vec3 hq = (position - hC()) / hR();
+    float hk = hW(position) * step(length(hq), 1.0);
+    objectNormal = normalize(mix(objectNormal, normalize(hq / hR()), hk));
+  }
+`;
+const HAMMOND_VERTEX = /* glsl */ `
+  {
+    vec3 hq = (position - hC()) / hR();
+    if (length(hq) < 1.0) transformed = mix(transformed, transformed - position + hC() + normalize(hq) * hR(), hW(position));
+    vec3 hP = vec3(0.0, ${HAMMOND_HEAD.pivot[0]}, ${HAMMOND_HEAD.pivot[1]});
+    transformed = hP + (transformed - hP) * mix(1.0, 1.0 + ${HAMMOND_HEAD.grow.toFixed(2)} * uSwell, hHead(position));
+  }
+`;
+const HAMMOND_GLSL = /* glsl */ `
+  // bald from the front of the crown back as the dome grows: the line slides back and down
+  float hEdge = mix(1.8, 1.69, smoothstep(0.15, 0.85, uSwell));
+  float hLine = vDPos.y + 0.35 * clamp(vDPos.z + 0.05, -0.15, 0.15) + (dNoise(vDPos * 90.0) - 0.5) * 0.01;
+  float hBald = smoothstep(hEdge - 0.01, hEdge + 0.01, hLine) * step(0.01, uSwell) * step(1.6, vDPos.y);
+  #ifdef USE_MAP
+    vec3 hSkin = (texture2D(map, uForehead).rgb + texture2D(map, uForehead + vec2(0.004, 0.0)).rgb + texture2D(map, uForehead - vec2(0.0, 0.004)).rgb) / 3.0;
+  #else
+    vec3 hSkin = vec3(0.6, 0.42, 0.33);
+  #endif
+  diffuseColor.rgb = mix(diffuseColor.rgb, hSkin * (0.94 + 0.1 * dNoise(vDPos * 70.0)), hBald);
+  // veins through the taut skin of the dome
+  float hTaut = hW(vDPos) * uSwell;
+  float hN = dNoise(vDPos * vec3(24.0, 16.0, 24.0)) * 0.7 + dNoise(vDPos * 57.0) * 0.3;
+  float hVein = (1.0 - smoothstep(0.01, 0.03, abs(hN - 0.5))) * smoothstep(0.25, 0.75, hTaut) * hBald;
+  diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.62, 0.5, 0.62), hVein * (0.45 + 0.4 * uThrob));
+  diffuseColor.rgb *= 1.0 + vec3(0.14, -0.03, -0.05) * uThrob * hTaut;
+`;
+export function createHammond(gltf) {
+  const rig = createCharacter(gltf, { roughMin: 0.55, jaw: JAW.hammond });
+  // where his forehead's skin is in the texture: the vertex nearest the middle of the brow's top
+  let best = Infinity, uv = new THREE.Vector2(0.5, 0.5);
+  for (const m of rig.meshes) {
+    const P = m.geometry.attributes.position, T = m.geometry.attributes.uv;
+    if (!T) continue;
+    for (let i = 0; i < P.count; i++) {
+      const d = Math.hypot(P.getX(i), P.getY(i) - 1.695, P.getZ(i) - 0.06);
+      if (d < best) { best = d; uv.set(T.getX(i), T.getY(i)); }
+    }
+  }
+  const hu = (rig.hu = { uSwell: { value: 0 }, uThrob: { value: 0 }, uForehead: { value: uv } });
+  // the head's size now, the jaw's hinge where the scaling puts it, and his eyes' height over the
+  // head bone (which stays where the skeleton has it)
+  const H = HAMMOND_HEAD, hinge0 = JAW.hammond.hinge, headY = rig.bonePosition('head', new THREE.Vector3()).y;
+  rig.headScale = () => 1 + H.grow * hu.uSwell.value;
+  rig.headWidth = () => H.halfWidth * rig.headScale();
+  rig.setSwell = (v) => {
+    hu.uSwell.value = v;
+    const k = rig.headScale();
+    rig.u.uHinge.value.set(H.pivot[0] + (hinge0[0] - H.pivot[0]) * k, H.pivot[1] + (hinge0[1] - H.pivot[1]) * k);
+  };
+  rig.face = (out) => { rig.bonePosition('head', out).y += H.pivot[0] + (H.eyes - H.pivot[0]) * rig.headScale() - headY; return out; };
+  const decl = 'uniform float uSwell, uThrob; uniform vec2 uForehead;';
+  for (const m of rig.meshes) {
+    const mat = m.material, base = mat.onBeforeCompile;
+    mat.onBeforeCompile = (sh, r) => {
+      base(sh, r);
+      Object.assign(sh.uniforms, hu);
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', `#include <common>\n${decl}\n${HAMMOND_COMMON}`)
+        .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>\n${HAMMOND_NORMAL_V}`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>\n${HAMMOND_VERTEX}`);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', `#include <common>\n${decl}\n${HAMMOND_COMMON}`)
+        .replace('diffuseColor.rgb *= uTint;', `${HAMMOND_GLSL}\n        diffuseColor.rgb *= uTint;`)
+        // the hair's normal detail and occlusion don't belong on the bald dome; taut skin has a sheen
+        .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n        normal = normalize(mix(normal, nonPerturbedNormal, hBald));')
+        .replace('#include <aomap_fragment>', '#ifdef USE_AOMAP\n        reflectedLight.indirectDiffuse /= mix(1.0, max((texture2D(aoMap, vAoMapUv).r - 1.0) * aoMapIntensity + 1.0, 0.05), hBald);\n        #endif\n        #include <aomap_fragment>')
+        .replace('roughnessFactor = max(roughnessFactor, uRoughMin);', 'roughnessFactor = mix(max(roughnessFactor, uRoughMin), 0.5, hBald * smoothstep(0.3, 0.9, uSwell));');
+    };
+    mat.customProgramCacheKey = () => 'gl-hammond';
+  }
+  return rig;
+}
+
+// A person made of the ring's light (Part Three: Hal's father, at his grave): one of the scans drawn
+// as a construct, translucent green with a bright rim, a trace of the scan's own light and shade so
+// the face still reads, the formation sweep (uDissolve, sign -1: it builds up from the feet) at its
+// edge. A depth-only pass first, as the constructs have, so only the nearest surface is coloured.
+export function createLightFigure(gltf, { jaw = null } = {}) {
+  const rig = createCharacter(gltf, { jaw });
+  const u = rig.u;
+  u.uEdgeColor.value.set(0.6, 4.5, 1.6);
+  for (const m of [...rig.meshes]) {
+    const mat = m.material, base = mat.onBeforeCompile;
+    Object.assign(mat, { transparent: true, depthWrite: false });
+    mat.onBeforeCompile = (sh, r) => {
+      base(sh, r);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+        {
+          float lf = pow(1.0 - abs(dot(normalize(normal), normalize(vViewPosition))), 2.0);
+          float ll = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+          vec3 lc = vec3(0.05, 0.72, 0.2) * (0.3 + 0.9 * ll) + vec3(0.16, 1.45, 0.42) * lf * 1.2 + uEdgeColor * dEdge;
+          gl_FragColor = vec4(lc, clamp(0.38 + lf * 0.55 + dEdge, 0.0, 1.0));
+        }`);
+    };
+    mat.customProgramCacheKey = () => 'gl-light-figure';
+    m.renderOrder = 20;
+    m.castShadow = false;
+    // the depth pass: the same skinned shape, dissolving the same way, writing depth only
+    const dm = new THREE.MeshBasicMaterial({ colorWrite: false });
+    patchMaterial(dm, { u });
+    const depth = new THREE.SkinnedMesh(m.geometry, dm);
+    depth.bind(m.skeleton, m.bindMatrix);
+    depth.renderOrder = 19;
+    depth.frustumCulled = false;
+    m.parent.add(depth);
+  }
+  return rig;
+}
 
 export function createSinestro(abinGltf) {
   const rig = createCharacter(abinGltf, { glow: 0.45, jaw: JAW.abin });

@@ -181,6 +181,33 @@ export function fistGeometry() {
   return mergeVertices(geo, 1e-4).scale(1.08, 1.08, 1.08);
 }
 
+// An open right hand, palm up (+Y), fingers toward +Z curling up at the tips, as if it had caught
+// something dropped into it; the thumb out on -X, the wrist behind it toward -Z fading out (use
+// uFadeZ (-1.15, -0.45)). About 2 m from the wrist to the middle fingertip at scale 1: the ring makes
+// it giant (the falling jet). Built like the fist, from rounded boxes, the fingers as chains of
+// segments each turned up about its knuckle.
+export function handGeometry() {
+  const parts = [box(0.96, 0.28, 0.98, 0, 0, 0.08, 0.14)]; // the palm
+  parts.push(box(0.38, 0.2, 0.36, 0.28, 0.06, -0.26, 0.11), box(0.34, 0.18, 0.34, -0.25, 0.05, -0.24, 0.1)); // the heel's two pads
+  const chain = (start, yaw, segs) => {
+    const m = new THREE.Matrix4().makeTranslation(...start).multiply(new THREE.Matrix4().makeRotationY(yaw));
+    for (const [len, w, h, curl, r] of segs) {
+      m.multiply(new THREE.Matrix4().makeRotationX(-curl));
+      parts.push(box(w, h, len + r, 0, 0, len / 2, r).applyMatrix4(m));
+      m.multiply(new THREE.Matrix4().makeTranslation(0, 0, len));
+    }
+  };
+  // index to little finger (x from +0.33 to -0.33, on the hand's outer side), longest in the middle
+  for (const [x, w, L, c] of [[0.34, 0.2, 0.92, 0.3], [0.115, 0.21, 1.0, 0.34], [-0.115, 0.205, 0.96, 0.33], [-0.33, 0.18, 0.78, 0.38]]) {
+    chain([x, 0.02, 0.5], (x / 0.33) * 0.05, [[L * 0.42, w, 0.2, c * 0.55, 0.09], [L * 0.32, w * 0.96, 0.18, c, 0.085], [L * 0.26, w * 0.9, 0.16, c * 1.25, 0.075]]);
+  }
+  // the thumb, out from the palm's side and up
+  chain([-0.42, 0.0, -0.05], -0.95, [[0.4, 0.26, 0.24, 0.25, 0.11], [0.34, 0.23, 0.2, 0.45, 0.1], [0.26, 0.2, 0.18, 0.55, 0.085]]);
+  parts.push(new THREE.CylinderGeometry(0.34, 0.3, 0.9, 32, 1, true).rotateX(Math.PI / 2).scale(1.3, 0.8, 1).translate(0, -0.02, -0.72)); // the wrist, fading out
+  const geo = mergeGeometries(parts.map((g) => { g.deleteAttribute('uv'); return g.index ? g.toNonIndexed() : g; }));
+  return mergeVertices(geo, 1e-4);
+}
+
 // A heater shield facing +Z, curved toward its bearer, ~1.35 m wide and 1.75 m tall.
 export function shieldGeometry() {
   const w = 0.78, s = new THREE.Shape();

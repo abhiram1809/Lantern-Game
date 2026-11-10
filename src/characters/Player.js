@@ -30,6 +30,7 @@ export class Player {
     this.control = false;
     this.inputBlocked = false; // the construct wheel has the mouse and keys
     this.moveScale = 1; // slowed while firing a held construct
+    this.boostScale = 1; // a story moment can ask more of the ring (the chase after the falling jet)
     this.dashV = new THREE.Vector3(); // a lunge (the sword), on the ground or in the air
     this.dashT = 0;
     this.strafe = false; // a held construct is up: face where the camera looks, move where the keys say
@@ -334,7 +335,7 @@ export class Player {
       _want.addScaledVector(_fwd, z).addScaledVector(_right, x);
       if (_want.lengthSq() > 1) _want.normalize();
       this.boosting = (input.down('ShiftLeft') || input.down('ShiftRight')) && (x || z);
-      _want.multiplyScalar((this.boosting ? FLY.boost : FLY.cruise) * Math.min(1, this.moveScale + 0.2));
+      _want.multiplyScalar((this.boosting ? FLY.boost * this.boostScale : FLY.cruise) * Math.min(1, this.moveScale + 0.2));
       climb = (input.down('Space') ? 1 : 0) - (input.down('KeyC') ? 1 : 0);
       _want.y += climb * (this.boosting ? FLY.boostClimb : FLY.climb);
       this.steerCamera(-1.15, 1.25);

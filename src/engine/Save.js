@@ -31,13 +31,21 @@ export const CORPS_CHECKPOINTS = [
 ];
 
 // Part Three, "Coast City": the morning after, on Earth. Hal overslept the test flight he flew
-// home from Oa to make; rent is late; the drive out to Ferris Aircraft, where Carol fires him.
+// home from Oa to make; rent is late; the drive out to Ferris Aircraft, where Carol fires him. That
+// afternoon the test goes ahead without him and the jet goes down: Green Lantern's first time in
+// public (Secret Origin), Carol meets him, Hector Hammond attacks, Sinestro ends it; dusk at his
+// father's grave.
 export const COAST_CHECKPOINTS = [
   { id: 'morning', label: 'The morning after', clock: '9:41 AM' },
   { id: 'drive', label: 'Running late', clock: '9:58 AM' },
   { id: 'ferris', label: 'Ferris Aircraft', clock: '10:23 AM' },
   { id: 'carol', label: 'Carol', clock: '10:26 AM' },
   { id: 'after', label: 'Out of work', clock: '10:44 AM' },
+  { id: 'wreck', label: 'Earlier that morning', clock: '5:12 AM' },
+  { id: 'test', label: 'The test', clock: '2:01 PM' },
+  { id: 'catch', label: 'Green Lantern', clock: '2:03 PM' },
+  { id: 'hector', label: 'Hector Hammond', clock: '2:11 PM' },
+  { id: 'grave', label: 'Martin Jordan', clock: '6:48 PM' },
 ];
 
 function readCookie(key) {

@@ -4,7 +4,7 @@ import { Physics } from '../engine/Physics.js';
 import { createSky } from '../fx/Sky.js';
 import { Particles } from '../fx/Particles.js';
 import { noiseTexture, pbrMaterial } from '../fx/Textures.js';
-import { prop, piece, meshes, boundsIn } from '../props/Props.js';
+import { prop, piece, meshes, boundsIn, hasProp } from '../props/Props.js';
 import { makeCar } from '../props/Car.js';
 
 // Ferris Aircraft, mid-morning: the airfield in the desert outside Coast City where Martin Jordan
@@ -19,10 +19,14 @@ export const CAROL_SPOT = V(19.5, 0, -20.5);
 export const CAR_SPOT = V(36, 0, 54); // Hal's space in the staff lot, nose to the north
 export const GATE = V(4, 0, 112);
 export const LOT = V(0, 0, 6000); // behind the apartment building (Hal's car)
-const RUNWAY_Z = -150;
+export const CEMETERY = V(150, 0, 5150); // the memorial park on the edge of town, east of the road (Martin Jordan's grave)
+export const GRAVE = V(6, 0, 7); // his father's stone, in the park's frame (CEMETERY)
+export const RUNWAY_Z = -150;
+const JET_PARTS = /Fuselage|Wing|Keel|Stabilizer|Nozzle|Gear/;
 const HANGARS = [{ x: -62, n: '1' }, { x: 0, n: '2' }, { x: 62, n: '3' }];
 const HANGAR = { w: 54, d: 30, h: 15, z0: 8 }; // doors on the north face (z0), facing the apron
 // the downloaded models the scene uses (src/props, CREDITS.md): load them before build()
+export const CEMETERY_PROPS = ['tombstones', 'cemgate', 'ironfence', 'cypress', 'bench'];
 export const FERRIS_PROPS = ['phoenix', 'fairheaven', 'negotiator', 'sialia', 'fairheaven_sw', 'prototype', 'palms', 'apartment', 'stand', 'fueltruck', 'tug', 'cones', 'toolbox', 'drums', 'forklift',
   'office1', 'office2', 'office3', 'office4', 'office5', 'office6', 'cityprops', 'busstop', 'billboard', 'booth'];
 // the street kit's pieces (cityprops), by part name
@@ -80,7 +84,7 @@ export class Ferris {
     this.jet.position.copy(JET_SPOT);
     this.jet.rotation.y = Math.PI / 2;
     s.add(this.jet);
-    this.solid(this.jet, /Fuselage|Wing|Keel|Stabilizer|Nozzle|Gear/);
+    this.jetBodies = this.solid(this.jet, JET_PARTS);
     this.buildApronProps();
     this.buildStaffLot();
     this.buildApartmentLot();
@@ -201,6 +205,7 @@ export class Ferris {
       if (x > -160 && x < 160 && z > -200 && z < 130) continue; // the field
       if (Math.abs(x - 6) < 14 && z > 100) continue; // the road
       if (z > LOT.z - 480 && z < LOT.z + 320 && Math.abs(x) < 260) continue; // the lot and the city round it
+      if (Math.abs(z - CEMETERY.z) < 40 && x > 0 && x < CEMETERY.x + 45) continue; // the memorial park and its drive
       const r = 0.3 + rnd() * rnd() * 1.4;
       m4.compose(p.set(x, r * 0.25, z), q.setFromAxisAngle(V(0, 1, 0), rnd() * 6), sc.set(r, r, r));
       bushes.setMatrixAt(n, m4);
@@ -632,14 +637,153 @@ export class Ferris {
   // fuselage and under its wings rather than through them.
   solid(obj, test) {
     const parts = meshes(obj, (n) => test.test(n));
-    const groups = new Map();
+    const groups = new Map(), bodies = [];
     for (const m of parts) { const k = m.name.replace(/[-_]FACES.*$|_\d+$/, ''); (groups.get(k) ?? groups.set(k, []).get(k)).push(m); }
     for (const list of groups.values()) {
       const b = boundsIn(this.scene, list);
       if (b.max.y - b.min.y < 0.05 && b.max.y > 2.2) continue; // thin and overhead: walk under it
       const c = b.getCenter(V(0, 0, 0)), h = b.getSize(V(0, 0, 0)).multiplyScalar(0.5);
-      this.physics.fixedBox({ x: c.x, y: c.y, z: c.z }, { x: Math.max(h.x, 0.05), y: Math.max(h.y, 0.05), z: Math.max(h.z, 0.05) });
+      bodies.push(this.physics.fixedBox({ x: c.x, y: c.y, z: c.z }, { x: Math.max(h.x, 0.05), y: Math.max(h.y, 0.05), z: Math.max(h.z, 0.05) }));
     }
+    return bodies; // (axis-aligned boxes: right for a model standing square to the world's axes)
+  }
+
+  // ------------------------------------------------------------------------------------- the test
+  // The prototype leaves the apron (Part Three's afternoon): its boxes come out of the world and it
+  // hangs from a pivot at its middle (`jetRig`, nose along the pivot's +Z), so it can roll down the
+  // runway, climb, and fall; its gear folds away and comes back down; the nozzles' points (in the
+  // pivot's frame) are where the smoke streams from.
+  freeJet() {
+    for (const b of this.jetBodies) this.physics.world.removeRigidBody(b);
+    this.jetBodies = [];
+    if (this.jetRig) return this.jetRig;
+    const jet = this.jet, rig = (this.jetRig = new THREE.Group());
+    jet.rotation.set(0, 0, 0);
+    jet.position.set(0, 0, 0);
+    jet.updateMatrixWorld(true);
+    const all = boundsIn(jet, meshes(jet, () => true)), hc = (all.min.y + all.max.y) / 2;
+    jet.position.y = -hc;
+    rig.userData.hc = hc;
+    rig.add(jet);
+    this.scene.add(rig);
+    rig.position.copy(JET_SPOT).setY(hc);
+    rig.rotation.y = Math.PI / 2;
+    const nozzle = (side) => boundsIn(jet, meshes(jet, (n) => new RegExp(`^${side}_Nozzle`).test(n))).getCenter(V(0, 0, 0)).add(V(0, -hc, 0));
+    rig.userData.nozzles = { L: nozzle('Left'), R: nozzle('Right') };
+    // its belly with the gear up: what sits in the hand that catches it
+    rig.userData.belly = hc - boundsIn(jet, meshes(jet, (n) => /^(Fuselage|Left_Wing|Right_Wing|Left_Intake|Right_Intake)/.test(n))).min.y;
+    rig.userData.gear = meshes(jet, (n) => /Wheel|Gear_(Pnevmatic|Porshen|Cylinder|Holder|Disk|Door)|MGear_Door_Shtok|Nose_Gear_Door|Rocket_Bay_Door/.test(n));
+    rig.userData.canopy = meshes(jet, (n) => /^Cabin_Glass/.test(n));
+    // the canopy tinted gold, as the real thing's is: the pilot's a voice on the radio
+    for (const m of rig.userData.canopy) m.material = Object.assign(m.material.clone(), { map: null, alphaMap: null, color: new THREE.Color(0.55, 0.42, 0.16), metalness: 0.9, roughness: 0.14, opacity: 0.97, transparent: true, envMapIntensity: 1 });
+    return rig;
+  }
+  gear(down) { for (const m of this.jetRig?.userData.gear ?? []) m.visible = down; }
+  // Back on its wheels at `at`, nose along `yaw`, solid again.
+  parkJet(at, yaw) {
+    const rig = this.freeJet();
+    rig.position.set(at.x, rig.userData.hc, at.z);
+    rig.quaternion.setFromAxisAngle(_up, yaw);
+    this.gear(true);
+    rig.updateMatrixWorld(true);
+    // the boxes are axis-aligned: parked square to the field (yaw a multiple of 90°) they fit
+    this.jetBodies = this.solid(this.jet, JET_PARTS);
+  }
+
+  // ------------------------------------------------------------------------------------- dusk
+  // The evening light (Part Three's last scene): the sky's dusk preset, the sun low in the west and
+  // amber, the shade bluer, the haze warm.
+  dusk() {
+    const s = this.scene;
+    this.sky.removeFromParent();
+    this.sky = createSky('dusk', 1500);
+    s.add(this.sky);
+    this.sun.color.set(0xffb27a);
+    this.sun.intensity = 1.9;
+    this.hemi.color.set(0x8a98bc);
+    this.hemi.groundColor.set(0x6a4a38);
+    this.hemi.intensity = 0.42;
+    s.fog.color.set(0xc49a86);
+    s.fog.density = 0.00055;
+    s.userData.exposure = 0.95;
+  }
+
+  // The memorial park on the edge of Coast City where Martin Jordan is buried (built when first
+  // needed; the downloaded models in CEMETERY_PROPS): a lawn in the desert behind an iron fence, its
+  // gate onto a drive from the road, rows of headstones, cypresses, his stone by a bench. Walkable.
+  cemetery() {
+    if (this.cem) return this.cem;
+    const s = this.scene, C = CEMETERY, g = (this.cem = new THREE.Group());
+    g.position.copy(C);
+    s.add(g);
+    const W = 64, D = 52; // the lawn: x -32..32, z -26..26 in the park's frame; the gate on the west side
+    const lawn = new THREE.Mesh(flat(W, D, 13), new THREE.MeshStandardMaterial({
+      map: noiseTexture({ size: 512, base: '#55703a', light: '#86a356', dark: '#2e3e1e', spots: 2600, spread: 14, alpha: 0.1, repeat: [10, 8] }), roughness: 1 }));
+    lawn.position.y = 0.02;
+    lawn.receiveShadow = true;
+    g.add(lawn);
+    // the drive in from the road, and the path up the middle to his row
+    const asphalt = pbrMaterial('asphalt_02', { repeat: [20, 1.2] });
+    const drive = new THREE.Mesh(flat(C.x - 10 - W / 2, 6), asphalt);
+    drive.position.set((10 - C.x - W / 2) / 2, 0.025, 0); // from the road (x 10) to the gate
+    drive.receiveShadow = true;
+    g.add(drive);
+    const conc = pbrMaterial('concrete_floor_02', { repeat: [14, 0.6] });
+    const path = new THREE.Mesh(flat(W - 4, 2.2), conc);
+    path.position.set(2, 0.03, 0);
+    path.receiveShadow = true;
+    g.add(path);
+    const put = (o, x, z, yaw = 0) => { o.position.set(x, 0, z); o.rotation.y = yaw; g.add(o); return o; };
+    if (hasProp('cemgate')) {
+      // the gates stand open: the doors are one mesh in the model, so they're left out, the arch kept
+      const gate = put(prop('cemgate'), -W / 2, 0, Math.PI / 2);
+      for (const m of meshes(gate, (n) => /^Object_8/.test(n))) m.visible = false;
+    }
+    if (hasProp('ironfence')) for (const side of [-1, 1]) for (let z = 6.4; z < D / 2; z += 2.85) put(prop('ironfence'), -W / 2, side * (z + 1.42), Math.PI / 2);
+    // the gate's walls and the fence are solid; the opening isn't
+    for (const side of [-1, 1]) {
+      this.physics.fixedBox({ x: C.x - W / 2, y: 1, z: C.z + side * 3.2 }, { x: 0.3, y: 1, z: 1.8 });
+      this.physics.fixedBox({ x: C.x - W / 2, y: 1, z: C.z + side * 16.2 }, { x: 0.12, y: 1, z: 9.9 });
+    }
+    // rows of stones either side of the path (the scan's seven tablets, by turns), facing the path's end
+    const kinds = hasProp('tombstones') ? [1, 2, 3, 4, 5, 6].map((i) => piece('tombstones', new RegExp(`^Tombstone_${i}_`))) : [];
+    this.graveBoxes = [];
+    let k = 0;
+    for (let row = 0; row < 7; row++) {
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 9; i++) {
+          const x = -22 + row * 6.4, z = side * (4 + i * 2.4);
+          if (Math.abs(x - GRAVE.x) < 1 && Math.abs(z - GRAVE.z) < 1) continue; // his
+          if (!kinds.length || (row * 31 + i * 7 + side * 3) % 11 === 0) continue; // a few empty plots
+          const st = put(kinds[k++ % kinds.length].clone(), x + (rnd() - 0.5) * 0.3, z + (rnd() - 0.5) * 0.2, Math.PI / 2 + (rnd() - 0.5) * 0.08);
+          st.scale.setScalar(1.05 + rnd() * 0.25);
+          this.physics.fixedBox({ x: C.x + st.position.x, y: 0.45, z: C.z + st.position.z }, { x: 0.12, y: 0.45, z: 0.32 });
+        }
+      }
+    }
+    // his: the plain grey one, a little apart, by a bench under two cypresses; the name cut into it
+    if (kinds.length) {
+      const st = put(kinds[1].clone(), GRAVE.x, GRAVE.z, Math.PI / 2);
+      st.scale.setScalar(1.25);
+      this.physics.fixedBox({ x: C.x + GRAVE.x, y: 0.5, z: C.z + GRAVE.z }, { x: 0.13, y: 0.5, z: 0.36 });
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.37), new THREE.MeshStandardMaterial({ map: engraving(), transparent: true, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -2 }));
+      plate.position.set(0, 0.4, 0.0875);
+      st.add(plate);
+      this.graveStone = st;
+    }
+    if (hasProp('bench')) put(prop('bench'), GRAVE.x - 0.4, GRAVE.z + 3.2, 0);
+    if (hasProp('cypress')) {
+      for (const [x, z] of [[GRAVE.x + 1.4, GRAVE.z + 4.6], [GRAVE.x + 2.2, GRAVE.z - 3.8]]) put(prop('cypress'), x, z, rnd() * 6);
+      for (let x = -28; x <= 28; x += 7) for (const side of [-1, 1]) put(prop('cypress'), x + (rnd() - 0.5) * 2, side * (D / 2 + 1.5), rnd() * 6).scale.setScalar(0.85 + rnd() * 0.35);
+      for (let z = -22; z <= 22; z += 7) put(prop('cypress'), W / 2 + 1.5, z + (rnd() - 0.5) * 2, rnd() * 6).scale.setScalar(0.85 + rnd() * 0.35);
+    }
+    this.physics.fixedGround(110, 0, 12, C.x - 20, C.z);
+    return g;
+  }
+
+  // Flight inside the field and well past it: everything that bounds Hal in the air at Ferris.
+  airBounds() {
+    return { ground: () => 0, floor: () => 0, canLand: (x, z) => Math.abs(x) < 900 && z > -900 && z < 400, center: V(0, 0, -120), radius: 900, ceiling: 420 };
   }
 
   // a parked car, with its collider
@@ -661,6 +805,10 @@ export class Ferris {
 
   update(dt, t, camera, renderer) {
     this.physics.step(dt);
+    // high over the field the near plane goes out with the camera's height: from 150 m up, 3.5 cm
+    // between the apron's slab and the desert under it was inside one step of the depth buffer
+    const near = THREE.MathUtils.clamp((camera.position.y - 4) * 0.01, 0.1, 2);
+    if (Math.abs(near - camera.near) > 0.02) { camera.near = near; camera.updateProjectionMatrix(); }
     this.sky.position.copy(camera.position); // the dome goes with the camera (the lot is 6 km away)
     this.sky.userData.uniforms.uTime.value = t;
     if (this.follow) this.focus(this.follow(camera));
@@ -670,4 +818,22 @@ export class Ferris {
   }
 
   dispose() { this.physics.dispose(); }
+}
+
+// Martin Jordan's name cut into his stone: dark letters with a lit lower edge, as if incised.
+function engraving() {
+  const [c, g] = canvas(256, 280);
+  g.clearRect(0, 0, 256, 280);
+  g.textAlign = 'center';
+  const cut = (text, y, size, weight = 600) => {
+    g.font = `${weight} ${size}px Georgia, 'Times New Roman', serif`;
+    g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillText(text, 128, y + 1.5);
+    g.fillStyle = 'rgba(28,26,24,0.85)'; g.fillText(text, 128, y);
+  };
+  cut('MARTIN', 70, 34);
+  cut('JORDAN', 112, 34);
+  cut('1969 – 2006', 158, 20, 500);
+  g.fillStyle = 'rgba(28,26,24,0.6)'; g.fillRect(78, 178, 100, 2);
+  cut('HE FLEW', 214, 20, 500);
+  return tex(c);
 }

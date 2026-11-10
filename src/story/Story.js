@@ -23,7 +23,7 @@ import { loadProps } from '../props/Props.js';
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const ORB_SPOT = V(0.55, 1.5, -0.75);
 // how wide each character opens their mouth on a full syllable (uJaw; 1 is about 2 cm)
-const MOUTH_GAIN = { hal: 0.55, abin: 0.4, dad: 0.5, kilowog: 0.95, sinestro: 0.42, guardian: 0.34, carol: 0.5 };
+const MOUTH_GAIN = { hal: 0.55, abin: 0.4, dad: 0.5, kilowog: 0.95, sinestro: 0.42, guardian: 0.34, carol: 0.5, hammond: 0.45 };
 const SEATED = makePose({ ...POSES.sitEdge, sx: 0.05, nx: -0.1, kx: -0.15, ky: 0.05 });
 export const STARTER_CONSTRUCTS = ['fist', 'shield', 'wall'];
 export const POWER_KEYS = '<b>4</b> constructs (time stops) &nbsp; <b>Click</b> use &nbsp; <b>Q</b> holster &nbsp; <b>Space</b> ×2 fly / drop &nbsp; <b>C</b> descend &nbsp; <b>L</b> lantern';

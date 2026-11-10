@@ -51,6 +51,22 @@
   "landlord:c6e043a74e1b": {
    "base": 113.4,
    "beta": 0.9195
+  },
+  "pilot:37498c8fd5f8": {
+   "base": 84.9,
+   "beta": 1.2669
+  },
+  "tech:90d91272a25f": {
+   "base": 135.1,
+   "beta": 0.8138
+  },
+  "hammond:ab8b9a58371a": {
+   "base": 125.9,
+   "beta": 0.8428
+  },
+  "tech2:55b7ad718cd3": {
+   "base": 158.1,
+   "beta": 1.2394
   }
  },
  "lines": {
@@ -1461,6 +1477,476 @@
    "f0dry": 193.7,
    "f0wet": 195.4,
    "beta": 1
+  },
+  "tomCall1": {
+   "hash": "6b7e293b22c61db6",
+   "ps": "jʊɹ stˈɪl ˈaʊt ðˈɛɹ? aɪ kæn sˈiː jʊɹ kˈɑːɹ fɹʌmðə hˈæŋɡɚ, hˈæl. lˈɪsən. hˈæməndz nˌɑːt flˈaɪɪŋ hˈoʊm ˈɛmptihˈændᵻd. ðeɪ pˌʊt hɪz ˈoʊn ɡˈaɪ ɪnðə bˈɜːd. wˈiːlz ˌʌp æt tˈuː.",
+   "f0raw": 154.1,
+   "f0dry": 132.8,
+   "f0wet": 144.4,
+   "beta": 0.812
+  },
+  "halCall1": {
+   "hash": "a2afc049c96909d2",
+   "ps": "hɪz ˈoʊn ɡˈaɪ.",
+   "f0raw": 135.4,
+   "f0dry": 137.4,
+   "f0wet": 137.3,
+   "beta": 0.946
+  },
+  "tomCall2": {
+   "hash": "7398b5cfd0613b4e",
+   "ps": "sˌʌm kˈæptɪn fɹʌm ˈɛdwɚdz. nˈɛvɚ flˈoʊn hɜː. kˈæɹəl sˈaɪnd ˈɔf ˌɔn ɪt twˈɛnti mˈɪnɪts ɐɡˈoʊ.",
+   "f0raw": 158,
+   "f0dry": 127.7,
+   "f0wet": 146.7,
+   "beta": 0.812
+  },
+  "halCall2": {
+   "hash": "1d1305bb51abca23",
+   "ps": "kˈoːɹs ʃiː dˈɪd.",
+   "f0raw": 126.3,
+   "f0dry": 112.9,
+   "f0wet": 112.9,
+   "beta": 0.946
+  },
+  "tomCall3": {
+   "hash": "06f0b9c5ffb8d63a",
+   "ps": "ɡˌoʊ hˈoʊm, bˈʌdi. juː dˈoʊnt wˈɔnt tə wˈɑːtʃ ðˈɪs.",
+   "f0raw": 165.6,
+   "f0dry": 143.3,
+   "f0wet": 169.5,
+   "beta": 0.812
+  },
+  "halCall3": {
+   "hash": "007956d7b51619e4",
+   "ps": "jˈɛh. aɪ dˈuː.",
+   "f0raw": 119.4,
+   "f0dry": 110,
+   "f0wet": 109.7,
+   "beta": 0.959
+  },
+  "halTest": {
+   "hash": "d8241b2fc63c6782",
+   "ps": "ʃiː wʌz səpˈoʊzd təbi mˈaɪn.",
+   "f0raw": 129.1,
+   "f0dry": 117.5,
+   "f0wet": 117.5,
+   "beta": 0.959
+  },
+  "ringDistress": {
+   "hash": "6f74f9523bdd1fc9",
+   "ps": "ˈeəkɹaft ɪn dɪstɹˈɛs. wˈɒn lˈaɪf ɐbˈɔːd.",
+   "f0raw": 185.4,
+   "f0dry": 185.4,
+   "f0wet": 187.9,
+   "beta": 1
+  },
+  "pilotMayday": {
+   "hash": "bfca02ac7ef4daed",
+   "ps": "mˈeɪdeɪ, mˈeɪdeɪ, vˈaɪpɚ wˈʌnwˌʌn. lˈɔst ðə lˈɛft ˈɛndʒɪn. aɪv ɡɑːt ɐ fˈaɪɚ lˈaɪt, ʃiːz nˌɑːt ˈænsɚɹɪŋ. aɪ kˈænt hˈoʊld hɜː.",
+   "f0raw": 84.9,
+   "f0dry": 107.9,
+   "f0wet": 108.3,
+   "beta": 1.267
+  },
+  "halNotToday": {
+   "hash": "bbaa546df459641a",
+   "ps": "nˌɑːt tədˈeɪ.",
+   "f0raw": 127.8,
+   "f0dry": 111.5,
+   "f0wet": 115.3,
+   "beta": 0.946
+  },
+  "ringMass": {
+   "hash": "e64c98734a707050",
+   "ps": "mˈas: twˈɛnti tˈʌnz. tʃˈɑːdʒ fˈɔːlɪŋ.",
+   "f0raw": 179.6,
+   "f0dry": 179.6,
+   "f0wet": 174.7,
+   "beta": 1
+  },
+  "halHold": {
+   "hash": "b007719e31248a25",
+   "ps": "ɡˈɑːt juː. aɪv ɡˈɑːt juː.",
+   "f0raw": 130.1,
+   "f0dry": 118,
+   "f0wet": 120.1,
+   "beta": 0.946
+  },
+  "pilotGear": {
+   "hash": "afb711e14c787725",
+   "ps": "ˈaɪm… sˈʌmθɪŋz ɡˈɑːt mˌiː. aɪm bˌiːɪŋ kˈæɹid. ɡˈɪɹz dˈaʊn. ɡˈɪɹz dˈaʊn!",
+   "f0raw": 84.9,
+   "f0dry": 108.5,
+   "f0wet": 110.4,
+   "beta": 1.267
+  },
+  "ringField": {
+   "hash": "ed51417a1ab26f4f",
+   "ps": "nˌɒt hˈiə. bɹˈɪŋ ɪt ˌəʊvə ðə fˈiːld.",
+   "f0raw": 177.4,
+   "f0dry": 177.4,
+   "f0wet": 174.9,
+   "beta": 1
+  },
+  "ringSlip": {
+   "hash": "e6b476f5f91ac902",
+   "ps": "kˈɒnstɹʌkt fˈeɪlɪŋ. hˈəʊld ɪt.",
+   "f0raw": 186.2,
+   "f0dry": 186.2,
+   "f0wet": 187.9,
+   "beta": 1
+  },
+  "pilotDown": {
+   "hash": "b843f71a49e49ebb",
+   "ps": "fˈɛɹɪs tˈaʊɚ, vˈaɪpɚ wˈʌnwˈʌn ɪz ɔnðə ɡɹˈaʊnd. aɪ dˈoʊnt… aɪ dˈoʊnt nˈoʊ hˈaʊ.",
+   "f0raw": 85.4,
+   "f0dry": 107.2,
+   "f0wet": 110.4,
+   "beta": 1.267
+  },
+  "carolGL1": {
+   "hash": "bb17614702d4a820",
+   "ps": "hˈuː ɑːɹ juː?",
+   "f0raw": 244.9,
+   "f0dry": 225.9,
+   "f0wet": 222.8,
+   "beta": 0.932
+  },
+  "halGL1": {
+   "hash": "8a9710f10e22e4e6",
+   "ps": "dʒˈʌst pˈæsɪŋ θɹˈuː.",
+   "f0raw": 123.1,
+   "f0dry": 111,
+   "f0wet": 102.5,
+   "beta": 0.946
+  },
+  "carolGL2": {
+   "hash": "2e98d66f905d6801",
+   "ps": "juː kˈɔːt ɐ fˈaɪɾɚ dʒˈɛt. wɪð jˈʊɹ… hˈænd.",
+   "f0raw": 212.8,
+   "f0dry": 206.6,
+   "f0wet": 203.7,
+   "beta": 0.932
+  },
+  "halGL2": {
+   "hash": "e360c8e953236fba",
+   "ps": "ɐ vˈɛɹi bˈɪɡ hˈænd.",
+   "f0raw": 129.2,
+   "f0dry": 128.6,
+   "f0wet": 125.1,
+   "beta": 0.946
+  },
+  "carolGL3": {
+   "hash": "095dbf349a5111bb",
+   "ps": "hæv wiː mˈɛt?",
+   "f0raw": 229.1,
+   "f0dry": 213.3,
+   "f0wet": 214.7,
+   "beta": 0.932
+  },
+  "halGL3": {
+   "hash": "7f12d62bc83d8083",
+   "ps": "nˈoʊ, mˈæm. aɪd ɹᵻmˈɛmbɚ.",
+   "f0raw": 119.3,
+   "f0dry": 101.8,
+   "f0wet": 117.9,
+   "beta": 0.946
+  },
+  "techWreck1": {
+   "hash": "06809dd4e0355dec",
+   "ps": "dˈɑːktɚ hˈæmənd, ðə dʒˈɛnɚɹəl sˈɛd nˈoʊbɑːdi tˈʌtʃᵻz ɪt tˈɪl ðə tˈiːm fɹʌm ˈɛdwɚdz ɡˈɛts hˈɪɹ.",
+   "f0raw": 147.3,
+   "f0dry": 121.4,
+   "f0wet": 121.2,
+   "beta": 0.814
+  },
+  "hecWreck1": {
+   "hash": "59905ed0b8dcb81a",
+   "ps": "ðə dʒˈɛnɚɹəl sˈɛz ɐ ɡɹˈeɪt mˈɛni θˈɪŋz.",
+   "f0raw": 109,
+   "f0dry": 91.3,
+   "f0wet": 91.3,
+   "beta": 0.843
+  },
+  "techWreck2": {
+   "hash": "eed44facda0b8630",
+   "ps": "dˈɑːktɚ? dˈɑːktɚ!",
+   "f0raw": 116.8,
+   "f0dry": 90.9,
+   "f0wet": 91.2,
+   "beta": 0.814
+  },
+  "techThought1": {
+   "hash": "47b5e2f88f4da272",
+   "ps": "ˈɔːlweɪz wʌzɐ fɹˈiːk. ðɪ ˈoʊld mˈæn ˈoʊnli kˈiːps hˌɪm ˌɔn ˌaʊɾəv pˈɪɾi…",
+   "f0raw": 135.1,
+   "f0dry": 121.5,
+   "f0wet": 121.4,
+   "beta": 0.814
+  },
+  "techThought2": {
+   "hash": "5e4a4683cad99234",
+   "ps": "hˈoʊp ɪt fɹˈaɪd hˌɪm…",
+   "f0raw": 125.9,
+   "f0dry": 193.1,
+   "f0wet": 193,
+   "beta": 1.239
+  },
+  "hecWreck2": {
+   "hash": "7d6372c05ca44c6c",
+   "ps": "aɪ kæn hˈɪɹ juː.",
+   "f0raw": 125.9,
+   "f0dry": 105.6,
+   "f0wet": 87.4,
+   "beta": 0.843
+  },
+  "hecArrive1": {
+   "hash": "6346601b609a5d3c",
+   "ps": "həlˈoʊ, kˈæɹəl.",
+   "f0raw": 141,
+   "f0dry": 116.5,
+   "f0wet": 118.6,
+   "beta": 0.843
+  },
+  "hecArrive2": {
+   "hash": "713308be05ad4f90",
+   "ps": "ænd jˈuː. sˈʌtʃ lˈaʊd θˈɔːts, ˌʌndɚ ðæt mˈæsk. fɹˈaɪʔn̩d lˈɪɾəl θˈɔːts.",
+   "f0raw": 120.1,
+   "f0dry": 106.4,
+   "f0wet": 109.6,
+   "beta": 0.843,
+   "notes": [
+    "dropped phoneme \"̩\""
+   ]
+  },
+  "halHec1": {
+   "hash": "e5da2c738a446563",
+   "ps": "hˌuː ðə hˈɛl ɑːɹ juː?",
+   "f0raw": 102.2,
+   "f0dry": 124.5,
+   "f0wet": 93.1,
+   "beta": 0.946
+  },
+  "hecArrive3": {
+   "hash": "e89849eb9cbfc39e",
+   "ps": "dˈɑːktɚ hˈɛktɚ hˈæmənd. ðə dʒˈɛnɚɹəlz sˈʌn. ðə dˌɪsɐpˈɔɪntmənt. ðeɪ sˈɛnt mˌiː tə lˈʊk æɾə ʃˈɪp ɪn ɐ lˈeɪk lˈæst nˈaɪt, ænd ɪt lˈʊkt bˈæk.",
+   "f0raw": 118.3,
+   "f0dry": 100.4,
+   "f0wet": 102.2,
+   "beta": 0.843
+  },
+  "hecArrive4": {
+   "hash": "7244c9b385a932f5",
+   "ps": "ðə pˈaɪlət wʌz sˌoʊ ɐfɹˈeɪd. aɪ ˈoʊnli hˈɛlpt hˌɪm ɐlˈɔŋ.",
+   "f0raw": 116,
+   "f0dry": 110.5,
+   "f0wet": 115.2,
+   "beta": 0.843
+  },
+  "halHec2": {
+   "hash": "ee71d70ed3cf99a2",
+   "ps": "kˈæɹəl. ɡɛt bᵻhˈaɪnd mˌiː.",
+   "f0raw": 133.7,
+   "f0dry": 122.8,
+   "f0wet": 123.5,
+   "beta": 0.946
+  },
+  "hecArrive5": {
+   "hash": "97345b9d7800e031",
+   "ps": "ˈoʊ, aɪ dˈoʊnt θˈɪŋk ʃiː wˈɪl.",
+   "f0raw": 136,
+   "f0dry": 115.1,
+   "f0wet": 116.1,
+   "beta": 0.843
+  },
+  "hecHurt": {
+   "hash": "0a5d69f72cb57ec7",
+   "ps": "ɪz ðæt ˈɔːl ɪt dˈʌz?",
+   "f0raw": 128,
+   "f0dry": 108,
+   "f0wet": 108,
+   "beta": 0.843
+  },
+  "hecQ1": {
+   "hash": "9bae9fe1886a3a2b",
+   "ps": "aɪ kæn fˈiːl juː ˈeɪmɪŋ, juː nˈoʊ.",
+   "f0raw": 117.4,
+   "f0dry": 103.1,
+   "f0wet": 113.2,
+   "beta": 0.843
+  },
+  "hecQ2": {
+   "hash": "4559136efe0fdcf1",
+   "ps": "sˈɪt. dˈaʊn.",
+   "f0raw": 108.1,
+   "f0dry": 89,
+   "f0wet": 89.1,
+   "beta": 0.843
+  },
+  "hecWave": {
+   "hash": "5a96a39c1d0889a3",
+   "ps": "lˈɪsən tʊ ɪt. ˈɔːl ʌv ɪt.",
+   "f0raw": 136,
+   "f0dry": 124.4,
+   "f0wet": 114.5,
+   "beta": 0.843
+  },
+  "ringProtect": {
+   "hash": "34604fe5b95030d6",
+   "ps": "tˈɑːɡɪt ɪz ʃˈiːldɪŋ hɪmsˈɛlf. bɹˈeɪk ɪt.",
+   "f0raw": 183.7,
+   "f0dry": 183.7,
+   "f0wet": 189.9,
+   "beta": 1
+  },
+  "ringCarol": {
+   "hash": "e3b04242743f3102",
+   "ps": "pɹədʒˈɛktaɪl ɒnðə sɪvˈɪliən.",
+   "f0raw": 178.3,
+   "f0dry": 178.3,
+   "f0wet": 177.8,
+   "beta": 1
+  },
+  "hecMind1": {
+   "hash": "dff2efe9a4698fdd",
+   "ps": "nˈoʊ. nˈoʊ, aɪm ɪn nˈaʊ. ɐn ˈɛɹfiːld. ɐ lˈɪɾəl bˈɔɪ wˈɑːtʃɪŋ ðə skˈaɪ. hɪz fˈɑːðɚz plˈeɪn kˈʌmɪŋ dˈaʊn.",
+   "f0raw": 119.1,
+   "f0dry": 107.4,
+   "f0wet": 107.5,
+   "beta": 0.843
+  },
+  "hecMind2": {
+   "hash": "be31f00b0e5b0c8c",
+   "ps": "mˈɑːɹtɪn dʒˈoːɹdənz bˈɔɪ. hˈæl.",
+   "f0raw": 133.2,
+   "f0dry": 112.2,
+   "f0wet": 112.1,
+   "beta": 0.843
+  },
+  "hecMind3": {
+   "hash": "31ac9218f4c11161",
+   "ps": "hˈæl dʒˈoːɹdən.",
+   "f0raw": 140.4,
+   "f0dry": 119.8,
+   "f0wet": 120.6,
+   "beta": 0.843
+  },
+  "halMind": {
+   "hash": "57ec5a1329f2d117",
+   "ps": "ɡˈɛt… ˈaʊt… ʌv maɪ hˈɛd.",
+   "f0raw": 109.9,
+   "f0dry": 98.2,
+   "f0wet": 102.1,
+   "beta": 0.946
+  },
+  "sinFerris1": {
+   "hash": "f63090cd6ccbe51e",
+   "ps": "ɪnˈʌf.",
+   "f0raw": 168.3,
+   "f0dry": 117.5,
+   "f0wet": 117.5,
+   "beta": 0.774
+  },
+  "sinFerris2": {
+   "hash": "0d1cea81e0aa426c",
+   "ps": "ɡˈanθɪt sˈɛnt mˌiː tə lˈɜːn hˈaʊ ˈeɪbɪn sˈɜː dˈaɪd. aɪ dɪdnˌɒt ɛkspˈɛkt tə fˈaɪnd hɪz səksˈɛsəɹ ˌɒn hɪz nˈiːz bɪfˌɔːɹ ɐ mˈan wɪð ɐ swˈəʊlən hˈɛd.",
+   "f0raw": 139.2,
+   "f0dry": 96.8,
+   "f0wet": 96.5,
+   "beta": 0.774
+  },
+  "halSin1": {
+   "hash": "246339fbfe6b1cbf",
+   "ps": "ɡˈʊd tə sˈiː juː tˈuː.",
+   "f0raw": 128.7,
+   "f0dry": 111.9,
+   "f0wet": 110.5,
+   "beta": 0.946
+  },
+  "sinFerris3": {
+   "hash": "14dd394a3c2010e9",
+   "ps": "aɪ sˈɛd aɪ wʊd biː wˈɒtʃɪŋ.",
+   "f0raw": 150.5,
+   "f0dry": 99.9,
+   "f0wet": 100.6,
+   "beta": 0.774
+  },
+  "sinFerris4": {
+   "hash": "194772465b5be002",
+   "ps": "ˈeɪbɪn sˈɜːz ʃˈɪp dɪdnˌɒt fˈɔːl fɹʌmðə skˈaɪ baɪ tʃˈans, hjˈuːmən. ɪts hˈəʊld wʌzɐ pɹˈɪzən sˈɛl. ðə sˈɛl ɪz ˈɛmpti.",
+   "f0raw": 141.3,
+   "f0dry": 97.3,
+   "f0wet": 97.4,
+   "beta": 0.774
+  },
+  "halSin2": {
+   "hash": "ee8bdda3d30a3bc6",
+   "ps": "ˈɛmpti. wˈʌt wʌz ɪn ɪt?",
+   "f0raw": 109.4,
+   "f0dry": 110.9,
+   "f0wet": 111.1,
+   "beta": 0.946
+  },
+  "sinFerris5": {
+   "hash": "3777513daf829af9",
+   "ps": "sˈʌmθɪŋ ðat hˈeɪts ˌʌs. ɹˈɛst wˌaɪl juː kˈan. jɔː pˈiːpəl ɑː kˈʌmɪŋ, and ðeɪ ʃˌʊd nˌɒt fˈaɪnd juː hˈiə.",
+   "f0raw": 141.1,
+   "f0dry": 97.5,
+   "f0wet": 97.6,
+   "beta": 0.774
+  },
+  "halGrave1": {
+   "hash": "940f6a219958082e",
+   "ps": "hˈeɪ, dˈæd.",
+   "f0raw": 129.1,
+   "f0dry": 109.9,
+   "f0wet": 110,
+   "beta": 0.946
+  },
+  "halGrave2": {
+   "hash": "5e9c39b3a1e8d7cd",
+   "ps": "aɪ ɡɑːt fˈaɪɚd tədˈeɪ. kˈɔːt ɐ dʒˈɛt wɪð maɪ hˈænd. ɐ ɡˈaɪ wɪð ɐ bˈɪɡ hˈɛd ɹˈiːd maɪ mˈaɪnd. lˈɔŋ dˈeɪ.",
+   "f0raw": 111.2,
+   "f0dry": 105.7,
+   "f0wet": 106.9,
+   "beta": 0.946
+  },
+  "halGrave3": {
+   "hash": "615ca20df18e285b",
+   "ps": "ðɛɹz sˈʌmθɪŋ ˈaʊt ðˈɛɹ. ðə wˈʌn hˌuː nˈoʊz sˈɛz ɪt hˈeɪts ˌʌs.",
+   "f0raw": 125.1,
+   "f0dry": 116.6,
+   "f0wet": 116.7,
+   "beta": 0.946
+  },
+  "halGrave4": {
+   "hash": "c6a4b2fd4f6bf9d4",
+   "ps": "aɪ jˈuːzd tə tˈɛl juː aɪ wˈʌzn̩t skˈɛɹd ʌv ˈɛnɪθˌɪŋ.",
+   "f0raw": 126.1,
+   "f0dry": 117.2,
+   "f0wet": 112.3,
+   "beta": 0.946,
+   "notes": [
+    "dropped phoneme \"̩\""
+   ]
+  },
+  "halGrave5": {
+   "hash": "2dd48fbebb13d406",
+   "ps": "aɪm skˈɛɹd, dˈæd.",
+   "f0raw": 127.5,
+   "f0dry": 112.6,
+   "f0wet": 111.9,
+   "beta": 0.946
+  },
+  "halGrave6": {
+   "hash": "a50046904a14f62f",
+   "ps": "aɪm ɡˌoʊɪŋ ˈɛnɪwˌeɪ.",
+   "f0raw": 121,
+   "f0dry": 111.5,
+   "f0wet": 109.8,
+   "beta": 0.946
   }
  },
  "characters": {
@@ -1613,6 +2099,42 @@
    "formant": 0.94,
    "psola": 0.9195,
    "fx": "hp → sat → lowshelf → comp"
+  },
+  "hammond": {
+   "desc": "Hector Hammond: American scientist, soft-spoken, precise, quietly unhinged",
+   "voice": "am_adam",
+   "speed": 0.93,
+   "f0": 108,
+   "formant": 1,
+   "psola": 0.8428,
+   "fx": "hp → peak → highshelf → comp → reverb"
+  },
+  "pilot": {
+   "desc": "Viper One-One: an Air Force test pilot on the radio, strained",
+   "voice": "am_onyx",
+   "speed": 1.05,
+   "f0": 108,
+   "formant": 1,
+   "psola": 1.2669,
+   "fx": "hp → comp"
+  },
+  "tech": {
+   "desc": "An Air Force technician at the wreck, nervous",
+   "voice": "am_liam",
+   "speed": 1.02,
+   "f0": 122,
+   "formant": 1,
+   "psola": 0.8138,
+   "fx": "hp → comp → reverb"
+  },
+  "tech2": {
+   "desc": "A second technician (his thoughts, overheard)",
+   "voice": "am_fenrir",
+   "speed": 1,
+   "f0": 110,
+   "formant": 0.98,
+   "psola": 1.2394,
+   "fx": "hp → lp → comp → reverb"
   }
  }
 }

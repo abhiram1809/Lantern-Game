@@ -5,8 +5,11 @@ relives his father's crash, is visited by the ring's light, refuses to be afraid
 to Abin Sur's wreck on the lake shore, where the ring chooses him. **Part Two, The Corps:** the
 Guardians summon Hal, the ring carries him across the universe to Oa, Kilowog trains him,
 Sinestro spars with him, and the Guardians lay Abin Sur to rest and give Hal Sector 2814; he flies
-home before dawn. **Part Three, Coast City** (in progress): the morning after. He has slept through
-the test flight, rent is two months late, and Carol Ferris fires him.
+home before dawn. **Part Three, Coast City:** the morning after. He has slept through the test
+flight, rent is two months late, and Carol Ferris fires him. That afternoon the test goes ahead
+without him and the jet goes down: Green Lantern's first time in public, Carol meets him, Hector
+Hammond attacks, Sinestro ends it. At dusk, his father's grave. (The ending follows *Green Lantern:
+Secret Origin*.)
 
 ## Run
 
@@ -104,7 +107,12 @@ Part Three:
 | `drive` | Running late: the car behind his building, the road out to Ferris Aircraft |
 | `ferris` | Ferris Aircraft: in the staff lot, on foot |
 | `carol` | Carol: on the apron by the prototype, facing her |
-| `after` | Out of work: on his car afterwards (the end card) |
+| `after` | Out of work: on his car afterwards; Tom rings at 1:52 |
+| `wreck` | Earlier that morning: Hector Hammond at Abin Sur's wreck, 5:12 AM |
+| `test` | The test: by his car in the staff lot, 2 PM |
+| `catch` | Green Lantern: in the air over the field, the jet going down |
+| `hector` | Hector Hammond: on the runway beside the jet, Carol with him |
+| `grave` | Martin Jordan: the memorial park at dusk (the end card) |
 
 For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#lantern`.
 
@@ -173,7 +181,7 @@ block debris, bolts and Hal.
    Three, or free flight: the range stays open (ask Kilowog for another round), with hyperspace
    routes to Earth and back.
 
-### Part Three: Coast City (in progress)
+### Part Three: Coast City
 
 1. **The morning after:** 9:41 AM, daylight, the phone buzzing on the nightstand, Coast City's
    street outside the window. Hal wakes by stages (rolls over, props up on an elbow to squint at
@@ -191,11 +199,30 @@ block debris, bolts and Hal.
 4. **Carol:** the Air Force came out from Edwards and watched an empty cockpit. He can't tell her
    where he was. She fires him.
 5. **Out of work:** Hal sitting on the trunk of his car, the ring telling him there's no threat.
+   At 1:52 he's still there. Tom rings from the hangar: General Hammond's own pilot is taking the
+   prototype up at two.
+6. **Earlier that morning:** the lake at 5 AM, the Air Force's floodlights on Abin Sur's wreck.
+   Doctor Hector Hammond, the general's son, wakes something in the ship; its exhaust hits him,
+   and he can hear what the men round him are thinking.
+7. **The test:** watch from between the hangars as the prototype takes off. Its left engine goes;
+   the ring hears the pilot's mayday. Into the gap, out of sight, and up in the suit.
+8. **The catch:** fly after the jet before it hits the desert (**Shift** flies faster). Under it,
+   the ring makes a hand of light the size of a house and catches it. Bring it down to the runway:
+   **hold the click** to keep the hand, **WASD** to move it, **C** to come down, before the charge
+   runs out. Carol runs out to meet Green Lantern; she doesn't know him.
+9. **Hector Hammond:** he walks out of the heat, swollen-headed, knows Carol, hears Hal under the
+   mask, and admits he made the jet fall. He tears slabs out of the runway and throws them, and
+   sends out waves that warp the screen. Break his shield with the constructs (**4**), and get a
+   shield, wall or fist between Carol and what he throws at her (the ring warns you). When it
+   breaks he gets into Hal's head and finds his name; Sinestro's fist ends it. Abin Sur's ship
+   was carrying a prisoner, and the cell is empty.
+10. **Martin Jordan:** dusk at the memorial park on the edge of town. Hal at his father's grave,
+    and the ring makes his father out of its light.
 
 ## Characters and movement
 
 - **Models.** `npm run assets` (`tools/build-assets.mjs`) turns the Tripo scans in `assets/raw`
-  (`Hal-Improved.glb` casual, `hal_b.glb` suit, `Abin.glb`, `Kilowog.glb`, `Carol.glb`) into `public/models/*.glb`: reoriented,
+  (`Hal-Improved.glb` casual, `hal_b.glb` suit, `Abin.glb`, `Kilowog.glb`, `Carol.glb`, `Hector.glb`) into `public/models/*.glb`: reoriented,
   scaled, decimated to 90–100 k triangles, WebP textures, and **auto-rigged** by `tools/autorig.mjs`
   (17-bone humanoid placed from anatomical landmarks; skin weights from limb chains, blended at the
   joints, smoothed, with the whole skull/face/jaw on the head bone along a detected jaw line).
@@ -248,8 +275,9 @@ block debris, bolts and Hal.
   also stands inland and frames both ends of the bay, and fills the view from the bedroom window.
 - **Downloaded models** (Part Three, and the kitchenette and the dream's jet in Part One): the cars,
   the prototype jet, the phone, the palms, Hal's apartment block, Coast City's office blocks and
-  street furniture, the airfield's ground equipment and gate booth, the fridge, the coffee maker
-  and the F-104 are CC BY 4.0 models from Sketchfab by way of the
+  street furniture, the airfield's ground equipment and gate booth, the fridge, the coffee maker,
+  the F-104, the Air Force's truck and light towers at the lake, and the memorial park's
+  headstones, gate, fence, cypresses and bench are CC BY 4.0 models from Sketchfab by way of the
   [Objaverse](https://huggingface.co/datasets/allenai/objaverse) dataset, credited in
   [CREDITS.md](CREDITS.md). Surfaces (corrugated iron, concrete, asphalt, sand, plaster) are CC0
   textures from [Poly Haven](https://polyhaven.com). `npm run props` (`tools/build-props.mjs`) builds them from

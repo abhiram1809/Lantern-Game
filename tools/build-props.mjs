@@ -86,6 +86,22 @@ export const PROPS = [
     title: 'Industrial Toolbox', author: 'LuddePudde', uid: '5037b5bea4bf4bd7bf53d581d478bd90' },
   { name: 'drums', src: 'assets/props/drums.glb', forward: '+z', scale: 1, tex: 512,
     title: 'Oil Drums', author: 'Oliver Triplett', uid: 'f98003d19cd247f8aa4daad50c28512a' },
+  // the Air Force's night at the lake (Part Three: Hector Hammond at the wreck)
+  { name: 'm35', src: 'assets/props/m35.glb', forward: '+z', length: 6.78, tex: 1024,
+    title: 'Military Truck 1/2 Ton', author: 'Arion Digital', uid: '5d19c751b12849eeb390d637b2b686a1' },
+  { name: 'lighttower', src: 'assets/props/lighttower.glb', forward: '+z', length: 3.8, tex: 512,
+    title: 'Light Tower', author: 'krambulini', uid: '9addea6a4129438b83a1fc3ed4a784ec' },
+  // Martin Jordan's grave: the memorial park on the edge of Coast City
+  { name: 'tombstones', src: 'assets/props/tombstones.glb', forward: '+z', scale: 1, tex: 512,
+    title: 'Tombstones', author: 'LucasPresoto', uid: '4f1a26f1cef2403d8aafddccbf5fafc3' },
+  { name: 'cemgate', src: 'assets/props/cemgate.glb', forward: '+z', scale: 1, tex: 1024,
+    title: 'Graveyard Entrance', author: 'Reydara', uid: 'e0aa0d480159465fa26795c26546a3b6' },
+  { name: 'ironfence', src: 'assets/props/ironfence.glb', forward: '+z', scale: 1, tex: 512,
+    title: 'CC0 - Iron Fence', author: 'plaggy', uid: '9c5ad29c104c48e69a1227927655d489' },
+  { name: 'cypress', src: 'assets/props/cypress.glb', forward: '+z', height: 6.5, tex: 512,
+    title: 'Cypress tree', author: 'ElectroNick', uid: '249d8cb553a8469e9d645713f8e96ed1' },
+  { name: 'bench', src: 'assets/props/bench.glb', forward: '+z', scale: 1, tex: 512,
+    title: 'Granite Bench', author: 'YouniqueĪdeaStudio', uid: '424c3679dcdd44d380da36a82f5dc382' },
 ];
 
 const YAW = { '+z': 0, '-z': Math.PI, '+x': -Math.PI / 2, '-x': Math.PI / 2 };

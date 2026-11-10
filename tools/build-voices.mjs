@@ -136,6 +136,29 @@ const CHARACTERS = {
     voice: 'am_echo', speed: 0.95, f0: 100, formant: 0.94,
     fx: [['hp', 70], ['sat', 1.8, 0.25], ['lowshelf', 180, 2], ['comp', { thr: -18, ratio: 3 }]],
   },
+  hammond: {
+    desc: 'Hector Hammond: American scientist, soft-spoken, precise, quietly unhinged',
+    voice: 'am_adam', speed: 0.93, f0: 108, formant: 1.0,
+    fx: [['hp', 80], ['peak', 2600, 2, 1.5], ['highshelf', 6500, -2], ['comp', { thr: -20, ratio: 3 }],
+      ['reverb', { rt: 0.9, pre: 0.015, wet: 0.09, damp: 0.45 }]],
+    tail: 0.3,
+  },
+  pilot: {
+    desc: 'Viper One-One: an Air Force test pilot on the radio, strained',
+    voice: 'am_onyx', speed: 1.05, f0: 108, formant: 1.0,
+    fx: [['hp', 90], ['comp', { thr: -18, ratio: 3 }]],
+  },
+  tech: {
+    desc: 'An Air Force technician at the wreck, nervous',
+    voice: 'am_liam', speed: 1.02, f0: 122, formant: 1.0,
+    fx: [['hp', 80], ['comp', { thr: -18, ratio: 2.5 }], ['reverb', { rt: 0.8, pre: 0.01, wet: 0.08, damp: 0.5 }]],
+  },
+  tech2: {
+    desc: 'A second technician (his thoughts, overheard)',
+    voice: 'am_fenrir', speed: 1.0, f0: 110, formant: 0.98,
+    fx: [['hp', 80], ['lp', 6000], ['comp', { thr: -20, ratio: 2.5 }], ['reverb', { rt: 1.2, pre: 0.02, wet: 0.14, damp: 0.5 }]],
+    level: -3,
+  },
 };
 // On top of the speaker's chain for style: 'phone' (voicemail on speaker): telephone band.
 const PHONE_FX = [['hp', 300, 0.9], ['hp', 300, 0.6], ['lp', 3400, 0.9], ['lp', 3400, 0.6], ['peak', 1800, 4, 1],

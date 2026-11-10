@@ -40,8 +40,10 @@ A browser story game in Three.js about Hal Jordan becoming Green Lantern. **Part
 "Awakening"**, and **Part Two, "The Corps"**, are complete and playable: Part Two runs from the
 Guardians' summons at the lake, across the universe to Oa, through Kilowog's range and Sinestro's
 sparring, to the Guardians' hall and home before dawn, with hyperspace travel between Oa and Earth
-as free flight afterwards. **Part Three, "Coast City"**, has its first slice: the morning after on
-Earth (late, broke, fired by Carol Ferris).
+as free flight afterwards. **Part Three, "Coast City"**, is complete: the morning after on Earth
+(late, broke, fired by Carol Ferris), then the afternoon the comics give it (*Green Lantern: Secret
+Origin*): the test jet going down, Green Lantern's first public rescue, Carol meeting him, Hector
+Hammond, Sinestro, and the coda at Martin Jordan's grave.
 
 The story of Part One:
 
@@ -85,7 +87,8 @@ Part Two so far (`src/story/Corps.js`):
 10. **Free flight** (`range`, `earth`): the range (Kilowog starts another round on request) and the
    lake, with the ring's hyperspace routes between them (the star chart: E high in flight).
 
-Part Three so far (`src/story/Coast.js`), a civilian morning (the ring stays on, its powers off):
+Part Three (`src/story/Coast.js`): a civilian morning (the ring stays on, its powers off), then the
+afternoon in the suit:
 
 1. **The morning after** (the apartment by day, `Bedroom.build({ morning: true })`, Coast City's
    street through the window): 9:41 AM, the phone buzzing; he wakes in stages (`getUpFromBed`:
@@ -107,8 +110,43 @@ Part Three so far (`src/story/Coast.js`), a civilian morning (the ring stays on,
    past the door's tip, the door pulled shut by its edge).
 3. **Ferris Aircraft:** on foot between the hangars to the apron, where the prototype stands.
 4. **Carol** (her own Tripo scan): she fires him for the missed Air Force test.
-5. **Out of work:** Hal sitting on his car's trunk lid, feet on the bumper; the end card ("to be
-   continued").
+5. **Out of work:** Hal sitting on his car's trunk lid, feet on the bumper; at 1:52 Tom rings (the
+   phone on speaker, `buildPhone({ call })`): General Hammond's own pilot takes the prototype up at two.
+6. **Earlier that morning** (`wreck`, the crash site at 5:12 AM, `airForceNight`): floodlights (two
+   downloaded light towers with spot lights), an M35, the fires banked (`site.fireRest`). Hector
+   Hammond where Abin Sur sat, a hand on the hull; the ship's breath (`exhaustBurst`, a shaft and
+   particles) hits him; on his knees he hears the technicians' thoughts (offscreen voices).
+7. **The test** (`test`): walk to the gap between Hangars Two and Three (`GAP`); the prototype
+   (`ferrisScene.freeJet()`, `jetAt(t)`: a keyed Catmull-Rom flight then an analytic flat spin)
+   takes off west, the left engine lets go at `FLAME_T` (`flameout`, smoke and fire particles from
+   the nozzle), the ring relays the mayday; into the gap and `suitUp()` (the reverse of the suit
+   coming off), up and away. The jet's clock slows (`jetRate` 0.3) while it's off screen in the
+   dialogue, so the chase always starts with time to catch it.
+8. **The catch** (`catch`): free flight with `player.boostScale` 1.7 and a marker on the jet; within
+   26 m, `theCatch()`: the hand of light (`handGeometry` through `constructMesh`, `HAND`) forms under
+   it, the weight comes on (hit-stop, charge −26), then `carry()`: hold the click (else it slips),
+   WASD, C (faster from high up), a flare near the ground, the ring refusing to set it down off the
+   field (`canSetDown`), the jet eased to the runway's heading; `setDown()` parks it (`parkJet`) and
+   lands Hal on its south side. Failing (`jetLost`: too late, or dropped) restarts the checkpoint.
+   Then `meetCarolGL()`: she runs out; Hal's lines are subtitled "Green Lantern".
+9. **Hector Hammond** (`hector`, `enemies/Hammond.js`): a psychic shriek, he walks in down the runway
+   (from the side away from the jet), his lines (`sayAs`), Carol knocked to her knees; the fight
+   (boss bar, `onAimCarol` marks her and the ring warns); at the shell's crack `mindAttack()` pulls
+   Hal down to his knees, the grade goes to the dream's sepia, the F-104 falls across the sky again,
+   and Hector says his name; `sinestroOnEarth()`: Sinestro's giant fist flattens Hector, Sinestro
+   streaks down (`createShaft`), says Ganthet sent him and the prisoner cell is empty (the Part Four
+   hook), sirens, he leaves; Hal checks on Carol and flies off.
+10. **Martin Jordan** (`grave`, `Ferris.dusk()`, `Ferris.cemetery()` at `CEMETERY`): Hal's car at the
+   gate, walk to the stone (`GRAVE`, the engraving drawn on a plate), kneel; the ring makes his
+   father (`createLightFigure`), who waves the way he did from the airfield and goes back into the
+   light; the end card ("FIRST LIGHT").
+
+The user's decisions for the ending (2026-11-11): beats from *Secret Origin*, not invented (the
+rescue, Carol meeting GL, Hammond's exposure at the ship and his telepathic attack, learning Hal's
+name, Sinestro knocking him out, sent by Ganthet); **no yellow weakness** (retconned); **no Jim**
+at the grave; **Carol rehires Hal in Part Four**, not here; Hector is their Tripo model. Ours, not
+the comic's: whose plane it is, Hector as the general's son, Hector causing the failure, the
+construct of Martin at the grave.
 
 Seated poses in Coast are solved for the seat, not guessed: `legTo(pose, side, dy, dz, thigh,
 shin, toe)` is two-bone IK in the leg's plane from the hip joint to an ankle target, and
@@ -255,6 +293,7 @@ and reference videos. The built outputs in `public/` are what the game loads.
 | `assets/raw/Abin.glb` | **Abin Sur** (the user's model), built as `abin_sur.glb` |
 | `assets/raw/Kilowog.glb` | **Kilowog** (the user's model, 2026-11-09), built as `kilowog.glb`. Two figures side by side; the z > 0 one is kept (`keepSide: 1`). |
 | `assets/raw/Carol.glb` | **Carol Ferris** (the user's model, 2026-11-10), built as `carol.glb`. Two figures side by side (`keepSide: 1`), A-pose, a shoulder bag. |
+| `assets/raw/Hector.glb` | **Hector Hammond** (the user's model, 2026-11-11), built as `hammond.glb`. One figure, T-pose, lab coat, glasses, moustache; his skull swells in the shader (`createHammond`). |
 | (none) | **Sinestro** has no file: `createSinestro()` derives him at runtime from `abin_sur.glb` with a shader layer (see *Characters*). |
 | (none) | **The Guardians** have no file either: `createGuardian()` (`characters/Guardian.js`) derives them from `abin_sur.glb`. |
 | `assets/raw/hal_a.glb` | Old casual scan: two figures, poor face. Unused; see the commented entry in `build-assets.mjs`. |
@@ -274,6 +313,7 @@ Model build settings (`MODELS` in `tools/build-assets.mjs`):
 | Abin Sur | 90k | 1.96 m |
 | Kilowog | 90k | 2.4 m |
 | Carol | 90k | 1.7 m |
+| Hammond | 90k | 1.78 m |
 
 Every model faces +Z (`facing: 1`) and has WebP textures.
 
@@ -360,7 +400,10 @@ dialogue, barks, `perform`, collapse, interactions) is inherited. `main.js` pick
   `duel()`, `guardians` → `guardiansCall()` (the flight to the hall, `council()`, `rite()`),
   `homeward` → `homeward()` (the jump, the voyage, `backThroughWindow()`, the end card), `range` →
   `openRange()`, `earth` → `home()`. Part Three's are `morning` → `morning()`, `drive` → `drive()`,
-  `ferris` → `ferris()`, `carol` → `carolScene()`, `after` → `after()`.
+  `ferris` → `ferris()`, `carol` → `carolScene()`, `after` → `after()` (and Tom's call), `wreck` →
+  `wreck()` (a flashback: its clock is 5:12 AM), `test` → `test()`, `catch` → `catchJet()` (the
+  catch, the carry, `meetCarolGL()`), `hector` → `hector()` (the fight, `mindAttack()`,
+  `sinestroOnEarth()`), `grave` → `grave()` (the end card).
   The free-roam steps never resolve; travel saves `range` or `earth` itself on arrival. Part Two's
   linear run ends at `homeward`'s end card (Part Three, free flight via `earth`, or the title).
 - `prepare(id)` rebuilds the world state a step expects when the game is resumed from it: which
@@ -573,6 +616,18 @@ pavement, the palms stood tree by tree on their trunks, `PALMS`, and every kit p
   `flat(w, d, tile)`, cut into tiles of 25 m or so (the desert 125 m), and the scene's near plane is
   0.1 (see Gotchas: the flicker). The sky dome follows the camera.
 
+  Part Three's afternoon adds to it: `freeJet()` (the prototype's boxes out of the world, the jet
+  under a pivot at its middle, `jetRig`, with its nozzles' points, gear and gold-tinted canopy),
+  `gear(down)`, `parkJet(at, yaw)` (solid again: the boxes are axis-aligned, so park it square to
+  the field), `airBounds()` (flight over the field), `dusk()` (the sky's `dusk` preset, an amber
+  low sun, warm haze) and `cemetery()` (built when first needed: the memorial park at `CEMETERY`,
+  east of the road near the city: lawn, drive, the gate standing open, the fence, rows of the
+  downloaded tablets, cypresses, a bench, Martin's stone at `GRAVE` with his name on a plate,
+  `CEMETERY_PROPS`). Its near plane goes out with the camera's height (`update`): from 150 m up,
+  3.5 cm between the apron and the desert was inside one depth step.
+- **`CrashSite.js`** (Part Three): `SHIP` is exported; `fireRest` holds the fires low (they relaxed
+  back to full), `glowBoost` brightens the ship's strip on cue.
+
 ### Props (`src/props/`, `tools/build-props.mjs`)
 
 Downloaded models (CC BY 4.0, Sketchfab by way of Objaverse; `CREDITS.md`). How to find one:
@@ -660,6 +715,20 @@ car's footprint against parked cars' boxes and the low vertices of props, frame 
   turning frontal hits); and below 62% a **slam** (a ring marks the spot under Hal, then a giant
   fist comes down on it).
 - At 35% he yields (`onYield`); `onQuip` and `onHurtHal` drive his lines.
+
+### Hector Hammond (`src/enemies/Hammond.js`)
+
+- On foot; turns to face Hal. A shell of force (a dynamic ball pinned in place, `lockTranslations`,
+  so constructs register hits without shoving him; an additive fresnel sphere that ripples) takes
+  the ring's hits; its strength is the boss bar, and at `YIELD` (45%) it cracks (`onBreak`).
+- **Throws:** a hand to his temple, 1–3 slabs torn out of the runway (a dirt-dark hole left behind)
+  rise and hang shaking for 1.15 s (the telegraph), then fly as physics bodies on a ballistic path
+  with lead. 14 damage; the shield blocks them (physically, too). Every third throw is at Carol
+  (slower, `onAimCarol` lets the story mark her and the ring warn); one reaching her is
+  `onCarolHit` (the checkpoint restarts). The oldest of more than 14 bodies are removed.
+- **Waves:** both hands to his head, then a sphere rolls out to 24 m; it hurts Hal on the way
+  through (unblockable; get out of reach) and pulses the dream's warp (`uDream`). Each wave swells
+  his skull a little (`rig.hu.uSwell`, capped 0.72).
 
 ### Ring powers (`src/powers/`, `src/ui/PowerHud.js`)
 
@@ -1002,6 +1071,23 @@ crash site. `player.surface` picks the footstep sound.
   - Body language: `GUARDIAN_STANCES.sleeves` (each hand in the other's sleeve; the hands are hidden
     while `uHandL` / `uHandR` are 0) and `GUARDIAN_GESTURES.decree` / `release` (set the hand's
     uniform to 1 first, so it comes out of the sleeve). `seed` varies the fringe, dome and skin.
+- `createHammond(gltf)` (the user's scan, 2026-11-11): `rig.hu.uSwell` (0..1) swells his **whole
+  head**, face, jaw and glasses included, as in the comics (the user, after a first pass that grew
+  only the cranium: "his entire face enlarges"): everything above the neck scales about the neck's
+  base (`HAMMOND_HEAD`, up to 2×), the neck stays thin and the coat's collar is left alone. On top
+  of that the skull above the brow inflates into a smooth ellipsoid dome; everything inside it is
+  pushed out onto it (never in), so the hair's lumps smooth over, and the normals follow in
+  `beginnormal_vertex`. The hair recedes from the front as it grows, the bald scalp takes the
+  forehead's colour sampled from the scan's own texture (`uForehead`, the UV of the vertex at the
+  brow's top), veins show and darken with `uThrob`. Set it with `rig.setSwell(v)` (it moves the jaw's
+  hinge with the head); `rig.face(out)` is where his eyes are now and `rig.headWidth()` his head's
+  half-width (the head bone doesn't move with the vertices: aim cameras, looks and hands-to-temples
+  with these). Part Three runs it from 0.12 (the lake) through 0.38 to about 0.68. Approved by the
+  user on the second pass ("looks right").
+- `createLightFigure(gltf)`: a scan drawn as the ring's light (Martin at the grave): translucent
+  green, fresnel rim, a trace of the scan's shading so the face reads, the dissolve sweep as its
+  formation, and a depth-only skinned twin (same geometry and skeleton, patched the same way) so
+  only the nearest surface is coloured.
 - `createSinestro(abinGltf)`: Sinestro derived from Abin Sur's scan, matched facially to a comic
   reference the user chose. A shader layer over `patchMaterial`, worked in the bind pose's object
   space from the scan's front profile (chin 1.665, mouth 1.72, nose 1.75–1.79, brow ridge 1.83,
@@ -1061,10 +1147,12 @@ run through its own effects chain (`CHARACTERS` in the script):
 | carol | af_heart | 195 Hz | light EQ and compression |
 | abin | bm_lewis | 90 Hz | breath noise, slower |
 | ring | bf_emma | (unchanged) | band-limited, a metallic comb, a short room |
+| hammond | am_adam | 108 Hz | presence, a little room: soft-spoken, precise |
+| pilot (radio, `phone` band), tech, tech2 | am_onyx, am_liam, am_fenrir | | Part Three's afternoon and the lake |
 | light, dad, kid, tom, landlord | blends and others | | see the script |
 
 `style: 'phone'` lines (the voicemails) also get a telephone band. Loudness is levelled (speech
-RMS -19 dBFS, peaks under -1 dBFS). All 176 lines are 3.5 MB of MP3.
+RMS -19 dBFS, peaks under -1 dBFS). All 234 lines are 4.45 MB of MP3.
 
 - `npm run voices` renders only what changed (text, voice settings or the pipeline, by hash in
   `build.json`); `ONLY=key1,key2`, `WHO=carol,tom`, `FORCE=1`, `SURVEY=1` (median F0 of every
@@ -1141,6 +1229,21 @@ The checks that have worked:
    still playing. Every source edit makes Vite reload all tabs, theirs included.
 
 ## Gotchas (learned the hard way)
+
+- **An IK target function must not return a shared scratch vector.** Both hands to the head, the
+  left target and the right one wrote into the same vector: the animator reads both before it
+  solves either, so both hands went to the same side and the arms crossed over the face. Give each
+  closure its own vectors (`temple()` in `Coast.js`). The same goes for a look-at and a reach.
+- **A prop's bounding box isn't its hull.** Hector stood at a spot 1.5 m from Abin Sur's ship and
+  was inside its broken wing: the close shots came out black. Stand people where someone already
+  stood safely (`ABIN_SPOT`), and check the ship's box before placing anything near it.
+- **Fixed-step tests stall on lines that have clips.** A clip ends on the audio clock, so stepping
+  game time with `engine.advance()` doesn't finish it. Turn voices off in the save first
+  (`Save.setting('voice', false)`, before Continue): setting `voice.enabled` after a line has
+  started leaves that line holding.
+- **A scripted jet must wait for the player.** Its clock ran through the dialogue and the suit-up
+  (voice lengths vary), so by the time the player could fly it had already crashed. Slow its clock
+  while it's off screen (`jetRate`) and start the chase from a known point.
 
 - **A step can work from its own checkpoint and break when played into.** `targets()` took
   `this.swarm` at its first line and built the range (`setupOa()`) on the next. Loaded at `#oa`,
@@ -1321,6 +1424,21 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-11, Part Three's ending) on 5180, fixed-step captures, voices off, synthetic input:
+  Tom's call on the trunk; the lake at 5 AM (the lights, Hector at the hull, the ship's breath, his
+  face on his knees); the take-off from the gap (roll, lift-off, Carol watching, the long-lens
+  flameout with its smoke), the suit-up in the gap; the chase start (camera turned to the jet), the
+  catch (the hand forming, the weight, from below), the carry down to the runway with scripted keys
+  (charge left 22%), the set-down, Carol running out and the two-shot (the mask in close-up);
+  Hector's walk-in down the runway and his lines, the fight (slabs torn up, thrown, a wave hitting
+  Hal, a slab reaching Carol giving the "CAROL!" card), the shell broken by direct hits, the mind
+  attack (pulled to his knees, both hands to his head, the sepia, the F-104 across the sky past the
+  tower), Sinestro's fist, his landing and lines, through to `grave`; the memorial park at dusk
+  (the gate, the stone and its engraving, kneeling, Martin forming in green light, his dissolve).
+  Hector's whole-head swelling in close-up at four levels (front, three-quarter, profile), the full
+  figure, the jaw held open on the moved hinge, and his arrival and fight framing. A clean `vite build`. Played on: `wreck` into
+  `test`, and `catch` into `meetCarolGL`.
+
 - (2026-11-11, the drive's collisions and maneuvers) on 5180, fixed-step, the whole drive from
   `#drive` to the bay with the Phoenix's footprint checked every frame against every parked car
   and every prop's parts below its roof: nothing touches (closest: the kerb 0.79 m, the gate booth
@@ -1441,6 +1559,14 @@ Verified by playing in the browser:
 
 Not verified:
 
+- Part Three's ending with a real mouse and keys, voices on, in real time: the chase and the carry
+  were driven by script (the carry's difficulty, the camera's mouse turn), the Hector fight by
+  direct hits (blocking his throws with a real shield or wall, how hard protecting Carol is), the
+  pacing of every line with its clip (all 58 new lines rendered, none listened to); `catch` played
+  into `hector`; Martin's wave seen frame by frame (only formation and dissolve were captured); the
+  new sounds (jet engine, flameout, strain, psychic, rumble, siren); frame rate at the memorial
+  park (about 120 tablets, 30 cypresses) and with Hector's slabs.
+
 - the new maneuvers at real speed with sound (the engine follows the speed, never heard); the
   front wheels' steering seen close (only in wide shots); the bedroom window's palms are still the
   two-tree model (off the road there, not changed)
@@ -1512,6 +1638,13 @@ Not verified:
   (sergeilihandristov, door in unnamed parts), "Coffee Maker" (Ryan_Nein), "F-104 Starfighter"
   (Mikhail_Zelenov, for the dream). Rejected: "Airport Tower" and the Midwestern apartment
   (no textures), the hangar kit (untextured), the Smart car (wrong era).
+- **Part Four** (agreed 2026-11-11): *Secret Origin*'s second half. Atrocitus (Abin Sur's escaped
+  prisoner: the empty cell Sinestro names), Hal and Sinestro against him on Earth, his ring-draining
+  device and the pocket-dimension recharge (the L key), the excavator, Ysmault; Carol hires Hal back
+  as her pilot and won't date an employee. Atrocitus needs a Tripo model. The Manhunters come later.
+- Part Three's ending: the F22 has no pilot model (the canopy is tinted gold); the Air Force people
+  are voices and sirens; Hector's whole-head swelling was approved by the user (2026-11-11, second pass); Martin's wave is an arm IK
+  sway (no finger bones); Hector knocked flat is a rotated root, not a ragdoll.
 - Part Three: Tom Kalmaku, the landlord and the Air Force people are voices only (no models).
   Carol's face keeps faint highlights at the brows (her scan's normal map). The ring's powers are
   off for the civilian morning (no flying to work). The F22 still carries its "Raptor 01"
@@ -1556,7 +1689,8 @@ src/scenes/                 Bedroom (+ hallway, kitchenette, buildJet; night or 
 src/props/                  Props (downloaded models: load, clone, helpers), Car (makeCar: paint, wheels,
                             the driver's door, seat / pedals / rim / tail points)
 src/enemies/                Drones (training drones: model, spring flight, AI, bolts, breakup), Sinestro
-                            (the sparring opponent: flight, blade, spikes, guard, slam)
+                            (the sparring opponent: flight, blade, spikes, guard, slam), Hammond (Hector
+                            at Ferris: the shell, thrown slabs, psychic waves)
 src/fx/                     Sky, Particles + Fire, Water, Trees, GreenLight, Cloth, Textures, Rift
                             (pocket dimension), EarthMap (continent outlines, city-light density)
 src/story/                  Story (Part One + shared plumbing, the lantern), Corps (Part Two, travel),
@@ -1576,6 +1710,24 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-11: Part Three's ending, from Secret Origin
+- **Story** (`Coast.js`, `lines.js`, `Save.js`): new checkpoints `wreck`, `test`, `catch`, `hector`,
+  `grave` after `after` (which now ends with Tom's call, not the end card); see *What this is*. The
+  user chose comic beats (*Secret Origin*), no yellow weakness, no Jim, Carol rehiring him in Part
+  Four, and made Hector in Tripo.
+- **Hector Hammond**: `assets/raw/Hector.glb` built (`build-assets.mjs` entry), `createHammond`
+  (the swelling head: a second pass scales the whole head, face included, after the user said the
+  first grew only his brain), `enemies/Hammond.js` (the fight), voice `hammond`.
+- **The catch**: `handGeometry` (`Constructs.js`), the jet's flight (`jetAt`), the carry, the set-down;
+  `Ferris.freeJet/parkJet/gear/airBounds`, the height-scaled near plane; `player.boostScale`.
+- **Sinestro on Earth**: the `Sinestro` class dropped into Ferris for a scripted entrance.
+- **The grave**: `Ferris.dusk()`, `Ferris.cemetery()`, the `dusk` sky, `createLightFigure`.
+- **Props** (CC BY, credited): `m35`, `lighttower`, `tombstones`, `cemgate`, `ironfence`, `cypress`,
+  `bench`. Sounds: `jetEngine`, `flameout`, `strain`, `psychic`, `rumble`, `siren`. Voices: `pilot`,
+  `tech`, `tech2`, `hammond`; 58 lines rendered.
+- Verified: see Status (2026-11-11, Part Three's ending). Not verified: a real-input playthrough
+  with sound.
 
 ### 2026-11-11: the drive without collisions, and cars that steer
 - The user: bins on the road the car drove through, parking through other cars, and the car

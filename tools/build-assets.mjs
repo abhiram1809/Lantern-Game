@@ -40,6 +40,9 @@ const MODELS = [
   // Her long hair hides the neck, so the narrowest slice lands at her mouth: the neck is given. She
   // stands in an A-pose (hands at 0.32 H out, the bag at her hip), so the arm axis band is moved in.
   { name: 'carol', src: 'assets/raw/Carol.glb', keepSide: 1, facing: 1, tris: 90000, height: 1.7, rig: { neckMid: 0.86, armLo: 0.13, armTipIn: 0.05, armMinY: 0.6 } },
+  // Hector Hammond (the user's model, 2026-11-11), for the end of Part Three: one figure in a
+  // T-pose, facing +X, lab coat, glasses. His skull swells in the shader (createHammond).
+  { name: 'hammond', src: 'assets/raw/Hector.glb', facing: 1, tris: 90000, height: 1.78 },
 ];
 
 await MeshoptDecoder.ready;

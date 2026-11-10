@@ -26,7 +26,7 @@ const segDist = (x, z, a, b) => {
 };
 
 // Ship placement (nose buried toward the lake, tail toward the furrow).
-const SHIP = { center: new THREE.Vector3(6.2, 0.15, -2.9), axis: new THREE.Vector2(0.79, 0.61).normalize() };
+export const SHIP = { center: new THREE.Vector3(6.2, 0.15, -2.9), axis: new THREE.Vector2(0.79, 0.61).normalize() };
 const N = new THREE.Vector2(-SHIP.axis.y, SHIP.axis.x);
 const ABIN_XZ = new THREE.Vector2(SHIP.center.x + N.x * 1.45 - SHIP.axis.x * 0.8, SHIP.center.z + N.y * 1.45 - SHIP.axis.y * 0.8);
 
@@ -450,7 +450,7 @@ export class CrashSite {
     const wu = this.water.userData;
     wu.uniforms.uTime.value = t;
     this.fires.forEach((f, i) => {
-      f.intensity += (1 - f.intensity) * dt * 0.6;
+      f.intensity += ((this.fireRest ?? 1) - f.intensity) * dt * 0.6; // (fireRest: lower, hours on)
       f.update(dt, t, camera, renderer);
       wu.setLight(i, f.light.position, _fire, f.light.intensity * 0.16);
     });
@@ -462,7 +462,7 @@ export class CrashSite {
       }, { life: 0.9, size: [0.03, 0.01], color: [[4, 3, 1.5, 1], [3, 0.8, 0.2, 0]] });
     }
     this.sparks.update(dt, t, camera, renderer);
-    this.shipGlow.emissiveIntensity = 1.2 + Math.sin(t * 9) * 0.3 + (Math.random() < 0.03 ? -1 : 0);
+    this.shipGlow.emissiveIntensity = 1.2 + Math.sin(t * 9) * 0.3 + (Math.random() < 0.03 ? -1 : 0) + (this.glowBoost ?? 0);
     for (const m of this.hotDebris) m.emissiveIntensity = Math.max(0.08, m.emissiveIntensity - dt * 0.01);
     for (const fn of this.updaters) fn(dt, t);
   }
