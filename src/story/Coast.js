@@ -5,7 +5,8 @@ import { Story } from './Story.js';
 import { Animator } from '../characters/Rig.js';
 import { Locomotion } from '../characters/Mocap.js';
 import { BodyLanguage } from '../characters/BodyLanguage.js';
-import { POSES, still, makePose, blendInto } from '../characters/Poses.js';
+import { POSES, still, makePose, blendInto, copyPose } from '../characters/Poses.js';
+import { solveTwoBone } from '../characters/IK.js';
 import { createCarol, createRing } from '../characters/Characters.js';
 import { Bedroom } from '../scenes/Bedroom.js';
 import { Ferris, CAROL_SPOT, CAR_SPOT, GATE, LOT, FERRIS_PROPS } from '../scenes/Ferris.js';
@@ -33,11 +34,13 @@ const legLengths = (rig) => {
   const w = (n) => rig.bonePosition(n, new THREE.Vector3());
   return [w('thigh_L').distanceTo(w('shin_L')), w('shin_L').distanceTo(w('foot_L'))];
 };
-// At the wheel: low in the bucket seat and leaned back (the roof is low), knees up either side of
-// the column, feet on the pedals. The hands are put on the rim by the arm IK (driveHands).
+// At the wheel: low in the bucket seat and leaned back, knees up either side of the column, feet on
+// the pedals. The car's headroom (0.86 m from cushion to headliner) is less than Hal's sitting height,
+// so he sits sunk and reclined like a tall man in a low coupe: a little more upright and the top of
+// his head came out through the roof. The hands are put on the rim by the arm IK (driveHands).
 function drivingPose(rig, car) {
-  const { seat, pedals } = car.userData, [a, b] = legLengths(rig), hipY = seat.y - 0.04;
-  const p = makePose({ hy: hipY - rig.hipsHeight, sx: -0.34, cx: -0.1, nx: 0.2, kx: 0.18, lLz: 0.12, lRz: -0.05,
+  const { seat, pedals } = car.userData, [a, b] = legLengths(rig), hipY = seat.y - 0.08;
+  const p = makePose({ hy: hipY - rig.hipsHeight, sx: -0.44, cx: -0.1, nx: 0.25, kx: 0.18, lLz: 0.12, lRz: -0.05,
     aL: [0.3, -0.35, 0.85], eL: 0.9, aR: [-0.3, -0.35, 0.85], eR: 0.9 });
   legTo(p, 'L', pedals.y - hipY, pedals.z - seat.z - 0.05, a, b, -0.3);
   return legTo(p, 'R', pedals.y - hipY, pedals.z - seat.z + 0.02, a, b, -0.12);
@@ -60,7 +63,39 @@ function trunkPose(rig, hipY) {
   legTo(p, 'L', -0.4, 0.44, a, b, 0.25);
   return legTo(p, 'R', -0.42, 0.38, a, b, 0.3);
 }
-// blending one held pose into another over a tween
+// A keyed move: each key sets some channels (numbers or arrays) at its time `t`, the others holding
+// their last values; in between they follow monotone cubic curves, so a value held from one key to
+// the next stays put (a planted foot doesn't slide) and nothing overshoots its keys. Returns
+// (t, out) => out with every channel at time t.
+function keyed(keys) {
+  const full = [];
+  for (const key of keys) full.push({ ...full.at(-1), ...key });
+  const T = full.map((key) => key.t), last = T.length - 1;
+  const chans = Object.keys(full[0]).filter((n) => n !== 't').map((name) => {
+    const arr = Array.isArray(full[0][name]);
+    const series = (arr ? full[0][name] : [0]).map((_, j) => {
+      const v = full.map((key) => (arr ? key[name][j] : key[name]));
+      const m = v.map((_, i) => {
+        if (i === 0 || i === last) return 0;
+        const d0 = (v[i] - v[i - 1]) / (T[i] - T[i - 1]), d1 = (v[i + 1] - v[i]) / (T[i + 1] - T[i]);
+        return d0 * d1 <= 0 ? 0 : (2 * d0 * d1) / (d0 + d1);
+      });
+      return { v, m };
+    });
+    return { name, arr, series };
+  });
+  return (t, out = {}) => {
+    let i = 0;
+    while (i < last - 1 && t > T[i + 1]) i++;
+    const h = T[i + 1] - T[i], u = THREE.MathUtils.clamp((t - T[i]) / h, 0, 1), u2 = u * u, u3 = u2 * u;
+    const a = 2 * u3 - 3 * u2 + 1, b = (u3 - 2 * u2 + u) * h, c = 3 * u2 - 2 * u3, d = (u3 - u2) * h;
+    for (const { name, arr, series } of chans) {
+      const val = series.map(({ v, m }) => a * v[i] + b * m[i] + c * v[i + 1] + d * m[i + 1]);
+      if (arr) { const o = (out[name] ??= []); for (let j = 0; j < val.length; j++) o[j] = val[j]; } else out[name] = val[0];
+    }
+    return out;
+  };
+}
 
 // Carol's body language, in her scan's metres (1.7 m; shoulders at ±0.17, 1.29; arms about 0.55 m):
 // her left hand on her hip while she listens, the right one making her points.
@@ -395,7 +430,9 @@ export class Coast extends Story {
     await ui.fade(1, 0.35);
     motor.set(0.6);
     placeCar(town(4.1, -95), Math.PI);
-    f.focus(town(6, -120));
+    // one shadow box over the whole shot, held still (chasing the car swept its edge up the street)
+    f.shadowSpan(85);
+    f.focus(town(6, -125));
     director.cut(town(11.8, -170).setY(1.15), town(4.1, -60).setY(1.0), 38);
     await ui.fade(0, 0.35);
     const look0 = new THREE.Vector3();
@@ -405,8 +442,8 @@ export class Coast extends Story {
       spin(105 / 7 / 60);
       look0.copy(car.position).y += 0.9;
       director.look.lerp(look0, 0.12);
-      f.focus(car.position);
     }, ease.linear);
+    f.shadowSpan();
     // the desert road: a low shot from the verge as he goes by, then the long view
     await ui.fade(1, 0.5);
     motor.set(0.85);
@@ -437,7 +474,8 @@ export class Coast extends Story {
     // the gate, and into the lot
     await ui.fade(1, 0.5);
     placeCar(roadAt(260), Math.PI);
-    f.focus(GATE);
+    f.shadowSpan(80); // the booth by the camera, the road in and the lot, all in one still box
+    f.focus(V(12, 0, 125));
     director.cut(GATE.clone().add(V(-10, 1.7, -14)), roadAt(200).add(V(0, 1, 0)), 40);
     await ui.fade(0, 0.5);
     motor.set(0.4);
@@ -452,9 +490,10 @@ export class Coast extends Story {
       motor.set(0.4 * (1 - e));
       look.copy(car.position).y += 0.8;
       director.look.lerp(look, 0.12);
-      if (k > 0.5) f.focus(car.position);
     }, ease.linear);
     placeCar(CAR_SPOT, Math.PI);
+    f.shadowSpan();
+    f.focus(CAR_SPOT);
     motor.stop(0.4);
     this.motor = null;
     await wait(0.6);
@@ -469,13 +508,15 @@ export class Coast extends Story {
     anim.reach('R', () => car.localToWorld(ud.rim('R', 2)), { pole: V(-0.9, -1, -0.2), rate: 8 });
   }
 
-  // Into the car, the way out run backwards: from his building's door to the car, the door pulled
-  // open by its edge (standing clear of its swing), a step into the opening, sat down sideways onto
-  // the seat, the legs swung in under the wheel, and the door pulled shut by its handle inside.
+  // Into the car the way a driver gets into a low coupe (leg first): from his building's door to the
+  // car, the door pulled open by its edge (standing clear of its swing), then beside the seat facing
+  // the front, a hand up on the roof rail, the right leg lifted in over the sill, ducking under the
+  // rail as he lowers himself in onto the seat (the right hand onto the wheel, the outside foot
+  // pivoting closer), the left leg brought in after him, settled back, and the door pulled shut.
   async getIn(car) {
     const { player, audio, director, ui } = this, ud = car.userData, rig = this.hal, anim = player.animator, o = player.object;
     const local = (x, y, z) => car.localToWorld(V(x, y, z));
-    const f = this.ferrisScene, door = ud.door;
+    const door = ud.door, b = rig.bones;
     ud.openDoor(0);
     this.enterFerris(LOT.clone().add(V(0.4, 0, 13.2)), Math.PI);
     player.autoAnim = true;
@@ -490,41 +531,107 @@ export class Coast extends Story {
     audio.carDoor();
     await tween(0.8, (k) => ud.openDoor(ease.inOut(k)));
     anim.reach('R', null);
-    // into the opening, his back to the seat
-    await player.walkTo(local(1.26, 0, ud.seat.z), player.walkSpeed * 0.7);
-    player.turnTo(car.rotation.y + Math.PI / 2);
-    await wait(0.6);
+    // into the gap between the door and the car, beside the seat, facing the front
+    director.move(local(3.0, 1.55, -2.5), local(0.85, 0.85, -0.2), 2.4, ease.inOut, 40);
+    await player.walkTo(local(1.3, 0, -0.3), player.walkSpeed * 0.7);
+    player.turnTo(car.rotation.y - 0.25);
+    await wait(0.5);
     player.removeFromPhysics();
     this.playerActive = false;
     player.autoAnim = false;
     player.lookAt(null);
+    anim.feet.ground = null;
+    const yaw0 = wrap(o.rotation.y - car.rotation.y);
     car.attach(o);
-    o.rotation.set(0, Math.PI / 2, 0);
+    o.rotation.set(0, yaw0, 0);
     o.position.y = 0;
     player.pivot.quaternion.identity();
-    const C = outPose(rig, car), B = swingPose(rig, car), A = drivingPose(rig, car), st = { k: 0 };
-    // down onto the seat's edge, the head ducked under the roof
-    anim.play(still(C, 0.4), 0.9);
-    const p1 = o.position.clone();
-    await tween(1.0, (k) => o.position.set(p1.x + (ud.seat.x + 0.26 - p1.x) * ease.inOut(k), 0, ud.seat.z), ease.linear);
-    // round on the seat, the legs lifted in over the sill, to the wheel
-    anim.play((out) => (st.k < 0.5 ? blendInto(out, C, B, st.k * 2) : blendInto(out, B, A, st.k * 2 - 1)), 0.2);
-    const p2 = o.position.clone();
-    await tween(1.3, (k) => {
-      st.k = ease.inOut(k);
-      o.rotation.y = (Math.PI / 2) * (1 - ease.inOut(Math.min(1, k * 1.2)));
-      o.position.set(p2.x + (ud.seat.x - p2.x) * ease.inOut(k), 0, ud.seat.z);
+    // where his feet are now, and where they end up at the wheel (pose A, measured on the rig); the
+    // left hand rests on his thigh until it goes for the door
+    const A = makePose({ ...drivingPose(rig, car), aL: [0.16, -0.8, 0.55], eL: 0.55 });
+    const feet = () => ['L', 'R'].map((s) => {
+      const p = car.worldToLocal(b[`foot_${s}`].getWorldPosition(V(0, 0, 0)));
+      const fwd = V(0, 0, 1).applyQuaternion(b[`foot_${s}`].getWorldQuaternion(new THREE.Quaternion())).applyQuaternion(car.quaternion.clone().invert());
+      return { p: p.toArray(), h: Math.atan2(fwd.x, fwd.z), pitch: Math.asin(THREE.MathUtils.clamp(-fwd.y, -1, 1)) };
     });
+    rig.root.updateMatrixWorld(true);
+    const [l0, r0] = feet();
+    const saved = { p: o.position.clone(), y: o.rotation.y };
+    o.position.set(ud.seat.x, 0, ud.seat.z);
+    o.rotation.set(0, 0, 0);
+    rig.apply(A);
+    rig.root.updateMatrixWorld(true);
+    const [lA, rA] = feet();
+    o.position.copy(saved.p);
+    o.rotation.set(0, saved.y, 0);
+    rig.applyQ(anim.states[0].cur);
+    const S = ud.seat, x0 = saved.p.x, z0 = saved.p.z, wheel = ud.rim('R', 12).toArray(), rail = [0.69, 1.2, -0.3];
+    // the move, in the car's frame: p is where he stands (under the pelvis), hy the pelvis height,
+    // fL / fR the ankles (hL / hR their headings, pL / pR toes down), rh the right hand (rw its weight)
+    const move = keyed([
+      { t: 0, p: [x0, z0], yaw: yaw0, hy: rig.hipsHeight, sx: 0.03, sy: 0, sz: 0, cx: 0, nx: 0.06, kx: 0, ky: 0, aL: [0.14, -1, 0.05], eL: 0.2,
+        fL: l0.p, hL: l0.h, pL: l0.pitch, fR: r0.p, hR: r0.h, pR: r0.pitch, ik: 1, rh: rail, rw: 0 },
+      // the weight onto the left leg, a hand up on the roof rail, a look down into the footwell
+      { t: 0.55, p: [x0 + 0.03, z0 + 0.01], hy: 0.85, sx: 0.12, sz: 0.05, nx: 0.16, kx: 0.18, ky: -0.3, rw: 1 },
+      // the right knee up, the foot over the sill
+      { t: 1.1, hy: 0.83, sx: 0.24, sz: 0.12, nx: 0.24, fR: [0.97, 0.5, -0.2], hR: -0.45, pR: 0.15 },
+      // down onto the floor inside, his weight still outside
+      { t: 1.6, p: [x0 - 0.03, z0], hy: 0.78, sx: 0.4, sy: -0.25, sz: 0.12, nx: 0.32, kx: 0.15, ky: -0.2, aL: [0.3, -0.9, 0.25], eL: 0.4, fR: [0.64, 0.36, -0.05], hR: -0.15, pR: 0 },
+      // ducking while still outside (the rail is at 1.2 m), the outside foot pivoting in toward the sill
+      { t: 1.95, p: [x0 - 0.05, z0 - 0.08], hy: 0.66, sx: 0.66, sy: -0.5, sz: 0.2, cx: 0.15, nx: 0.52, kx: 0.32, fL: [l0.p[0] - 0.12, 0.16, l0.p[2] + 0.1], hL: l0.h + 0.35 },
+      // under the rail, his head leaning in toward the middle of the car where the roof is highest,
+      // lowering himself in over the seat's edge; the hand onto the wheel
+      { t: 2.3, p: [0.8, -0.4], yaw: -0.05, hy: 0.58, sx: 0.56, sy: -0.36, sz: 0.42, cx: 0.15, nx: 0.48, kx: 0.28, ky: -0.1, fL: [1.12, 0.09, -0.12], hL: 0.5, pL: 0, fR: [0.55, 0.36, 0.15], hR: -0.05, rh: wheel },
+      // sat on the cushion, turned a little to the door, the left leg still out, still leaning in
+      // (there is no room to sit up straight)
+      { t: 2.9, p: [0.46, -0.36], yaw: 0.15, hy: 0.44, sx: 0.3, sy: -0.05, sz: 0.5, cx: 0.05, nx: 0.34, kx: 0.2, ky: 0.05, aL: [0.12, -0.75, 0.6], eL: 0.7, fR: [0.47, 0.36, 0.25] },
+      // the left knee up and over the sill, leaning back into the seat
+      { t: 3.5, p: [0.42, -0.36], yaw: 0.05, hy: 0.39, sx: -0.2, sy: 0, sz: 0.4, cx: 0, nx: 0.3, kx: 0.22, ky: 0.2, fL: [0.92, 0.52, 0.05], hL: 0.3, pL: 0.2 },
+      // in under the wheel, settled back into the seat
+      { t: 4.1, p: [S.x, S.z], yaw: 0, hy: A.hy + rig.hipsHeight, sx: A.sx, sz: 0, cx: A.cx, nx: A.nx, kx: A.kx, ky: A.ky, aL: A.aL, eL: A.eL, fL: lA.p, hL: lA.h, pL: lA.pitch, fR: rA.p, hR: rA.h, pR: rA.pitch },
+      { t: 4.5, ik: 0 },
+    ]);
+    const k = move(0);
+    let clock = 0;
+    anim.play((out, _t, dt) => {
+      move((clock += dt), k);
+      copyPose(out, A); // A's legs under the IK, and its right arm under the reach
+      out.hy = k.hy - rig.hipsHeight;
+      for (const n of ['sx', 'sy', 'sz', 'cx', 'nx', 'kx', 'ky', 'eL']) out[n] = k[n];
+      for (let i = 0; i < 3; i++) out.aL[i] = k.aL[i];
+      o.position.set(k.p[0], 0, k.p[1]);
+      o.rotation.y = k.yaw;
+      anim.arms.R.weight = k.rw;
+      return out;
+    }, 0.35);
+    anim.reach('R', () => car.localToWorld(_rh.fromArray(k.rh)), { pole: V(-1, -0.3, -0.4), rate: 9 });
+    // the feet on their keyed spots (car frame), flat at their headings, the knees over the feet
+    anim.post = (r) => {
+      if (r !== rig || k.ik < 1e-3) return;
+      for (const s of ['L', 'R']) {
+        const h = k[`h${s}`] + car.rotation.y;
+        solveTwoBone(b[`thigh_${s}`], b[`shin_${s}`], b[`foot_${s}`], car.localToWorld(_rh.fromArray(k[`f${s}`])), _pole.set(Math.sin(h), 0.6, Math.cos(h)), k.ik);
+        _qa.setFromEuler(_eu.set(k[`p${s}`], h, 0, 'YXZ'));
+        b[`shin_${s}`].getWorldQuaternion(_qb);
+        b[`foot_${s}`].quaternion.slerp(_qb.invert().multiply(_qa), k.ik);
+      }
+    };
+    // (out of the player's update now: the body moves only while something runs its animator; the
+    // old version had nothing running it, and he slid into the seat standing bolt upright)
+    const animOff = onFrame((dt) => anim.update(dt));
+    await wait(4.55);
+    anim.post = null;
     anim.play(still(A, 0.6), 0.3);
     // the door pulled shut by its handle
     const handle = V(-0.14, 0.24, -0.86);
     anim.reach('L', () => door.localToWorld(handle.clone()), { pole: V(1, -0.6, -0.4), rate: 6 });
     await wait(0.4);
-    await tween(0.45, (k) => ud.openDoor(1 - ease.in(k)), ease.linear);
+    await tween(0.45, (e) => ud.openDoor(1 - ease.in(e)), ease.linear);
     audio.carDoor();
     anim.reach('L', null);
     await wait(0.3);
     this.driveHands(car, true);
+    animOff(); // the drive runs it from here
   }
 
   // Out of the car, the way people get out of a low coupe: a hand to the door handle and the door
@@ -583,6 +690,11 @@ export class Coast extends Story {
   async ferris() {
     const { player } = this;
     this.addCarol();
+    // the shadow box goes with him (in whole texels), centred a little ahead of him along the view
+    this.ferrisScene.follow = (cam) => {
+      const ahead = _fw.set(0, 0, -1).applyQuaternion(cam.quaternion).setY(0);
+      return ahead.lengthSq() > 1e-4 ? ahead.setLength(15).add(player.position) : ahead.copy(player.position);
+    };
     this.giveControl('Find Carol on the apron, by the prototype');
     let thought = false;
     await waitFor(() => {
@@ -643,6 +755,7 @@ export class Coast extends Story {
     const turn = { from: carol.root.rotation.y, to: Math.atan2(stand.x - CAROL_SPOT.x, stand.z - CAROL_SPOT.z) };
     tween(1.2, (k) => (carol.root.rotation.y = turn.from + wrap(turn.to - turn.from) * ease.inOut(k)));
     player.lookAt(() => carol.bonePosition('head', _h), 0.8);
+    this.ferrisScene.follow = null;
     this.ferrisScene.focus(CAROL_SPOT);
     this.ambience(audio.wind(0.05));
     await this.overHal(2.0);
@@ -745,7 +858,8 @@ export class Coast extends Story {
     await new Promise(() => {});
   }
 }
-const _h = new THREE.Vector3(), _h2 = new THREE.Vector3();
+const _h = new THREE.Vector3(), _h2 = new THREE.Vector3(), _fw = new THREE.Vector3(), _rh = new THREE.Vector3(), _pole = new THREE.Vector3();
+const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _eu = new THREE.Euler();
 
 // Hal's phone (a downloaded model, CREDITS.md) with the morning's lock screen drawn on it. The group
 // lies flat, screen up; its child is the phone itself (long axis +Y, screen +Z), so in the group's

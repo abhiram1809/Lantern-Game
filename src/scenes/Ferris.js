@@ -13,6 +13,7 @@ import { makeCar } from '../props/Car.js';
 // staff lot behind them, the gate, and the access road running south to the highway. Far down the
 // road, out of sight, the lot behind Hal's apartment building, where his car is parked.
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const _d = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
 export const JET_SPOT = V(14, 0, -26); // the prototype on the apron, nose to the east
 export const CAROL_SPOT = V(19.5, 0, -20.5);
 export const CAR_SPOT = V(36, 0, 54); // Hal's space in the staff lot, nose to the north
@@ -41,6 +42,11 @@ const tex = (c, repeat) => {
   if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat); }
   return t;
 };
+// A flat patch of ground (w across x, d along z), cut into tiles no bigger than `tile` metres. One
+// pair of triangles kilometres across loses its depth to float error where it's clipped at the
+// near plane: the desert came up through the asphalt laid 3 cm over it, and swapped with it from
+// frame to frame (the flicker on the roads and lots).
+const flat = (w, d, tile = 25) => new THREE.PlaneGeometry(w, d, Math.ceil(w / tile), Math.ceil(d / tile)).rotateX(-Math.PI / 2);
 
 export class Ferris {
   constructor({ engine }) {
@@ -58,6 +64,7 @@ export class Ferris {
     s.environmentIntensity = 0.4;
     s.userData.exposure = 0.82;
     s.userData.far = 2400;
+    s.userData.near = 0.1; // outdoors, no shot is closer: 3x the depth precision of the default 3 cm
     this.sky = createSky('desert', 1500);
     s.add(this.sky);
     this.buildLight();
@@ -102,12 +109,24 @@ export class Ferris {
     this.focus(V(10, 0, -10));
   }
 
-  // keep the sun's shadow box on the action
+  // Keep the sun's shadow box on the action. The box moves in whole shadow texels across the light:
+  // slid smoothly after a moving car, every shadow in it crawled and shimmered along its edges.
   focus(at) {
-    const d = this.sky.userData.uniforms.uSunDir.value;
-    this.sun.target.position.copy(at);
-    this.sun.position.copy(at).addScaledVector(d, 120);
-    this.sun.target.updateMatrixWorld();
+    const sun = this.sun, cam = sun.shadow.camera, d = _d.copy(this.sky.userData.uniforms.uSunDir.value).normalize();
+    const texel = (cam.right - cam.left) / sun.shadow.mapSize.x;
+    _x.crossVectors(_up, d).normalize(); // the shadow camera's own axes (it looks down -d, up +Y)
+    _y.crossVectors(d, _x);
+    const snap = (v) => Math.round(v / texel) * texel;
+    sun.target.position.copy(_x).multiplyScalar(snap(at.dot(_x))).addScaledVector(_y, snap(at.dot(_y))).addScaledVector(d, at.dot(d));
+    sun.position.copy(sun.target.position).addScaledVector(d, 120);
+    sun.target.updateMatrixWorld();
+  }
+
+  // The shadow box's half-width (45 m by default): wider for a shot whose view is bigger than that,
+  // so the box can stay put instead of chasing the car (softer shadows, none popping in at its edge).
+  shadowSpan(half = 45) {
+    Object.assign(this.sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half });
+    this.sun.shadow.camera.updateProjectionMatrix();
   }
 
   // ------------------------------------------------------------------------------------- ground
@@ -130,8 +149,8 @@ export class Ferris {
         diffuseColor.rgb *= mix(1.0, 0.82, smoothstep(0.6, 0.85, gB));
         diffuseColor.rgb *= 0.9 + 0.12 * gN(vGw * 1.7) + 0.08 * gN(vGw * 9.0);`);
     };
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(16000, 16000).rotateX(-Math.PI / 2), sand);
-    ground.position.set(0, -0.02, 3000);
+    const ground = new THREE.Mesh(flat(16000, 16000, 125), sand);
+    ground.position.set(0, -0.03, 3000);
     ground.receiveShadow = true;
     s.add(ground);
     // (a heightfield, not a box: Hal sank into a box this size as soon as he walked, and stuck)
@@ -151,7 +170,7 @@ export class Ferris {
       const map = canvasTex.clone();
       map.repeat.set((x1 - x0) / 48, (z1 - z0) / 48);
       map.needsUpdate = true;
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0).rotateX(-Math.PI / 2), pbrMaterial('concrete_floor_02', { map, detailRepeat: [(x1 - x0) / 3, (z1 - z0) / 3], roughness: 0.95 }));
+      const m = new THREE.Mesh(flat(x1 - x0, z1 - z0), pbrMaterial('concrete_floor_02', { map, detailRepeat: [(x1 - x0) / 3, (z1 - z0) / 3], roughness: 0.95 }));
       m.position.set((x0 + x1) / 2, 0.005, (z0 + z1) / 2);
       m.receiveShadow = true;
       s.add(m);
@@ -163,7 +182,7 @@ export class Ferris {
     for (let x = -36; x <= 66; x += 3) {
       for (const z of [48, 72]) {
         const l = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 5).rotateX(-Math.PI / 2), paint);
-        l.position.set(x - 1.5, 0.012, z + (z < 60 ? 3 : -3));
+        l.position.set(x - 1.5, 0.02, z + (z < 60 ? 3 : -3));
         s.add(l);
       }
     }
@@ -203,18 +222,18 @@ export class Ferris {
     g.fillStyle = '#e6e2d6';
     for (let y = 0; y < 2048; y += 128) g.fillRect(124, y, 8, 64); // centre line
     g.fillRect(8, 0, 4, 2048); g.fillRect(244, 0, 4, 2048); // edges
-    const runway = new THREE.Mesh(new THREE.PlaneGeometry(45, 1800).rotateX(-Math.PI / 2).rotateY(Math.PI / 2), pbrMaterial('asphalt_02', { map: tex(c), detailRepeat: [15, 600] }));
+    const runway = new THREE.Mesh(new THREE.PlaneGeometry(45, 1800, 2, 72).rotateX(-Math.PI / 2).rotateY(Math.PI / 2), pbrMaterial('asphalt_02', { map: tex(c), detailRepeat: [15, 600] }));
     runway.position.set(0, 0.01, RUNWAY_Z);
     runway.receiveShadow = true;
     s.add(runway);
     // the taxiway joining the apron to the runway, its yellow centre line
     const tz0 = -75, tz1 = RUNWAY_Z + 22.5, tlen = tz0 - tz1;
-    const twy = new THREE.Mesh(new THREE.PlaneGeometry(22, tlen).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x55524d, roughness: 0.9 }));
+    const twy = new THREE.Mesh(flat(22, tlen), new THREE.MeshStandardMaterial({ color: 0x55524d, roughness: 0.9 }));
     twy.position.set(-20, 0.008, (tz0 + tz1) / 2);
     twy.receiveShadow = true;
     s.add(twy);
-    const tl = new THREE.Mesh(new THREE.PlaneGeometry(0.3, tlen).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xd8b23a }));
-    tl.position.set(-20, 0.015, twy.position.z);
+    const tl = new THREE.Mesh(flat(0.3, tlen), new THREE.MeshBasicMaterial({ color: 0xd8b23a }));
+    tl.position.set(-20, 0.022, twy.position.z);
     s.add(tl);
     // runway edge lights
     const lightGeo = new THREE.CylinderGeometry(0.12, 0.15, 0.4, 8);
@@ -260,7 +279,7 @@ export class Ferris {
         add(new THREE.BoxGeometry(10, h - 3.4, 0.25), wallMat(10 / 7, 1), sx * (w / 2 - 5.6), (h - 3.4) / 2, 0.9);
       }
       // inside: a dark interior, a polished floor, roof trusses
-      add(new THREE.PlaneGeometry(w - 0.4, d).rotateX(-Math.PI / 2), floorMat, 0, 0.02, d / 2);
+      add(flat(w - 0.4, d), floorMat, 0, 0.02, d / 2);
       add(new THREE.BoxGeometry(w - 1, h - 0.5, 0.1), dark, 0, h / 2, d - 0.3);
       for (let z = 3; z < d; z += 5) add(new THREE.BoxGeometry(w - 1, 0.5, 0.3), trim, 0, h - 0.6, z);
       // the name, and the hangar's number
@@ -373,7 +392,7 @@ export class Ferris {
     roadTex.wrapT = THREE.RepeatWrapping;
     const len = LOT.z - 14 - 80; // to the north edge of the apartment lot
     roadTex.repeat.set(1, len / 40);
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(8, len).rotateX(-Math.PI / 2), pbrMaterial('asphalt_02', { map: roadTex, detailRepeat: [2.7, len / 3] }));
+    const road = new THREE.Mesh(flat(8, len), pbrMaterial('asphalt_02', { map: roadTex, detailRepeat: [2.7, len / 3] }));
     road.position.set(6, 0.012, 80 + len / 2);
     road.receiveShadow = true;
     s.add(road);
@@ -414,7 +433,8 @@ export class Ferris {
     const wire = tex(wc);
     wire.wrapS = wire.wrapT = THREE.RepeatWrapping;
     for (const [x0, x1] of [[-170, GATE.x - 8], [GATE.x + 6, 170]]) {
-      const mat = new THREE.MeshStandardMaterial({ map: wire.clone(), metalness: 0.6, roughness: 0.45, transparent: true, alphaTest: 0.25, side: THREE.DoubleSide });
+      // (alpha to coverage: the wire's cut-out edges are smoothed by the MSAA instead of crawling)
+      const mat = new THREE.MeshStandardMaterial({ map: wire.clone(), metalness: 0.6, roughness: 0.45, alphaTest: 0.25, alphaToCoverage: true, side: THREE.DoubleSide });
       mat.map.repeat.set((x1 - x0) / 0.12, 2.2 / 0.12);
       mat.map.needsUpdate = true;
       const f = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, 2.2), mat);
@@ -501,12 +521,12 @@ export class Ferris {
     block.rotation.y = Math.PI;
     g.add(block);
     // asphalt, bays, a dumpster, palms
-    const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(60, 30).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: noiseTexture({ base: '#4f4c48', spots: 1600, spread: 12, alpha: 0.07, repeat: [8, 4], fine: 0.2 }), roughness: 0.95 }));
+    const asphalt = new THREE.Mesh(flat(60, 30), new THREE.MeshStandardMaterial({ map: noiseTexture({ base: '#4f4c48', spots: 1600, spread: 12, alpha: 0.07, repeat: [8, 4], fine: 0.2 }), roughness: 0.95 }));
     asphalt.position.set(0, 0.015, -2);
     asphalt.receiveShadow = true;
     g.add(asphalt);
     const paint = new THREE.MeshBasicMaterial({ color: 0xdcd6c8 });
-    for (let x = -18; x <= 18; x += 3.2) { const l = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 5).rotateX(-Math.PI / 2), paint); l.position.set(x, 0.02, 5); g.add(l); }
+    for (let x = -18; x <= 18; x += 3.2) { const l = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 5).rotateX(-Math.PI / 2), paint); l.position.set(x, 0.027, 5); g.add(l); }
     const bin = new THREE.Mesh(new RoundedBoxGeometry(2.2, 1.4, 1.4, 2, 0.06), new THREE.MeshStandardMaterial({ color: 0x2f5a3a, roughness: 0.6, metalness: 0.4 }));
     bin.position.set(-24, 0.7, 9);
     bin.castShadow = bin.receiveShadow = true;
@@ -539,7 +559,7 @@ export class Ferris {
     const len = B.z0 - B.z1;
     // pavements, kerbs, the cross street
     const pave = (x0, x1, z0, z1) => {
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z0 - z1).rotateX(-Math.PI / 2), pbrMaterial('concrete_floor_02', { repeat: [(x1 - x0) / 3, (z0 - z1) / 3], tint: new THREE.Color(1.12, 1.08, 1.03) }));
+      const m = new THREE.Mesh(flat(x1 - x0, z0 - z1), pbrMaterial('concrete_floor_02', { repeat: [(x1 - x0) / 3, (z0 - z1) / 3], tint: new THREE.Color(1.12, 1.08, 1.03) }));
       m.position.set((x0 + x1) / 2, 0.14, (z0 + z1) / 2);
       m.receiveShadow = true;
       g.add(m);
@@ -554,12 +574,12 @@ export class Ferris {
       k.position.set(x, 0.075, (z0 + z1) / 2);
       g.add(k);
     }
-    const cross = new THREE.Mesh(new THREE.PlaneGeometry(320, 12).rotateX(-Math.PI / 2), pbrMaterial('asphalt_02', { repeat: [60, 2.2] }));
-    cross.position.set(6, 0.011, B.cross);
+    const cross = new THREE.Mesh(flat(320, 12), pbrMaterial('asphalt_02', { repeat: [60, 2.2] }));
+    cross.position.set(6, 0.02, B.cross); // over the boulevard (it was 1 mm under it, and fought it)
     cross.receiveShadow = true;
     g.add(cross);
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, len + 520).rotateX(-Math.PI / 2), pbrMaterial('asphalt_02', { repeat: [70, 160], tint: new THREE.Color(0.85, 0.83, 0.8) }));
-    ground.position.set(6, 0.004, (B.z0 + B.z1) / 2 + 120);
+    const ground = new THREE.Mesh(flat(420, len + 520), pbrMaterial('asphalt_02', { repeat: [70, 160], tint: new THREE.Color(0.85, 0.83, 0.8) }));
+    ground.position.set(6, 0, (B.z0 + B.z1) / 2 + 120);
     ground.receiveShadow = true;
     g.add(ground);
     // the blocks: fronts to the street, a few metres of plaza between them
@@ -635,6 +655,7 @@ export class Ferris {
     this.physics.step(dt);
     this.sky.position.copy(camera.position); // the dome goes with the camera (the lot is 6 km away)
     this.sky.userData.uniforms.uTime.value = t;
+    if (this.follow) this.focus(this.follow(camera));
     this.exhaust.update(dt, t, camera, renderer);
     if (this.beacon) this.beacon.visible = Math.sin(t * 3) > 0;
     for (const fn of this.updaters) fn(dt, t);

@@ -81,6 +81,9 @@ function prepare(root) {
   root.traverse((o) => {
     if (!o.isMesh) return;
     const mats = Array.isArray(o.material) ? o.material : [o.material];
+    // leaves exported as blended (sorted per object, no depth: the palms popped in front of each
+    // other as the car went by) are cut-outs instead, their edges smoothed by the MSAA
+    for (const m of mats) if (m.transparent && m.map && /frond|leaf|leaves|foliage/i.test(m.name)) Object.assign(m, { transparent: false, depthWrite: true, alphaTest: 0.5, alphaToCoverage: true });
     const clear = mats.some((m) => m.transparent);
     o.castShadow = !clear;
     o.receiveShadow = true;

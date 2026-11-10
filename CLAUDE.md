@@ -94,8 +94,11 @@ Part Three so far (`src/story/Coast.js`), a civilian morning (the ring stays on,
    plays four voicemails on speaker (the landlord Sal Delgado, Tom Kalmaku twice, Carol). Free
    roam: the fridge (the downloaded one; it opens), the bills, the photo, the window, a rent notice
    under the front door; leave by the front door.
-2. **Running late** (`scenes/Ferris.js`): out of his building's door to his car (`getIn`: the door
-   pulled open by its edge, sat down sideways, legs swung in, the door pulled shut); the car (the
+2. **Running late** (`scenes/Ferris.js`): out of his building's door to his car (`getIn`, the way
+   a driver gets into a low coupe, leg first: the door pulled open by its edge, beside the seat
+   facing the front, the right hand up on the roof rail, the right leg lifted in over the sill,
+   ducking under the rail as he lowers himself onto the seat, the hand onto the wheel, the outside
+   foot pivoting closer, the left leg brought in, settled back, the door pulled shut); the car (the
    downloaded '71 Phoenix, `makeCar`) takes three tries to start; out through Coast City (the
    boulevard, from the kerb); the desert road; the gate; the staff lot; out of the car (`getOut`:
    a hand to the handle, the door pushed open, a turn in the seat, feet out over the sill, up, out
@@ -108,8 +111,15 @@ Part Three so far (`src/story/Coast.js`), a civilian morning (the ring stays on,
 Seated poses in Coast are solved for the seat, not guessed: `legTo(pose, side, dy, dz, thigh,
 shin, toe)` is two-bone IK in the leg's plane from the hip joint to an ankle target, and
 `drivingPose`, `swingPose`, `outPose` and `trunkPose` use it with the car's measured points. At the
-wheel Hal is reclined 0.34 (the roof is low) and his hands are on the rim by arm IK
-(`driveHands`). The phone (`buildPhone`, the downloaded iPhone with its logo removed and the
+wheel Hal sits sunk 8 cm under the seat point and reclined 0.44, his hands on the rim by arm IK
+(`driveHands`): the Phoenix's headroom (0.86 m from cushion to headliner) is less than his sitting
+height, and at the old 0.34 the top of his head came out through the roof. Getting in is a keyed
+move (`keyed(keys)`: channels such as the stance under the pelvis, pelvis height, spine and neck,
+ankle targets, a hand target, with monotone cubic easing so held values stay put): the feet are
+solved by two-bone IK to their keyed spots in the car's frame in `animator.post`, and the move
+ends exactly on `drivingPose` (its ankles measured on the rig first). Measured on the car (its own
+frame): body side x 0.95, floor 0.27 out to x 0.85 (the sill is low), door opening z -0.7 to 0.6,
+roof rail about 1.22 m up at x 0.68, headliner 1.27 to 1.30. The phone (`buildPhone`, the downloaded iPhone with its logo removed and the
 morning's lock screen drawn on its screen mesh, double-sided) is held by `holdInHand`: parented to
 `hand_L`, eased onto `rig.palm('L')`, and the wrist turned in `animator.post` so the screen faces
 his eyes.
@@ -553,7 +563,11 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
   crossing with a cross street, a bus shelter, a billboard, two cars at the lights). Hal's car is `makeCar('phoenix',
   { primer: true })` (see *Props*). Everything the scene places from the props is listed in
   `FERRIS_PROPS`, which `Coast.prepare` loads first. `focus(at)` moves the sun's shadow box onto the
-  action; the sky dome follows the camera.
+  action in whole shadow texels across the light (so still shadows don't crawl as it follows the
+  car); `shadowSpan(half)` widens it for a shot that holds one box still (the boulevard, the gate);
+  `follow` (a function of the camera) keeps it on Hal while he walks to Carol. Ground patches are
+  `flat(w, d, tile)`, cut into tiles of 25 m or so (the desert 125 m), and the scene's near plane is
+  0.1 (see Gotchas: the flicker). The sky dome follows the camera.
 
 ### Props (`src/props/`, `tools/build-props.mjs`)
 
@@ -576,7 +590,8 @@ Downloaded models (CC BY 4.0, Sketchfab by way of Objaverse; `CREDITS.md`). How 
 At runtime `loadProps(names)` (`Props.js`) loads a set once; `prop(name, { ownMaterials })` hands
 out clones. Loading also floors every material's roughness (0.12 glass, 0.2 the rest) and dims
 glass reflections: Sketchfab exports are often mirror-smooth, and under the sun they bloomed into
-white lines. `meshes(root, test)`, `boundsIn(space, list)`, `pivot(space, list, at)` (re-parent
+white lines. Leaves exported as blended (the palms' fronds) become cut-outs with alpha to coverage
+(smoothed by the MSAA), so they keep their order instead of popping. `meshes(root, test)`, `boundsIn(space, list)`, `pivot(space, list, at)` (re-parent
 parts under a hinge or hub) and `piece(name, test)` (one part of a kit as its own object, standing
 at its origin: `KIT` in `Ferris.js` names the street kit's parts) are the helpers; `hasProp(name)`
 says whether one is loaded (scenes shared with Part One fall back to their built versions).
@@ -1114,6 +1129,26 @@ The checks that have worked:
   ran, and `swarm.clear()` at its end threw: live fire never started (the user: "it does not link
   to the more difficult one"). Read what a step builds only after building it, and test each step
   played on from the one before, not just from its hash.
+- **A ground plane made of two huge triangles z-fights with whatever is laid over it.** Where the
+  near plane (3 cm) clips a triangle kilometres across, its depth comes out centimetres wrong: on
+  the drive, the 16 km desert came up through the asphalt 3 cm above it and swapped with it from
+  frame to frame (the user: the flickering "where the car is traveling on road, where Hal is
+  going to his car, where Hal is going to Carol"). Cut big planes into tiles (`flat()` in
+  `Ferris.js`), and give outdoor scenes a bigger near plane (Ferris 0.1). Tiling alone fixed it,
+  even at 3 cm. Two layers 1 mm apart (the cross street under the boulevard) fight at any near.
+  The test: render the same frame twice with the camera moved 0.5 mm and count changed pixels;
+  z-fighting flips whole areas (41% of the lot), stable ground changes almost none (0.01%).
+- **A shadow box that follows something smoothly makes every shadow crawl.** Move it in whole
+  shadow-map texels across the light (`Ferris.focus`), or hold it still for a shot.
+- **A scripted move out of the player's update needs something to run the animator.** Once
+  `playerActive` is false, nothing calls `player.animator.update`: the old `getIn` slid a frozen,
+  standing Hal into the seat (the user: "like a standing cylinder"). Run it with `onFrame` for the
+  length of the move.
+- **Hal is too tall for the Phoenix as modelled.** Its headroom (0.86 m) is less than his sitting
+  height, so the old driving pose put the top of his head through the roof, and any upright
+  moment inside the car does the same. He sits sunk and reclined, and gets in with his head leaning
+  toward the middle of the car, where the roof is highest. Check head clearance with a crown point
+  (head bone plus 0.22 m along its up axis, 1.832 standing) against an upward ray to the roof.
 - **A canvas with a transparent background makes a bad emissive map.** WebGL uploads it
   un-premultiplied, so every texel a line's anti-aliasing touched glows at full strength: lines a
   texel or two wide come out hard, stair-stepped, and crawl as the camera moves (the user: "the
@@ -1255,6 +1290,16 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-10, Coast City flicker, getting into the car) on 5180, fixed-step captures, voices off:
+  frame pairs 0.5 mm apart in every shot of the drive (the lot, the boulevard twice, the desert
+  verge, the long view, the gate twice), the walk from the car past the hangars to the apron, and
+  the bedroom window's street view: 0.00 to 0.08% of pixels change (the lot was 41% before, the
+  desert showing through its asphalt). Getting in frame by frame from the game camera, the side,
+  the front, and close-ups of the feet and head: the foot over the sill, the outside foot planted
+  then pivoting, the head under the rail (a crown check against the roof every frame: at most a
+  brush of the headliner), sitting, the left leg in, ending on the driving pose. The driving pose
+  from the side and through the windscreen (the head under the roof; it came through before), the
+  starter shot, and getting out from the new pose. No console errors; a clean `vite build`.
 - (2026-11-10, range fixes) on 5180, voices on: from `#voyage` through the flight, the landing,
   Kilowog's intro and the targets drill into `livefire`, the gatling learned and "Survive the
   live-fire drill" up (it stopped dead after the drill before); the targets ended both with direct
@@ -1355,6 +1400,9 @@ Verified by playing in the browser:
 
 Not verified:
 
+- the drive and the car entry in real time at full frame rate (fixed-step captures only); the
+  palms as cut-outs in every shot (seen from the window and the boulevard); shadows at the gate and
+  on the boulevard with the wider boxes (softer, not compared side by side)
 - the deck at full frame rate with a real mouse (the captures were fixed-step, the pane hidden);
   the hall's dais emblem from the range with its new polygon offset (not captured)
 - listening to the voices (the lines worth checking by ear: "Ow. Noted.", "Hm. Quick.", the
@@ -1422,8 +1470,9 @@ Not verified:
   (no textures), the hangar kit (untextured), the Smart car (wrong era).
 - Part Three: Tom Kalmaku, the landlord and the Air Force people are voices only (no models).
   Carol's face keeps faint highlights at the brows (her scan's normal map). The ring's powers are
-  off for the civilian morning (no flying to work). Hal starts the drive already in the car (no
-  getting in). The F22 still carries its "Raptor 01" markings.
+  off for the civilian morning (no flying to work). The F22 still carries its "Raptor 01"
+  markings. The Phoenix is small for Hal (see Gotchas); a car scaled up a few per cent would let
+  him sit less sunk, but `makeCar`'s seat and pedal points are in metres and would need re-measuring.
 - The Guardians all share one face (Abin Sur's); their hands only come out for `decree`.
 - Sinestro's front view could still improve (the user's note); his face shape is Abin Sur's skull
   narrowed, his hair is painted volume with no loose strands, and a faint seam can show on the
@@ -1483,6 +1532,23 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-10: Coast City's flickering ground, and getting into the car
+- **The flicker on the roads and lots** (the user: "where the car is traveling on road, where Hal
+  is going to his car, where Hal is going to Carol"): ground planes of two triangles kilometres
+  across lost their depth at the near plane, and the desert swapped with the asphalt over it
+  (see Gotchas). `Ferris.js`: ground cut into tiles (`flat()`), near plane 0.1, the cross street
+  lifted off the boulevard (1 mm apart), the painted lines higher; `Bedroom.js`'s street view
+  tiled the same way. Also: the sun's shadow box moves in whole texels (`focus`), holds still in
+  the boulevard and gate shots (`shadowSpan`) and follows Hal on foot (`follow`, `Coast.ferris`);
+  the palms' fronds and the gate's fence are cut-outs with alpha to coverage (`Props.js`).
+- **Getting into the car** (the user: "comedic... like a standing cylinder"): nothing ran the
+  animator once Hal left the player's update, so the old `getIn` slid his frozen standing body
+  into the seat. Rewritten as a keyed leg-first entry (`keyed()`, leg IK in `animator.post`,
+  `Coast.getIn`); see *What this is* and the seated poses note. The driving pose sits lower and
+  more reclined: his head was through the roof.
+- Verified: see Status (2026-11-10, Coast City flicker...). Not verified: real time at full frame
+  rate, a real-input playthrough.
 
 ### 2026-11-10: the range's flickering floor, and live fire after the targets
 - **The targets drill never led on to live fire** when played on from the voyage (`Corps.targets`

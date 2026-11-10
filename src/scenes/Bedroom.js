@@ -598,13 +598,15 @@ export class Bedroom {
   buildStreetView() {
     const s = this.scene, y0 = -3.4;
     const put = (o, x, z, yaw = 0, sc = 1) => { o.position.set(x, y0, z); o.rotation.y = yaw; o.scale.setScalar(sc); s.add(o); return o; };
-    const plane = (w, d, x, z, mat, y = 0) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2), mat); m.position.set(x, y0 + y, z); m.receiveShadow = true; s.add(m); };
+    // (cut into 25 m tiles: as two triangles, the 600 m ground lost its depth where the near plane
+    // clipped it and fought the street laid over it)
+    const plane = (w, d, x, z, mat, y = 0) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d, Math.ceil(w / 25), Math.ceil(d / 25)).rotateX(-Math.PI / 2), mat); m.position.set(x, y0 + y, z); m.receiveShadow = true; s.add(m); };
     plane(5, 300, 5.2, 0, pbrMaterial('concrete_floor_02', { repeat: [1.7, 100], tint: new THREE.Color(1.12, 1.08, 1.03) }), 0.14);
     plane(14, 300, 14.7, 0, pbrMaterial('asphalt_02', { repeat: [4.7, 100] }));
     plane(5, 300, 24.2, 0, pbrMaterial('concrete_floor_02', { repeat: [1.7, 100], tint: new THREE.Color(1.12, 1.08, 1.03) }), 0.14);
-    plane(600, 600, 300, 0, pbrMaterial('asphalt_02', { repeat: [120, 120], tint: new THREE.Color(0.8, 0.78, 0.75) }), -0.02);
-    const line = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 300).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xd9b23e }));
-    line.position.set(14.7, y0 + 0.01, 0);
+    plane(600, 600, 300, 0, pbrMaterial('asphalt_02', { repeat: [120, 120], tint: new THREE.Color(0.8, 0.78, 0.75) }), -0.05);
+    const line = new THREE.Mesh(new THREE.PlaneGeometry(0.15, 300, 1, 12).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xd9b23e }));
+    line.position.set(14.7, y0 + 0.02, 0);
     s.add(line);
     let z = 60;
     for (const name of ['office5', 'office2', 'office4', 'office5', 'office1']) {
