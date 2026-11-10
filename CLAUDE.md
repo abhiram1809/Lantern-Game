@@ -99,8 +99,10 @@ Part Three so far (`src/story/Coast.js`), a civilian morning (the ring stays on,
    facing the front, the right hand up on the roof rail, the right leg lifted in over the sill,
    ducking under the rail as he lowers himself onto the seat, the hand onto the wheel, the outside
    foot pivoting closer, the left leg brought in, settled back, the door pulled shut); the car (the
-   downloaded '71 Phoenix, `makeCar`) takes three tries to start; out through Coast City (the
-   boulevard, from the kerb); the desert road; the gate; the staff lot; out of the car (`getOut`:
+   downloaded '71 Phoenix, `makeCar`) takes three tries to start; backed out of its bay with the tail
+   swung round, a stop, forward round onto the road; out through Coast City (the boulevard, from the
+   kerb); the desert road; the gate (braking for it); round into the staff lot's aisle and nose first
+   into his bay; out of the car (`getOut`:
    a hand to the handle, the door pushed open, a turn in the seat, feet out over the sill, up, out
    past the door's tip, the door pulled shut by its edge).
 3. **Ferris Aircraft:** on foot between the hangars to the apron, where the prototype stands.
@@ -560,7 +562,9 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
   **Coast City** (`buildCity`): office blocks ringing the lot, downtown's towers behind his
   building, and the boulevard out of town (`BOULEVARD`, in the lot's frame: blocks fronting the
   street on both sides, kerbs and pavements, palms and street lamps from the kit, a signalled
-  crossing with a cross street, a bus shelter, a billboard, two cars at the lights). Hal's car is `makeCar('phoenix',
+  crossing with a cross street, a bus shelter, a billboard, two cars at the lights; the bins on the
+pavement, the palms stood tree by tree on their trunks, `PALMS`, and every kit piece on its own base,
+`piece(..., { root: true })`). Hal's car is `makeCar('phoenix',
   { primer: true })` (see *Props*). Everything the scene places from the props is listed in
   `FERRIS_PROPS`, which `Coast.prepare` loads first. `focus(at)` moves the sun's shadow box onto the
   action in whole shadow texels across the light (so still shadows don't crawl as it follows the
@@ -592,8 +596,10 @@ out clones. Loading also floors every material's roughness (0.12 glass, 0.2 the 
 glass reflections: Sketchfab exports are often mirror-smooth, and under the sun they bloomed into
 white lines. Leaves exported as blended (the palms' fronds) become cut-outs with alpha to coverage
 (smoothed by the MSAA), so they keep their order instead of popping. `meshes(root, test)`, `boundsIn(space, list)`, `pivot(space, list, at)` (re-parent
-parts under a hinge or hub) and `piece(name, test)` (one part of a kit as its own object, standing
-at its origin: `KIT` in `Ferris.js` names the street kit's parts) are the helpers; `hasProp(name)`
+parts under a hinge or hub) and `piece(name, test, { root })` (one part of a kit as its own object,
+standing at its origin: `KIT` in `Ferris.js` names the street kit's parts; `root` centres it on what
+touches the ground rather than its bounds, so a leaning palm or a signal's overhanging arm doesn't
+push its base out) are the helpers; `hasProp(name)`
 says whether one is loaded (scenes shared with Part One fall back to their built versions).
 
 `Car.js` `makeCar(name, { paint, primer, dust })` dresses one of the cars: the paint material
@@ -602,7 +608,20 @@ maps), lamp lenses dimmed, wheels on pivots at their hubs (`userData.wheels`, sp
 `rotation.x`), the driver's door (front left, +X) on a hinge (`openDoor(k)`, 1.15 rad), and for the
 driver (measured on the Phoenix: cushion 0.44, floor 0.27, roof 1.3, wheel centre 0.37/0.78/0.11,
 its face tilted 31°): `seat` (the hip joints), `pedals` (the ankles), `rim(side, hour)` (wrist
-targets on the steering wheel), `tail` (the trunk lid's back edge), `exhaust`.
+targets on the steering wheel), `tail` (the trunk lid's back edge), `exhaust`, `axle` (`rear`, the
+rear hub's z, and `base`, the wheelbase: Phoenix -1.22 and 2.77) and `front` (the front wheels,
+steered about their upright).
+
+Cars drive the way cars move (`Car.js`): `planDrive(car, { at, yaw, legs })` takes legs of
+straights and arcs (`{ len, k }`, k the curvature, positive turning left) for the **rear axle**, the
+body always along its heading, backing up when a leg's `dir` is -1 (a new leg for each change of
+direction: the car stops between them); the path is smoothed over about 2 m so the steering winds
+on and off, and each leg gets `pose(s)`. `timeLeg(leg, { limit, v0, v1, accel, brake })` is its
+speed profile (`[s, speed]` limits, acceleration and braking caps) with `s(t)` and `time(s)`;
+`rollCar(car, leg, s, last)` places the car, turns the wheels through the distance and steers the
+front ones (`atan(base·k)`); `Coast.roll()` plays part of a leg. Plan a maneuver in the car's
+rear-axle terms, worked back from where it must end, and check it against everything near it: the
+car's footprint against parked cars' boxes and the low vertices of props, frame by frame.
 
 ### Drones (`src/enemies/Drones.js`)
 
@@ -1129,6 +1148,18 @@ The checks that have worked:
   ran, and `swarm.clear()` at its end threw: live fire never started (the user: "it does not link
   to the more difficult one"). Read what a step builds only after building it, and test each step
   played on from the one before, not just from its hash.
+- **A car tweened by position and heading separately slides and snaps.** Backing out, the old drive
+  moved the Phoenix straight back while turning it (it slid sideways), then a Catmull-Rom path took
+  over with its own tangent and the car swung about 160° in a frame (the user: "the car
+  automatically shifts to some other direction rather than going turn by turn"); the curve into
+  the staff lot ran through parked cars. Drive cars as cars (`planDrive`: the rear axle on arcs,
+  the body along its heading, a stop between forward and reverse) and check the footprint against
+  everything near the path.
+- **A downloaded prop isn't always one thing standing on its origin.** The palms model is two trees
+  3.5 m apart, so a pair turned at random put one on the road; a traffic light's bounds include its
+  arm, so centring it on them stood the pole 0.8 m out in the road. The bins were placed with the
+  kerb offset's sign flipped, on the road. Look at a prop's parts and its ground contact before
+  placing it (`piece(..., { root: true })`).
 - **A ground plane made of two huge triangles z-fights with whatever is laid over it.** Where the
   near plane (3 cm) clips a triangle kilometres across, its depth comes out centimetres wrong: on
   the drive, the 16 km desert came up through the asphalt 3 cm above it and swapped with it from
@@ -1290,6 +1321,16 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-11, the drive's collisions and maneuvers) on 5180, fixed-step, the whole drive from
+  `#drive` to the bay with the Phoenix's footprint checked every frame against every parked car
+  and every prop's parts below its roof: nothing touches (closest: the kerb 0.79 m, the gate booth
+  1.09 m, parked cars 2.6 m; before, the staff lot's path ran 0.64 m into a parked car, and bins
+  stood in the lane). The heading never jumps (at most 0.03 rad a frame) and only the body's centre
+  slips, as a car's does (the rear axle doesn't). Captures: backing out (tail round, the stop, round
+  onto the road), the gate from the new camera (the car passing it, no booth in the way), the staff
+  lot from above his bay (off the road, along the aisle, nose first in), the crossing's signals and
+  the single palms. No console errors; a clean `vite build`.
+
 - (2026-11-10, Coast City flicker, getting into the car) on 5180, fixed-step captures, voices off:
   frame pairs 0.5 mm apart in every shot of the drive (the lot, the boulevard twice, the desert
   verge, the long view, the gate twice), the walk from the car past the hangars to the apron, and
@@ -1400,6 +1441,9 @@ Verified by playing in the browser:
 
 Not verified:
 
+- the new maneuvers at real speed with sound (the engine follows the speed, never heard); the
+  front wheels' steering seen close (only in wide shots); the bedroom window's palms are still the
+  two-tree model (off the road there, not changed)
 - the drive and the car entry in real time at full frame rate (fixed-step captures only); the
   palms as cut-outs in every shot (seen from the window and the boulevard); shadows at the gate and
   on the boulevard with the wider boxes (softer, not compared side by side)
@@ -1532,6 +1576,20 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-11: the drive without collisions, and cars that steer
+- The user: bins on the road the car drove through, parking through other cars, and the car
+  swinging to a new direction instead of turning. Fixed:
+  - `Car.js`: `planDrive`, `timeLeg`, `rollCar`; `axle` and steered `front` wheels in `makeCar`.
+  - `Coast.drive`: backing out of the bay (1 m back, 1.7 rad on 5.2 m, straightened), a stop,
+    forward round onto the boulevard's lane; at Ferris, braking for the gate and round into the
+    staff lot's aisle, nose first into the bay, with `Coast.roll()`. New cameras: the gate's moved
+    clear of the booth, the lot shot from above the bay, and the back-out a cut (the old crane move
+    passed through the car).
+  - `Ferris.js`: the bins on the pavement; the palms one tree at a time on their trunks (`PALMS`);
+    the street kit on its own bases (`piece` `root`, `Props.js`); the staff lot's car at x 6 moved to
+    x 15 to clear the aisle's mouth.
+- Verified: see Status (2026-11-11). Not verified: real time with sound.
 
 ### 2026-11-10: Coast City's flickering ground, and getting into the car
 - **The flicker on the roads and lots** (the user: "where the car is traveling on road, where Hal

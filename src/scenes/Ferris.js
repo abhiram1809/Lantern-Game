@@ -30,6 +30,7 @@ export const KIT = {
   mast: /low_poly_metal_street_props_0$/, signal: /low_poly011_/, lamp: /low_poly012_/, sign: /low_poly008_/, stop: /low_poly005_/,
   hydrant: /low_poly002_/, bin: /low_poly001_/, can: /low_poly007_/, dumpster: /low_poly006_/,
 };
+const PALMS = [/^Palm_tree_001/, /^Palm_tree_002/]; // the two trees in the palms model
 export const BOULEVARD = { x0: 2, x1: 10, z0: -24, z1: -440, cross: -210 }; // in the lot's frame (LOT): the road out of town
 
 let seed = 7;
@@ -502,10 +503,11 @@ export class Ferris {
     }
   }
 
-  // The staff lot behind the hangars: the day shift's cars nose to the hangars, in the painted bays.
+  // The staff lot behind the hangars: the day shift's cars nose to the hangars, in the painted bays,
+  // the mouth of the aisle off the road left clear (Hal drives in that way: Coast.drive).
   buildStaffLot() {
     const cars = [[18, 51, 'negotiator', 0x8f8a80], [24, 51, 'fairheaven', 0xb9b2a1], [30, 51, 'sialia', 0x3b5b74], [45, 51, 'fairheaven_sw', 0x5b6f52],
-      [51, 51, 'negotiator', 0x2c2f35], [6, 69, 'fairheaven', 0x7a1f1c], [27, 69, 'fairheaven_sw', 0xc8c2b2], [39, 69, 'sialia', 0xd6d0c0], [57, 69, 'fairheaven', 0x354c66]];
+      [51, 51, 'negotiator', 0x2c2f35], [15, 69, 'fairheaven', 0x7a1f1c], [27, 69, 'fairheaven_sw', 0xc8c2b2], [39, 69, 'sialia', 0xd6d0c0], [57, 69, 'fairheaven', 0x354c66]];
     for (const [x, z, name, paint] of cars) this.park(name, V(x, 0, z), (z < 60 ? Math.PI : 0) + (rnd() - 0.5) * 0.05, paint);
   }
 
@@ -604,16 +606,22 @@ export class Ferris {
       if (Math.abs(z - B.cross) < 12) continue;
       for (const side of [-1, 1]) {
         const xk = side < 0 ? B.x0 - 0.9 : B.x1 + 0.9;
-        if (n % 2 === 0) put(prop('palms'), xk - side * 0.6, z + side * 4, rnd() * 6, 0.62 + rnd() * 0.12);
-        else put(piece('cityprops', KIT.lamp), xk, z, side < 0 ? 0 : Math.PI);
-        if (n % 5 === 2) put(piece('cityprops', rnd() < 0.5 ? KIT.bin : KIT.can), xk - side * 3.6, z + 2);
-        if (n % 7 === 3) put(piece('cityprops', KIT.hydrant), xk + side * 0.1, z - 3);
+        if (n % 2 === 0) {
+          // the palms model is two trees 3.5 m apart: stood one by one on their trunks along the kerb
+          // (as a pair, turned at random, one could land out on the road in the car's way)
+          const yaw = rnd() * 6, sc = 0.62 + rnd() * 0.12;
+          put(piece('palms', PALMS[0], { root: true }), xk - side * 0.6, z + side * 4 + 1.8, yaw, sc);
+          put(piece('palms', PALMS[1], { root: true }), xk - side * 0.6, z + side * 4 - 1.8, yaw + 2.1, sc * 0.95);
+        }
+        else put(piece('cityprops', KIT.lamp, { root: true }), xk, z, side < 0 ? 0 : Math.PI);
+        if (n % 5 === 2) put(piece('cityprops', rnd() < 0.5 ? KIT.bin : KIT.can, { root: true }), xk + side * 3.6, z + 2); // on the pavement, back from the kerb
+        if (n % 7 === 3) put(piece('cityprops', KIT.hydrant, { root: true }), xk + side * 0.1, z - 3);
       }
     }
     // the crossing: signals on the corners, a sign, a car waiting on the cross street
-    for (const [x, z, yaw] of [[B.x0 - 1, B.cross + 7, 0], [B.x1 + 1, B.cross - 7, Math.PI]]) put(piece('cityprops', KIT.mast), x, z, yaw);
-    for (const [x, z, yaw] of [[B.x1 + 1, B.cross + 7, -Math.PI / 2], [B.x0 - 1, B.cross - 7, Math.PI / 2]]) put(piece('cityprops', KIT.signal), x, z, yaw);
-    put(piece('cityprops', KIT.sign), B.x1 + 1.4, B.cross + 8.5, 0.4);
+    for (const [x, z, yaw] of [[B.x0 - 1, B.cross + 7, 0], [B.x1 + 1, B.cross - 7, Math.PI]]) put(piece('cityprops', KIT.mast, { root: true }), x, z, yaw);
+    for (const [x, z, yaw] of [[B.x1 + 1, B.cross + 7, -Math.PI / 2], [B.x0 - 1, B.cross - 7, Math.PI / 2]]) put(piece('cityprops', KIT.signal, { root: true }), x, z, yaw);
+    put(piece('cityprops', KIT.sign, { root: true }), B.x1 + 1.4, B.cross + 8.5, 0.4);
     put(makeCar('negotiator', { paint: 0x6b6f72, dust: 0.25 }), 24, B.cross + 2.2, -Math.PI / 2);
     put(makeCar('fairheaven', { paint: 0x8e8a7c, dust: 0.25 }), -30, B.cross - 2.2, Math.PI / 2);
     put(prop('busstop'), B.x1 + 3.2, -120, -Math.PI / 2);

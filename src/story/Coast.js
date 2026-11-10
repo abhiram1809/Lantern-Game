@@ -11,6 +11,7 @@ import { createCarol, createRing } from '../characters/Characters.js';
 import { Bedroom } from '../scenes/Bedroom.js';
 import { Ferris, CAROL_SPOT, CAR_SPOT, GATE, LOT, FERRIS_PROPS } from '../scenes/Ferris.js';
 import { loadProps, prop, meshes } from '../props/Props.js';
+import { planDrive, timeLeg, rollCar } from '../props/Car.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -406,24 +407,30 @@ export class Coast extends Story {
     puff(40, 1.3);
     await shake(0.6, 0.02);
     await this.say('car3');
-    // out of the bay backwards, round, and away up the road
-    const wheels = car.userData.wheels, spin = (d) => wheels.forEach((w) => (w.rotation.x += d / 0.33));
-    director.move(LOT.clone().add(V(-15, 3.4, -16)), LOT.clone().add(V(0, 0.8, -3)), 4, ease.inOut, 44);
-    const back0 = car.position.clone();
+    // out of the bay: backed out with the tail swung round toward the dumpster, a stop to change
+    // gear, then forward round onto the boulevard (it turns about its rear axle, never sliding or
+    // swinging to a new heading; planDrive). 1 m straight back, 1.7 rad on a 5.2 m radius, the wheel
+    // straightened for the last 0.8 m; 6.8 m on, round on 6.5 m to face the road, which puts it on the
+    // boulevard's lane (x 4.1)
+    // (a cut: a crane move out from the windscreen passed through the car as it backed into it)
+    director.cut(LOT.clone().add(V(-15, 3.4, -16)), LOT.clone().add(V(-3, 0.8, 1)), 44);
+    director.move(LOT.clone().add(V(-14, 3.1, -15)), LOT.clone().add(V(-4, 0.8, -1)), 5.5, ease.inOut, 44);
+    const [backOut, away] = planDrive(car, { at: car.position.clone(), yaw: 0, legs: [
+      { dir: -1, segs: [{ len: 1 }, { len: 5.2 * 1.7, k: -1 / 5.2 }, { len: 0.8 }] },
+      { dir: 1, segs: [{ len: 6.76 }, { len: 6.5 * 1.442, k: 1 / 6.5 }, { len: 22 }] },
+    ] });
     motor.set(0.2);
-    let last = 0;
-    await tween(2.4, (k) => { const e = ease.inOut(k), d = 7 * e; placeCar(back0.clone().add(V(0, 0, -d)), e * -0.6); spin(-(d - last)); last = d; if (Math.random() < 0.3) puff(1, 0.6); }, ease.linear);
-    const path = new THREE.CatmullRomCurve3([car.position.clone(), LOT.clone().add(V(3, 0, -6)), LOT.clone().add(V(6, 0, -12)), LOT.clone().add(V(6, 0, -60))]);
+    const back = timeLeg(backOut, { limit: [[0, 2.4], [backOut.len, 2.4]], accel: 1.4, brake: 1.6 });
+    await this.roll(car, backOut, back, 0, back.T, () => Math.random() < 0.3 && puff(1, 0.6));
+    await wait(0.5);
     motor.set(0.5);
-    last = 0;
-    await tween(4.5, (k) => {
-      const e = k * k, u = Math.min(0.999, e), p = path.getPointAt(u), t = path.getTangentAt(u);
-      placeCar(p, Math.atan2(t.x, t.z));
-      const d = e * path.getLength();
-      spin(d - last);
-      last = d;
+    const off = timeLeg(away, { limit: [[0, 3.5], [8, 4.5], [16, 6.5], [away.len, 11]], v1: 11, accel: 2.4 });
+    const watch = new THREE.Vector3();
+    await this.roll(car, away, off, 0, off.T, () => {
       if (Math.random() < 0.4) puff(1, 0.5);
-    }, ease.linear);
+      watch.copy(car.position).y += 0.8;
+      director.look.lerp(watch, 0.08);
+    });
     // out through town: down the boulevard from the kerb, under the palms and the office blocks,
     // through the lights at the crossing
     const town = (x, z) => LOT.clone().add(V(x, 0, z));
@@ -436,6 +443,8 @@ export class Coast extends Story {
     director.cut(town(11.8, -170).setY(1.15), town(4.1, -60).setY(1.0), 38);
     await ui.fade(0, 0.35);
     const look0 = new THREE.Vector3();
+    const wheels = car.userData.wheels, spin = (d) => wheels.forEach((w) => (w.rotation.x += d / 0.33));
+    for (const w of car.userData.front) w.rotation.y = 0;
     await tween(7, (k) => {
       const z = -95 - k * 105; // town speed, about 50 km/h
       placeCar(town(4.1, z), Math.PI);
@@ -471,26 +480,38 @@ export class Coast extends Story {
       director.look.lerp(look, 0.3);
       f.focus(car.position);
     }, ease.linear);
-    // the gate, and into the lot
+    // the gate, and into the lot: up the road braking for the gate, round off it into the aisle
+    // between the rows, along to his bay and nose first into it. The rear axle's path is worked back
+    // from the bay: 2.5 m straight in, a quarter turn on 5 m off the aisle, the aisle, a quarter turn
+    // on 6 m off the road's lane
     await ui.fade(1, 0.5);
-    placeCar(roadAt(260), Math.PI);
+    const ax = -car.userData.axle.rear, lane = roadAt(0).x, aisle = CAR_SPOT.z + ax + 2.5 + 5, from = 170, turn = from - (aisle + 6);
+    const [park] = planDrive(car, { at: V(lane, 0, from - ax), yaw: Math.PI, legs: [{ dir: 1, segs: [
+      { len: turn }, { len: 3 * Math.PI, k: -1 / 6 }, { len: CAR_SPOT.x - 5 - (lane + 6) }, { len: 2.5 * Math.PI, k: 1 / 5 }, { len: 2.5 },
+    ] }] });
+    const s3 = turn + 3 * Math.PI + CAR_SPOT.x - 5 - (lane + 6);
+    const pull = timeLeg(park, { v0: 16, limit: [[0, 16], [45, 7], [60, 6], [turn - 4, 5.5], [turn, 5], [s3 - 3, 3.8], [s3, 3], [s3 + 7.8, 1.8], [park.len, 1.4]], accel: 1.5, brake: 2.2 });
+    rollCar(car, park, 0, 0);
     f.shadowSpan(80); // the booth by the camera, the road in and the lot, all in one still box
     f.focus(V(12, 0, 125));
-    director.cut(GATE.clone().add(V(-10, 1.7, -14)), roadAt(200).add(V(0, 1, 0)), 40);
+    director.cut(GATE.clone().add(V(-5, 1.7, -13)), roadAt(200).add(V(0, 1, 0)), 40); // in through the gap, clear of the booth
     await ui.fade(0, 0.5);
-    motor.set(0.4);
-    const inPath = new THREE.CatmullRomCurve3([roadAt(260), roadAt(150), roadAt(96), V(14, 0, 80), V(CAR_SPOT.x, 0, CAR_SPOT.z + 10), CAR_SPOT.clone()]);
-    last = 0;
-    await tween(10, (k) => {
-      const e = ease.out(k), u = Math.min(0.999, e), p = inPath.getPointAt(u), t = inPath.getTangentAt(u);
-      placeCar(p, Math.atan2(t.x, t.z));
-      const d = e * inPath.getLength();
-      spin(d - last);
-      last = d;
-      motor.set(0.4 * (1 - e));
+    const rev = (t) => motor.set(0.12 + 0.02 * (pull.s(t + 0.1) - pull.s(t)) * 10);
+    // through the gate, past the booth
+    await this.roll(car, park, pull, 0, pull.time(75), (s, t) => {
+      rev(t);
       look.copy(car.position).y += 0.8;
       director.look.lerp(look, 0.12);
-    }, ease.linear);
+    });
+    // in the lot (a moment later): from above his bay on the hangar side, round off the road, along
+    // the aisle and in, nose first toward us
+    director.cut(V(33, 4.2, 45.5), V(8, 1, 66), 44);
+    await this.roll(car, park, pull, pull.time(94), pull.T, (s, t) => {
+      rev(t);
+      look.copy(car.position).y += 0.7;
+      director.look.lerp(look, 0.1);
+    });
+    for (const w of car.userData.front) w.rotation.y = 0;
     placeCar(CAR_SPOT, Math.PI);
     f.shadowSpan();
     f.focus(CAR_SPOT);
@@ -498,6 +519,18 @@ export class Coast extends Story {
     this.motor = null;
     await wait(0.6);
     await this.getOut(car, animOff);
+  }
+
+  // Part of a planned leg (Car.js planDrive) driven from time t0 to t1 of its timing (timeLeg);
+  // each(s, t) runs every frame.
+  async roll(car, leg, run, t0, t1, each) {
+    let s = run.s(t0);
+    rollCar(car, leg, s, s);
+    await tween(t1 - t0, (k) => {
+      const t = t0 + k * (t1 - t0);
+      s = rollCar(car, leg, run.s(t), s);
+      each?.(s, t);
+    }, ease.linear);
   }
 
   // His hands on the rim (or off it): the arm IK holds them there while the car moves.

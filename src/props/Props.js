@@ -60,11 +60,20 @@ export function pivot(space, list, at) {
 
 // One part of a prop kit as an object of its own, standing at its origin (the centre of its base):
 // a cone out of a pack, a lamp post out of a street kit. Shares the kit's meshes and materials.
-export function piece(name, test) {
+// `root`: centred on what touches the ground instead (a palm's trunk, not its leaning crown).
+export function piece(name, test, { root = false } = {}) {
   const kit = prop(name);
   kit.updateMatrixWorld(true);
   const src = meshes(kit, (n) => test.test(n));
   const b = boundsIn(kit, src), c = b.getCenter(new THREE.Vector3());
+  if (root) {
+    const foot = new THREE.Box3(), v = new THREE.Vector3();
+    for (const m of src) {
+      const P = m.geometry.attributes.position;
+      for (let i = 0; i < P.count; i++) if (v.fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld).y < b.min.y + 0.5) foot.expandByPoint(v);
+    }
+    if (!foot.isEmpty()) foot.getCenter(c);
+  }
   const g = new THREE.Group(), at = new THREE.Matrix4().makeTranslation(-c.x, -b.min.y, -c.z);
   for (const m of src) {
     const o = new THREE.Mesh(m.geometry, m.material);
