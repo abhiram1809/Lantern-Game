@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RAPIER } from '../engine/Physics.js';
 import { damp, clamp } from '../engine/Time.js';
 import { Particles } from '../fx/Particles.js';
-import { CONSTRUCTS, constructInfo, constructMesh, ghostMesh, fistGeometry, shieldGeometry, wallGeometry, gatlingGeometry, swordGeometry, Blade, WALL, createBeam, surfaceSamples } from './Constructs.js';
+import { CONSTRUCTS, constructInfo, constructMesh, ghostMesh, fistGeometry, shieldGeometry, wallGeometry, gatlingGeometry, swordGeometry, hammerGeometry, HAMMER, Blade, WALL, createBeam, surfaceSamples } from './Constructs.js';
 import { glowTexture } from '../fx/Textures.js';
 import { LINES } from '../story/lines.js';
 
@@ -18,6 +18,7 @@ const KEYS = {
   wall: '<b>Click</b> place &nbsp; <b>Scroll</b> range &nbsp; <b>Q</b> holster',
   gatling: '<b>Hold click</b> fire &nbsp; <b>Q</b> holster',
   sword: '<b>Click</b> cut (in rhythm: combo) &nbsp; <b>Q</b> holster',
+  hammer: '<b>Click</b> smash &nbsp; <b>Scroll</b> range &nbsp; <b>Q</b> holster',
 };
 
 // The power ring: charge, the bearer's health, the construct wheel (game time stops while it's
@@ -51,7 +52,7 @@ export class RingPowers {
     this.freeze = false; // another ring interface (the star chart) has stopped time
     this.gatling = null;
     this.onImpact = this.onSelect = this.onDeath = null;
-    this.geo = { fist: fistGeometry(), shield: shieldGeometry(), wall: wallGeometry() };
+    this.geo = { fist: fistGeometry(), shield: shieldGeometry(), wall: wallGeometry(), hammer: hammerGeometry() };
     this.samples = Object.fromEntries(Object.entries(this.geo).map(([k, g]) => [k, surfaceSamples(g, 240)]));
     this.geo.gatling = gatlingGeometry();
     this.samples.gatling = surfaceSamples(this.geo.gatling.body, 120);
@@ -62,6 +63,7 @@ export class RingPowers {
       fist: ghostMesh(this.geo.fist, { uPattern: 1, uScale: 0.16, uFadeZ: new THREE.Vector2(-1.5, -0.6) }),
       shield: ghostMesh(this.geo.shield, { uPattern: 1, uScale: 0.13, uEmblem: 1 }),
       wall: ghostMesh(this.geo.wall, { uPattern: 2, uScale: 0.34 }),
+      hammer: ghostMesh(this.geo.hammer, { uPattern: 1, uScale: 0.12, uEmblem: 1 }),
     };
     const pathGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
     this.path = new THREE.Line(pathGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(0.5, 1.7, 1.2), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -269,6 +271,11 @@ export class RingPowers {
       this.ringPos(_d);
       a.travel.subVectors(a.point, _d).normalize();
       a.end.copy(a.point).addScaledVector(a.travel, -0.58); // knuckles meet the surface
+    } else if (info.id === 'hammer') {
+      // it comes down from over Hal's head: the swing's plane is the way he faces the point
+      a.travel.set(a.point.x - a.from.x, 0, a.point.z - a.from.z);
+      if (a.travel.lengthSq() < 1e-4) a.travel.set(Math.sin(this.player.yaw), 0, Math.cos(this.player.yaw));
+      a.travel.normalize();
     } else if (info.id === 'wall') {
       // stand it on the ground under the aim point, square to Hal, horizontal range limits
       _c.set(a.point.x - a.from.x, 0, a.point.z - a.from.z);
@@ -369,6 +376,9 @@ export class RingPowers {
       p.needsUpdate = true;
       this.path.material.color.copy(g.userData.u.uColor.value);
       this.path.visible = true;
+    } else if (id === 'hammer') {
+      g.visible = true;
+      hammerFrame(a.point, a.travel, hammerScale(a.dist), 0, g);
     } else if (id === 'wall') {
       g.visible = true;
       g.position.copy(a.point);
@@ -412,6 +422,7 @@ export class RingPowers {
     if (!a.valid) { if (this.charge < info.cost) this.lowCharge(); else this.audio.denied(); return; }
     this.spend(info.cost);
     if (id === 'fist') this.strike();
+    else if (id === 'hammer') this.smash();
     else if (id === 'wall') this.raiseWall();
   }
 
@@ -450,6 +461,14 @@ export class RingPowers {
     this.stats.strikes++;
     this.audio.punch();
     this.live.push(new FistStrike(this, a.end.clone(), a.point.clone(), a.travel.clone(), a.body, a.water));
+  }
+
+  smash() {
+    const a = this.aim;
+    this.castArm(_a.copy(a.point).setY(a.point.y + 3), 0.8);
+    this.cooldown = 0.9;
+    this.stats.strikes++;
+    this.live.push(new HammerStrike(this, a.point.clone(), a.travel.clone(), hammerScale(a.dist), a.body));
   }
 
   raiseWall() {
@@ -504,20 +523,20 @@ export class RingPowers {
     body.applyImpulseAtPoint({ x: _d.x, y: _d.y, z: _d.z }, { x: at.x, y: at.y, z: at.z }, true);
   }
 
-  impact(point, dir, { body = null, water = false, hits = new Set(), radius = 2.2 } = {}) {
-    this.hitStop = 0.07;
-    this.director.shake(0.22, 0.35);
-    this.audio.impact(1);
+  impact(point, dir, { body = null, water = false, hits = new Set(), radius = 2.2, damage = 45, splash = 30, power = 1, shake = 0.22 } = {}) {
+    this.hitStop = 0.07 * Math.sqrt(power);
+    this.director.shake(shake, 0.35 + 0.1 * (power - 1));
+    this.audio.impact(power);
     const struck = [];
     for (const { body: b } of this.physics.dynamics) {
       const t = b.translation();
       const dist = Math.hypot(t.x - point.x, t.y - point.y, t.z - point.z);
       if (hits.has(b)) { struck.push(b); continue; }
       if (b !== body && dist > radius) continue;
-      this.shove(b, dir, b === body ? point : t, b === body ? 1.2 : 0.85 * (1 - dist / radius));
+      this.shove(b, dir, b === body ? point : t, (b === body ? 1.2 : 0.85 * (1 - dist / radius)) * power);
       struck.push(b);
       const tg = this.targetOf(b);
-      if (tg) this.dealDamage(tg, b === body ? 45 : 30 * (1 - dist / radius) + 8, _b.set(t.x, t.y, t.z), dir);
+      if (tg) this.dealDamage(tg, b === body ? damage : splash * (1 - dist / radius) + 8, _b.set(t.x, t.y, t.z), dir);
     }
     this.flash.position.copy(point).addScaledVector(dir, -0.6);
     this.flash.intensity = 10;
@@ -789,6 +808,100 @@ class FistStrike {
     this.beam.removeFromParent();
   }
 }
+
+// The hammer: it forms raised over the point, its handle leaning back toward Hal, and comes down
+// about its pommel in a fifth of a second (accelerating, as a swung weight does), its face meeting
+// the point; a heavy impact (hammer damage, a wide splash, a hard shove), a ring of dust, then it
+// lifts a little and dissolves. A beam joins the ring to the pommel throughout.
+class HammerStrike {
+  constructor(P, point, travel, scale, body) {
+    Object.assign(this, { P, point, travel, scale, body });
+    this.mesh = constructMesh(P.geo.hammer, { uPattern: 1, uScale: 0.12, uEmblem: 1, outline: 0.02 });
+    this.mesh.userData.set('uForm', 0);
+    this.beam = createBeam(0.03);
+    P.scene.add(this.mesh, this.beam);
+    this.t = 0;
+    this.state = 'form';
+    this.hits = new Set();
+    this.head = new THREE.Vector3();
+    this.ring = new THREE.Vector3();
+    this.phi = RAISED;
+    P.audio.constructForm(1.0);
+    P.audio.tone({ type: 'sawtooth', freq: 90, to: 240, attack: 0.25, peak: 0.05, dur: 0.4, wet: 0.5 });
+  }
+
+  update(dt, time) {
+    const P = this.P, set = this.mesh.userData.set, bu = this.beam.userData.u;
+    this.t += dt;
+    set('uTime', time);
+    bu.uTime.value = time;
+    P.ringPos(this.ring);
+    if (this.state === 'form') {
+      const k = Math.min(1, this.t / 0.32);
+      set('uForm', k);
+      this.phi = RAISED + 0.15 * (1 - (1 - k) ** 2); // drawn back as it forms
+      if (this.t < 0.1) P.formSparks('hammer', this.mesh, 14);
+      bu.uOpacity.value = k;
+      if (k >= 1) { this.state = 'swing'; this.t = 0; this.from = this.phi; P.audio.whoosh(0.9, 0.9); }
+    } else if (this.state === 'swing') {
+      const k = Math.min(1, this.t / 0.2);
+      this.phi = this.from * (1 - k * k); // (no sweep on the way down: it comes from above, and the blow lands whole)
+      if (k >= 1) {
+        this.state = 'hold';
+        this.t = 0;
+        this.phi = 0;
+        P.impact(this.point, _hd.crossVectors(UP, this.travel).normalize().add(DOWN).normalize(), { body: this.body, hits: this.hits, radius: 3.6, damage: constructInfo('hammer').damage, splash: 45, power: 1.8, shake: 0.55 });
+        P.dustFx(this.point, 46, 4.2);
+        P.live.push(new Shockwave(P, this.point.clone().setY(this.point.y + 0.05), UP, 5, 0.55));
+        P.physics.burst?.(this.point, 4, 4.5, 1.5, 0.5);
+        P.audio.explosion(0.35);
+      }
+    } else if (this.state === 'hold') {
+      this.phi = 0.05 * Math.min(1, this.t / 0.2);
+      if (this.t > 0.22) { this.state = 'fade'; this.t = 0; P.audio.dissolve(); }
+    } else if (this.state === 'fade') {
+      const k = Math.min(1, this.t / 0.38);
+      set('uForm', 1 - k);
+      this.phi = 0.05 + 0.25 * k;
+      bu.uOpacity.value = Math.max(0, 1 - k * 1.6);
+      if (this.t < 0.1) P.formSparks('hammer', this.mesh, 6);
+      if (k >= 1) this.done = true;
+    }
+    hammerFrame(this.point, this.travel, this.scale, this.phi, this.mesh, this.head);
+    _hp.set(0, HAMMER.pommel, 0).applyMatrix4(this.mesh.matrix);
+    this.beam.userData.span(this.ring, _hp);
+  }
+
+  dispose() {
+    this.mesh.removeFromParent();
+    this.beam.removeFromParent();
+  }
+}
+
+// Where the hammer is at angle `phi` (0: its face on the point; RAISED: lifted up and over its
+// pommel), for a swing at a point Hal faces along `travel`; sets the object's position, rotation and
+// scale, and the head's centre into `head`. It swings across his view, its pommel to the right of
+// the point, so from behind him it's a mallet seen side-on (swung down the line of sight it read as
+// a pillar, then a barrel); raised, it leans back over him a little. Its scale grows with the
+// distance.
+const RAISED = 1.95, TILT = 0.35, DOWN = new THREE.Vector3(0, -1, 0);
+const hammerScale = (dist) => clamp((dist - 0.6) / 2.8, 1.0, 1.7);
+function hammerFrame(point, travel, S, phi, obj, head) {
+  const len = (HAMMER.centre - HAMMER.pommel) * S;
+  const left = _hs.crossVectors(UP, travel).normalize(), tilt = TILT * clamp(phi / RAISED, 0, 1.2);
+  const up = _hu.copy(UP).multiplyScalar(Math.cos(tilt)).addScaledVector(travel, -Math.sin(tilt)); // leaning back over Hal
+  const pommel = _hp.copy(point).addScaledVector(left, -len).addScaledVector(UP, HAMMER.face * S);
+  const y = _hy.copy(left).multiplyScalar(Math.cos(phi)).addScaledVector(up, Math.sin(phi)); // pommel to head
+  const x = _hx.copy(up).multiplyScalar(Math.cos(phi)).addScaledVector(left, -Math.sin(phi)); // the back face's way
+  _hz.crossVectors(x, y);
+  _hm.makeBasis(x, y, _hz);
+  obj.quaternion.setFromRotationMatrix(_hm);
+  obj.scale.setScalar(S);
+  obj.position.copy(pommel).addScaledVector(y, -HAMMER.pommel * S);
+  obj.updateMatrix();
+  if (head) head.copy(obj.position).addScaledVector(y, HAMMER.centre * S);
+}
+const _hp = new THREE.Vector3(), _hs = new THREE.Vector3(), _hu = new THREE.Vector3(), _hz = new THREE.Vector3(), _hx = new THREE.Vector3(), _hy = new THREE.Vector3(), _hd = new THREE.Vector3(), _hm = new THREE.Matrix4();
 
 // Held in front of Hal while the button is down. A kinematic body, so debris bounces off it; the
 // player's controller and camera pass through it.

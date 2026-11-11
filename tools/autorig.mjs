@@ -42,6 +42,9 @@ export const RIG_DEFAULTS = {
   armTipIn: 0.12,   // ...to this far short of the fingertips (× H)...
   armMinY: 0.35,    // ...and above this height (× H). An A-pose's hands don't reach far out, so the
                     // T-pose band is nearly empty there; narrow it in and raise it clear of the hips
+  armMaxY: Infinity, // ...and below this one (× H): under pauldrons that reach out past the arm
+  elbowK: 0.42,     // the elbow and wrist as fractions of the way from the shoulder to the
+  wristK: 0.76,     // fingertips (short forearms, or fingers curled under, move them out)
 };
 
 export function autoRig(pos, idx, H, opts = {}) {
@@ -136,7 +139,7 @@ export function autoRig(pos, idx, H, opts = {}) {
     const pts = [];
     for (let i = 0; i < n; i++) {
       const v = V(i);
-      if (s * v[0] > lo && s * v[0] < hi && v[1] > o.armMinY * H) pts.push(v);
+      if (s * v[0] > lo && s * v[0] < hi && v[1] > o.armMinY * H && v[1] < o.armMaxY * H) pts.push(v);
     }
     const mean = mul(pts.reduce((a, p) => add(a, p), [0, 0, 0]), 1 / pts.length);
     const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
@@ -177,8 +180,8 @@ export function autoRig(pos, idx, H, opts = {}) {
     const L = len(sub(tip, shoulder));
     return {
       shoulder,
-      elbow: recenter(add(shoulder, mul(dir, 0.42 * L)), dir),
-      wrist: recenter(add(shoulder, mul(dir, 0.76 * L)), dir),
+      elbow: recenter(add(shoulder, mul(dir, o.elbowK * L)), dir),
+      wrist: recenter(add(shoulder, mul(dir, o.wristK * L)), dir),
       tip,
     };
   };

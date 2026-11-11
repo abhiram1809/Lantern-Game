@@ -7,7 +7,7 @@ import { createShaft } from '../fx/GreenLight.js';
 import { worldInfo } from '../ui/TravelHud.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const SECTOR = { earth: '2814', oa: '0' };
+const SECTOR = { earth: '2814', oa: '0', ysmault: '666' };
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
 // A flight between worlds, as a cutscene in four parts (after the 93604faf space-flight reference):
@@ -48,7 +48,9 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
     space.show(from);
     space.earth.position.set(0, 0, 0);
     space.oa.position.set(0, 0, 0);
-    space.oa.rotation.y = from === 'oa' ? Math.PI : 0; // leaving Oa, the planet is behind him
+    space.ysmault.position.set(0, 0, 0);
+    space.oa.rotation.y = from === 'oa' ? Math.PI : 0; // leaving Oa (or Ysmault), the planet is behind him
+    space.ysmault.rotation.y = from === 'ysmault' ? Math.PI : 0;
     story.show(space);
     space.scene.add(o);
     o.position.set(0, 0, 0);
@@ -96,7 +98,7 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
     player.animator.reach('R', null, { rate: 4 });
     player.flightState.k = 1;
     player.animator.play(player.flightGen, 0.5);
-    const world = from === 'earth' ? space.earth : space.oa;
+    const world = { earth: space.earth, oa: space.oa, ysmault: space.ysmault }[from];
     audio.whoosh(1.8, 0.8);
     await tween(1.6, (k) => {
       o.rotation.set(1.45 * ease.inOut(Math.min(1, k * 1.6)), Math.PI, 0, 'YXZ');
@@ -157,16 +159,17 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
     space.show(to);
     space.earth.position.set(0, 0, 0);
     space.oa.position.set(0, 0, 0);
-    space.oa.rotation.y = 0;
+    space.ysmault.position.set(0, 0, 0);
+    space.oa.rotation.y = space.ysmault.rotation.y = 0;
     story.show(space);
     space.scene.add(o);
     o.position.set(0, 0, 0);
     o.rotation.set(1.2, Math.PI, 0, 'YXZ');
     space.drift.set(0, 0, -30);
     player.flightState.k = 1;
-    hud.set({ mode: 'ORBITAL APPROACH', speed: 0.35, rows: [['Destination', dest.name], ['Sector', SECTOR[to]], ['Status', to === 'oa' ? 'Central Battery in range' : 'Atmosphere: breathable']] });
+    hud.set({ mode: 'ORBITAL APPROACH', speed: 0.35, rows: [['Destination', dest.name], ['Sector', SECTOR[to]], ['Status', { oa: 'Central Battery in range', ysmault: 'No life signs' }[to] ?? 'Atmosphere: breathable']] });
     story.ringSay('ringApproach');
-    const target = to === 'oa' ? V(0, -50, -760) : V(-12, -25, -60);
+    const target = { oa: V(0, -50, -760), ysmault: V(30, -40, -700) }[to] ?? V(-12, -25, -60);
     if (to === 'earth') {
       // arriving over the night side, the planet's curve ahead of him
       space.earth.position.set(0, 40, -120);
@@ -187,10 +190,10 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
     player.animator.play(player.flightGen, 0.4);
     director.cut(V(0.3, 1.9, 3.0), target, 52);
     audio.whoosh(1.6, 0.8);
-    const planet = to === 'oa' ? space.oa : space.earth, p0 = planet.position.clone();
+    const planet = { earth: space.earth, oa: space.oa, ysmault: space.ysmault }[to], p0 = planet.position.clone();
     await tween(1.5, (k) => {
       o.rotation.set(0.15 + 1.6 * ease.inOut(Math.min(1, k * 2)), Math.PI, 0, 'YXZ');
-      planet.position.copy(p0).addScaledVector(V(0, 0.08, 1), k * k * (to === 'oa' ? 420 : 50));
+      planet.position.copy(p0).addScaledVector(V(0, 0.08, 1), k * k * (to === 'earth' ? 50 : to === 'ysmault' ? 380 : 420));
       space.drift.set(0, -20 * k, -60 * k);
       director.fov = 52 + 20 * k * k;
     }, ease.linear);

@@ -105,6 +105,7 @@ export class Sinestro {
     this.orbitDir = 1;
     this.hitLog = [];
     this.onQuip = this.onYield = this.onHurtHal = null;
+    this.foe = null; // fighting beside Hal: { position (his feet), collider, hit(amount, point) }
   }
 
   get position() { return this.object.position; }
@@ -147,6 +148,23 @@ export class Sinestro {
     const p = this.object.position;
     this.rb.setTranslation({ x: p.x, y: p.y + PIVOT, z: p.z }, true);
     this.cool = 1.2;
+  }
+
+  // On Hal's side (Atrocitus, Part Four): flying round the foe and firing volleys at him.
+  ally(foe) {
+    this.foe = foe;
+    this.state = 'ally';
+    this.anim.play(this.flyGen, 0.5);
+    this.bl.stance('oneBehind');
+    const p = this.object.position;
+    this.rb.setTranslation({ x: p.x, y: p.y + PIVOT, z: p.z }, true);
+    this.cool = 2.5;
+  }
+
+  // what he's facing and aiming at: Hal when they spar, the foe when they fight together
+  aimAt(out) {
+    if (this.state === 'ally' && this.foe) return out.copy(this.foe.position).setY(this.foe.position.y + 1.5);
+    return out.copy(this.player.position).setY(this.player.position.y + 1.15);
   }
 
   // out of the fight: constructs away, back to his feet
@@ -228,6 +246,7 @@ export class Sinestro {
     }
     this.tg.position.set(this.object.position.x, this.object.position.y + 1.25, this.object.position.z);
     if (this.state === 'duel') this.think(dt, t);
+    else if (this.state === 'ally') this.thinkAlly(dt);
     this.updateConstructs(dt, t);
     this.updateSpikes(dt);
     this.bl.update(dt);
@@ -236,9 +255,14 @@ export class Sinestro {
 
   // where he wants to be, and flying there
   fly(dt) {
-    const hal = this.player.position, me = this.object.position;
+    const ally = this.state === 'ally' && this.foe, hal = ally ? this.foe.position : this.player.position, me = this.object.position;
     this.stagger = Math.max(0, this.stagger - dt);
-    if (this.state === 'duel' && !this.action?.moves) {
+    if (ally && !this.action?.moves) {
+      // high and wide of him, never still
+      this.orbit += this.orbitDir * dt * 0.35;
+      if (Math.random() < dt * 0.1) this.orbitDir *= -1;
+      this.goal.set(hal.x + Math.sin(this.orbit) * 9, hal.y + 3.6 + Math.sin(this.orbit * 2.3) * 0.8, hal.z + Math.cos(this.orbit) * 9);
+    } else if (this.state === 'duel' && !this.action?.moves) {
       // circling at his preferred range, at Hal's height when Hal flies, else hovering over the deck
       this.orbit += this.orbitDir * dt * 0.45;
       if (Math.random() < dt * 0.12) this.orbitDir *= -1;
@@ -270,6 +294,13 @@ export class Sinestro {
     this.body.roll = damp(this.body.roll, clamp(side * 0.025, -0.35, 0.35), 5, dt);
     this.pivot.quaternion.copy(_qa.setFromAxisAngle(_Z, this.body.roll)).multiply(_qb.setFromAxisAngle(_X, this.body.pitch));
     this.flyState.k = damp(this.flyState.k, smooth(5, 14, this.vel.length()) * 0.6, 4, dt);
+  }
+
+  // beside Hal: a volley at the foe every few seconds
+  thinkAlly(dt) {
+    if (this.action) { this.runAction(dt); return; }
+    this.cool -= dt;
+    if (this.cool <= 0) this.begin('volley');
   }
 
   // the fight: wait, then pick an attack
@@ -316,8 +347,8 @@ export class Sinestro {
   }
 
   pointAt(on) {
-    const sh = new THREE.Vector3(), out = new THREE.Vector3(), hal = this.player.position;
-    this.anim.reach('R', on ? () => { this.rig.bonePosition('upperArm_R', sh); return out.set(hal.x, hal.y + 1.2, hal.z).sub(sh).normalize().multiplyScalar(0.56).add(sh); } : null, { pole: V(-0.6, -0.7, -0.3), rate: 9 });
+    const sh = new THREE.Vector3(), out = new THREE.Vector3();
+    this.anim.reach('R', on ? () => { this.rig.bonePosition('upperArm_R', sh); return this.aimAt(out).sub(sh).normalize().multiplyScalar(0.56).add(sh); } : null, { pole: V(-0.6, -0.7, -0.3), rate: 9 });
   }
 
   runAction(dt) {
@@ -363,7 +394,7 @@ export class Sinestro {
         if (a.t > 0.6) { a.phase = 'fire'; a.t = 0; }
       } else if (a.phase === 'fire') {
         while (a.fired < a.made.length && a.t > a.fired * 0.14) this.launch(a.made[a.fired++]);
-        if (a.fired >= a.made.length && a.t > 0.5) { this.endAction(); this.cool = 1.4 + Math.random() * 1.4; }
+        if (a.fired >= a.made.length && a.t > 0.5) { this.endAction(); this.cool = this.state === 'ally' ? 3 + Math.random() * 2.5 : 1.4 + Math.random() * 1.4; }
       }
       for (const s of a.made) if (!s.flying) this.holdSpike(s, dt);
     } else if (a.kind === 'guard') {
@@ -419,13 +450,15 @@ export class Sinestro {
     const me = this.object.position, k = (s.slot / (SPIKE.count - 1) - 0.5) * 2.2;
     const back = _a.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)), right = _b.set(-Math.cos(this.yaw), 0, Math.sin(this.yaw));
     s.mesh.position.copy(me).addScaledVector(back, 0.5).addScaledVector(right, k * 0.9).y += 1.9 + Math.cos(k) * 0.35;
-    s.mesh.lookAt(this.player.position.x, this.player.position.y + 1.2, this.player.position.z);
+    s.mesh.lookAt(this.aimAt(_c));
   }
 
   launch(s) {
     const p = this.player, from = s.mesh.position.clone(), lead = from.distanceTo(p.position) / SPIKE.speed;
-    const aim = p.position.clone().setY(p.position.y + 1.15);
-    if (p.flying) aim.addScaledVector(p.vel, lead * 0.7);
+    const aim = this.aimAt(new THREE.Vector3());
+    s.foe = this.state === 'ally' ? this.foe : null;
+    if (s.foe) aim.addScaledVector(s.foe.vel ?? _a.set(0, 0, 0), lead * 0.7);
+    else if (p.flying) aim.addScaledVector(p.vel, lead * 0.7);
     else aim.add(_a.set(Math.sin(p.heading) * p.speed, 0, Math.cos(p.heading) * p.speed).multiplyScalar(lead * 0.7));
     s.flying = true;
     s.vel = aim.sub(from).normalize().multiplyScalar(SPIKE.speed);
@@ -448,10 +481,12 @@ export class Sinestro {
       const len = _a.length();
       let done = s.life > 2.5;
       if (!done && len > 1e-5) {
-        const hit = world.castRay(new RAPIER.Ray(s.prev, _a.divideScalar(len)), len, true, undefined, undefined, this.col, undefined, (c) => !P.bounds?.has(c.handle));
+        // (fired at the foe, they pass Hal and his shield by)
+        const hit = world.castRay(new RAPIER.Ray(s.prev, _a.divideScalar(len)), len, true, undefined, undefined, this.col, undefined, (c) => !P.bounds?.has(c.handle) && !(s.foe && (c.handle === player.collider?.handle || c.handle === P.shield?.col.handle)));
         if (hit) {
           const at = s.prev.clone().addScaledVector(_a, hit.timeOfImpact), h = hit.collider.handle;
-          if (P.shield && h === P.shield.col.handle) { P.shield.ripple(at); this.audio.shieldHit(0.5); }
+          if (s.foe) { if (h === s.foe.collider?.handle) s.foe.hit(SPIKE.damage, at); }
+          else if (P.shield && h === P.shield.col.handle) { P.shield.ripple(at); this.audio.shieldHit(0.5); }
           else if (h === player.collider?.handle) { P.damage(SPIKE.damage, s.prev); this.onHurtHal?.(); }
           P.sparks.emit(14, (q, v) => { q[0] = at.x; q[1] = at.y; q[2] = at.z; v[0] = (Math.random() - 0.5) * 4; v[1] = Math.random() * 3; v[2] = (Math.random() - 0.5) * 4; }, { life: 0.35, size: [0.05, 0], color: [[1.2, 5, 2, 1], [0.1, 1.2, 0.4, 0]] });
           done = true;

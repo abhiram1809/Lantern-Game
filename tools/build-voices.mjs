@@ -136,6 +136,14 @@ const CHARACTERS = {
     voice: 'am_echo', speed: 0.95, f0: 100, formant: 0.94,
     fx: [['hp', 70], ['sat', 1.8, 0.25], ['lowshelf', 180, 2], ['comp', { thr: -18, ratio: 3 }]],
   },
+  atrocitus: {
+    desc: 'Atrocitus: an ancient alien prisoner, huge, rasping with rage',
+    voice: { mix: [['bm_george', 0.55], ['am_onyx', 0.45]] }, speed: 0.9, f0: 72, formant: 0.8,
+    fx: [['hp', 40], ['octave', 0.5, 0.22, 0], ['growl', 28, 0.36], ['sat', 3.2, 0.6], ['lowshelf', 150, 4],
+      ['peak', 1900, 3, 1.2], ['comp', { thr: -20, ratio: 4, att: 0.003, rel: 0.1 }],
+      ['reverb', { rt: 1.1, pre: 0.015, wet: 0.12, damp: 0.4 }]],
+    tail: 0.35,
+  },
   hammond: {
     desc: 'Hector Hammond: American scientist, soft-spoken, precise, quietly unhinged',
     voice: 'am_adam', speed: 0.93, f0: 108, formant: 1.0,

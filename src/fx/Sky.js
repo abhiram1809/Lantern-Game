@@ -17,6 +17,8 @@ const PRESETS = {
   desert: { top: 0x2c66b0, horizon: 0xd9e2e6, bottom: 0xb59a7a, sun: 0xfff6e4, sunDir: [-0.35, 0.72, -0.5], sunSize: 0.0012, glow: 0.8, cloud: 0.16, cloudColor: 0xdde5ee, cloudLit: 0xffffff, stars: 0.0 },
   // dusk over the desert east of Coast City: the sun low in the west, the sky going to rose and slate
   dusk: { top: 0x24406e, horizon: 0xf0a578, bottom: 0x5c4636, sun: 0xd8955e, sunDir: [-0.86, 0.1, 0.22], sunSize: 0.0009, glow: 1.2, cloud: 0.3, cloudColor: 0xa8746a, cloudLit: 0xffd2a0, stars: 0.0 },
+  // Ysmault (Sector 666): a dead world under a swollen red sun low over its cliffs
+  ysmault: { top: 0x14070a, horizon: 0x6e2a18, bottom: 0x160806, sun: 0xff7448, sunDir: [-0.72, 0.16, -0.62], sunSize: 0.006, glow: 1.6, cloud: 0.22, cloudColor: 0x2e100c, cloudLit: 0x8c3c22, stars: 0.35 },
   sunset: { top: 0x3a5d8a, horizon: 0xffb070, bottom: 0x6b4a32, sun: 0xffd6a0, sunDir: [0.0, 0.08, -1], sunSize: 0.002, glow: 2.2, cloud: 0.35, cloudColor: 0xd08a6a, cloudLit: 0xffe0b0, stars: 0.0 },
 };
 

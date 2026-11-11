@@ -43,6 +43,7 @@ const dirOf = (lon, lat) => {
 
 export const EARTH = { radius: 300, center: new THREE.Vector3(0, -362, 0) };
 export const OA = { radius: 190, center: new THREE.Vector3(0, -60, -760) };
+export const YSMAULT = { radius: 170, center: new THREE.Vector3(30, -50, -700) };
 
 export class Space {
   constructor() {
@@ -57,6 +58,7 @@ export class Space {
     this.buildBackdrop();
     this.buildEarth();
     this.buildOa();
+    this.buildYsmault();
     this.buildDust();
     this.hemi = new THREE.HemisphereLight(0x1a2436, 0x0a1020, 0.35);
     this.key = new THREE.DirectionalLight(0xcfdcff, 1.2);
@@ -354,6 +356,50 @@ export class Space {
   }
 
   // Motes of dust and ice drifting past Hal, so speed reads even against the far stars.
+  // ------------------------------------------------------------------------------------- ysmault
+  // The Inversions' world, Sector 666: dead since the Manhunters. Rust-red rock and black basalt
+  // under a dim red sun, the seas long gone to salt flats, old fault lines glowing faintly on the
+  // night side, a thin dirty atmosphere.
+  buildYsmault() {
+    const g = (this.ysmault = new THREE.Group());
+    this.ysSun = new THREE.Vector3(-0.75, 0.35, -0.55).normalize();
+    const surface = new THREE.ShaderMaterial({
+      uniforms: { uSun: { value: this.ysSun }, uTime: this.time },
+      vertexShader: VERT,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uSun; uniform float uTime;
+        varying vec3 vObj, vN, vW;
+        ${NOISE3}
+        void main() {
+          vec3 d = normalize(vObj), N = normalize(vN);
+          float h = fbm3(d * 3.2), r = fbm3(d * 11.0 + 4.0), m = fbm3(d * 34.0 + 9.0);
+          vec3 rust = mix(vec3(0.32, 0.09, 0.05), vec3(0.55, 0.2, 0.1), r);
+          vec3 basalt = vec3(0.07, 0.05, 0.05) + m * 0.04;
+          vec3 salt = vec3(0.55, 0.45, 0.4);
+          vec3 col = mix(basalt, rust, smoothstep(0.38, 0.6, h));
+          col = mix(col, salt, smoothstep(0.62, 0.72, h) * (1.0 - smoothstep(0.72, 0.8, h)) * 0.55);
+          // craters
+          float c = smoothstep(0.62, 0.7, n3(d * 60.0)) * 0.4;
+          col *= 1.0 - c;
+          float lit = max(dot(N, uSun), 0.0);
+          vec3 day = col * (0.05 + 1.4 * lit) * vec3(1.0, 0.82, 0.7);
+          // the night side: fault lines faintly lit, like embers
+          float fault = 1.0 - smoothstep(0.0, 0.018, abs(fbm3(d * 6.0 + 2.0) - 0.5));
+          vec3 night = vec3(0.9, 0.18, 0.06) * fault * 0.35 * smoothstep(0.1, -0.2, dot(N, uSun));
+          gl_FragColor = vec4(day + night, 1.0);
+        }`,
+    });
+    const planet = new THREE.Mesh(new THREE.SphereGeometry(YSMAULT.radius, 160, 96), surface);
+    planet.position.copy(YSMAULT.center);
+    g.add(planet);
+    g.add(this.atmosphere(YSMAULT.center, YSMAULT.radius * 1.025, this.ysSun, new THREE.Color(0.55, 0.22, 0.12), new THREE.Color(0.5, 0.06, 0.03), 1 / 1.025));
+    // its sun: a swollen red dwarf, dim
+    const sun = new THREE.Mesh(new THREE.SphereGeometry(60, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 0.35, 0.15) }));
+    sun.position.copy(this.ysSun).multiplyScalar(3200);
+    g.add(sun);
+    this.scene.add(g);
+  }
+
   buildDust(count = 900) {
     const geo = new THREE.BufferGeometry();
     this.dustPos = new Float32Array(count * 3).map(() => (Math.random() - 0.5) * 80);
@@ -368,8 +414,16 @@ export class Space {
     this.place = place;
     const earth = place === 'earth';
     this.earth.visible = earth;
-    this.oa.visible = !earth;
-    this.skyU.uCore.value = earth ? 0 : 1;
+    this.oa.visible = place === 'oa';
+    this.ysmault.visible = place === 'ysmault';
+    this.skyU.uCore.value = place === 'oa' ? 1 : 0;
+    if (place === 'ysmault') {
+      // its dim red sun off to the left; no light from the world itself
+      this.key.color.set(0xff9a70); this.key.intensity = 1.1; this.key.position.copy(this.ysSun).multiplyScalar(50);
+      this.rim.color.set(0x55ffaa); this.rim.intensity = 0.25; this.rim.position.set(0, -20, -50);
+      this.hemi.color.set(0x2a1410); this.hemi.groundColor.set(0x0a0606); this.hemi.intensity = 0.3;
+      return;
+    }
     // Earth's night side: moonlight on Hal, a warm rim from the dawn under the limb; Oa: its sun
     if (earth) {
       this.key.color.set(0xc6d4ff); this.key.intensity = 1.3; this.key.position.copy(this.moonDir).multiplyScalar(50);

@@ -6,7 +6,7 @@ import { MocapSource } from './Mocap.js';
 
 export async function loadCharacters(manager) {
   const loader = new GLTFLoader(manager);
-  const [casual, lantern, abin, xbot, kilowog, carol, hammond] = await Promise.all([
+  const [casual, lantern, abin, xbot, kilowog, carol, hammond, atrocitus] = await Promise.all([
     loader.loadAsync('/models/hal_casual.glb'),
     loader.loadAsync('/models/hal_lantern.glb'),
     loader.loadAsync('/models/abin_sur.glb'),
@@ -14,8 +14,9 @@ export async function loadCharacters(manager) {
     loader.loadAsync('/models/kilowog.glb').catch(() => null), // Part Two; optional until built
     loader.loadAsync('/models/carol.glb').catch(() => null), // Part Three
     loader.loadAsync('/models/hammond.glb').catch(() => null), // Part Three's end
+    loader.loadAsync('/models/atrocitus.glb').catch(() => null), // Part Four
   ]);
-  for (const g of [casual, lantern, abin, kilowog, carol, hammond]) {
+  for (const g of [casual, lantern, abin, kilowog, carol, hammond, atrocitus]) {
     if (!g) continue;
     g.scene.traverse((o) => {
       if (!o.isSkinnedMesh) return;
@@ -25,7 +26,7 @@ export async function loadCharacters(manager) {
       m.envMapIntensity = 0.6;
     });
   }
-  return { casual, lantern, abin, kilowog, carol, hammond, mocap: new MocapSource(xbot) };
+  return { casual, lantern, abin, kilowog, carol, hammond, atrocitus, mocap: new MocapSource(xbot) };
 }
 
 // The mouth of each scan for speech (the scans have no face bones): the lips' seam, the bottom of
@@ -38,6 +39,7 @@ export const JAW = {
   abin: { seam: 1.7295, chin: 1.665, front: 0.12, width: 0.025, hinge: [1.761, 0.03] },
   carol: { seam: 1.498, chin: 1.452, front: 0.092, width: 0.02, hinge: [1.525, 0.004] },
   kilowog: { seam: 2.122, chin: 1.955, front: 0.31, width: 0.06, hinge: [2.166, 0.16] },
+  atrocitus: { seam: 1.945, chin: 1.895, front: 0.15, width: 0.045, hinge: [1.99, 0.03] },
   hammond: { seam: 1.531, chin: 1.487, front: 0.075, width: 0.022, hinge: [1.556, -0.005] },
 };
 
@@ -154,6 +156,25 @@ export const createAbinSur = (gltf) => createCharacter(gltf, { glow: 0.32, jaw: 
 
 // Kilowog, the Corps' drill sergeant, from his own scan.
 export const createKilowog = (gltf) => createCharacter(gltf, { glow: 0.6, roughMin: 0.45, jaw: JAW.kilowog });
+
+// Atrocitus of Ysmault (Part Four), from the user's scan (2026-11-11): 2.25 m, crimson, in dark
+// armour. His eyes are lit in the texture: they glow a little (the bright, saturated red texels).
+export function createAtrocitus(gltf) {
+  const rig = createCharacter(gltf, { roughMin: 0.4, jaw: JAW.atrocitus });
+  for (const m of rig.meshes) {
+    const mat = m.material, base = mat.onBeforeCompile;
+    mat.onBeforeCompile = (sh, r) => {
+      base(sh, r);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        #ifdef USE_MAP
+          vec3 ec = texture2D(map, vMapUv).rgb;
+          totalEmissiveRadiance += vec3(1.6, 0.18, 0.08) * smoothstep(0.25, 0.5, ec.r - max(ec.g, ec.b) * 1.6) * smoothstep(0.5, 0.8, ec.r);
+        #endif`);
+    };
+    mat.customProgramCacheKey = () => 'gl-atrocitus';
+  }
+  return rig;
+}
 
 // Carol Ferris, from her own scan (Part Three). Matte like casual Hal: skin and cotton. Her scan's
 // normal map is broken over the skin (pale rims round the face, white flecks on the lips and

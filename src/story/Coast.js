@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { wait, waitFor, tween, ease, onFrame } from '../engine/Time.js';
-import { CoastSave } from '../engine/Save.js';
+import { CoastSave, PrisonerSave } from '../engine/Save.js';
 import { Story } from './Story.js';
 import { Animator } from '../characters/Rig.js';
 import { Locomotion } from '../characters/Mocap.js';
@@ -2141,14 +2141,15 @@ export class Coast extends Story {
     await wait(1.2);
     await this.say('halGrave6', { hold: 1.6 });
     await ui.fade(1, 2.4);
-    await this.ui.screen({
+    const pick = await this.ui.screen({
       emblem: true,
       kicker: 'Part Three · Coast City',
       title: 'FIRST LIGHT',
       subtitle: 'End of Part Three',
       body: 'Fired, two months behind on the rent, and Green Lantern in front of everyone at Ferris. Hector Hammond knows his name.\n\nAnd whatever broke out of Abin Sur’s ship is still out there.',
-      buttons: ['Quit to title'],
+      buttons: [{ label: 'Part Four: The Prisoner', sub: 'His pilot' }, 'Quit to title'],
     });
+    if (pick === 0) { PrisonerSave.resumeAfterReload(PrisonerSave.first); await new Promise(() => {}); }
     location.hash = '';
     location.reload();
     await new Promise(() => {});

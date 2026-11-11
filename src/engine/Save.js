@@ -48,6 +48,18 @@ export const COAST_CHECKPOINTS = [
   { id: 'grave', label: 'Martin Jordan', clock: '6:48 PM' },
 ];
 
+// Part Four, "The Prisoner": the second half of Secret Origin. Carol takes Hal back as her pilot;
+// at night, at Abin Sur's wreck, Sinestro shows him the empty prisoner cell; downtown, the two of
+// them against Atrocitus (his device drains their rings; the lantern from the pocket dimension;
+// the excavator); Ysmault, and his prophecy; the Guardians' verdict on Oa.
+export const PRISONER_CHECKPOINTS = [
+  { id: 'pilot', label: 'His pilot', clock: '8:52 AM' },
+  { id: 'cell', label: 'The empty cell', clock: '10:40 PM' },
+  { id: 'site', label: 'Atrocitus', clock: '11:58 PM' },
+  { id: 'ysmault', label: 'Ysmault', clock: 'YSMAULT · SECTOR 666' },
+  { id: 'trial', label: 'The verdict', clock: 'OA · THE CITADEL' },
+];
+
 function readCookie(key) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${key}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : null;
@@ -125,13 +137,14 @@ const RESUME = 'gl_resume';
 export const Save = createSave({ part: 'awakening', key: 'gl_awakening_v1', checkpoints: CHECKPOINTS, label: 'Part One · Awakening', first: 'home' });
 export const CorpsSave = createSave({ part: 'corps', key: 'gl_corps_v1', checkpoints: CORPS_CHECKPOINTS, label: 'Part Two · The Corps', first: 'summons' });
 export const CoastSave = createSave({ part: 'coast', key: 'gl_coast_v1', checkpoints: COAST_CHECKPOINTS, label: 'Part Three · Coast City', first: 'morning' });
-export const PARTS = { awakening: Save, corps: CorpsSave, coast: CoastSave };
+export const PrisonerSave = createSave({ part: 'prisoner', key: 'gl_prisoner_v1', checkpoints: PRISONER_CHECKPOINTS, label: 'Part Four · The Prisoner', first: 'pilot' });
+export const PARTS = { awakening: Save, corps: CorpsSave, coast: CoastSave, prisoner: PrisonerSave };
 
 export const checkpointIndex = Save.index;
 export const checkpointInfo = Save.info;
 
 // Which part a checkpoint id belongs to (ids are unique across parts).
-export const partOf = (id) => (CorpsSave.index(id) >= 0 ? 'corps' : CoastSave.index(id) >= 0 ? 'coast' : 'awakening');
+export const partOf = (id) => (CorpsSave.index(id) >= 0 ? 'corps' : CoastSave.index(id) >= 0 ? 'coast' : PrisonerSave.index(id) >= 0 ? 'prisoner' : 'awakening');
 
 // The pending restart after a reload, if any: { part, id }.
 export function takeResume() {

@@ -9,7 +9,7 @@ export const CONSTRUCTS = [
   { id: 'gatling', name: 'Gatling', kind: 'attack', cost: 1, perShot: 0.12, rate: 14, damage: 6, range: [2, 45], desc: 'Rotary cannon. Hold to spin up and fire. Reaches 45 m.' },
   { id: 'sword', name: 'Sword', kind: 'attack', cost: 3, perSwing: 0.8, damage: 24, range: [0, 5], desc: 'A blade of light. Click to cut; click in rhythm for a three-cut combo. Lunges at a target you aim at.' },
   { id: 'staff', name: 'Staff', kind: 'attack', desc: 'Long reach, sweeping strikes.' },
-  { id: 'hammer', name: 'Hammer', kind: 'utility', desc: 'Smash through cover and barriers.' },
+  { id: 'hammer', name: 'Hammer', kind: 'attack', cost: 12, damage: 110, range: [4.5, 16], desc: 'A sledgehammer brought down where you aim. Breaks what it lands on. Reaches 16 m.' },
   { id: 'axe', name: 'Axe', kind: 'utility', desc: 'Cut through debris and wreckage.' },
   { id: 'wall', name: 'Wall', kind: 'defense', cost: 10, range: [2.5, 20], life: 20, desc: 'A barrier raised where you aim. Holds for 20 s.' },
   { id: 'shield', name: 'Shield', kind: 'defense', cost: 2, drain: 3, desc: 'Held in front of you while the button is down.' },
@@ -204,6 +204,24 @@ export function handGeometry() {
   // the thumb, out from the palm's side and up
   chain([-0.42, 0.0, -0.05], -0.95, [[0.4, 0.26, 0.24, 0.25, 0.11], [0.34, 0.23, 0.2, 0.45, 0.1], [0.26, 0.2, 0.18, 0.55, 0.085]]);
   parts.push(new THREE.CylinderGeometry(0.34, 0.3, 0.9, 32, 1, true).rotateX(Math.PI / 2).scale(1.3, 0.8, 1).translate(0, -0.02, -0.72)); // the wrist, fading out
+  const geo = mergeGeometries(parts.map((g) => { g.deleteAttribute('uv'); return g.index ? g.toNonIndexed() : g; }));
+  return mergeVertices(geo, 1e-4);
+}
+
+// A sledgehammer: the head's long axis along X (its two faces at ±X), the handle down -Y from it
+// to the pommel at y -2.25 (HAMMER.pommel), the emblem on the head's +Z side (the construct shader
+// draws it there, centred at y 0.12, so the head is centred on that). About 2.4 m long at scale 1.
+export const HAMMER = { pommel: -2.3, centre: 0.12, face: 0.66 };
+export function hammerGeometry() {
+  const c = HAMMER.centre, parts = [box(1.06, 0.68, 0.68, 0, c, 0, 0.08)];
+  for (const sx of [-1, 1]) {
+    parts.push(box(0.11, 0.76, 0.76, sx * 0.47, c, 0, 0.045)); // a band at each end
+    parts.push(new THREE.CylinderGeometry(0.32, 0.37, 0.14, 32).rotateZ(Math.PI / 2).translate(sx * 0.59, c, 0)); // the face, flared
+  }
+  parts.push(box(0.24, 0.18, 0.74, 0, c - 0.38, 0, 0.05)); // the eye's collar under the head
+  parts.push(new THREE.CylinderGeometry(0.09, 0.078, 1.85, 16).translate(0, c - 0.34 - 0.92, 0)); // the handle
+  for (let i = 0; i < 5; i++) parts.push(new THREE.CylinderGeometry(0.1, 0.1, 0.075, 16).translate(0, HAMMER.pommel + 0.2 + i * 0.105, 0)); // the grip's wraps
+  parts.push(new THREE.SphereGeometry(0.13, 16, 10).scale(1, 0.7, 1).translate(0, HAMMER.pommel, 0)); // the pommel
   const geo = mergeGeometries(parts.map((g) => { g.deleteAttribute('uv'); return g.index ? g.toNonIndexed() : g; }));
   return mergeVertices(geo, 1e-4);
 }

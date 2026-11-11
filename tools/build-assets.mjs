@@ -43,6 +43,15 @@ const MODELS = [
   // Hector Hammond (the user's model, 2026-11-11), for the end of Part Three: one figure in a
   // T-pose, facing +X, lab coat, glasses. His skull swells in the shader (createHammond).
   { name: 'hammond', src: 'assets/raw/Hector.glb', facing: 1, tris: 90000, height: 1.78 },
+  // Atrocitus (the user's model, 2026-11-11), for Part Four: one figure in an A-pose, facing +X,
+  // crimson, in dark armour. Like Kilowog his head sits low between the shoulders (the narrowest
+  // slice is above his chin), and pauldrons reach 0.58 m out over arms that only clear the torso
+  // below 1.55 m: the arm axis is fitted under them, and his forearms are short (measured on the
+  // scan: elbow about 0.6, 1.38; wrist 0.71, 1.15; fingers curled under the widest point).
+  {
+    name: 'atrocitus', src: 'assets/raw/Atrocitus.glb', facing: 1, tris: 90000, height: 2.25,
+    rig: { neckMid: 0.858, jawBack: 0.07, neckBack: -0.08, headFill: true, neckColumn: true, shoulder: [0.147, 0.782], armRadius: 1.5, armLo: 0.178, armTipIn: 0.04, armMinY: 0.47, armMaxY: 0.693, elbowK: 0.58, wristK: 0.86 },
+  },
 ];
 
 await MeshoptDecoder.ready;

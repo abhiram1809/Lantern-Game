@@ -10,7 +10,8 @@ import { loadCharacters } from './characters/Characters.js';
 import { Story, chapterMenu } from './story/Story.js';
 import { Corps } from './story/Corps.js';
 import { Coast } from './story/Coast.js';
-import { Save, CorpsSave, CoastSave, PARTS, partOf, takeResume } from './engine/Save.js';
+import { Prisoner } from './story/Prisoner.js';
+import { Save, CorpsSave, CoastSave, PrisonerSave, PARTS, partOf, takeResume } from './engine/Save.js';
 
 const POSTERS = ['airforce', 'jets', 'testpilot', 'flightseat', 'sidewall', 'squadron', 'whitejet'];
 
@@ -60,7 +61,7 @@ async function boot() {
 
   const { part, id } = await titleFlow(ui);
   audio.init();
-  story = new ({ corps: Corps, coast: Coast }[part] ?? Story)({ engine, ui, input, audio, voice, assets: { characters, posters } });
+  story = new ({ corps: Corps, coast: Coast, prisoner: Prisoner }[part] ?? Story)({ engine, ui, input, audio, voice, assets: { characters, posters } });
   try {
     await story.run(id);
   } catch (err) {
@@ -74,7 +75,7 @@ async function boot() {
 }
 
 // Title card: Begin, or Continue / New game / Chapters once there's a save; Part Two once Part One
-// is finished, Part Three once Part Two is. A restart from the pause menu reloads the page and lands
+// is finished, Part Three once Part Two is, Part Four once Part Three is. A restart from the pause menu reloads the page and lands
 // here with the checkpoint to resume. Resolves with { part, id }.
 async function titleFlow(ui) {
   const resume = takeResume();
@@ -86,19 +87,21 @@ async function titleFlow(ui) {
     return r;
   }
   for (;;) {
-    const save = Save.load(), corps = CorpsSave.load(), coast = CoastSave.load();
+    const save = Save.load(), corps = CorpsSave.load(), coast = CoastSave.load(), prisoner = PrisonerSave.load();
     const has = save.checkpoint && save.checkpoint !== 'home';
     const partTwo = save.reached.includes('free') || corps.reached.length > 0;
     const partThree = corps.reached.includes('homeward') || coast.reached.length > 0;
+    const partFour = coast.reached.includes('grave') || prisoner.reached.length > 0;
     const buttons = has ? [{ label: 'Continue', sub: Save.info(save.checkpoint).label }, 'New game'] : ['Begin'];
     if (partTwo) buttons.push({ label: 'Part Two: The Corps', sub: corps.checkpoint ? `Continue · ${CorpsSave.info(corps.checkpoint).label}` : 'The summons' });
     if (partThree) buttons.push({ label: 'Part Three: Coast City', sub: coast.checkpoint ? `Continue · ${CoastSave.info(coast.checkpoint).label}` : 'The morning after' });
+    if (partFour) buttons.push({ label: 'Part Four: The Prisoner', sub: prisoner.checkpoint ? `Continue · ${PrisonerSave.info(prisoner.checkpoint).label}` : 'His pilot' });
     if (has || partTwo || save.reached.length > 1) buttons.push('Chapters');
     const pick = await ui.screen({
       emblem: true,
-      kicker: partThree ? 'Parts One to Three' : partTwo ? 'Parts One and Two' : 'Part One',
+      kicker: partFour ? 'Parts One to Four' : partThree ? 'Parts One to Three' : partTwo ? 'Parts One and Two' : 'Part One',
       title: 'GREEN LANTERN',
-      subtitle: partThree ? 'Awakening · The Corps · Coast City' : partTwo ? 'Awakening · The Corps' : 'Awakening',
+      subtitle: partFour ? 'Awakening · The Corps · Coast City · The Prisoner' : partThree ? 'Awakening · The Corps · Coast City' : partTwo ? 'Awakening · The Corps' : 'Awakening',
       body: 'Test pilot Hal Jordan is coming home after a long day. Tonight, something in the sky has other plans.',
       small: 'Headphones recommended &nbsp;·&nbsp; WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; E interact &nbsp;·&nbsp; L lantern &nbsp;·&nbsp; Space advance &nbsp;·&nbsp; V voices &nbsp;·&nbsp; Esc pause',
       buttons,
@@ -109,9 +112,10 @@ async function titleFlow(ui) {
     if (label === 'Begin' || label === 'New game') { Save.newGame(); return { part: 'awakening', id: 'home' }; }
     if (label.startsWith('Part Two')) return { part: 'corps', id: corps.checkpoint ?? CorpsSave.first };
     if (label.startsWith('Part Three')) return { part: 'coast', id: coast.checkpoint ?? CoastSave.first };
+    if (label.startsWith('Part Four')) return { part: 'prisoner', id: prisoner.checkpoint ?? PrisonerSave.first };
     let chapters = Save;
     if (partTwo) {
-      const parts = [Save, CorpsSave, ...(partThree ? [CoastSave] : [])];
+      const parts = [Save, CorpsSave, ...(partThree ? [CoastSave] : []), ...(partFour ? [PrisonerSave] : [])];
       const p = await ui.screen({ kicker: 'Chapters', title: 'CHOOSE A PART', stack: true, buttons: [...parts.map((x) => x.label.replace(' · ', ': ')), 'Back'] });
       if (p === parts.length) continue;
       chapters = parts[p];

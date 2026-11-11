@@ -43,7 +43,11 @@ sparring, to the Guardians' hall and home before dawn, with hyperspace travel be
 as free flight afterwards. **Part Three, "Coast City"**, is complete: the morning after on Earth
 (late, broke, fired by Carol Ferris), then the afternoon the comics give it (*Green Lantern: Secret
 Origin*): the test jet going down, Green Lantern's first public rescue, Carol meeting him, Hector
-Hammond, Sinestro, and the coda at Martin Jordan's grave.
+Hammond, Sinestro, and the coda at Martin Jordan's grave. **Part Four, "The Prisoner"**, is
+complete: the second half of *Secret Origin*. Carol takes Hal back as her pilot, Sinestro shows him
+the empty prisoner cell in Abin Sur's wreck, they fight Atrocitus downtown (his machine drains their
+rings, the lantern and the oath bring Hal's back, the hammer breaks the excavator), Atrocitus is
+chained on Ysmault and prophesies, and the Guardians give their verdict on Oa.
 
 The story of Part One:
 
@@ -143,6 +147,35 @@ afternoon in the suit:
    father (`createLightFigure`), who waves the way he did from the airfield and goes back into the
    light; the end card ("FIRST LIGHT").
 
+Part Four (`src/story/Prisoner.js`, extends `Coast` with Part Two's Oa, travel and Guardian methods
+copied onto its prototype):
+
+1. **His pilot** (`pilot`, Ferris at 8:52 AM): Carol on the apron takes him back on probation, he asks
+   her to dinner, she doesn't date employees, and thanks "whoever that was on my runway".
+From the lake on, every chapter starts with `lanternUp()` (the suit, the HUD, full charge, the
+constructs, the lantern pocketed), not only `prepare()`: played on from the pilot's morning, Hal
+otherwise came to the lake and downtown in his clothes with no HUD or constructs (see Gotchas).
+
+2. **The empty cell** (`cell`, the lake at 10:40 PM): Sinestro at Abin Sur's ship; three clues to
+   find (`wreckClues`: the cell's hatch torn out and the hole in the hull, the prisoner's burning
+   blood, a word of Ysmault's script cut in a stone), Sinestro names Atrocitus, the trail west.
+3. **Atrocitus** (`site`, `scenes/Site.js`, `enemies/Atrocitus.js`; the chapter method is
+   `atrocitus()`, not `site()`: see Gotchas): downtown at 11:58 PM, a tower going up on a floodlit
+   lot. Atrocitus at the machine he built from the cell. The fight beside Sinestro (`Sinestro.ally`)
+   down to 60%; his hands on the machine and both rings drain (`drainRings`), Hal's suit dissolving
+   back into his clothes (`suitOff`); L brings the lantern out of the pocket dimension, E at it is
+   the whole oath (`recharge()` overridden while `drained`), the suit back (`suitUp`); Atrocitus has
+   the excavator's bucket raised over Sinestro by his blood (`excavatorBeat`, `diggerArm`), the ring
+   gives Hal the **hammer** (`learn('hammer')`), three blows break the machine apart in 24 s or it's
+   "TOO LATE"; Sinestro binds him (`bindings`), and the machine is gone (`removeDevice`, the hook).
+4. **Ysmault** (`ysmault`, `scenes/Ysmault.js`): the voyage Earth → Ysmault (`voyage`, Sector 666,
+   `Space.ysmault`), the basin under the red sun, Atrocitus chained at his obelisk (`chainAtrocitus`);
+   his prophecy of the Blackest Night and of Sinestro's Korugar; Sinestro gags him with light; the
+   voyage on to Oa. Ysmault is added to the save's charted worlds.
+5. **The verdict** (`trial`, the Hall of the Guardians): the charge (acting outside their sectors)
+   set aside, Sinestro to train Jordan in the field, "the next time we meet... on Korugar"; the end
+   card ("THE PRISONER").
+
 The user's decisions for the ending (2026-11-11): beats from *Secret Origin*, not invented (the
 rescue, Carol meeting GL, Hammond's exposure at the ship and his telepathic attack, learning Hal's
 name, Sinestro knocking him out, sent by Ganthet); **no yellow weakness** (retconned); **no Jim**
@@ -237,8 +270,8 @@ pre-rendered clips (`public/voices/`, Kokoro-82M from Hugging Face, see *Voices*
 - **Controls they chose:** no jump, ever. `4` opens the construct wheel (time stops), click
   deploys. Double-tap Space flies. `L` stores or summons the lantern (pocket dimension). `E` high in
   flight enters hyperspace (they asked for E). Fist, shield and wall are the starter constructs;
-  the gatling (Kilowog) and the sword (Sinestro) are learned on Oa; staff, hammer and axe stay
-  locked for later parts.
+  the gatling (Kilowog) and the sword (Sinestro) are learned on Oa, the hammer against the excavator in
+  Part Four; staff and axe stay locked for later parts.
 - **Travel and planets (their design, 2026-11-09):** after Kilowog's training Hal can go home; the
   star chart unlocks more planets as the story goes on. For now only Oa and Earth are charted.
 
@@ -296,6 +329,7 @@ and reference videos. The built outputs in `public/` are what the game loads.
 | `assets/raw/Kilowog.glb` | **Kilowog** (the user's model, 2026-11-09), built as `kilowog.glb`. Two figures side by side; the z > 0 one is kept (`keepSide: 1`). |
 | `assets/raw/Carol.glb` | **Carol Ferris** (the user's model, 2026-11-10), built as `carol.glb`. Two figures side by side (`keepSide: 1`), A-pose, a shoulder bag. |
 | `assets/raw/Hector.glb` | **Hector Hammond** (the user's model, 2026-11-11), built as `hammond.glb`. One figure, T-pose, lab coat, glasses, moustache; his skull swells in the shader (`createHammond`). |
+| `assets/raw/Atrocitus.glb` | **Atrocitus** (the user's model, 2026-11-11), built as `atrocitus.glb`. One figure, A-pose, crimson, dark armour with big pauldrons, the Red Lantern emblem. |
 | (none) | **Sinestro** has no file: `createSinestro()` derives him at runtime from `abin_sur.glb` with a shader layer (see *Characters*). |
 | (none) | **The Guardians** have no file either: `createGuardian()` (`characters/Guardian.js`) derives them from `abin_sur.glb`. |
 | `assets/raw/hal_a.glb` | Old casual scan: two figures, poor face. Unused; see the commented entry in `build-assets.mjs`. |
@@ -303,7 +337,9 @@ and reference videos. The built outputs in `public/` are what the game loads.
 | `assets/raw/gemini_generated_video_6bbb1091.mp4` | Reference for a **later part**: the suited Lantern flying over a neon night city, fighting red-eyed mechs with constructs (minigun, hex shield); combat HUD with minimap, health, ammo and damage numbers. |
 | `assets/ref/1–4.webp` | Concept art. The HUD frame, the 10:00 PM timestamp and the glyph subtitles come from here. `4.webp` is the bedroom; the posters are cut from it. |
 | `assets/mocap/Xbot.glb`, `Soldier.glb` | Mixamo-rigged characters from the three.js examples. Only Xbot's clips are used at runtime (`public/anims/xbot.glb`). |
-| `assets/props/*.glb` | **Downloaded props** (2026-11-10), CC BY 4.0 Sketchfab models from Objaverse, credited in `CREDITS.md`: Hal's car (`phoenix`), four period cars for the lots, the prototype (an F22), the phone, palms, Hal's apartment block, the apron's access stand, tug, fuel truck, cones, tool chest, drums, forklift; Coast City's six office blocks (`office1`–`6`, one artist), the street kit (`cityprops`: traffic lights, lamps, hydrants, bins, a dumpster, signs), a bus shelter, a billboard; the gate's guard booth; the kitchenette's fridge and coffee maker; the dream's F-104. `apartment.glb`'s textures were re-encoded as JPEG to keep it under 25 MB. |
+| `assets/props/*.glb` | **Downloaded props** (2026-11-10), CC BY 4.0 Sketchfab models from Objaverse, credited in `CREDITS.md`: Hal's car (`phoenix`), four period cars for the lots, the prototype (an F22), the phone, palms, Hal's apartment block, the apron's access stand, tug, fuel truck, cones, tool chest, drums, forklift; Coast City's six office blocks (`office1`–`6`, one artist), the street kit (`cityprops`: traffic lights, lamps, hydrants, bins, a dumpster, signs), a bus shelter, a billboard; the gate's guard booth; the kitchenette's fridge and coffee maker; the dream's F-104; Part Four's building site (the excavator, the girder kit, a tower crane, chain-link
+fence, a container, barriers, a mixer, pipes, bricks, a porta-potty) and Ysmault (a butte, obelisks,
+a chain, shackles, a rock pack). `apartment.glb`'s textures were re-encoded as JPEG to keep it under 25 MB. |
 | `public/textures/pbr/` | **Surface textures** (CC0, Poly Haven, 1K WebP): corrugated iron (the hangars), concrete (the apron, lots, pavements), asphalt (roads, runway), gravelly sand (the desert), white plaster (the tower and office). `pbrMaterial(id, { repeat, tint, map, detailRepeat })` in `fx/Textures.js`. |
 
 Model build settings (`MODELS` in `tools/build-assets.mjs`):
@@ -316,6 +352,7 @@ Model build settings (`MODELS` in `tools/build-assets.mjs`):
 | Kilowog | 90k | 2.4 m |
 | Carol | 90k | 1.7 m |
 | Hammond | 90k | 1.78 m |
+| Atrocitus | 90k | 2.25 m |
 
 Every model faces +Z (`facing: 1`) and has WebP textures.
 
@@ -384,7 +421,9 @@ interactions. Each chapter is an `async` method that awaits waits, tweens, dialo
 player's actions.
 
 **Parts:** `Story` is Part One *and* the shared plumbing. Part Two's `Corps` (`src/story/Corps.js`)
-and Part Three's `Coast` (`src/story/Coast.js`) extend it and override `get save()` (their own
+and Part Three's `Coast` (`src/story/Coast.js`) extend it, and Part Four's `Prisoner` extends `Coast`
+(Ferris, Carol, the suit-up) with Corps' Oa, travel and Guardian methods copied onto its prototype
+(the list at the end of `Prisoner.js`); they and override `get save()` (their own
 store), `steps()` (checkpoint id → method) and `prepare(id)`. Everything else (powers, HUD, pause,
 dialogue, barks, `perform`, collapse, interactions) is inherited. `main.js` picks the class by part.
 
@@ -405,7 +444,9 @@ dialogue, barks, `perform`, collapse, interactions) is inherited. `main.js` pick
   `ferris` → `ferris()`, `carol` → `carolScene()`, `after` → `after()` (and Tom's call), `wreck` →
   `wreck()` (a flashback: its clock is 5:12 AM), `test` → `test()`, `catch` → `catchJet()` (the
   catch, the carry, `meetCarolGL()`), `hector` → `hector()` (the fight, `mindAttack()`,
-  `sinestroOnEarth()`), `grave` → `grave()` (the end card).
+  `sinestroOnEarth()`), `grave` → `grave()` (the end card, which offers Part Four). Part Four's
+  (`PRISONER_CHECKPOINTS`) are `pilot` → `pilot()`, `cell` → `cell()`, `site` → `atrocitus()`,
+  `ysmault` → `ysmault()`, `trial` → `trial()` (the end card).
   The free-roam steps never resolve; travel saves `range` or `earth` itself on arrival. Part Two's
   linear run ends at `homeward`'s end card (Part Three, free flight via `earth`, or the title).
 - `prepare(id)` rebuilds the world state a step expects when the game is resumed from it: which
@@ -476,8 +517,9 @@ the wheel). `travelTo(id)` → `voyage()` → `arriveOa()` / `arriveEarth()`, wh
 ### Save (`src/engine/Save.js`)
 
 Each part has its own store, made by `createSave({ part, key, checkpoints, label, first })`:
-`Save` (Part One, key `gl_awakening_v1`), `CorpsSave` (Part Two, `gl_corps_v1`) and `CoastSave`
-(Part Three, `gl_coast_v1`, `COAST_CHECKPOINTS`). Each is kept
+`Save` (Part One, key `gl_awakening_v1`), `CorpsSave` (Part Two, `gl_corps_v1`), `CoastSave`
+(Part Three, `gl_coast_v1`, `COAST_CHECKPOINTS`) and `PrisonerSave` (Part Four, `gl_prisoner_v1`,
+`PRISONER_CHECKPOINTS`; offered on the title once Part Three reaches `grave`). Each is kept
 in `localStorage` with a cookie mirror (1 year, SameSite=Lax) for when storage is blocked. Settings
 (voices) always live in Part One's store. `allUnlocks()` / `allWorlds()` merge every part's lists, so
 constructs learned anywhere carry over. The pending restart is `gl_resume` in sessionStorage.
@@ -630,6 +672,27 @@ pavement, the palms stood tree by tree on their trunks, `PALMS`, and every kit p
 - **`CrashSite.js`** (Part Three): `SHIP` is exported; `fireRest` holds the fires low (they relaxed
   back to full), `glowBoost` brightens the ship's strip on cue.
 
+- **`Site.js`** (Part Four): downtown Coast City at midnight. A fenced lot (`LOT`, x -30..30,
+  z -26..22) between a south and an east street; the tower's steel frame (`FRAME`: H columns and I
+  beams instanced from the girder kit, webs upright, two floors of slab, boxes for colliders); the
+  Liebherr crane with blinking beacons; the excavator (`EXCAVATOR`, its parts by name in `digger`:
+  `house`, `boom`, `stick`, `bucket`, `tracks`, each node a pivot, `userData.rest`); the spoil heap;
+  container, porta-potties, mixer, bricks, pipes; a stack of beams and eight loose ones as physics
+  bodies (`loose`, Atrocitus throws them); barriers; three floodlight towers (spot lights) and sodium
+  street lamps (sprites, additive pools, a point light on every third); ten office blocks with lit
+  windows at night (`nightWindows`: their glass texels, a soft-edged lit room in one 1.6 × 3.4 m cell
+  in five) and downtown's towers. Atrocitus's machine (`DEVICE`, `buildDevice`: five iron spikes, a
+  crystal heart whose pulse is `deviceU.uPulse`, a ring of Ysmault's script burnt into the ground).
+  `blocks` is what Atrocitus and Sinestro walk and fly round.
+- **`Ysmault.js`** (Part Four): the prison world. A basin of rust-red grit under the `ysmault` sky
+  (a swollen red sun low in the north-west), nine darkened buttes round it, loose rock, and a ring of
+  five obelisks (`RING_R`, their purple cracks turned red by `redStone`), chains and shackles;
+  Atrocitus's obelisk is `STAKE`, its two chain anchors `anchors`; `chainBetween(a, b)` /
+  `fitChain` stretch the chain prop between two points.
+- **`Space.js`** also has **Ysmault** (`YSMAULT`, `buildYsmault`: rust and basalt, salt flats,
+  fault lines glowing on the night side, a thin red atmosphere, its red dwarf); `show('ysmault')`.
+  `Voyage.js` routes Earth, Oa and Ysmault (`SECTOR`, the approach target and dive per world).
+
 ### Props (`src/props/`, `tools/build-props.mjs`)
 
 Downloaded models (CC BY 4.0, Sketchfab by way of Objaverse; `CREDITS.md`). How to find one:
@@ -732,6 +795,28 @@ car's footprint against parked cars' boxes and the low vertices of props, frame 
   through (unblockable; get out of reach) and pulses the dream's warp (`uDream`). Each wave swells
   his skull a little (`rig.hu.uSwell`, capped 0.72).
 
+### Atrocitus (`src/enemies/Atrocitus.js`)
+
+- On foot and heavy: a kinematic capsule moved by his own code (`vel`), so constructs hit him but
+  don't shove him (it's in `physics.dynamics` with a dummy mesh, where impacts look for targets); mocap `Locomotion` from his speed, facing Hal in the fight (out of it, the way he
+  walks, or `faceYaw`); round the scene's `blocks`, inside `radius` of `center`. 640 health; hits
+  while he's stunned count 1.5×.
+- **Charge:** head down, a red line along the ground (0.85 s), then a straight rush at 11 m/s. A
+  wall, the held shield or anything fixed in his way stops him dead and stuns him (2.4 s, 1.2 s for
+  a column): the opening. Through Hal: 20 and a knock back (`player.dash`).
+- **Beam:** to the nearest loose beam (`loose`, to arm's length: he's kinematic and would shove it
+  away), lifted overhead and held shaking (the tell), thrown with lead; 16 where it hits; it lies
+  where it falls, to be thrown again.
+- **Blood:** his palm lit and dripping (0.75 s), then a fan of seven burning drops; each lands as a
+  fire on the ground for 4.5 s (a `powers.hazards` entry, 9/s). The shield stops them.
+- **Slam** (Hal within 4 m, near the ground): fists up, then into the ground; a shockwave ring
+  rolls out to 9.5 m (14, less with distance), which only flight gets over.
+- `engage()` / `disengage()`, `onQuip` ('charge', 'stunned', 'hurt', 'solid'), `onHurtHal`.
+
+**Sinestro beside Hal** (`Sinestro.ally(foe)`, Part Four): he flies high and wide round the foe
+(`{ position, vel, collider, hit }`) and fires a volley at him every 3–5.5 s; `aimAt(out)` is what he
+faces and fires at; the spikes pass through Hal and his shield.
+
 ### Ring powers (`src/powers/`, `src/ui/PowerHud.js`)
 
 `Story` owns one `RingPowers` (`this.powers`) and one `PowerHud` (`this.hud`). `powers.attach()`
@@ -777,6 +862,11 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
     3% to form, 0.8% a cut, 24 / 24 / 38 damage. `cutting` is true in a cut's hitting window
     (Sinestro's blade is parried then). The blade mesh and its short light trail are `Blade` in
     `Constructs.js`, shared with Sinestro.
+  - Hammer (`HammerStrike`, `hammerGeometry`, Part Four): forms raised over the aim point and comes
+    down about its pommel in 0.2 s, across Hal's view (its pommel to the right of the point, so from
+    behind him it's a mallet seen side-on), landing square: 110 damage, a 3.6 m splash, a hard shove
+    (`impact({ damage, splash, power })`), a ground ring and dust. 12%, 4.5–16 m; `hammerScale` grows
+    it with the distance. No sweep on the way down (see Gotchas).
   - While the shield or the gatling is up, `RingPowers.update` sets `player.strafe`: Hal faces
     where the camera looks and moves where the keys say (see *Player*). The constructs don't
     turn Hal themselves any more. Choosing another construct puts the held one away.
@@ -1086,6 +1176,11 @@ crash site. `player.surface` picks the footstep sound.
   half-width (the head bone doesn't move with the vertices: aim cameras, looks and hands-to-temples
   with these). Part Three runs it from 0.12 (the lake) through 0.38 to about 0.68. Approved by the
   user on the second pass ("looks right").
+- `createAtrocitus(gltf)` (the user's scan, 2026-11-11): the scan as it is, its lit red eyes glowing
+  a little (the saturated red texels). Rig overrides in `build-assets.mjs`: Kilowog's neck settings
+  (his head sits low between the shoulders) and an arm band fitted under the pauldrons (`armMaxY`)
+  with the elbow and wrist further out along the arm (`elbowK`, `wristK`; short forearms, fingers
+  curled under), all three new `autorig.mjs` options whose defaults leave the other models unchanged.
 - `createLightFigure(gltf)`: a scan drawn as the ring's light (Martin at the grave): translucent
   green, fresnel rim, a trace of the scan's shading so the face reads, the dissolve sweep as its
   formation, and a depth-only skinned twin (same geometry and skeleton, patched the same way) so
@@ -1120,7 +1215,7 @@ crash site. `player.surface` picks the footstep sound.
   hinge by `uJaw` (0..1, about 0.2 rad); the seam band darkens as it opens (the scans' mouths are
   sealed). `JAW` holds each scan's seam, chin, lip front, half-width and hinge, set by eye with the
   mouth held open: casual Hal 1.6045, suited Hal 1.6155, Abin Sur (Sinestro, the Guardians) 1.7295,
-  Carol 1.498, Kilowog 2.122. `Story.updateMouths` drives the speaker's `uJaw` from the voice's
+  Carol 1.498, Kilowog 2.122, Atrocitus 1.945. `Story.updateMouths` drives the speaker's `uJaw` from the voice's
   mouth curve (`voice.mouth`) times `MOUTH_GAIN` (Kilowog widest, the Guardians least); the speaker
   is the rig a line is performed on (`Story.perform` sets `speakingRig`) or `mouthOf(who)`.
 - `createRing()` and `createLantern()` are procedural.
@@ -1150,11 +1245,12 @@ run through its own effects chain (`CHARACTERS` in the script):
 | abin | bm_lewis | 90 Hz | breath noise, slower |
 | ring | bf_emma | (unchanged) | band-limited, a metallic comb, a short room |
 | hammond | am_adam | 108 Hz | presence, a little room: soft-spoken, precise |
+| atrocitus | bm_george + am_onyx | 72 Hz | formants down, an octave-down layer, growl, saturation, a room: huge, rasping |
 | pilot (radio, `phone` band), tech, tech2 | am_onyx, am_liam, am_fenrir | | Part Three's afternoon and the lake |
 | light, dad, kid, tom, landlord | blends and others | | see the script |
 
 `style: 'phone'` lines (the voicemails) also get a telephone band. Loudness is levelled (speech
-RMS -19 dBFS, peaks under -1 dBFS). All 234 lines are 4.45 MB of MP3.
+RMS -19 dBFS, peaks under -1 dBFS). All 300 voiced lines are 6.0 MB of MP3.
 
 - `npm run voices` renders only what changed (text, voice settings or the pipeline, by hash in
   `build.json`); `ONLY=key1,key2`, `WHO=carol,tom`, `FORCE=1`, `SURVEY=1` (median F0 of every
@@ -1231,6 +1327,30 @@ The checks that have worked:
    still playing. Every source edit makes Vite reload all tabs, theirs included.
 
 ## Gotchas (learned the hard way)
+
+- **A chapter method can't share a name with a story field.** Part Four's third step was `site()`,
+  and `Story.site` is the lake scene: `setupCrash` read `this.site`, got the method, and the next
+  scene update threw ("this.current?.update is not a function"). The step key stays `site`; the
+  method is `atrocitus()`.
+- **A chapter's suit and powers can't live only in `prepare()`.** `prepare()` runs for the step the
+  game starts at, never for one played into: Part Four's `cell` and `site` put the suit on there, so
+  played on from `pilot` Hal flew to the lake and fought Atrocitus in his clothes, without the HUD
+  or constructs (the user's report). Each chapter sets up what it needs itself (`lanternUp()`).
+- **The ring's impacts only damage bodies in the scene's `physics.dynamics`.** A target with its own
+  kinematic body (the excavator, Atrocitus) took no damage until its body was pushed there (with a
+  dummy mesh, as Hector's shell is): the fist and the hammer passed through Atrocitus for nothing,
+  and only Sinestro's spikes (which call `hit` directly) and the sword (which reads the targets)
+  hurt him. And **an impact skips whatever its sweep already touched** (the fist's way of
+  not hitting twice): a hammer that swept on the way down dealt the sweep's 40 instead of its 110.
+- **A kinematic body walking into a loose dynamic one shoves it away.** Atrocitus never reached the
+  beam he was fetching; he stops at arm's length and the lift closes the gap.
+- **`glowTexture()`'s default mid-tone is green** (it was made for the ring's light): street lamps
+  and fires drawn with it came out lime. Pass a white mid (`glowTexture(inner, 'rgba(255,255,255,0.3)')`).
+- **An NPC's own update can undo a scripted walk.** Atrocitus faced Hal and damped his gait from his
+  velocity every frame, so a position tween slid a frozen figure. Script his moves through his
+  velocity (`Prisoner.atroWalk`) and let his update carry them.
+- **A downloaded office block's glass is one texture region, not windows.** Lighting a whole cell
+  of it made flat beige tiles; a soft-edged lit room inside each cell reads as a window at night.
 
 - **An IK target function must not return a shared scratch vector.** Both hands to the head, the
   left target and the right one wrote into the same vector: the animator reads both before it
@@ -1426,6 +1546,24 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-11, the suit in Part Four) on 5180, fixed-step, voices off, synthetic input: played on
+  from `pilot` (Carol's scene run through) into `cell` (Hal in the suit, the HUD up with health and
+  charge, constructs on), the three clues found, on into `site` (suited, HUD, Atrocitus's bar); a
+  fist on Atrocitus now deals 40 (it dealt nothing before), from `#site` too. A clean `vite build`.
+
+- (2026-11-11, Part Four) on 5180, fixed-step captures, voices off, synthetic input: Atrocitus's scan
+  rigged (bones, weights, the face and jaw on the head bone, the posed test), in close-up (front,
+  three-quarter, profile, the jaw held open); the hammer (raised, mid-swing, landing, its ghost) at the
+  lake and on the excavator; the wreck's three clues (the hole and its torn metal, the burning blood,
+  the stone's word); the building site at night (the arrival over the roofs, the lot, the frame, the
+  crane, lit windows, the street lamps); the intro and its shots; each of Atrocitus's attacks (the
+  charge's line and rush, the beam lifted and thrown, the blood flung, the slam's ring) and Sinestro
+  circling as an ally; the drain (the pulse, the charge to 0, the suit off), L and E into the oath
+  recharge and the suit back; the excavator beat, three hammer blows, the breakup, the binding and the
+  machine gone, played through into Ysmault; Ysmault from orbit and its basin, Atrocitus chained, every
+  line's shot, the gag, the voyage on; the verdict in the hall to the end card. `npm run voices`
+  rendered every new line (none listened to). A clean `vite build`.
+
 - (2026-11-11, Part Three's ending) on 5180, fixed-step captures, voices off, synthetic input:
   Tom's call on the trunk; the lake at 5 AM (the lights, Hector at the hull, the ship's breath, his
   face on his knees); the take-off from the gap (roll, lift-off, Carol watching, the long-lens
@@ -1561,6 +1699,13 @@ Verified by playing in the browser:
 
 Not verified:
 
+- Part Four with a real mouse and keys, voices on, in real time: the Atrocitus fight's balance (his
+  health, the charge's stun window, how hard the beams and the blood are to dodge), the 24 s
+  excavator timer, Sinestro's volleys landing; the pilot and cell chapters since their last visual
+  fixes in real time; the breakup's new wide shot and the intro's closer first shot (changed after
+  the last captures); the obelisks' red recolour (changed after the last capture); frame rate at the
+  site (ten office blocks, the crane, the frame, eight lights) and on Ysmault; every new sound.
+
 - Part Three's ending with a real mouse and keys, voices on, in real time: the chase and the carry
   were driven by script (the carry's difficulty, the camera's mouse turn), the Hector fight by
   direct hits (blocking his throws with a real shield or wall, how hard protecting Carol is), the
@@ -1615,6 +1760,11 @@ Not verified:
 
 ## Open items and ideas
 
+- **Part Four** is built (2026-11-11). Ours, not the comic's: the machine built from the cell (it
+  drains rings; who took it is left open: Black Hand later?), the excavator, the hammer learned
+  there, Sinestro's gag. Atrocitus wears the Red Lantern emblem in the user's scan (no red ring yet in
+  the story). The other Inversions aren't shown on Ysmault (empty chains). Hal has no part in the
+  verdict beyond his line; Kilowog is on his range, not in the hall.
 - **Roadmap (agreed 2026-11-09): Oa first, then Coast City.** Proposed, not yet built:
   - Part Two, "The Corps": Hal buries Abin Sur (as in *Secret Origin* #31) and finds the empty
     prisoner tank (Abin Sur was transporting Atrocitus); the ring summons him to Oa (space trip
@@ -1687,16 +1837,19 @@ src/powers/                 RingPowers (charge, health, wheel, aim, constructs i
                             Constructs (list, shaders, fist / shield / wall / gatling / sword geometry, Blade)
 src/scenes/                 Bedroom (+ hallway, kitchenette, buildJet; night or morning), Dream, Hyperspace,
                             CrashSite, Oa (Part Two) + Hall (the Guardians' hall), Space (Earth and Oa
-                            from orbit), Ferris (Part Three: the airfield, the road, the lots)
+                            from orbit, and Ysmault), Ferris (Part Three: the airfield, the road, the lots),
+                            Site (Part Four: downtown at night, the building site), Ysmault (the prison world)
 src/props/                  Props (downloaded models: load, clone, helpers), Car (makeCar: paint, wheels,
                             the driver's door, seat / pedals / rim / tail points)
 src/enemies/                Drones (training drones: model, spring flight, AI, bolts, breakup), Sinestro
-                            (the sparring opponent: flight, blade, spikes, guard, slam), Hammond (Hector
-                            at Ferris: the shell, thrown slabs, psychic waves)
+                            (the sparring opponent, or an ally: flight, blade, spikes, guard, slam), Hammond
+                            (Hector at Ferris: the shell, thrown slabs, psychic waves), Atrocitus (Part
+                            Four: charge, thrown beams, burning blood, slam)
 src/fx/                     Sky, Particles + Fire, Water, Trees, GreenLight, Cloth, Textures, Rift
                             (pocket dimension), EarthMap (continent outlines, city-light density)
 src/story/                  Story (Part One + shared plumbing, the lantern), Corps (Part Two, travel),
-                            Coast (Part Three), Voyage (flights between worlds), lines (all dialogue)
+                            Coast (Part Three), Prisoner (Part Four), Voyage (flights between worlds),
+                            lines (all dialogue)
 src/ui/UI.js                HUD, subtitles, glyph cipher + decode, choice, cards, pause, toasts
 src/ui/PowerHud.js          vitals, ring charge, armed construct, ring readout, reticle, marker,
                             training panel, target bracket, damage numbers, construct wheel
@@ -1712,6 +1865,34 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-11: Part Four in the suit, and the fist hurting Atrocitus
+- The user: at the lake and against Atrocitus, Hal was in his base form, flying but with no health
+  bar, unable to fight. Played on from `pilot`, `prepare()` (where the suit went on) never ran for
+  the later chapters. `Prisoner.lanternUp()` now starts `cell`, `site`, `ysmault` and `trial` (and
+  `prepare()` uses it). Also found: Atrocitus's kinematic body wasn't in `physics.dynamics`, so the
+  fist and the hammer did him no damage (`Atrocitus.js` adds it, and `dispose()` takes it out).
+- Verified: see Status (2026-11-11, the suit in Part Four). Not verified: `ysmault` and `trial`
+  played into since the change (the suit was already on from the site's recharge), the hammer on
+  the excavator again with Atrocitus's body in the list (his `hit` deals nothing outside the fight),
+  real input.
+
+### 2026-11-11: Part Four, "The Prisoner"
+- **Story** (`story/Prisoner.js`, new; `lines.js`; `Save.js` `PrisonerSave`, `PRISONER_CHECKPOINTS`;
+  `main.js` the title's fourth part; Part Three's end card offers it): `pilot`, `cell`, `site`,
+  `ysmault`, `trial`. See *What this is*. The user chose Secret Origin's second half and made
+  Atrocitus in Tripo (a Kilowog-derived stand-in was dropped when the scan arrived).
+- **Atrocitus**: `assets/raw/Atrocitus.glb` built (new `autorig.mjs` options `armMaxY`, `elbowK`,
+  `wristK`), `createAtrocitus`, `JAW.atrocitus`, `enemies/Atrocitus.js`, voice `atrocitus`.
+- **The hammer** (`hammerGeometry`, `HAMMER` in `Constructs.js`; `HammerStrike`, `hammerFrame`,
+  `smash`, `impact()` options in `RingPowers.js`).
+- **Sinestro beside Hal**: `Sinestro.ally`, `thinkAlly`, `aimAt`.
+- **Scenes**: `scenes/Site.js` and `scenes/Ysmault.js` (new), Ysmault in `Space.js`, routes in
+  `Voyage.js`, a `ysmault` sky.
+- **Props** (CC BY, credited): `excavator`, `girders`, `crane`, `chainlink`, `container`, `barriers`,
+  `roadclosed`, `mixer`, `pipe`, `bricks`, `portapotty`, `pipepallets`, `cliff`, `obelisks`, `chain`,
+  `shackles`, `rocks`. A helper agent searched Objaverse and reported licences from the API pages.
+- Verified: see Status (2026-11-11, Part Four). Not verified: a real-input playthrough with sound.
 
 ### 2026-11-11: finding Martin Jordan's grave
 - The user couldn't find it: the stone stood between the rows among about 120 others, with no

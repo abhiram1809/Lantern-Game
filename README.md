@@ -1,4 +1,4 @@
-# Green Lantern — Awakening · The Corps · Coast City
+# Green Lantern — Awakening · The Corps · Coast City · The Prisoner
 
 A Three.js story game. **Part One, Awakening:** test pilot Hal Jordan comes home, falls asleep,
 relives his father's crash, is visited by the ring's light, refuses to be afraid, and is carried
@@ -8,8 +8,11 @@ Sinestro spars with him, and the Guardians lay Abin Sur to rest and give Hal Sec
 home before dawn. **Part Three, Coast City:** the morning after. He has slept through the test
 flight, rent is two months late, and Carol Ferris fires him. That afternoon the test goes ahead
 without him and the jet goes down: Green Lantern's first time in public, Carol meets him, Hector
-Hammond attacks, Sinestro ends it. At dusk, his father's grave. (The ending follows *Green Lantern:
-Secret Origin*.)
+Hammond attacks, Sinestro ends it. At dusk, his father's grave. **Part Four, The Prisoner:** Carol takes him
+back as her pilot; that night Sinestro shows him the empty cell in Abin Sur's ship, and they fight
+the escaped prisoner, Atrocitus, at a building site downtown; then Ysmault, where Atrocitus is
+chained and prophesies, and the Guardians' verdict on Oa. (Parts Three and Four follow *Green
+Lantern: Secret Origin*.)
 
 ## Run
 
@@ -63,10 +66,12 @@ and a health bar mark it, and hits pop damage numbers.
 ## Checkpoints and saving
 
 Progress saves automatically at each checkpoint, to `localStorage` with a cookie mirror as a
-fallback. Each part has its own save (`gl_awakening_v1`, `gl_corps_v1`, `gl_coast_v1`); constructs
+fallback. Each part has its own save (`gl_awakening_v1`, `gl_corps_v1`, `gl_coast_v1`,
+`gl_prisoner_v1`); constructs
 learned in any carry over. The title screen offers **Continue**, **New game** and **Chapters** (any
 checkpoint reached so far), **Part Two: The Corps** once Part One is finished, and **Part Three:
-Coast City** once Part Two is (each part's end card also offers the next). The pause menu can resume, restart the current checkpoint, jump to a
+Coast City** once Part Two is, and **Part Four: The Prisoner** once Part Three is (each part's end card
+also offers the next). The pause menu can resume, restart the current checkpoint, jump to a
 chapter, toggle voices, or quit to the title.
 
 | Checkpoint | Where it puts you |
@@ -114,6 +119,16 @@ Part Three:
 | `hector` | Hector Hammond: on the runway beside the jet, Carol with him |
 | `grave` | Martin Jordan: the memorial park at dusk (the end card) |
 
+Part Four:
+
+| Checkpoint | Where it puts you |
+| --- | --- |
+| `pilot` | His pilot: by his car at Ferris, 8:52 AM, Carol on the apron |
+| `cell` | The empty cell: flying in to the lake at 10:40 PM, Sinestro at the wreck |
+| `site` | Atrocitus: in the air over downtown at midnight, the building site below |
+| `ysmault` | Ysmault: the flight out from Earth, then the prison world |
+| `trial` | The verdict: on the dais in the Hall of the Guardians |
+
 For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#lantern`.
 
 ## Story beats
@@ -141,7 +156,8 @@ For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#l
 Constructs: **Fist** (attack, up to 14 m), **Shield** (defense, held), **Wall** (defense, placed
 where you aim, stands 20 s), **Gatling** (attack, learned from Kilowog: hold to spin up and fire,
 45 m) and **Sword** (attack, learned from Sinestro: cuts in a three-cut combo, and lunges at a
-target you aim at). Staff, hammer and axe are on the wheel but locked for later. Every construct is
+target you aim at) and **Hammer** (attack, learned in Part Four: brought down on where you aim,
+the hardest blow the ring has, 16 m). Staff and axe are on the wheel but locked for later. Every construct is
 physical: the fist throws debris and drones, the shield deflects debris and bolts, and walls
 block debris, bolts and Hal.
 
@@ -220,6 +236,30 @@ block debris, bolts and Hal.
     far end of the path, under two cypresses by a bench (a marker shows it; **E** there). The ring
     makes his father out of its light.
 
+### Part Four: The Prisoner
+
+1. **His pilot:** Friday morning, Carol called at seven. On the apron by the repaired prototype she
+   takes him back, on probation. He asks her to dinner; she doesn't date employees. And whoever was
+   on her runway yesterday: thank him.
+2. **The empty cell:** the lake at night, the Air Force's lights still on the wreck, Sinestro
+   waiting. Search the wreck (three things, each with a marker): the cell's hatch torn out from
+   inside, the prisoner's blood still burning on the shore, a word of Ysmault's script cut into a
+   stone. Abin Sur was carrying Atrocitus of Ysmault to Oa. The trail leads west, to Coast City.
+3. **Atrocitus:** midnight downtown, a tower going up, the lot floodlit, Atrocitus at a machine he
+   built from the cell. Fight him beside Sinestro: he **charges** (a red line runs along the ground
+   first; put a **wall** or your **shield** in his way and he runs into it and reels, open to
+   attack), **throws steel beams** from the lot (block them), **flings burning blood** that sets the
+   ground alight, and close in **slams the ground** (fly over the shockwave). At 60% he puts his
+   hands on his machine and both rings go dark; Hal's suit goes with the light. **L** calls the
+   lantern out of the pocket dimension, **E** at it to say the oath and charge the ring. Atrocitus
+   has the excavator's bucket raised over Sinestro: the ring gives you the **hammer**, and three
+   blows break the machine apart before the bucket comes down. Sinestro binds him. His machine is
+   gone.
+4. **Ysmault:** Sector 666, a dead world under a red sun. Atrocitus chained at his obelisk, and his
+   prophecy: the Blackest Night is coming. And for Sinestro, Korugar in chaos and a rage like his own.
+5. **The verdict:** the Guardians on Oa. A Lantern keeps to his own sector; the charge is set aside.
+   Sinestro will train Hal in the field: next time, on Korugar.
+
 ## Characters and movement
 
 - **Models.** `npm run assets` (`tools/build-assets.mjs`) turns the Tripo scans in `assets/raw`
@@ -295,20 +335,24 @@ src/engine/                 renderer + post (bloom, NaN guard, dream grade), pau
 src/characters/             Rig + Animator (quaternion poses, layers), IK (two-bone, world rotations),
                             Mocap (retargeting, locomotion blend), Poses (cutscene + flight poses), Player
                             (controller with momentum, flight, orbit camera), Characters (loading, suit
-                            glow / dissolve material patch, Abin Sur, Kilowog, Sinestro, Carol, ring, lantern),
+                            glow / dissolve material patch, Abin Sur, Kilowog, Sinestro, Carol, Hector, Atrocitus,
+                            ring, lantern),
                             Guardian + Robe + HairCards (the Guardians), BodyLanguage (talking gestures)
 src/powers/                 RingPowers (charge, health, construct wheel, aiming + aim assist, fist / shield /
-                            wall / gatling, damage, flight effects), Constructs (list, shaders, shapes)
+                            wall / gatling / sword / hammer, damage, flight effects), Constructs (list, shaders, shapes)
 src/scenes/                 Bedroom (+ hallway, kitchenette; night or morning), Dream (airfield), Hyperspace
-                            (the transit), CrashSite, Oa (+ Hall: the Guardians' hall), Space (Earth and Oa
-                            from orbit), Ferris (the airfield by day, the road, the lots)
+                            (the transit), CrashSite, Oa (+ Hall: the Guardians' hall), Space (Earth, Oa and
+                            Ysmault from orbit), Ferris (the airfield by day, the road, the lots), Site
+                            (downtown at night, the building site), Ysmault (the prison world)
 src/props/                  Props (loading the downloaded models), Car (paint, wheels, the driver's door,
                             seat, pedals and rim points for Hal)
-src/enemies/                Drones (Part Two's training drones: AI, physics, bolts), Sinestro (the sparring duel)
+src/enemies/                Drones (Part Two's training drones: AI, physics, bolts), Sinestro (the sparring duel,
+                            or fighting beside Hal), Hammond (Hector at Ferris), Atrocitus (the fight downtown)
 src/fx/                     sky, particles + fire, water, trees, green light / bubble / shafts, cloth, textures,
                             Rift (the pocket dimension), EarthMap (continents and city lights for Space)
 src/story/                  Story (Part One + the shared chapter plumbing, the lantern's pocket dimension),
-                            Corps (Part Two, travel), Coast (Part Three), Voyage (flights between worlds),
+                            Corps (Part Two, travel), Coast (Part Three), Prisoner (Part Four), Voyage (flights
+                            between worlds),
                             lines (all dialogue)
 src/ui/                     HUD, subtitles, glyph cipher + decode, choice, cards, pause menu, checkpoint
                             notice; PowerHud (health, ring charge, construct wheel, reticle, training panel);
