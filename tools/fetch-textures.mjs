@@ -12,11 +12,23 @@ export const TEXTURES = [
   { id: 'asphalt_02', use: 'the roads and the runway' },
   { id: 'gravelly_sand', use: 'the desert floor' },
   { id: 'white_plaster_02', use: 'stucco walls (the control tower, the office)' },
+  // Coast City's buildings and streets (src/city)
+  { id: 'painted_plaster_wall', use: 'Coast City: stucco walls' },
+  { id: 'clay_roof_tiles_02', use: 'Coast City: barrel tile roofs, copings and pent roofs' },
+  { id: 'painted_metal_shutter', use: 'Coast City: roll-down shop shutters' },
+  { id: 'painted_worn_brick', use: 'Coast City: painted brick walls' },
+  { id: 'red_brick_plaster_patch_02', use: 'Coast City: old brick walls' },
+  { id: 'concrete_pavement', use: 'Coast City: pavements' },
+  { id: 'patio_tiles', use: 'Coast City: terracotta tiling at shop doors' },
+  { id: 'rectangular_facade_tiles', use: 'Coast City: the bank front' },
+  { id: 'floor_tiles_06', use: 'Coast City: the diner’s checkered tiles' },
 ];
 const MAPS = { diff: ['Diffuse'], nor: ['nor_gl'], rough: ['Rough', 'rough'] };
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  const { existsSync } = await import('node:fs');
   for (const { id } of TEXTURES) {
+    if (existsSync(`public/textures/pbr/${id}/diff.webp`)) continue;
     const files = await (await fetch(`https://api.polyhaven.com/files/${id}`)).json();
     await mkdir(`public/textures/pbr/${id}`, { recursive: true });
     for (const [name, keys] of Object.entries(MAPS)) {

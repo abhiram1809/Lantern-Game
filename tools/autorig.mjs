@@ -45,16 +45,32 @@ export const RIG_DEFAULTS = {
   armMaxY: Infinity, // ...and below this one (× H): under pauldrons that reach out past the arm
   elbowK: 0.42,     // the elbow and wrist as fractions of the way from the shoulder to the
   wristK: 0.76,     // fingertips (short forearms, or fingers curled under, move them out)
+  arms: null,       // the arm joints given outright, in metres: [[shoulder x, y], [elbow], [wrist]] (an optional z third)
+                    // for the left arm (mirrored for the right), or { L: [...], R: [...] } with x
+                    // signed; z is the middle of the limb there. For a figure posed off any A- or
+                    // T-pose (the Thunderers' archer, crouched with his bow drawn)
+  bind: [],         // [{ bone, box: [x0, y0, z0, x1, y1, z1] }] in metres: what's inside is left out of
+                    // every landmark and weighted wholly to `bone` (wings to the chest, a flail to the
+                    // hand that holds it)
 };
 
 export function autoRig(pos, idx, H, opts = {}) {
   const o = { ...RIG_DEFAULTS, ...opts };
   const n = pos.length / 3;
   const V = (i) => [pos[3 * i], pos[3 * i + 1], pos[3 * i + 2]];
+  // bound vertices (see `bind`): the bone they go to, or -1
+  const bound = new Int8Array(n).fill(-1);
+  for (const { bone, box: [x0, y0, z0, x1, y1, z1] } of o.bind) {
+    for (let i = 0; i < n; i++) {
+      const x = pos[3 * i], y = pos[3 * i + 1], z = pos[3 * i + 2];
+      if (x >= x0 && x <= x1 && y >= y0 && y <= y1 && z >= z0 && z <= z1) bound[i] = BONES.findIndex(([b]) => b === bone);
+    }
+  }
 
   const centroid = (pred) => {
     let sx = 0, sy = 0, sz = 0, c = 0;
     for (let i = 0; i < n; i++) {
+      if (bound[i] >= 0) continue;
       const x = pos[3 * i], y = pos[3 * i + 1], z = pos[3 * i + 2];
       if (pred(x, y, z)) { sx += x; sy += y; sz += z; c++; }
     }
@@ -70,6 +86,7 @@ export function autoRig(pos, idx, H, opts = {}) {
   const zMin = new Float32Array(NS).fill(Infinity), zMax = new Float32Array(NS).fill(-Infinity);
   for (let t = 0; t < idx.length; t += 3) {
     const a = idx[t] * 3, b = idx[t + 1] * 3, c = idx[t + 2] * 3;
+    if (bound[idx[t]] >= 0) continue;
     if (Math.min(pos[a], pos[b], pos[c]) > 0 || Math.max(pos[a], pos[b], pos[c]) < 0) continue;
     const y0 = Math.min(pos[a + 1], pos[b + 1], pos[c + 1]), y1 = Math.max(pos[a + 1], pos[b + 1], pos[c + 1]);
     const z = (pos[a + 2] + pos[b + 2] + pos[c + 2]) / 3;
@@ -95,13 +112,13 @@ export function autoRig(pos, idx, H, opts = {}) {
     let mn = Infinity, mx = -Infinity;
     for (let i = 0; i < n; i++) {
       const x = pos[3 * i];
-      if (Math.abs(pos[3 * i + 1] - y) < 0.003 * H && Math.abs(x) < 0.1 * H) { mn = Math.min(mn, x); mx = Math.max(mx, x); }
+      if (bound[i] < 0 && Math.abs(pos[3 * i + 1] - y) < 0.003 * H && Math.abs(x) < 0.1 * H) { mn = Math.min(mn, x); mx = Math.max(mx, x); }
     }
     if (mx - mn < best) { best = mx - mn; neckMid = y; }
   }
   if (o.neckMid !== null) neckMid = o.neckMid * H;
   let topY = -Infinity;
-  for (let i = 0; i < n; i++) topY = Math.max(topY, pos[3 * i + 1]);
+  for (let i = 0; i < n; i++) if (bound[i] < 0) topY = Math.max(topY, pos[3 * i + 1]);
   const neckY = neckMid - 0.025 * H, headY = neckMid + 0.015 * H;
   const neck = [0, neckY, torsoAt(neckY, 0.07)[2]];
   const head = [0, headY, torsoAt(headY, 0.07)[2]];
@@ -130,16 +147,26 @@ export function autoRig(pos, idx, H, opts = {}) {
   // Arms: principal axis of the clearly-arm vertices, joints at standard proportions,
   // then re-centred inside the limb.
   const arm = (s) => {
+    if (o.arms) {
+      const given = Array.isArray(o.arms) ? o.arms.map(([x, y]) => [s * x, y]) : o.arms[s > 0 ? 'L' : 'R'];
+      // z: the middle of the limb's column there (wider if the column is thin there)
+      const zAt = (x, y) => {
+        for (const r of [0.03, 0.06, 0.1]) { try { return centroid((xx, yy) => Math.abs(xx - x) < r && Math.abs(yy - y) < r)[2]; } catch { /* wider */ } }
+        throw new Error(`autoRig: no arm at ${x}, ${y}`);
+      };
+      const [sh, el, wr] = given.map(([x, y, z]) => [x, y, z ?? zAt(x, y)]); // (z given where the column there holds more than the arm)
+      return { shoulder: sh, elbow: el, wrist: wr, tip: add(wr, mul(norm(sub(wr, el)), 0.1 * H / 1.83)) };
+    }
     let tip = null, bx = -Infinity;
     for (let i = 0; i < n; i++) {
       const v = V(i);
-      if (v[1] > 0.3 * H && s * v[0] > bx) { bx = s * v[0]; tip = v; }
+      if (bound[i] < 0 && v[1] > 0.3 * H && s * v[0] > bx) { bx = s * v[0]; tip = v; }
     }
     const lo = o.armLo * H, hi = s * tip[0] - o.armTipIn * H;
     const pts = [];
     for (let i = 0; i < n; i++) {
       const v = V(i);
-      if (s * v[0] > lo && s * v[0] < hi && v[1] > o.armMinY * H && v[1] < o.armMaxY * H) pts.push(v);
+      if (bound[i] < 0 && s * v[0] > lo && s * v[0] < hi && v[1] > o.armMinY * H && v[1] < o.armMaxY * H) pts.push(v);
     }
     const mean = mul(pts.reduce((a, p) => add(a, p), [0, 0, 0]), 1 / pts.length);
     const C = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
@@ -344,6 +371,14 @@ export function autoRig(pos, idx, H, opts = {}) {
     }
     landmarksExtra.chinY = chinY;
     if (o.headFill) Object.assign(landmarksExtra, { noseY, chinZ, jawBackY: backY, jawBackZ: neckBack });
+  }
+
+  // Bound vertices go wholly to their bone.
+  for (let i = 0; i < n; i++) {
+    if (bound[i] < 0) continue;
+    const row = canon[i] * NB;
+    for (let b = 0; b < NB; b++) W[row + b] = 0;
+    W[row + bound[i]] = 1;
   }
 
   // Keep the four strongest influences per vertex.

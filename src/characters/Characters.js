@@ -6,7 +6,7 @@ import { MocapSource } from './Mocap.js';
 
 export async function loadCharacters(manager) {
   const loader = new GLTFLoader(manager);
-  const [casual, lantern, abin, xbot, kilowog, carol, hammond, atrocitus] = await Promise.all([
+  const [casual, lantern, abin, xbot, kilowog, carol, hammond, atrocitus, katma, korCrowd] = await Promise.all([
     loader.loadAsync('/models/hal_casual.glb'),
     loader.loadAsync('/models/hal_lantern.glb'),
     loader.loadAsync('/models/abin_sur.glb'),
@@ -15,8 +15,10 @@ export async function loadCharacters(manager) {
     loader.loadAsync('/models/carol.glb').catch(() => null), // Part Three
     loader.loadAsync('/models/hammond.glb').catch(() => null), // Part Three's end
     loader.loadAsync('/models/atrocitus.glb').catch(() => null), // Part Four
+    loader.loadAsync('/models/katma.glb').catch(() => null), // Part Five
+    loader.loadAsync('/models/kor_crowd.glb').catch(() => null), // Part Five's crowd
   ]);
-  for (const g of [casual, lantern, abin, kilowog, carol, hammond, atrocitus]) {
+  for (const g of [casual, lantern, abin, kilowog, carol, hammond, atrocitus, katma]) {
     if (!g) continue;
     g.scene.traverse((o) => {
       if (!o.isSkinnedMesh) return;
@@ -26,7 +28,7 @@ export async function loadCharacters(manager) {
       m.envMapIntensity = 0.6;
     });
   }
-  return { casual, lantern, abin, kilowog, carol, hammond, atrocitus, mocap: new MocapSource(xbot) };
+  return { casual, lantern, abin, kilowog, carol, hammond, atrocitus, katma, korCrowd, mocap: new MocapSource(xbot) };
 }
 
 // The mouth of each scan for speech (the scans have no face bones): the lips' seam, the bottom of
@@ -41,6 +43,7 @@ export const JAW = {
   kilowog: { seam: 2.122, chin: 1.955, front: 0.31, width: 0.06, hinge: [2.166, 0.16] },
   atrocitus: { seam: 1.945, chin: 1.895, front: 0.15, width: 0.045, hinge: [1.99, 0.03] },
   hammond: { seam: 1.531, chin: 1.487, front: 0.075, width: 0.022, hinge: [1.556, -0.005] },
+  katma: { seam: 1.5445, chin: 1.502, front: 0.14, width: 0.021, hinge: [1.572, 0.052] },
 };
 
 // Adds suit glow, a sweep dissolve for the transformation, a tint, an optional hidden bone, and the
@@ -308,6 +311,13 @@ const SINESTRO_GLSL = /* glsl */ `
   float sMouW = uMouW * (0.65 + 0.35 * smoothstep(0.0, 0.007, sx)) * (1.0 - smoothstep(0.02, 0.032, sx));
   float sMou = (1.0 - smoothstep(sMouW * 0.35, sMouW, abs(sp.y - sMouY))) * step(sx, 0.032);
   sc = mix(sc, vec3(0.004, 0.003, 0.005), max(sBrow, sMou) * sHairy * sFace);
+  // the Yellow Lantern (Part Six): the uniform's green turned to gold, the rest a deeper black, swept up
+  // from his feet as uYellow goes from 0 to 1, the line itself burning as it climbs (sYEdge)
+  float sYLine = uYellow * 2.15 - 0.06;
+  float sYK = (1.0 - smoothstep(sYLine - 0.04, sYLine, sp.y)) * (1.0 - sSkin) * (1.0 - sHair) * (1.0 - sIn);
+  vec3 sYCol = vec3(1.0, 0.68, 0.05) * (0.22 + 1.5 * sLum);
+  sc = mix(sc, mix(sc * vec3(0.42, 0.4, 0.4), sYCol, sGreen), sYK);
+  float sYEdge = (1.0 - smoothstep(0.0, 0.03, abs(sp.y - sYLine))) * step(0.001, uYellow) * step(uYellow, 0.995);
   diffuseColor.rgb = sc;
 `;
 // combed grooves: tip the normal across the strands so highlights break into streaks along them
@@ -467,8 +477,72 @@ export function createLightFigure(gltf, { jaw = null } = {}) {
   return rig;
 }
 
+// Abin Sur's scan has his ring sculpted into it: a lumpy green band across the knuckles of three
+// fingers of the right hand. Those derived from it who aren't him (Sinestro, whose ring is ours and
+// can be taken; Korugar's people) get the hand without it: each vertex of the fingers that isn't skin
+// folded onto the nearest skin vertex of the hand, with its normal and texture coordinate, and flagged
+// (`aRingless`) for the shader to paint as skin. Worked out once per scan and shared.
+const RINGLESS = new WeakMap();
+function withoutScanRing(rig) {
+  const hand = rig.bones.hand_R;
+  for (const m of rig.meshes) {
+    const src = m.geometry;
+    if (!RINGLESS.has(src)) RINGLESS.set(src, ringlessGeometry(src, m.material.map, m.skeleton.bones.indexOf(hand), m.skeleton.boneInverses[m.skeleton.bones.indexOf(hand)]));
+    m.geometry = RINGLESS.get(src) ?? src;
+  }
+}
+function ringlessGeometry(src, map, hi, inverse) {
+  const img = map?.image;
+  if (hi < 0 || !img?.width) return src;
+  const c = document.createElement('canvas');
+  c.width = img.width; c.height = img.height;
+  const g = c.getContext('2d');
+  g.drawImage(img, 0, 0);
+  const px = g.getImageData(0, 0, c.width, c.height).data;
+  const geo = src.clone();
+  const pos = geo.attributes.position, nor = geo.attributes.normal, uv = geo.attributes.uv, si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+  const wrist = new THREE.Vector3().setFromMatrixPosition(inverse.clone().invert());
+  const v = new THREE.Vector3(), ring = [], skin = [];
+  for (let i = 0; i < pos.count; i++) {
+    let w = 0;
+    for (let k = 0; k < 4; k++) if (si.getComponent(i, k) === hi) w += sw.getComponent(i, k);
+    if (w < 0.35) continue;
+    v.fromBufferAttribute(pos, i);
+    const d = v.distanceTo(wrist);
+    if (d < 0.03) continue;
+    const x = Math.min(c.width - 1, Math.max(0, Math.floor(uv.getX(i) * c.width)));
+    const y = Math.min(c.height - 1, Math.max(0, Math.floor((map.flipY ? 1 - uv.getY(i) : uv.getY(i)) * c.height)));
+    const o = (y * c.width + x) * 4, r = px[o], gg = px[o + 1], b = px[o + 2];
+    // (skin is the pink of his hands; anything else on the fingers is the band: its green and its
+    // dark metal both)
+    const isSkin = r > 88 && r > gg * 1.2 && r > b * 0.95; // (the band's dark metal is a dark brown, 64/32/32: under the floor)
+    if (!isSkin && d > 0.055) ring.push(i); else if (isSkin) skin.push(i);
+  }
+  if (!ring.length || !skin.length) return src;
+  const sp = skin.map((i) => new THREE.Vector3().fromBufferAttribute(pos, i));
+  for (const i of ring) {
+    v.fromBufferAttribute(pos, i);
+    let best = 0, bd = Infinity;
+    for (let j = 0; j < sp.length; j++) { const dd = sp[j].distanceToSquared(v); if (dd < bd) { bd = dd; best = j; } }
+    const t = skin[best];
+    pos.setXYZ(i, pos.getX(t), pos.getY(t), pos.getZ(t));
+    if (nor) nor.setXYZ(i, nor.getX(t), nor.getY(t), nor.getZ(t));
+    uv.setXY(i, uv.getX(t), uv.getY(t));
+  }
+  // and a flag for the shader: these are painted his skin's pink whatever their texture says (a
+  // triangle folded across from one finger to the next takes its corners' coordinates from two of the
+  // texture's islands, and would paint whatever lies between them). Dropping those triangles instead
+  // opened holes: under the band, the scan has no finger
+  const flag = new Float32Array(pos.count);
+  for (const i of ring) flag[i] = 1;
+  geo.setAttribute('aRingless', new THREE.BufferAttribute(flag, 1));
+  geo.computeBoundingSphere();
+  return geo;
+}
+
 export function createSinestro(abinGltf) {
-  const rig = createCharacter(abinGltf, { glow: 0.45, jaw: JAW.abin });
+  const rig = createCharacter(abinGltf, { glow: 0.45, jaw: JAW.abin, roughMin: 0.58 }); // (roughness floor: the scan's suit is metal, mirror-smooth, and the environment map's bright patch in it bloomed into a green ball in close shots)
+  withoutScanRing(rig);
   const su = (rig.su = {
     uSkin: { value: new THREE.Color(0.86, 0.13, 0.065) }, uSkinLum: { value: 0.3 }, uSkinGamma: { value: 0.75 },
     uEyeX: { value: 0.031 }, uEyeY: { value: 1.806 }, uEyeW: { value: 0.0125 }, uEyeH: { value: 0.0035 }, uEyeTilt: { value: 0.12 },
@@ -478,6 +552,7 @@ export function createSinestro(abinGltf) {
     uPeakY: { value: 1.897 }, uPeakSlope: { value: 0.95 }, uTemple: { value: 0.0 }, uSideY: { value: 1.862 }, uNapeY: { value: 1.775 },
     uNarrow: { value: 0.08 }, uNoseThin: { value: 0.28 }, uHairT: { value: 0.009 }, uHairBack: { value: 0.007 }, uHairRamp: { value: 0.02 }, uGroove: { value: 0.3 },
     uBrowY: { value: 1.822 }, uBrowRise: { value: 0.36 }, uBrowW: { value: 0.0068 }, uMouY: { value: 1.743 }, uMouW: { value: 0.0058 }, uMouDrop: { value: 0.0085 },
+    uYellow: { value: 0 }, // the Yellow Lantern's uniform (yellowLantern)
   });
   const decl = Object.keys(su).map((k) => `uniform ${su[k].value.isColor ? 'vec3' : 'float'} ${k};`).join('\n');
   for (const m of rig.meshes) {
@@ -486,15 +561,18 @@ export function createSinestro(abinGltf) {
       base(sh, r);
       Object.assign(sh.uniforms, su);
       sh.vertexShader = sh.vertexShader
-        .replace('#include <common>', `#include <common>\n${decl}\n${SINESTRO_COMMON}`)
-        .replace('#include <begin_vertex>', `#include <begin_vertex>\n${SINESTRO_VERTEX}`);
+        .replace('#include <common>', `#include <common>\n${decl}\n${SINESTRO_COMMON}\nattribute float aRingless; varying float vRingless;`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>\n${SINESTRO_VERTEX}\n        vRingless = aRingless;`);
       sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', `#include <common>\n${decl}\n${SINESTRO_COMMON}`)
-        .replace('diffuseColor.rgb *= uTint;', `${SINESTRO_GLSL}\n        diffuseColor.rgb *= uTint;`)
+        .replace('#include <common>', `#include <common>\n${decl}\n${SINESTRO_COMMON}\nvarying float vRingless;`)
+        .replace('diffuseColor.rgb *= uTint;', `diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.52, 0.22, 0.36), vRingless); // (the scan's ring, folded away: the hands' pink)\n${SINESTRO_GLSL}\n        diffuseColor.rgb *= uTint;`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\n${SINESTRO_NORMAL}`)
-        .replace('totalEmissiveRadiance += uEdgeColor * dEdge;', 'totalEmissiveRadiance += uEdgeColor * dEdge;\n        totalEmissiveRadiance += uIrisCol * sGlow * uEyeGlow;')
+        // (the suit's own light goes gold with it)
+        .replace('vec3 gc = texture2D(map, vMapUv).rgb;', 'totalEmissiveRadiance = mix(totalEmissiveRadiance, vec3(1.0, 0.7, 0.08) * dot(totalEmissiveRadiance, vec3(0.4, 0.5, 0.1)), sYK);\n          vec3 gc = texture2D(map, vMapUv).rgb;')
+        .replace('totalEmissiveRadiance += vec3(0.25, 1.0, 0.45) * gm * uGlow;', 'totalEmissiveRadiance += mix(vec3(0.25, 1.0, 0.45), vec3(1.25, 0.82, 0.1), sYK) * gm * uGlow;')
+        .replace('totalEmissiveRadiance += uEdgeColor * dEdge;', 'totalEmissiveRadiance += uEdgeColor * dEdge;\n        totalEmissiveRadiance += uIrisCol * sGlow * uEyeGlow + vec3(3.0, 2.0, 0.3) * sYEdge;')
         // the scan's occlusion and metalness belong to a bald scalp: none of it under the hair
-        .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n        metalnessFactor *= 1.0 - sHair;')
+        .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n        metalnessFactor *= (1.0 - sHair) * (1.0 - vRingless);')
         .replace('#include <aomap_fragment>', '#ifdef USE_AOMAP\n        reflectedLight.indirectDiffuse /= mix(1.0, max((texture2D(aoMap, vAoMapUv).r - 1.0) * aoMapIntensity + 1.0, 0.05), sHair);\n        #endif\n        #include <aomap_fragment>')
         // skin matte like casual Hal's, slicked hair with a soft sheen, the uniform as scanned
         .replace('roughnessFactor = max(roughnessFactor, uRoughMin);', 'roughnessFactor = mix(mix(mix(max(roughnessFactor, uRoughMin), max(roughnessFactor, 0.62), sSkin), 0.6, sHair), 0.45, sWet);');
@@ -502,6 +580,115 @@ export function createSinestro(abinGltf) {
     mat.customProgramCacheKey = () => 'gl-sinestro';
   }
   rig.root.scale.set(0.96, 1, 0.96); // a shade leaner than Abin Sur
+  return rig;
+}
+
+// Sinestro as the Yellow Lantern (Part Six): his uniform in the Weaponers' colours, swept up him from
+// his feet as k goes from 0 to 1 (`uYellow`), his suit's glow gold.
+export function yellowLantern(rig, k = 1) {
+  rig.su.uYellow.value = k;
+}
+
+// Korugar's people (Part Five), derived the way Sinestro is (his shader layer on Abin Sur's scan)
+// with a seed for each: their skin from rose to crimson, the hairline (or none), the face's width,
+// eyes that don't glow, no moustache on most. What they wear is the scan's uniform recoloured by
+// its luminance: the regime's grey for citizens, black and gold for Sinestro's guards (the Lantern
+// emblem on its chest goes dark, a plain badge).
+const KOR_GARB = /* glsl */ `
+  vec3 kc = diffuseColor.rgb;
+  float kLum = dot(kc, vec3(0.299, 0.587, 0.114));
+  float kCloth = (1.0 - sSkin) * (1.0 - sHair) * (1.0 - sIn);
+  float kPanel = smoothstep(0.1, 0.3, (kc.g - max(kc.r, kc.b)) / max(kc.g, 0.01));
+  vec3 kG = mix(uGarb, uGarbPanel, kPanel) * clamp(0.55 + kLum * 2.2, 0.45, 1.3);
+  diffuseColor.rgb = mix(kc, kG, kCloth);
+`;
+export function createKorugarian(abinGltf, { seed = 1, guard = false } = {}) {
+  const rig = createSinestro(abinGltf);
+  let s = seed * 9301 + 49297;
+  const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  const su = rig.su;
+  rig.u.uGlow.value = 0;
+  su.uSkin.value.setHSL(0.003 + rnd() * 0.03, 0.5 + rnd() * 0.22, 0.3 + rnd() * 0.12);
+  su.uSkinLum.value = 0.28 + rnd() * 0.06;
+  su.uIrisCol.value.setRGB(0.22 + rnd() * 0.1, 0.12, 0.08);
+  su.uEyeGlow.value = 0;
+  su.uMouW.value = rnd() < 0.25 ? 0.005 : 0;
+  su.uNarrow.value = 0.02 + rnd() * 0.08;
+  su.uNoseThin.value = 0.1 + rnd() * 0.2;
+  const bald = rnd() < 0.3;
+  su.uPeakY.value = bald ? 3 : 1.885 + rnd() * 0.03;
+  su.uTemple.value = rnd() * 0.012;
+  su.uBrowY.value = 1.822 + (rnd() - 0.5) * 0.004;
+  su.uBrowRise.value = 0.15 + rnd() * 0.25;
+  const ku = (rig.ku = {
+    uGarb: { value: guard ? new THREE.Color(0.03, 0.03, 0.032) : new THREE.Color().setHSL(0.6 + rnd() * 0.08, 0.05 + rnd() * 0.06, 0.3 + rnd() * 0.14) },
+    uGarbPanel: { value: guard ? new THREE.Color(0.2, 0.15, 0.07) : new THREE.Color().setHSL(0.6 + rnd() * 0.08, 0.05, 0.16 + rnd() * 0.08) },
+  });
+  for (const m of rig.meshes) {
+    const mat = m.material, base = mat.onBeforeCompile;
+    mat.onBeforeCompile = (sh, r) => {
+      base(sh, r);
+      Object.assign(sh.uniforms, ku);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uGarb, uGarbPanel;')
+        .replace('diffuseColor.rgb *= uTint;', `${KOR_GARB}\n        diffuseColor.rgb *= uTint;`)
+        // cloth, not the uniform's glossy weave
+        .replace('#include <lights_physical_fragment>', 'roughnessFactor = mix(roughnessFactor, 0.78, kCloth); metalnessFactor *= 1.0 - kCloth;\n        #include <lights_physical_fragment>');
+    };
+    mat.customProgramCacheKey = () => 'gl-korugarian';
+  }
+  const k = 0.9 + rnd() * 0.08;
+  rig.root.scale.set(0.96 * k, k, 0.96 * k);
+  return rig;
+}
+
+// Katma Tui (Part Five), from the user's scan (2026-11-12): 1.76 m, pink Korugarian skin, short
+// black hair. The scan wears a Lantern's uniform; until the Guardians give her Sinestro's ring
+// (Part Six) she leads Korugar's resistance, so the uniform's green is recoloured (`uniform: false`)
+// to a rebel's: oxblood leather on the panels, the emblem gone dark. `citizen` (with a seed) makes
+// one of Korugar's women from her: the regime's grey, another skin and hair.
+export function createKatma(gltf, { uniform = false, citizen = false, seed = 1 } = {}) {
+  const rig = createCharacter(gltf, { glow: uniform ? 0.6 : 0, roughMin: 0.5, jaw: JAW.katma });
+  let s = seed * 7919 + 104729;
+  const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  const kt = (rig.kt = {
+    uResist: { value: uniform ? 0 : 1 },
+    uPanel: { value: citizen ? new THREE.Color().setHSL(0.6 + rnd() * 0.1, 0.06, 0.16 + rnd() * 0.1) : new THREE.Color(0.2, 0.055, 0.04) },
+    uSuitK: { value: citizen ? new THREE.Color().setHSL(0.6, 0.05, 0.3 + rnd() * 0.1) : new THREE.Color(1, 1, 1) },
+    uSkinK: { value: citizen ? new THREE.Color().setHSL((rnd() - 0.5) * 0.04, 1, 1) : new THREE.Color(1, 1, 1) },
+    uHairK: { value: citizen ? new THREE.Color().setHSL(rnd() * 0.08, 0.4, 0.1 + rnd() * 0.5) : new THREE.Color(0, 0, 0) },
+    uCitizen: { value: citizen ? 1 : 0 },
+  });
+  for (const m of rig.meshes) {
+    const mat = m.material, base = mat.onBeforeCompile;
+    mat.onBeforeCompile = (sh, r) => {
+      base(sh, r);
+      Object.assign(sh.uniforms, kt);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\n#define KATMA_EMBLEM_Y 1.325\nuniform float uResist, uCitizen;\nuniform vec3 uPanel, uSuitK, uSkinK, uHairK;')
+        .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n        normal = normalize(mix(normal, nonPerturbedNormal, (1.0 - smoothstep(0.07, 0.085, length(vDPos.xy - vec2(0.0, KATMA_EMBLEM_Y)))) * smoothstep(0.02, 0.06, vDPos.z) * uResist));')
+        .replace('diffuseColor.rgb *= uTint;', `
+        {
+          vec3 kc = diffuseColor.rgb;
+          float kLum = dot(kc, vec3(0.299, 0.587, 0.114));
+          float kGreen = smoothstep(0.06, 0.2, (kc.g - max(kc.r, kc.b)) / max(kc.g, 0.01)) * step(vDPos.y, 1.6);
+          // (the Lantern emblem on her chest: painted out with the panel, its relief flattened below)
+          float kEmb = (1.0 - smoothstep(0.066, 0.076, length(vDPos.xy - vec2(0.0, KATMA_EMBLEM_Y)))) * smoothstep(0.02, 0.06, vDPos.z) * uResist;
+          kGreen = max(kGreen, kEmb);
+          float kSkin = smoothstep(0.03, 0.1, kc.r - max(kc.g, kc.b));
+          float kHair = (1.0 - kSkin) * (1.0 - kGreen) * smoothstep(1.62, 1.66, vDPos.y) * smoothstep(0.22, 0.1, kLum);
+          vec3 panel = uPanel * clamp(0.3 + min(kLum, 0.3) * 2.4, 0.3, 1.0);
+          kc = mix(kc, panel, kGreen * uResist);
+          kc = mix(kc, kc * uSuitK * 1.4, (1.0 - kSkin) * (1.0 - kGreen) * (1.0 - kHair) * uCitizen);
+          kc = mix(kc, kc * uSkinK, kSkin * uCitizen);
+          kc = mix(kc, uHairK * (0.4 + kLum * 2.0), kHair * uCitizen);
+          diffuseColor.rgb = kc;
+        }
+        diffuseColor.rgb *= uTint;`);
+    };
+    mat.customProgramCacheKey = () => 'gl-katma';
+  }
+  if (citizen) { const k = 0.93 + rnd() * 0.06; rig.root.scale.set(k, k, k); }
   return rig;
 }
 

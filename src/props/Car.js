@@ -67,8 +67,15 @@ export function makeCar(name, { paint = 0x8c2a22, primer = false, dust = 0.55 } 
   g.userData.pedals = V(c.x, 0.36, c.z + 0.24);
   // the rim: radius 0.17, its face tilted 31 degrees back toward the driver (the column's angle)
   const up = V(0, 0.857, 0.515), toward = V(0, 0.515, -0.857);
+  // the steering wheel turns about its column (`steer(a)`: radians, positive to the left); the rim's
+  // points turn with it
+  let turn = 0;
+  if (sw) {
+    const hub = pivot(g, [sw], c.clone()), axis = toward.clone(); // (toward the driver: positive turns it anticlockwise as he sees it)
+    g.userData.steer = (a) => { turn = a; hub.quaternion.setFromAxisAngle(axis, a); };
+  }
   g.userData.rim = (side, hour = side === 'L' ? 10 : 2) => {
-    const a = ((3 - hour) / 12) * Math.PI * 2; // 3 o'clock is the driver's right (-X)
+    const a = ((3 - hour) / 12) * Math.PI * 2 + turn; // 3 o'clock is the driver's right (-X)
     // the wrist, a hand's breadth back from the rim and a little outside it, so the palm closes on it
     return c.clone().addScaledVector(V(-1, 0, 0), Math.cos(a) * 0.19).addScaledVector(up, Math.sin(a) * 0.19 - 0.03).addScaledVector(toward, 0.085);
   };

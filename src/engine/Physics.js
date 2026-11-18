@@ -72,19 +72,23 @@ export class Physics {
     return this.dynamic(mesh, RAPIER.ColliderDesc.cuboid(half.x, half.y, half.z), opts);
   }
 
-  // Outward push from a point, e.g. the green light bursting in or an explosion.
-  burst(center, strength, radius, lift = 0, spin = 0.3) {
+  // Outward push from a point, e.g. the green light bursting in or an explosion. Heavy things move
+  // less (the push is as for a body of at most 400 kg). The scene's props (`smash`) take it as a blow
+  // too (`blow`, its strength at the centre; `except` one of them).
+  burst(center, strength, radius, lift = 0, spin = 0.3, { blow = strength * 3, except = null } = {}) {
     for (const { body } of this.dynamics) {
+      if (!body.isDynamic()) continue;
       const t = body.translation();
       _v.set(t.x - center.x, t.y - center.y, t.z - center.z);
       const d = _v.length();
       if (d > radius) continue;
-      const falloff = 1 - d / radius;
-      _v.normalize().multiplyScalar(strength * falloff * body.mass());
-      _v.y += lift * falloff * body.mass();
+      const falloff = 1 - d / radius, m = Math.min(body.mass(), 400);
+      _v.normalize().multiplyScalar(strength * falloff * m);
+      _v.y += lift * falloff * m;
       body.applyImpulse(_v, true);
-      body.applyTorqueImpulse({ x: (Math.random() - 0.5) * spin * body.mass(), y: (Math.random() - 0.5) * spin * body.mass(), z: (Math.random() - 0.5) * spin * body.mass() }, true);
+      body.applyTorqueImpulse({ x: (Math.random() - 0.5) * spin * m, y: (Math.random() - 0.5) * spin * m, z: (Math.random() - 0.5) * spin * m }, true);
     }
+    this.smash?.blast(center, radius, blow, except);
   }
 
   setGravityScale(scale) {
@@ -97,7 +101,13 @@ export class Physics {
   step(dt) {
     if (dt < 1e-4) return; // game time stopped
     this.world.timestep = Math.min(1 / 30, dt);
-    this.world.step();
+    // (whatever pushes bodies with the step's own length, before it: a driven car's wheels, a jet)
+    for (const fn of this.beforeStep ?? []) fn(this.world.timestep);
+    if (this.events) {
+      // (the scene's props hear about hard contacts: `smash.onForce`)
+      this.world.step(this.events);
+      this.events.drainContactForceEvents((e) => this.smash?.onForce(e.collider1(), e.collider2(), e.totalForceMagnitude()));
+    } else this.world.step();
     for (const { body, mesh } of this.dynamics) {
       if (body.isSleeping()) continue;
       const t = body.translation(), r = body.rotation();
@@ -107,6 +117,9 @@ export class Physics {
   }
 
   dispose() {
+    this.smash?.dispose();
+    this.events?.free();
+    this.events = null;
     this.world.free();
     this.freed = true;
     this.dynamics = [];

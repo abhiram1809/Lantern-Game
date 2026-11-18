@@ -215,14 +215,35 @@ export class Locomotion {
     if (wIdle < 0.7) for (const c of [0, 0.5, 1]) if ((before < c && unwrapped >= c) || (before > c && unwrapped <= c)) this.onStep?.(wRun > 0.5 ? 'run' : 'walk');
     this.m.mixer.update(dt);
     this.m.read();
+    this.dt = dt;
+    this.wIdle = wIdle;
   }
 
   sample(out, rig) {
     this.m.retarget(out, rig);
     const r = this.relax, k = 1 - 0.8 * this.wRun;
-    return r ? relaxArms(this.m, out, rig, r.elbow * k, r.wrist, r.adduct) : out; // wrists straight at any pace
+    if (r) relaxArms(this.m, out, rig, r.elbow * k, r.wrist, r.adduct); // wrists straight at any pace
+    return this.smoothArms(out, rig);
+  }
+
+  // The idle's arm keys carry a tremor (a few millimetres at the hand, frame to frame, repeating with
+  // the clip: Katma's held hand read as "shaky"): a low-pass on the arm bones, per rig, strong at idle
+  // (a time constant of about a tenth of a second) and light in the walk and run (their swing is a
+  // second long; it mustn't lag).
+  smoothArms(out, rig) {
+    const prev = (this.armPrev ??= new WeakMap()).get(rig), dt = this.dt ?? 0;
+    if (!prev) { this.armPrev.set(rig, out.q.slice(ARMS[0] * 4, (ARMS[ARMS.length - 1] + 1) * 4)); return out; }
+    if (dt <= 0) { out.q.set(prev, ARMS[0] * 4); return out; }
+    const a = 1 - Math.exp(-dt * (9 + 36 * (1 - (this.wIdle ?? 1))));
+    for (const i of ARMS) {
+      const j = (i - ARMS[0]) * 4;
+      _q.fromArray(prev, j).slerp(_q2.fromArray(out.q, i * 4), a).toArray(prev, j);
+      _q.toArray(out.q, i * 4);
+    }
+    return out;
   }
 }
+const ARMS = ['upperArm_L', 'foreArm_L', 'hand_L', 'upperArm_R', 'foreArm_R', 'hand_R'].map((n) => INDEX[n]);
 
 // A single looping mocap clip (e.g. the dad's idle in the dream).
 export class MocapClip {

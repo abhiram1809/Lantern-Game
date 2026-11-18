@@ -3,6 +3,7 @@ import { Physics } from '../engine/Physics.js';
 import { createSky } from '../fx/Sky.js';
 import { glowTexture, pbrMaterial } from '../fx/Textures.js';
 import { prop, piece, hasProp } from '../props/Props.js';
+import { Smash } from '../props/Smash.js';
 
 // Ysmault, Sector 666 (Part Four): the dead world where the Guardians chained the Five Inversions
 // after the Manhunters had killed everything else in the sector. A basin of rust-red rock under a
@@ -55,6 +56,7 @@ export class Ysmault {
     floor.receiveShadow = true;
     s.add(floor);
     this.physics.fixedGround(700);
+    this.smash = new Smash(this.physics, s); // (the buttes and the rocks are solid: props/Smash.js)
     this.buildCliffs();
     this.buildRocks();
     this.buildRing();
@@ -74,6 +76,7 @@ export class Ysmault {
       c.rotation.y = rnd() * 6.28;
       c.scale.setScalar(sc);
       this.scene.add(c);
+      this.smash.solid(c, { stuff: 'stone', mesh: true });
     }
   }
 
@@ -90,6 +93,7 @@ export class Ysmault {
       o.rotation.y = rnd() * 6.28;
       o.scale.setScalar(0.8 + rnd() * 1.4);
       this.scene.add(o);
+      this.smash.solid(o, { stuff: 'stone', mesh: true });
     }
   }
 
@@ -167,6 +171,7 @@ export class Ysmault {
 
   update(dt, t, camera) {
     this.physics.step(dt);
+    this.smash.update(dt, t, camera, this.engine.renderer);
     this.sky.position.copy(camera.position);
     this.sky.userData.uniforms.uTime.value = t;
     for (const [i, o] of (this.obelisks ?? []).entries()) o.glow.material.opacity = 0.7 + 0.3 * Math.sin(t * 1.3 + i * 1.7);

@@ -343,7 +343,7 @@ export class Corps extends Story {
     await this.kwSay('kwIntro3', [['new', 'shrug'], ['mine', 'chest'], ['targets', this.kwPoint(this.overRange(), 1.8)], ['break', 'fist']]);
     player.lookAt(null);
     this.giveControl('Destroy the target drones');
-    this.kick(1, 'Targets', 'Five drones are rising from the pads. Open the wheel (<kbd>4</kbd>), choose the <b>Fist</b> and <kbd>Click</kbd> to strike.<br><span class="dim">Aim near a drone and the reticle locks on. The battery recharges your ring here.</span>');
+    this.kick(1, 'Targets', 'Five drones are rising from the pads. Open the wheel (<kbd>4</kbd>), choose the <b>Fist</b> and <kbd>Click</kbd> to throw a hook; click again for the left. A hook hits everything in its arc.<br><span class="dim">Aim near a drone and the reticle locks on. The battery recharges your ring here.</span>');
     await this.wave('target', 5, 0.35);
     this.hud.tutorialDone();
     await wait(1.2);
@@ -418,7 +418,7 @@ export class Corps extends Story {
     this.giveControl('Survive the live-fire drill');
     this.kick(2, 'Gatling', 'Open the wheel and choose the <b>Gatling</b>. <b>Hold</b> <kbd>Click</kbd>: the barrels spin up, then it fires where you aim.');
     await Promise.race([waitFor(() => powers.selected === 'gatling' && !powers.wheelState), wait(30)]);
-    this.kick(3, 'Live fire', 'These drones shoot back. Watch for the red aim line, then block with the <b>Shield</b>, duck behind a pillar, raise a <b>Wall</b> or keep moving.<br><span class="dim">Fly with <kbd>Space</kbd> ×2 to get above them.</span>');
+    this.kick(3, 'Live fire', 'These drones shoot back. Watch for the red aim line, then block with the <b>Shield</b> (hold <kbd>Right-click</kbd> or <kbd>F</kbd>), duck behind a pillar, raise a <b>Wall</b> or keep moving.<br><span class="dim">Fly with <kbd>Space</kbd> ×2 to get above them.</span>');
     this.drilling = true;
     await this.kwBark('kwLive', [['live', this.kwPoint(this.overRange(0, 3, 22), 1.4)], ['bite', 'fist']]);
     await this.wave('attacker', 3, 0.8);
@@ -445,6 +445,11 @@ export class Corps extends Story {
       if (kind === 'parried') this.quip('sinParry', 1, [['quick', () => sin.anim.gesture('nod', 0.7, 0.4)]], sin.bl);
       else if (kind === 'slam') this.quip('sinSlam', 0.7, [], sin.bl);
       else if (kind === 'hurt') this.quip('sinHurt', 0.5, [], sin.bl);
+      else if (kind === 'riposte') this.quip('sinRiposte', 0.8, [], sin.bl);
+      else if (kind === 'counter') this.quip('sinCounter', 0.8, [], sin.bl);
+      else if (kind === 'broken') this.quip('sinBroken', 0.7, [], sin.bl);
+      else if (kind === 'dodge') this.quip('sinDodge', 0.35, [], sin.bl);
+      else if (kind === 'flank') this.quip('sinFlank', 0.6, [], sin.bl);
     };
     sin.onHurtHal = () => this.quip(this.powers.shield ? 'sinQ1' : ['sinQ1', 'sinQ2', 'sinQ3'][Math.floor(Math.random() * 3)], 0.4, [], sin.bl);
     return sin;
@@ -520,11 +525,13 @@ export class Corps extends Story {
     powers.health = powers.maxHealth;
     sin.tg.health = sin.tg.maxHealth;
     sin.engage();
+    Object.assign(powers, { healDelay: 7, healRate: 3 }); // (health comes back slowly in a real fight)
     this.giveControl('Spar with Sinestro');
-    hud.tutorial({ kicker: 'Sinestro', n: 2, of: 2, title: 'Sparring', html: 'Read his tells. A <b>raised blade</b>: he lunges; block with the <b>Shield</b>, or cut into it with the <b>Sword</b> to parry. <b>Spikes</b> forming: a volley. A <b>ring</b> on the ground: get out from under it.<br><span class="dim">He guards against the gatling. Bring him to the mark and he will call it.</span>' });
+    hud.tutorial({ kicker: 'Sinestro', n: 2, of: 2, title: 'Sparring', html: 'Block, then strike. Hold <kbd>Right-click</kbd> (or <kbd>F</kbd>) to raise your shield; raise it <b>just as his blow lands</b> to <b>parry</b>, and he is wide open (the bracket turns gold): hit him then. Between his attacks his guard turns hooks and the gun, and he answers.<br><span class="dim">A <b>raised blade</b>: he lunges. <b>Spikes</b> forming: a volley (parried, they fly back into him). A <b>ring</b> on the ground: get out from under it. Bring him to the mark and he will call it.</span>' });
     hud.boss('Sinestro', 1, 0.35);
     const bar = onFrame(() => hud.boss('Sinestro', sin.health, 0.35));
     await new Promise((resolve) => (sin.onYield = resolve));
+    Object.assign(powers, { healDelay: 4, healRate: 8 });
     bar();
     hud.boss(null);
     hud.tutorialDone();

@@ -44,6 +44,7 @@ const dirOf = (lon, lat) => {
 export const EARTH = { radius: 300, center: new THREE.Vector3(0, -362, 0) };
 export const OA = { radius: 190, center: new THREE.Vector3(0, -60, -760) };
 export const YSMAULT = { radius: 170, center: new THREE.Vector3(30, -50, -700) };
+export const KORUGAR = { radius: 185, center: new THREE.Vector3(-20, -55, -720) };
 
 export class Space {
   constructor() {
@@ -59,6 +60,7 @@ export class Space {
     this.buildEarth();
     this.buildOa();
     this.buildYsmault();
+    this.buildKorugar();
     this.buildDust();
     this.hemi = new THREE.HemisphereLight(0x1a2436, 0x0a1020, 0.35);
     this.key = new THREE.DirectionalLight(0xcfdcff, 1.2);
@@ -400,6 +402,51 @@ export class Space {
     this.scene.add(g);
   }
 
+  // Korugar, Sector 1417: Sinestro's world. Ochre and amber continents with dark highland ridges,
+  // deep teal seas, a big white-gold sun; on the night side its cities in hard, ordered grids of
+  // light (an ordered world), and a thin haze of gold at the limb.
+  buildKorugar() {
+    const g = (this.korugar = new THREE.Group());
+    this.kSun = new THREE.Vector3(0.7, 0.3, -0.62).normalize();
+    const surface = new THREE.ShaderMaterial({
+      uniforms: { uSun: { value: this.kSun }, uTime: this.time },
+      vertexShader: VERT,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uSun; uniform float uTime;
+        varying vec3 vObj, vN, vW;
+        ${NOISE3}
+        void main() {
+          vec3 d = normalize(vObj), N = normalize(vN);
+          float h = fbm3(d * 2.6), r = fbm3(d * 9.0 + 2.0), m = fbm3(d * 30.0 + 5.0);
+          float land = smoothstep(0.47, 0.5, h);
+          vec3 sea = mix(vec3(0.02, 0.12, 0.14), vec3(0.04, 0.2, 0.22), r);
+          vec3 ground = mix(vec3(0.42, 0.28, 0.14), vec3(0.6, 0.42, 0.2), r);
+          ground = mix(ground, vec3(0.2, 0.14, 0.1), smoothstep(0.62, 0.75, h) * 0.8); // the highlands
+          ground *= 0.85 + m * 0.3;
+          vec3 col = mix(sea, ground, land);
+          // cloud: thin bands
+          float cl = smoothstep(0.55, 0.75, fbm3(d * 5.0 + vec3(uTime * 0.004, 0.0, 0.0)));
+          col = mix(col, vec3(0.9, 0.85, 0.78), cl * 0.55);
+          float lit = max(dot(N, uSun), 0.0);
+          vec3 day = col * (0.04 + 1.35 * lit) * vec3(1.0, 0.92, 0.8);
+          // the night side: its cities, in ordered grids
+          vec2 sph = vec2(atan(d.z, d.x), asin(d.y)) * 40.0;
+          vec2 gq = abs(fract(sph) - 0.5);
+          float grid = (1.0 - smoothstep(0.02, 0.05, min(gq.x, gq.y))) * land * smoothstep(0.55, 0.7, fbm3(d * 7.0 + 1.0));
+          vec3 night = vec3(1.0, 0.62, 0.3) * grid * 0.7 * smoothstep(0.05, -0.2, dot(N, uSun)) * (1.0 - cl);
+          gl_FragColor = vec4(day + night, 1.0);
+        }`,
+    });
+    const planet = new THREE.Mesh(new THREE.SphereGeometry(KORUGAR.radius, 160, 96), surface);
+    planet.position.copy(KORUGAR.center);
+    g.add(planet);
+    g.add(this.atmosphere(KORUGAR.center, KORUGAR.radius * 1.025, this.kSun, new THREE.Color(0.9, 0.62, 0.32), new THREE.Color(0.7, 0.3, 0.1), 1 / 1.025));
+    const sun = new THREE.Mesh(new THREE.SphereGeometry(70, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 1.35, 1.1) }));
+    sun.position.copy(this.kSun).multiplyScalar(3400);
+    g.add(sun);
+    this.scene.add(g);
+  }
+
   buildDust(count = 900) {
     const geo = new THREE.BufferGeometry();
     this.dustPos = new Float32Array(count * 3).map(() => (Math.random() - 0.5) * 80);
@@ -416,7 +463,15 @@ export class Space {
     this.earth.visible = earth;
     this.oa.visible = place === 'oa';
     this.ysmault.visible = place === 'ysmault';
+    this.korugar.visible = place === 'korugar';
     this.skyU.uCore.value = place === 'oa' ? 1 : 0;
+    if (place === 'korugar') {
+      // its big white-gold sun ahead and to the right
+      this.key.color.set(0xffe6c0); this.key.intensity = 1.8; this.key.position.copy(this.kSun).multiplyScalar(50);
+      this.rim.color.set(0x55ffaa); this.rim.intensity = 0.3; this.rim.position.set(0, -20, -50);
+      this.hemi.color.set(0x2a2018); this.hemi.groundColor.set(0x0a0806); this.hemi.intensity = 0.35;
+      return;
+    }
     if (place === 'ysmault') {
       // its dim red sun off to the left; no light from the world itself
       this.key.color.set(0xff9a70); this.key.intensity = 1.1; this.key.position.copy(this.ysSun).multiplyScalar(50);

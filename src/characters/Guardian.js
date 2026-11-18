@@ -87,7 +87,7 @@ const GUARDIAN_GLSL = /* glsl */ `
   // the hair's mass (loose strands lie over it as cards): white combed strands, greyer in the
   // clumps' shadows, the edge broken into single hairs
   float sFuzz = (dNoise(sp * 900.0) - 0.5) * 0.006 + (dNoise(sp * 140.0) - 0.5) * 0.006;
-  float sHair = gHair(sp, sFuzz);
+  float sHair = gHair(sp, sFuzz) * uHairOn;
   float sSide = pow(sin(min(sAng, 3.1416)), 2.0);
   float sAcross = mix(sp.x, sp.y * 1.3, sSide);
   float sAlong = mix(sp.z * 70.0 + sp.y * 60.0, sp.z * 70.0, sSide);
@@ -122,6 +122,12 @@ const GUARDIAN_NORMAL = /* glsl */ `
 `;
 
 // the Corps emblem as the robes wear it: a white disc with the lantern sign in green
+function blankTexture() {
+  const t = new THREE.DataTexture(new Uint8Array(4), 1, 1);
+  t.needsUpdate = true;
+  return t;
+}
+
 function robeEmblem(size = 256) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
@@ -190,9 +196,12 @@ function headShape(gu) {
   return { u, gA, deform, hair, brow };
 }
 
-export function createGuardian(abinGltf, mocap, { robe = '#8e1512', seed = 0, hairCount = 2200 } = {}) {
+// `weaponer` makes one of Qward's Weaponers instead (Part Six; no scan of theirs, so derived the same
+// way: the Guardians' mirror in the antimatter universe): grey skin, bald, dark brows, gold eyes, a
+// smaller dome, black robes trimmed in gold with no emblem, full height.
+export function createGuardian(abinGltf, mocap, { robe = '#8e1512', seed = 0, hairCount = 2200, weaponer = false } = {}) {
   // the jaw's hinge where the head-scaling puts it (the jaw turns after the head is reshaped)
-  const jS = 1.58, jP = 1.64, jaw = { ...JAW.abin, hinge: [jP + (JAW.abin.hinge[0] - jP) * jS, JAW.abin.hinge[1] * jS] };
+  const jS = weaponer ? 1.22 : 1.58, jP = 1.64, jaw = { ...JAW.abin, hinge: [jP + (JAW.abin.hinge[0] - jP) * jS, JAW.abin.hinge[1] * jS] };
   const rig = createCharacter(abinGltf, { glow: 0, jaw });
   const gu = (rig.gu = {
     uSkin: { value: new THREE.Color(0.2, 0.36, 0.78) }, uSkinTop: { value: new THREE.Color(1.08, 1.06, 1.02) }, uSkinLum: { value: 0.3 }, uSkinGamma: { value: 0.8 },
@@ -205,8 +214,20 @@ export function createGuardian(abinGltf, mocap, { robe = '#8e1512', seed = 0, ha
     uIrisX: { value: -0.001 }, uIrisR: { value: 0.0058 }, uIrisCol: { value: new THREE.Color(0.06, 0.08, 0.14) },
     uBrowY: { value: 1.823 }, uBrowRise: { value: 0.006 }, uBrowDroop: { value: 0.006 }, uBrowW: { value: 0.0085 },
     uHandL: { value: 0 }, uHandR: { value: 0 }, // hands out of the sleeves
+    uHairOn: { value: 1 },
     uDebug: { value: 0 }, uDebugY: { value: 1.8 },
   });
+  if (weaponer) {
+    gu.uSkin.value.setRGB(0.3, 0.29, 0.34);
+    gu.uSkinTop.value.setRGB(0.92, 0.9, 0.95);
+    gu.uHeadScale.value = jS;
+    gu.uDome.value = 0.03; gu.uDomeLift.value = 0.07; gu.uDomeWide.value = 0.02; // taller and narrower
+    gu.uHairOn.value = 0;
+    gu.uHairCol.value.setRGB(0.05, 0.045, 0.05);
+    gu.uIrisCol.value.setRGB(1.0, 0.7, 0.08);
+    gu.uIrisR.value = 0.0064;
+    gu.uBrowDroop.value = -0.002; gu.uBrowRise.value = 0.012; // up at the ends, hard
+  }
   // no two alike: the fringe higher or lower, the dome taller, the skin a shade apart
   if (seed) {
     const r = (k) => { const x = Math.sin(seed * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x) - 0.5; };
@@ -238,9 +259,15 @@ export function createGuardian(abinGltf, mocap, { robe = '#8e1512', seed = 0, ha
   const bl = (rig.bl = new BodyLanguage(rig, anim, { gestures: GUARDIAN_GESTURES, stances: GUARDIAN_STANCES, scale: 1, shift: null }));
   bl.stance('sleeves');
   for (let i = 0; i < 75; i++) { bl.update(1 / 30); anim.update(1 / 30); }
-  rig.robe = buildRobe(rig, { color: robe, emblem: robeEmblem(), head: { scale: gu.uHeadScale.value, pivot: gu.uPivot.value } });
+  rig.robe = buildRobe(rig, { color: weaponer ? '#17131c' : robe, trim: weaponer ? '#a07818' : undefined, emblem: weaponer ? blankTexture() : robeEmblem(), head: { scale: gu.uHeadScale.value, pivot: gu.uPivot.value } });
   // the fringe: combed back over the ears, down behind them; standing off the head, fullest midway
   const hs = headShape(gu), V = (x, y, z) => new THREE.Vector3(x, y, z), mesh = rig.meshes[0];
+  if (weaponer) {
+    // (black cloth: the Guardians' warm sheen would light it orange in the forge's glow)
+    rig.robe.traverse((o) => { if (o.material?.sheenColor) o.material.sheenColor.setRGB(0.18, 0.14, 0.1); });
+    rig.root.scale.setScalar(1.02);
+    return rig;
+  }
   rig.hair = growHair(mesh, {
     bone: 4, mask: hs.hair, deform: hs.deform, centre: V(0, 1.8, hs.u.uHeadZ), count: hairCount,
     comb: (p) => V(Math.sign(p.x) * 0.15, -0.25, -1).lerp(V(0, -1, -0.2), sstep(2.0, 2.8, hs.gA(p))),

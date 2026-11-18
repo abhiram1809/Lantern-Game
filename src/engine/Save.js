@@ -60,6 +60,34 @@ export const PRISONER_CHECKPOINTS = [
   { id: 'trial', label: 'The verdict', clock: 'OA · THE CITADEL' },
 ];
 
+// Part Five, "Probation": Hal's first shift as Carol's pilot (the rent, the drive in, an advance on
+// his pay, the prototype's test flight, flown), Sinestro collecting him for field training at dusk
+// (and Carol finding out); Korugar, where the crowds cheer Sinestro out of fear; the resistance, Katma
+// Tui; Hal's report to the Guardians.
+export const PROBATION_CHECKPOINTS = [
+  { id: 'rent', label: 'The rent', clock: '7:10 AM' },
+  { id: 'commute', label: 'The drive in', clock: '7:34 AM' },
+  { id: 'advance', label: 'An advance', clock: '8:02 AM' },
+  { id: 'testflight', label: 'First shift', clock: '9:30 AM' },
+  { id: 'pickup', label: 'Field training', clock: '6:44 PM' },
+  { id: 'korugar', label: 'Korugar', clock: 'KORUGAR · SECTOR 1417' },
+  { id: 'patrol', label: 'Order', clock: 'KORUGAR · SECTOR 1417' },
+  { id: 'rebels', label: 'The resistance', clock: 'KORUGAR · SECTOR 1417' },
+  { id: 'report', label: 'The report', clock: 'OA · THE CITADEL' },
+];
+
+// Part Six, "Exile": first light at Ferris (Carol, who knows now), Sinestro brought in from his
+// palace on Korugar, and his trial on Oa: his ring taken, his banishment to Qward, Katma Tui chosen.
+export const EXILE_CHECKPOINTS = [
+  { id: 'dawn', label: 'Coming back', clock: '5:48 AM' },
+  { id: 'palace', label: 'Bringing him in', clock: 'KORUGAR · SECTOR 1417' },
+  { id: 'tribunal', label: 'The trial', clock: 'OA · THE CITADEL' },
+  { id: 'firstnight', label: 'Her first night', clock: 'KORUGAR · 11:40 PM' },
+  { id: 'qward', label: 'Qward', clock: 'QWARD · THE ANTIMATTER UNIVERSE' },
+  { id: 'yellow', label: 'The yellow light', clock: 'KORUGAR · 1:15 AM' },
+  { id: 'world', label: 'Free roam', clock: 'SECTOR 2814' },
+];
+
 function readCookie(key) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${key}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : null;
@@ -107,6 +135,7 @@ function createSave({ part, key, checkpoints, label, first }) {
     checkpoint(id) {
       return this.update((d) => {
         d.checkpoint = id;
+        d.playedAt = Date.now();
         if (!d.reached.includes(id)) d.reached.push(id);
       });
     },
@@ -138,13 +167,29 @@ export const Save = createSave({ part: 'awakening', key: 'gl_awakening_v1', chec
 export const CorpsSave = createSave({ part: 'corps', key: 'gl_corps_v1', checkpoints: CORPS_CHECKPOINTS, label: 'Part Two · The Corps', first: 'summons' });
 export const CoastSave = createSave({ part: 'coast', key: 'gl_coast_v1', checkpoints: COAST_CHECKPOINTS, label: 'Part Three · Coast City', first: 'morning' });
 export const PrisonerSave = createSave({ part: 'prisoner', key: 'gl_prisoner_v1', checkpoints: PRISONER_CHECKPOINTS, label: 'Part Four · The Prisoner', first: 'pilot' });
-export const PARTS = { awakening: Save, corps: CorpsSave, coast: CoastSave, prisoner: PrisonerSave };
+export const ProbationSave = createSave({ part: 'probation', key: 'gl_probation_v1', checkpoints: PROBATION_CHECKPOINTS, label: 'Part Five · Probation', first: 'rent' });
+export const ExileSave = createSave({ part: 'exile', key: 'gl_exile_v1', checkpoints: EXILE_CHECKPOINTS, label: 'Part Six · Exile', first: 'dawn' });
+export const PARTS = { awakening: Save, corps: CorpsSave, coast: CoastSave, prisoner: PrisonerSave, probation: ProbationSave, exile: ExileSave };
 
 export const checkpointIndex = Save.index;
 export const checkpointInfo = Save.info;
 
 // Which part a checkpoint id belongs to (ids are unique across parts).
-export const partOf = (id) => (CorpsSave.index(id) >= 0 ? 'corps' : CoastSave.index(id) >= 0 ? 'coast' : PrisonerSave.index(id) >= 0 ? 'prisoner' : 'awakening');
+export const partOf = (id) => Object.values(PARTS).find((p) => p !== Save && p.index(id) >= 0)?.part ?? 'awakening';
+
+// The checkpoint played last in any part: { part, id, save }, or null before the first. `playedAt`
+// is set by checkpoints only: `savedAt` moves with settings too, and the settings live in Part One's
+// store. Saves from before it fall back to `savedAt` (Part One's to 0); a tie goes to the later part.
+export function latestCheckpoint() {
+  let best = null, bestAt = -1;
+  for (const p of Object.values(PARTS)) {
+    const d = p.load();
+    if (!d.checkpoint || (p === Save && d.checkpoint === 'home' && !d.playedAt)) continue;
+    const at = d.playedAt || (p === Save ? 0 : d.savedAt);
+    if (at >= bestAt) { best = { part: p.part, id: d.checkpoint, save: p }; bestAt = at; }
+  }
+  return best;
+}
 
 // The pending restart after a reload, if any: { part, id }.
 export function takeResume() {

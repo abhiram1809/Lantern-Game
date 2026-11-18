@@ -17,8 +17,14 @@ const PRESETS = {
   desert: { top: 0x2c66b0, horizon: 0xd9e2e6, bottom: 0xb59a7a, sun: 0xfff6e4, sunDir: [-0.35, 0.72, -0.5], sunSize: 0.0012, glow: 0.8, cloud: 0.16, cloudColor: 0xdde5ee, cloudLit: 0xffffff, stars: 0.0 },
   // dusk over the desert east of Coast City: the sun low in the west, the sky going to rose and slate
   dusk: { top: 0x24406e, horizon: 0xf0a578, bottom: 0x5c4636, sun: 0xd8955e, sunDir: [-0.86, 0.1, 0.22], sunSize: 0.0009, glow: 1.2, cloud: 0.3, cloudColor: 0xa8746a, cloudLit: 0xffd2a0, stars: 0.0 },
+  // first light over the desert (Part Six's morning at Ferris): the sun just up in the east, rose and grey
+  dawn: { top: 0x2b3f6a, horizon: 0xf3b48e, bottom: 0x584640, sun: 0xffc994, sunDir: [0.88, 0.09, -0.32], sunSize: 0.001, glow: 1.3, cloud: 0.3, cloudColor: 0x8e7484, cloudLit: 0xffd6b0, stars: 0.0 },
   // Ysmault (Sector 666): a dead world under a swollen red sun low over its cliffs
   ysmault: { top: 0x14070a, horizon: 0x6e2a18, bottom: 0x160806, sun: 0xff7448, sunDir: [-0.72, 0.16, -0.62], sunSize: 0.006, glow: 1.6, cloud: 0.22, cloudColor: 0x2e100c, cloudLit: 0x8c3c22, stars: 0.35 },
+  // Korugar: a hazed amber afternoon under a big white-gold sun, a violet zenith
+  korugarNight: { top: 0x07051a, horizon: 0x3a2346, bottom: 0x120a10, sun: 0xd8d2ff, sunDir: [-0.5, 0.42, -0.6], sunSize: 0.0016, glow: 0.7, cloud: 0.35, cloudColor: 0x1a1222, cloudLit: 0x6a5a8a, stars: 1.0 },
+  qward: { top: 0x020103, horizon: 0x2a0c34, bottom: 0x050206, sun: 0x120418, sunDir: [0.3, 0.32, -0.9], sunSize: 0.012, glow: 2.4, cloud: 0.55, cloudColor: 0x0a040e, cloudLit: 0x6a2a7a, stars: 0.35 },
+  korugar: { top: 0x2c2f52, horizon: 0xe2a978, bottom: 0x3a2c2a, sun: 0xfff1cc, sunDir: [0.62, 0.24, -0.58], sunSize: 0.0042, glow: 1.5, cloud: 0.3, cloudColor: 0x7c5c60, cloudLit: 0xffd6a4, stars: 0.0 },
   sunset: { top: 0x3a5d8a, horizon: 0xffb070, bottom: 0x6b4a32, sun: 0xffd6a0, sunDir: [0.0, 0.08, -1], sunSize: 0.002, glow: 2.2, cloud: 0.35, cloudColor: 0xd08a6a, cloudLit: 0xffe0b0, stars: 0.0 },
 };
 

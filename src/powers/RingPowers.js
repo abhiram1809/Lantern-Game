@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RAPIER } from '../engine/Physics.js';
 import { damp, clamp } from '../engine/Time.js';
 import { Particles } from '../fx/Particles.js';
-import { CONSTRUCTS, constructInfo, constructMesh, ghostMesh, fistGeometry, shieldGeometry, wallGeometry, gatlingGeometry, swordGeometry, hammerGeometry, HAMMER, Blade, WALL, createBeam, surfaceSamples } from './Constructs.js';
+import { CONSTRUCTS, constructInfo, constructMesh, ghostMesh, fistGeometry, mirrorX, shieldGeometry, wallGeometry, gatlingGeometry, swordGeometry, staffGeometry, hammerGeometry, HAMMER, Blade, WALL, createBeam, surfaceSamples } from './Constructs.js';
 import { glowTexture } from '../fx/Textures.js';
 import { LINES } from '../story/lines.js';
 
@@ -10,16 +10,23 @@ const WATER = -0.03;
 const KEY4 = ['Digit4', 'Numpad4'];
 const UP = new THREE.Vector3(0, 1, 0);
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _d = new THREE.Vector3(), _e = new THREE.Vector3();
+const _hw = new THREE.Vector3(), _hw2 = new THREE.Vector3(), _hw3 = new THREE.Vector3(), _hw4 = new THREE.Vector3(), _e2 = new THREE.Vector3();
 const FACE = new THREE.Vector3(0, 0, 1);
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const GUARD_KEYS = ' &nbsp; <b>Right-click</b> / <b>F</b> guard';
 const KEYS = {
-  fist: '<b>Click</b> strike &nbsp; <b>Scroll</b> range &nbsp; <b>Q</b> holster',
+  fist: `<b>Click</b> right hook, <b>again</b> left hook${GUARD_KEYS} &nbsp; <b>Q</b> holster`,
   shield: '<b>Hold click</b> raise &nbsp; <b>Q</b> holster',
-  wall: '<b>Click</b> place &nbsp; <b>Scroll</b> range &nbsp; <b>Q</b> holster',
-  gatling: '<b>Hold click</b> fire &nbsp; <b>Q</b> holster',
-  sword: '<b>Click</b> cut (in rhythm: combo) &nbsp; <b>Q</b> holster',
-  hammer: '<b>Click</b> smash &nbsp; <b>Scroll</b> range &nbsp; <b>Q</b> holster',
+  wall: `<b>Click</b> place &nbsp; <b>Scroll</b> range${GUARD_KEYS}`,
+  gatling: `<b>Hold click</b> fire${GUARD_KEYS} &nbsp; <b>Q</b> holster`,
+  sword: `<b>Click</b> cut (in rhythm: combo)${GUARD_KEYS}`,
+  staff: `<b>Click</b> sweep (in rhythm: combo)${GUARD_KEYS}`,
+  hammer: `<b>Click</b> smash &nbsp; <b>Scroll</b> range${GUARD_KEYS}`,
 };
+// The guard: the shield raised this long before a blow meets it turns that blow into a parry (an
+// opponent who reads Hal is thrown wide open by one); raised again sooner than PARRY_REST after
+// the last raise, it only blocks (no parrying by mashing the button).
+export const PARRY = 0.5, PARRY_REST = 0.8;
 
 // The power ring: charge, the bearer's health, the construct wheel (game time stops while it's
 // open), aiming with a hologram preview of the construct, the constructs themselves (physical: they
@@ -53,23 +60,31 @@ export class RingPowers {
     this.gatling = null;
     this.onImpact = this.onSelect = this.onDeath = null;
     this.geo = { fist: fistGeometry(), shield: shieldGeometry(), wall: wallGeometry(), hammer: hammerGeometry() };
+    this.geo.fistL = mirrorX(this.geo.fist);
     this.samples = Object.fromEntries(Object.entries(this.geo).map(([k, g]) => [k, surfaceSamples(g, 240)]));
     this.geo.gatling = gatlingGeometry();
     this.samples.gatling = surfaceSamples(this.geo.gatling.body, 120);
     this.geo.sword = swordGeometry();
     this.samples.sword = surfaceSamples(this.geo.sword.geo, 80);
+    this.geo.staff = staffGeometry();
+    this.samples.staff = surfaceSamples(this.geo.staff.geo, 100);
     this.sword = null;
     this.ghost = {
       fist: ghostMesh(this.geo.fist, { uPattern: 1, uScale: 0.16, uFadeZ: new THREE.Vector2(-1.5, -0.6) }),
+      fistL: ghostMesh(this.geo.fistL, { uPattern: 1, uScale: 0.16, uFadeZ: new THREE.Vector2(-1.5, -0.6) }),
       shield: ghostMesh(this.geo.shield, { uPattern: 1, uScale: 0.13, uEmblem: 1 }),
       wall: ghostMesh(this.geo.wall, { uPattern: 2, uScale: 0.34 }),
       hammer: ghostMesh(this.geo.hammer, { uPattern: 1, uScale: 0.12, uEmblem: 1 }),
     };
-    const pathGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+    const pathGeo = new THREE.BufferGeometry().setFromPoints(Array.from({ length: ARC }, () => new THREE.Vector3())); // (the hook's arc)
     this.path = new THREE.Line(pathGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(0.5, 1.7, 1.2), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
     this.path.frustumCulled = false;
     this.aim = { active: false, point: new THREE.Vector3(), end: new THREE.Vector3(), dir: new THREE.Vector3(), from: new THREE.Vector3(), travel: new THREE.Vector3(), dist: 0, valid: false, body: null, target: null, water: false, yaw: 0, base: 0 };
     this.aimFilter = (c) => !this.bounds?.has(c.handle) && !this.player.ignore.has(c.handle);
+    this.hook = { next: 'R', until: 0, queued: false }; // the hook combo: which hand next, and until when the left follows
+    this.healDelay = 4; // health comes back this long after the last hurt, at this rate (a boss fight sets them slower)
+    this.healRate = 8;
+    this.watchers = new Set(); // opponents reading what Hal casts: { onCast(id, data) }
   }
 
   // Enter a scene: { scene, physics, ground(x, z), bounds: Set of invisible-wall collider handles,
@@ -77,6 +92,7 @@ export class RingPowers {
   attach({ scene, physics, ground, bounds = new Set(), canLand = () => true, solid = null, center = new THREE.Vector3(), radius = 80, floor = null, ceiling = 48 }) {
     this.detach();
     Object.assign(this, { scene, physics, ground, bounds });
+    if (physics.smash) physics.smash.fx = this; // (the scene's props: their effects and sounds through the ring's)
     this.sparks = new Particles(1200, { additive: true, drag: 1.8, turbulence: 0.6 });
     this.trail = new Particles(600, { additive: true, drag: 2.5, turbulence: 0.4 });
     this.dust = new Particles(300, { additive: false, soft: 0.15, puffy: true, drag: 1.6, gravity: 0.25 });
@@ -115,11 +131,13 @@ export class RingPowers {
     this.markerTarget = null;
     for (const o of [this.sparks.points, this.trail.points, this.dust.points, this.spray.points, ...Object.values(this.ghost), this.path, this.aura, this.flash, this.tracerMesh]) o.removeFromParent();
     this.wind?.set(0);
+    if (this.physics?.smash?.fx === this) this.physics.smash.fx = null;
     this.scene = null;
     // nothing drives time or the grade until the next scene is attached
     this.engine.timeScale = 1;
     this.engine.gradeUniforms.uFocus.value = 0;
     this.engine.gradeUniforms.uHurt.value = 0;
+    if (this.parryFlash > 0) { this.parryFlash = 0; this.engine.gradeUniforms.uFlash.value = 0; }
   }
 
   update(dt, real) {
@@ -135,6 +153,7 @@ export class RingPowers {
     grade.uFocus.value = damp(grade.uFocus.value, this.wheelState || this.freeze ? 1 : 0, 16, real);
     this.hurtFx = Math.max(0, this.hurtFx - real * 1.4);
     grade.uHurt.value = this.hurtFx;
+    if (this.parryFlash > 0) { this.parryFlash = Math.max(0, this.parryFlash - real * 0.45); grade.uFlash.value = this.parryFlash; }
 
     const acting = player.control;
     if (this.wheelState) { if (acting) this.updateWheel(real); else this.closeWheel(); }
@@ -146,6 +165,7 @@ export class RingPowers {
 
     this.cooldown = Math.max(0, this.cooldown - dt);
     if (this.armTimer > 0 && (this.armTimer -= dt) <= 0 && !this.shield) player.animator.reach('R', null, { rate: 7 });
+    this.updateGuard(acting && !this.wheelState);
     if (this.selected && acting && input.wheel) {
       const [lo, hi] = constructInfo(this.selected).range ?? [0, 0];
       if (hi) this.reach = clamp((this.reach ?? Math.min(hi, this.aim.dist || hi)) + input.wheel * -1.0, lo, hi);
@@ -154,7 +174,7 @@ export class RingPowers {
     this.updateAim();
     this.updateGhost(t);
     if (acting && !this.wheelState && this.selected) this.updateCast(dt);
-    else { this.shield?.release(); if (this.gatling) this.gatling.firing = false; }
+    else { if (!this.shield?.quick) this.shield?.release(); if (this.gatling) this.gatling.firing = false; }
 
     for (const c of this.live) c.update(dt, t);
     this.live = this.live.filter((c) => !c.done || (c.dispose(), false));
@@ -218,7 +238,7 @@ export class RingPowers {
     this.reach = null;
     if (c.id !== 'shield') this.shield?.release();
     if (c.id !== 'gatling') this.gatling?.end();
-    if (c.id !== 'sword') this.sword?.end();
+    if (c.id !== this.sword?.kind) this.sword?.end();
     this.closeWheel();
     this.audio.constructForm(0.45);
     this.hud.setArmed(c, KEYS[c.id]);
@@ -268,9 +288,10 @@ export class RingPowers {
     }
     a.valid = this.charge >= (info.cost ?? 0);
     if (info.id === 'fist') {
-      this.ringPos(_d);
-      a.travel.subVectors(a.point, _d).normalize();
-      a.end.copy(a.point).addScaledVector(a.travel, -0.58); // knuckles meet the surface
+      // the hook's arc is round Hal, through the aim point: travel is the way to it, level
+      a.travel.set(a.point.x - a.from.x, 0, a.point.z - a.from.z);
+      if (a.travel.lengthSq() < 1e-4) a.travel.set(Math.sin(this.player.yaw), 0, Math.cos(this.player.yaw));
+      a.travel.normalize();
     } else if (info.id === 'hammer') {
       // it comes down from over Hal's head: the swing's plane is the way he faces the point
       a.travel.set(a.point.x - a.from.x, 0, a.point.z - a.from.z);
@@ -322,9 +343,14 @@ export class RingPowers {
   removeTarget(t) { this.targets.delete(t); if (this.aim.target === t) this.aim.target = null; }
   targetOf(body) { for (const t of this.targets) if (t.body === body) return t; return null; }
 
+  // tell whoever is reading Hal (Sinestro, Atrocitus) what he just cast
+  cast(id, data = {}) { for (const w of this.watchers) w.onCast?.(id, data); }
+
   // Damage a target and show the number where it was hit.
-  dealDamage(target, amount, point, dir) {
-    const dealt = target.hit(Math.round(amount), point, dir);
+  // `kind` says what landed ('hook', 'gatling', 'sword', 'hammer', 'blast', 'spike'): opponents guard
+  // against some and not others.
+  dealDamage(target, amount, point, dir, kind = 'hit') {
+    const dealt = target.hit(Math.round(amount), point, dir, kind);
     if (dealt > 0) {
       this.audio.hitTick();
       _e.copy(point).project(this.engine.camera);
@@ -352,7 +378,7 @@ export class RingPowers {
     if (_a.z > 1) { this.hud.setTarget(null); return; }
     const dist = cam.position.distanceTo(tg.position);
     const px = (tg.radius * 1.4 * innerHeight) / (2 * Math.tan((cam.fov * Math.PI) / 360) * dist);
-    this.hud.setTarget({ x: (_a.x * 0.5 + 0.5) * innerWidth, y: (-_a.y * 0.5 + 0.5) * innerHeight, size: Math.max(22, px), health: tg.health / tg.maxHealth, locked: tg === this.aim.target });
+    this.hud.setTarget({ x: (_a.x * 0.5 + 0.5) * innerWidth, y: (-_a.y * 0.5 + 0.5) * innerHeight, size: Math.max(22, px), health: tg.health / tg.maxHealth, locked: tg === this.aim.target, open: tg.openState?.() });
   }
 
   updateGhost(t) {
@@ -365,16 +391,18 @@ export class RingPowers {
     g.userData.u.uTime.value = t;
     g.userData.valid(a.valid);
     if (id === 'fist') {
-      g.visible = true;
-      g.position.copy(a.end);
-      g.lookAt(_a.copy(a.end).add(a.travel));
+      // the next hook at the middle of its swing, and the arc it will sweep
+      const side = this.hookSide(), gh = side === 'R' ? g : this.ghost.fistL;
+      g.visible = false;
+      gh.visible = true;
+      gh.userData.u.uTime.value = t;
+      gh.userData.valid(a.valid);
+      const H = hookFrame(a.from, a.travel, a.dist, a.point.y, side);
+      H.at(0, gh);
       const p = this.path.geometry.attributes.position;
-      this.ringPos(_b);
-      p.setXYZ(0, _b.x, _b.y, _b.z);
-      _c.copy(a.end).addScaledVector(a.travel, -1.0);
-      p.setXYZ(1, _c.x, _c.y, _c.z);
+      for (let i = 0; i < ARC; i++) { H.pos(H.th0 + ((H.th1 - H.th0) * i) / (ARC - 1), _c); p.setXYZ(i, _c.x, _c.y, _c.z); }
       p.needsUpdate = true;
-      this.path.material.color.copy(g.userData.u.uColor.value);
+      this.path.material.color.copy(gh.userData.u.uColor.value);
       this.path.visible = true;
     } else if (id === 'hammer') {
       g.visible = true;
@@ -394,6 +422,13 @@ export class RingPowers {
   // ------------------------------------------------------------------------------- casting
   updateCast() {
     const input = this.input, id = this.selected, info = constructInfo(id), a = this.aim;
+    if (this.shield?.quick && !this.shield.ending) {
+      // behind the guard: a click drops it and strikes (block, then hit back)
+      if (!input.hit('Mouse0') || id === 'shield') return;
+      this.shield.release(true);
+      this.guardLatch = true;
+      this.cooldown = 0;
+    }
     if (id === 'gatling') {
       const held = input.down('Mouse0');
       if (held && !this.gatling && this.cooldown <= 0) {
@@ -403,10 +438,10 @@ export class RingPowers {
       if (this.gatling) this.gatling.firing = held;
       return;
     }
-    if (id === 'sword') {
-      // the blade forms on the first click and stays in hand while the sword is armed
+    if (id === 'sword' || id === 'staff') {
+      // the blade (or the staff) forms on the first click and stays in hand while it's armed
       if (input.hit('Mouse0')) {
-        if (!this.sword) { if (this.spend(info.cost)) this.live.push((this.sword = new SwordConstruct(this))); else this.lowCharge(); }
+        if (!this.sword) { if (this.spend(info.cost)) this.live.push((this.sword = new SwordConstruct(this, id))); else this.lowCharge(); }
         else this.sword.queue();
       }
       return;
@@ -418,11 +453,20 @@ export class RingPowers {
       if (!held && this.shield && this.shield.t > 0.35) this.shield.release();
       return;
     }
+    if (id === 'fist') {
+      // a click while the right hook is still going is kept for the left (the combo)
+      if (input.hit('Mouse0')) this.hook.queued = true;
+      if (!this.hook.queued || this.cooldown > 0) return;
+      this.hook.queued = false;
+      if (!a.valid) { if (this.charge < info.cost) this.lowCharge(); else this.audio.denied(); return; }
+      this.spend(info.cost);
+      this.throwHook();
+      return;
+    }
     if (!input.hit('Mouse0') || this.cooldown > 0) return;
     if (!a.valid) { if (this.charge < info.cost) this.lowCharge(); else this.audio.denied(); return; }
     this.spend(info.cost);
-    if (id === 'fist') this.strike();
-    else if (id === 'hammer') this.smash();
+    if (id === 'hammer') this.smash();
     else if (id === 'wall') this.raiseWall();
   }
 
@@ -454,17 +498,24 @@ export class RingPowers {
     this.armTimer = hold;
   }
 
-  strike() {
-    const a = this.aim;
-    this.castArm(a.point, 0.5);
-    this.cooldown = 0.45;
+  // which hand throws the next hook: the left only straight after a right
+  hookSide() { return this.hook.next === 'L' && this.engine.time < this.hook.until ? 'L' : 'R'; }
+
+  throwHook() {
+    const a = this.aim, side = this.hookSide(), p = this.player;
+    p.turnTo(Math.atan2(a.travel.x, a.travel.z), 14);
+    this.cooldown = side === 'R' ? 0.3 : 0.8;
+    this.hook.next = side === 'R' ? 'L' : 'R';
+    this.hook.until = this.engine.time + 1.1;
     this.stats.strikes++;
     this.audio.punch();
-    this.live.push(new FistStrike(this, a.end.clone(), a.point.clone(), a.travel.clone(), a.body, a.water));
+    this.live.push(new HookStrike(this, hookFrame(a.from, a.travel, a.dist, a.point.y, side)));
+    this.cast('fist', { side, at: a.point.clone(), radius: clamp(a.dist, ...HOOK.radius), target: a.target });
   }
 
   smash() {
     const a = this.aim;
+    this.cast('hammer', { at: a.point.clone(), target: a.target });
     this.castArm(_a.copy(a.point).setY(a.point.y + 3), 0.8);
     this.cooldown = 0.9;
     this.stats.strikes++;
@@ -482,9 +533,59 @@ export class RingPowers {
     if (this.walls.filter((w) => !w.ending).length > 3) this.walls.find((w) => !w.ending).expire();
   }
 
-  raiseShield() {
-    this.shield = new HeldShield(this);
+  raiseShield(quick = false) {
+    const now = this.engine.time;
+    this.shield = new HeldShield(this, { quick, parry: now - (this.lastRaise ?? -9) > PARRY_REST });
+    this.lastRaise = now;
     this.live.push(this.shield);
+  }
+
+  // The guard, whatever is armed: held on the right button or F, the shield goes up before Hal's
+  // fist (a held gatling or blade goes away), and down when it's let go. A click behind it drops it
+  // and strikes (`updateCast`); the button has to come up before it raises again.
+  updateGuard(acting) {
+    const input = this.input, held = acting && this.enabled.constructs && this.unlocked.has('shield') && (input.down('Mouse2') || input.down('KeyF'));
+    if (!held) this.guardLatch = false;
+    const s = this.shield;
+    if (s?.quick && !s.ending && !held && s.t > 0.1) s.release(true);
+    if (!held || this.guardLatch || (s && !s.ending)) return;
+    if (s?.ending && s.endT < 0.12) return;
+    if (!this.spend(constructInfo('shield').cost)) { if (input.hit('Mouse2', 'KeyF')) this.lowCharge(); return; }
+    this.gatling?.end();
+    this.sword?.end();
+    this.hook.queued = false;
+    if (s) { s.done = true; } // (the last one, still fading, makes way)
+    this.raiseShield(true);
+  }
+
+  // A blow meeting Hal's shield (an opponent's attack, from `from`, striking at `at`): 'parry' when
+  // the shield went up just before it (see PARRY), 'block' otherwise, null if the shield isn't in
+  // its way. Either way it does Hal no harm; a parry is loud (it stops time a moment, rings, flashes
+  // and gives back a little charge).
+  guardHit(from, at = from) {
+    const s = this.shield;
+    if (!s?.blocks(from)) return null;
+    s.ripple(at);
+    this.stats.blocks++;
+    if (!s.fresh()) { this.audio.shieldHit(0.9); this.hud.callout('Blocked', 'block'); return 'block'; }
+    s.parryUntil = s.t + 0.6; // (the rest of a volley meets the parry too)
+    if (this.engine.time - (this.lastParry ?? -9) > 0.3) {
+      this.lastParry = this.engine.time;
+      this.hitStop = 0.16;
+      this.director.shake(0.32, 0.3);
+      this.flash.position.copy(at);
+      this.flash.intensity = 16;
+      this.parryFlash = 0.16; // (a flash of the grade, faded out in `update`)
+      this.audio.parry();
+      this.charge = Math.min(100, this.charge + 4);
+      this.hud.callout('Parry', 'parry');
+      this.stats.parries = (this.stats.parries ?? 0) + 1;
+    }
+    this.sparks.emit(60, (q, v) => {
+      q[0] = at.x; q[1] = at.y; q[2] = at.z;
+      v[0] = s.normal.x * 5 + (Math.random() - 0.5) * 7; v[1] = Math.random() * 5; v[2] = s.normal.z * 5 + (Math.random() - 0.5) * 7;
+    }, { life: 0.55, size: [0.09, 0], color: [[3, 6, 3, 1], [0.2, 1.4, 0.5, 0]] });
+    return 'parry';
   }
 
   // Where the held shield sits: in front of Hal's chest, square to where he faces.
@@ -498,32 +599,21 @@ export class RingPowers {
     return _a;
   }
 
-  // Shove dynamic bodies near the line a→b (the fist's path this frame).
-  sweep(a, b, r, dir, hits) {
-    _a.subVectors(b, a);
-    const len2 = Math.max(1e-6, _a.lengthSq());
-    for (const { body } of this.physics.dynamics) {
-      if (hits.has(body)) continue;
-      const t = body.translation();
-      _b.set(t.x, t.y, t.z);
-      const k = clamp(_c.subVectors(_b, a).dot(_a) / len2);
-      _c.copy(a).addScaledVector(_a, k);
-      if (_c.distanceTo(_b) > r + (this.targetOf(body)?.radius ?? 0)) continue;
-      hits.add(body);
-      this.shove(body, dir, _c, 1);
-      const tg = this.targetOf(body);
-      if (tg) this.dealDamage(tg, 40, _b, dir);
-    }
-  }
-
-  // An impulse from a blow: heavy things move less (capped impulse), light ones fly.
-  shove(body, dir, at, k = 1, power = 14, cap = 700) {
+  // An impulse from a blow: heavy things move less (capped impulse), light ones fly. One of the
+  // scene's props (`physics.smash`) takes it as a blow first: it may dent, shatter or break loose,
+  // and a heavy one is shoved past the usual cap (`give`); a fixed one stays where it is.
+  shove(body, dir, at, k = 1, power = 14, cap = 700, kind = 'blow') {
+    const item = this.physics.smash?.of(body);
+    if (item) { this.physics.smash.blow(item, k * power, at, dir, kind); cap *= item.give; }
+    if (!body.isDynamic()) return;
     const J = Math.min(body.mass() * power, cap) * k;
-    _d.copy(dir).addScaledVector(UP, 0.35).normalize().multiplyScalar(J);
-    body.applyImpulseAtPoint({ x: _d.x, y: _d.y, z: _d.z }, { x: at.x, y: at.y, z: at.z }, true);
+    _d.copy(dir).addScaledVector(UP, item?.give > 2 ? 0.2 : 0.35).normalize().multiplyScalar(J);
+    // (a heavy prop is pushed level with its middle: it slides and rocks, it doesn't roll over every time)
+    const y = item?.give > 2 ? THREE.MathUtils.lerp(at.y, body.worldCom().y, 0.7) : at.y;
+    body.applyImpulseAtPoint({ x: _d.x, y: _d.y, z: _d.z }, { x: at.x, y, z: at.z }, true);
   }
 
-  impact(point, dir, { body = null, water = false, hits = new Set(), radius = 2.2, damage = 45, splash = 30, power = 1, shake = 0.22 } = {}) {
+  impact(point, dir, { body = null, water = false, hits = new Set(), radius = 2.2, damage = 45, splash = 30, power = 1, shake = 0.22, kind = 'blast' } = {}) {
     this.hitStop = 0.07 * Math.sqrt(power);
     this.director.shake(shake, 0.35 + 0.1 * (power - 1));
     this.audio.impact(power);
@@ -533,10 +623,10 @@ export class RingPowers {
       const dist = Math.hypot(t.x - point.x, t.y - point.y, t.z - point.z);
       if (hits.has(b)) { struck.push(b); continue; }
       if (b !== body && dist > radius) continue;
-      this.shove(b, dir, b === body ? point : t, (b === body ? 1.2 : 0.85 * (1 - dist / radius)) * power);
+      this.shove(b, dir, b === body ? point : t, (b === body ? 1.2 : 0.85 * (1 - dist / radius)) * power, 14, 700, kind);
       struck.push(b);
       const tg = this.targetOf(b);
-      if (tg) this.dealDamage(tg, b === body ? damage : splash * (1 - dist / radius) + 8, _b.set(t.x, t.y, t.z), dir);
+      if (tg) this.dealDamage(tg, b === body ? damage : splash * (1 - dist / radius) + 8, _b.set(t.x, t.y, t.z), dir, kind);
     }
     this.flash.position.copy(point).addScaledVector(dir, -0.6);
     this.flash.intensity = 10;
@@ -644,7 +734,7 @@ export class RingPowers {
       const c = h.position;
       if (Math.hypot(p.x - c.x, p.z - c.z) < h.radius && p.y < c.y + (h.height ?? 1.3) && p.y > c.y - 0.8) this.damage(h.dps * dt, null, 'fire');
     }
-    if (this.lastHurt > 4 && this.health < this.maxHealth && !this.dead) this.health = Math.min(this.maxHealth, this.health + 8 * dt);
+    if (this.lastHurt > this.healDelay && this.health < this.maxHealth && !this.dead) this.health = Math.min(this.maxHealth, this.health + this.healRate * dt);
     this.hud.setHealth(this.health, this.maxHealth, real);
   }
 
@@ -731,81 +821,215 @@ export class RingPowers {
 }
 
 // ------------------------------------------------------------------------------------- constructs
-// The fist launches from the ring once the arm has thrust out, grows as it flies, strikes, recoils
-// and dissolves; a tether of light runs from the ring to its wrist the whole time.
-class FistStrike {
-  constructor(P, end, point, dir, body, water) {
-    Object.assign(this, { P, end, point, dir, body, water });
-    this.mesh = constructMesh(P.geo.fist, { uPattern: 0, uFadeZ: new THREE.Vector2(-1.5, -0.6) });
-    this.mesh.visible = false;
+// The hook: a giant fist swung round Hal in a level arc through where he aims, the ring's beam its
+// arm. Everything in the arc it sweeps (from Hal's side out past the fist) is hit once, an area and
+// not a point, and knocked the way the fist goes. A right hook comes in from his right; a click
+// during it chains the left, from his left, harder. Hal throws the punch himself: the ring hand drawn
+// back out to the side and whipped across in front, the chest turning into it.
+const HOOK = { wind: 0.11, swing: 0.24, hold: 0.07, fade: 0.28, from: 1.25, to: 1.05, radius: [3, 11] };
+const ARC = 24; // points in the aim's arc line
+// The arc of a hook thrown from `from` (Hal's chest) toward `travel` (level), `dist` out, at `height`:
+// angles from the aim's line (+ toward Hal's left); `pos(th)` on it, `at(th, obj)` places the fist.
+function hookFrame(from, travel, dist, height, side) {
+  const pivot = from.clone(), dir = travel.clone(), sign = side === 'R' ? 1 : -1;
+  const R = clamp(dist, ...HOOK.radius), y = clamp(height, from.y - 1.4, from.y + 3);
+  const S = clamp(R / 4.2, 1.35, 2.3);
+  const pos = (th, out) => out.copy(dir).applyAxisAngle(UP, th).multiplyScalar(R).add(pivot).setY(y);
+  // knuckles along the way it travels, turned a little out from Hal (its wrist back toward him)
+  const along = (th, out) => out.copy(dir).applyAxisAngle(UP, th + sign * (Math.PI / 2 - 0.35));
+  const at = (th, obj) => {
+    pos(th, obj.position);
+    along(th, _hz);
+    _hx.crossVectors(UP, _hz);
+    _hm.makeBasis(_hx, UP, _hz);
+    obj.quaternion.setFromRotationMatrix(_hm);
+    obj.scale.setScalar(S);
+  };
+  return { pivot, dir, side, sign, R, y, S, reach: 0.62 * S, th0: -sign * HOOK.from, th1: sign * HOOK.to, pos, along, at };
+}
+
+// Hal's ring arm through a hook, in his frame (x toward his left, y up, z ahead; the right hand's, the
+// left's mirrored): the fist cocked by his shoulder, the elbow out and up, then whipped across in front
+// at shoulder height, the elbow bent, and through.
+const HOOK_HAND = [[0, [-0.36, 1.4, 0.04]], [0.11, [-0.42, 1.43, -0.02]], [0.2, [-0.22, 1.46, 0.34]], [0.3, [0.12, 1.42, 0.3]], [0.6, [0.04, 1.24, 0.24]]];
+const HOOK_CHEST = [[0, -0.3], [0.11, -0.42], [0.33, 0.48], [0.7, 0]];
+
+class HookStrike {
+  constructor(P, H) {
+    Object.assign(this, { P, H });
+    const left = H.side === 'L';
+    this.id = left ? 'fistL' : 'fist';
+    this.mesh = constructMesh(left ? P.geo.fistL : P.geo.fist, { uPattern: 0, uFadeZ: new THREE.Vector2(-1.5, -0.6) });
     this.mesh.userData.set('uForm', 0);
-    this.beam = createBeam(0.03);
-    this.beam.visible = false;
+    this.beam = createBeam(0.035);
     P.scene.add(this.mesh, this.beam);
-    this.t = -0.08; // the arm extends first
+    this.t = 0;
+    this.k = 0; // time through the whole punch (the arm's keys)
     this.state = 'wind';
+    this.th = H.th0;
     this.hits = new Set();
-    this.prev = new THREE.Vector3();
-    this.pos = new THREE.Vector3();
+    this.landed = 0;
+    this.damage = constructInfo('fist').damage[left ? 1 : 0];
     this.ring = new THREE.Vector3();
+    this.wrist = new THREE.Vector3();
+    this.push = new THREE.Vector3();
+    this.hand = new THREE.Vector3();
+    const p = P.player, side = left ? 'L' : 'R';
+    this.side = side;
+    p.animator.reach(side, () => this.hand, { pole: new THREE.Vector3(left ? 0.85 : -0.85, 0.55, -0.35), rate: 26 });
+    P.armTimer = 0;
+    P.hooks ??= {};
+    P.hooks[side] = P.hooks.last = this; // (the newest hook owns its arm, and the chest)
+    H.at(this.th, this.mesh);
   }
 
   update(dt, time) {
-    const P = this.P, set = this.mesh.userData.set, bu = this.beam.userData.u;
+    const P = this.P, H = this.H, set = this.mesh.userData.set, bu = this.beam.userData.u;
     this.t += dt;
+    this.k += dt;
     set('uTime', time);
     bu.uTime.value = time;
     P.ringPos(this.ring);
     if (this.state === 'wind') {
-      if (this.t < 0) return;
-      this.state = 'fly';
-      this.from = this.ring.clone();
-      this.dur = Math.max(0.13, this.from.distanceTo(this.end) / 34);
-      this.prev.copy(this.from);
-      this.mesh.visible = this.beam.visible = true;
-      P.audio.constructForm(0.7);
-    }
-    if (this.state === 'fly') {
-      const k = Math.min(1, this.t / this.dur);
-      const s = 0.3 + 0.7 * smooth(0, 0.55, k);
-      this.pos.lerpVectors(this.from, this.end, k * (0.55 + 0.45 * k));
-      this.place(s, (1 - k) * 0.6);
-      set('uForm', Math.min(1, this.t / 0.1));
-      if (this.t < 0.06) P.formSparks('fist', this.mesh, 12);
-      P.sweep(this.prev, this.pos, 0.7 * s, this.dir, this.hits);
-      this.prev.copy(this.pos);
-      bu.uOpacity.value = 1;
-      if (k >= 1) {
-        this.state = 'hold';
-        this.t = 0;
-        P.impact(this.point, this.dir, { body: this.body, water: this.water, hits: this.hits });
-      }
+      // forming off to the side, drawn back
+      const k = Math.min(1, this.t / HOOK.wind);
+      set('uForm', k);
+      bu.uOpacity.value = k;
+      this.th = H.th0 - H.sign * 0.12 * k;
+      if (this.t < 0.06) P.formSparks(this.id, this.mesh, 10);
+      if (k >= 1) { this.state = 'swing'; this.t = 0; this.from = this.th; P.audio.whoosh(0.4, 0.95); }
+    } else if (this.state === 'swing') {
+      // round through the arc, fastest in the middle
+      const k = Math.min(1, this.t / HOOK.swing), e = k < 0.5 ? 2 * k * k : 1 - 2 * (1 - k) ** 2;
+      const prev = this.th;
+      this.th = this.from + (H.th1 - this.from) * e;
+      this.sweep(prev, this.th);
+      if (this.hitWall(prev, this.th)) { this.state = 'hold'; this.t = 0; } // (stopped dead against it)
+      else if (k >= 1) { this.state = 'hold'; this.t = 0; }
     } else if (this.state === 'hold') {
-      this.pos.addScaledVector(this.dir, -dt * 1.2);
-      this.place(1, 0);
-      if (this.t > 0.14) { this.state = 'fade'; this.t = 0; P.audio.dissolve(); }
+      this.th += H.sign * dt * 0.6;
+      if (this.t > HOOK.hold) { this.state = 'fade'; this.t = 0; P.audio.dissolve(); }
     } else if (this.state === 'fade') {
-      const k = Math.min(1, this.t / 0.32);
+      const k = Math.min(1, this.t / HOOK.fade);
       set('uForm', 1 - k);
-      this.place(1 + 0.12 * k, 0);
       bu.uOpacity.value = Math.max(0, 1 - k * 1.6);
-      if (this.t < 0.1) P.formSparks('fist', this.mesh, 6);
+      this.th += H.sign * dt * 0.4;
+      if (this.t < 0.1) P.formSparks(this.id, this.mesh, 6);
       if (k >= 1) this.done = true;
+    }
+    H.at(this.th, this.mesh);
+    this.wrist.copy(this.mesh.position).addScaledVector(H.along(this.th, _a), -1.0 * H.S);
+    this.beam.userData.span(this.ring, this.wrist);
+    this.arm();
+  }
+
+  // his hand on its keys (mirrored for the left), the chest turning into the punch
+  arm() {
+    const p = this.P.player, root = p.rig.root, m = this.side === 'L' ? -1 : 1;
+    const [h] = sampleSwing(HOOK_HAND.map(([t, v]) => [t, v, v]), this.k);
+    root.updateMatrixWorld(true);
+    this.hand.set(h[0] * m, h[1], h[2]).applyMatrix4(root.matrixWorld);
+    let yaw = 0;
+    for (let i = 0; i < HOOK_CHEST.length - 1; i++) {
+      const [t0, a0] = HOOK_CHEST[i], [t1, a1] = HOOK_CHEST[i + 1];
+      if (this.k <= t1) { const e = smooth(0, 1, (this.k - t0) / (t1 - t0)); yaw = a0 + (a1 - a0) * e; break; }
+    }
+    if (this.P.hooks.last === this) p.animator.lean.yaw = yaw * m;
+  }
+
+  // what the arc swept between two angles: targets take the blow once, loose things are knocked along
+  sweep(a0, a1) {
+    const P = this.P, H = this.H, lo = Math.min(a0, a1), hi = Math.max(a0, a1);
+    H.along(this.th, this.push).setY(0).normalize();
+    const inArc = (pt, rad) => {
+      _a.set(pt.x - H.pivot.x, 0, pt.z - H.pivot.z);
+      const r = _a.length();
+      if (r < 0.6 || r > H.R + H.reach + rad || Math.abs(pt.y - H.y) > H.reach + rad + 0.7) return false;
+      _b.crossVectors(H.dir, _a);
+      const th = Math.atan2(_b.y, H.dir.dot(_a)), pad = Math.min(0.6, (H.reach + rad) / r);
+      return th >= lo - pad && th <= hi + pad;
+    };
+    for (const tg of P.targets) {
+      if (!tg.alive || this.hits.has(tg) || !inArc(tg.position, tg.radius)) continue;
+      this.hits.add(tg);
+      if (tg.body) this.hits.add(tg.body);
+      const dealt = P.dealDamage(tg, this.damage, tg.position, this.push, 'hook');
+      if (tg.body?.isDynamic()) P.shove(tg.body, this.push, tg.position, 1.3, 14, 900);
+      this.land(tg.position, true, dealt > 0);
+    }
+    const S = P.physics.smash;
+    for (const e of P.physics.dynamics) {
+      const body = e.body;
+      if (this.hits.has(body) || P.targetOf(body)) continue;
+      if (e.item) S.toWorld(e.item, e.item.center, _c); else { const t = body.translation(); _c.set(t.x, t.y, t.z); }
+      if (!inArc(_c, e.radius ?? 0.4)) continue;
+      this.hits.add(body);
+      if (e.item) {
+        // a prop: struck where the fist meets it, with weight (a moment's stop)
+        const at = S.nearest(e.item, H.pos(this.th, _hw), _hw2);
+        P.shove(body, this.push, at, 1.6, 16, 900, 'hook');
+        if (this.landed++ === 0) { P.hitStop = this.side === 'L' ? 0.07 : 0.05; P.director.shake(0.22, 0.3); P.flash.position.copy(at); P.flash.intensity = 6; }
+      } else {
+        P.shove(body, this.push, _c, 1.6, 16, 900, 'hook');
+        this.land(_c, false, false);
+      }
     }
   }
 
-  place(scale, roll) {
-    const m = this.mesh;
-    m.position.copy(this.pos);
-    m.scale.setScalar(scale);
-    m.lookAt(_a.copy(this.pos).add(this.dir));
-    m.rotateZ(roll);
-    this.beam.userData.span(this.ring, _b.copy(this.pos).addScaledVector(this.dir, -1.0 * scale));
+  // The fist meeting something fixed (a wall, a column, a parked container): it stops there with a
+  // crack of light and dust, and a prop takes the blow, instead of passing through. Found along the
+  // fist's path this frame (its knuckles leading), level, so the floor it skims over doesn't count.
+  hitWall(a0, a1) {
+    const P = this.P, H = this.H, from = H.pos(a0, _hw), to = H.pos(a1, _hw3).addScaledVector(H.along(a1, _hw4), 0.45 * H.S);
+    // (aimed at the ground, the fist skims it: the ray runs a little above it)
+    from.y = Math.max(from.y, (P.ground?.(from.x, from.z) ?? 0) + 0.3);
+    to.y = Math.max(to.y, (P.ground?.(to.x, to.z) ?? 0) + 0.3);
+    const dir = to.sub(from), len = dir.length();
+    if (len < 1e-4) return false;
+    dir.divideScalar(len);
+    const hit = P.physics.world.castRay(new RAPIER.Ray(from, dir), len, true, undefined, undefined, P.player.collider, undefined, (c) => {
+      const b = c.parent();
+      return !!b?.isFixed() && !c.isSensor() && !P.bounds?.has(c.handle) && !P.player.ignore.has(c.handle);
+    });
+    if (!hit) return false;
+    const touch = _hw2.copy(from).addScaledVector(dir, hit.timeOfImpact);
+    const item = P.physics.smash?.ofCollider(hit.collider);
+    if (item && !this.hits.has(item.body)) { this.hits.add(item.body); P.physics.smash.blow(item, 1.6 * 16, touch, this.push, 'hook'); }
+    if (this.landed++ === 0) { P.hitStop = 0.06; P.director.shake(0.3, 0.3); }
+    P.dustFx(touch, 14, 1.8);
+    P.flash.position.copy(touch);
+    P.flash.intensity = 8;
+    this.land(touch, false, false);
+    return true;
+  }
+
+  // the blow landing: the first opponent it meets stops time a moment, shakes the view, flashes (loose
+  // things it bats aside just throw sparks)
+  land(at, target, hurt) {
+    const P = this.P, left = this.side === 'L';
+    if (!target) P.audio.impact(0.6);
+    else if (this.landed++ === 0) {
+      P.hitStop = left ? 0.11 : 0.08;
+      P.director.shake(left ? 0.38 : 0.28, 0.35);
+      P.audio.impact(left ? 1.5 : 1.2);
+      P.flash.position.copy(at);
+      P.flash.intensity = 10;
+      P.live.push(new Shockwave(P, at.clone(), _d.copy(this.push).negate(), left ? 2.6 : 2, 0.3));
+    }
+    const push = this.push;
+    P.sparks.emit(hurt ? 46 : 24, (q, v) => {
+      q[0] = at.x; q[1] = at.y; q[2] = at.z;
+      v[0] = push.x * 4 + (Math.random() - 0.5) * 6; v[1] = Math.random() * 4; v[2] = push.z * 4 + (Math.random() - 0.5) * 6;
+    }, { life: 0.5, size: [0.08, 0], color: [[1.2, 5, 2, 1], [0.1, 1.2, 0.4, 0]] });
   }
 
   dispose() {
+    const p = this.P.player;
     this.mesh.removeFromParent();
     this.beam.removeFromParent();
+    const H = this.P.hooks;
+    if (H[this.side] === this) { p.animator.reach(this.side, null, { rate: 8 }); H[this.side] = null; }
+    if (H.last === this) { p.animator.lean.yaw = 0; H.last = null; }
   }
 }
 
@@ -850,7 +1074,7 @@ class HammerStrike {
         this.state = 'hold';
         this.t = 0;
         this.phi = 0;
-        P.impact(this.point, _hd.crossVectors(UP, this.travel).normalize().add(DOWN).normalize(), { body: this.body, hits: this.hits, radius: 3.6, damage: constructInfo('hammer').damage, splash: 45, power: 1.8, shake: 0.55 });
+        P.impact(this.point, _hd.crossVectors(UP, this.travel).normalize().add(DOWN).normalize(), { body: this.body, hits: this.hits, radius: 3.6, damage: constructInfo('hammer').damage, splash: 45, power: 1.8, shake: 0.55, kind: 'hammer' });
         P.dustFx(this.point, 46, 4.2);
         P.live.push(new Shockwave(P, this.point.clone().setY(this.point.y + 0.05), UP, 5, 0.55));
         P.physics.burst?.(this.point, 4, 4.5, 1.5, 0.5);
@@ -906,8 +1130,11 @@ const _hp = new THREE.Vector3(), _hs = new THREE.Vector3(), _hu = new THREE.Vect
 // Held in front of Hal while the button is down. A kinematic body, so debris bounces off it; the
 // player's controller and camera pass through it.
 class HeldShield {
-  constructor(P) {
+  constructor(P, { quick = false, parry = true } = {}) {
     this.P = P;
+    this.quick = quick; // raised as the guard (not the armed construct)
+    this.parryOk = parry;
+    this.parryUntil = 0;
     this.mesh = constructMesh(P.geo.shield, { uPattern: 1, uScale: 0.13, uEmblem: 1, outline: 0.018 });
     this.mesh.userData.set('uForm', 0);
     P.scene.add(this.mesh);
@@ -973,6 +1200,8 @@ class HeldShield {
   }
 
   blocks(from) { return !this.ending && this.form > 0.5 && _c.subVectors(from, this.center).normalize().dot(this.normal) > 0.15; }
+  // just raised (see PARRY), or still ringing from a parry a moment ago
+  fresh() { return (this.parryOk && this.t < PARRY) || this.t < this.parryUntil; }
 
   ripple(at) {
     this.hit = 1;
@@ -983,14 +1212,14 @@ class HeldShield {
     }, { life: 0.4, size: [0.06, 0], color: [[1.2, 5, 2, 1], [0.1, 1.2, 0.4, 0]] });
   }
 
-  release() {
+  release(quick = false) {
     if (this.ending) return;
     this.ending = true;
     this.endT = 0;
     this.hum.stop();
     this.P.audio.dissolve();
-    this.P.player.animator.reach('R', null, { rate: 7 });
-    this.P.cooldown = 0.25;
+    this.P.player.animator.reach('R', null, { rate: quick ? 12 : 7 });
+    this.P.cooldown = quick ? 0.05 : 0.25;
   }
 
   dispose() {
@@ -1159,8 +1388,8 @@ class GatlingConstruct {
     P.tracer(this.muzzle, end);
     if (hit) {
       const body = hit.collider.parent(), tg = body && P.targetOf(body);
-      if (tg) P.dealDamage(tg, this.info.damage, end, dir);
-      else if (body?.isDynamic()) P.shove(body, dir, end, 1, 2.5, 30);
+      if (tg) P.dealDamage(tg, this.info.damage, end, dir, 'gatling');
+      else if (body) P.shove(body, dir, end, 1, 2.5, 30, 'gatling');
       if (tg) tg.body.applyImpulse({ x: dir.x * 1.2, y: 0.2, z: dir.z * 1.2 }, true);
       P.sparks.emit(6, (q, v) => {
         q[0] = end.x; q[1] = end.y; q[2] = end.z;
@@ -1191,23 +1420,37 @@ const SWINGS = [
   { dur: 0.58, hit: [0.22, 0.36], dmg: 38, heavy: true, keys: [[0, [-0.36, 1.14, 0.3], [-0.55, 0.35, 0.78]], [0.16, [-0.16, 1.8, 0.04], [0.0, 0.55, -0.85]], [0.33, [-0.1, 1.08, 0.48], [0.0, -0.5, 0.86]], [0.58, [-0.24, 1.06, 0.36], [0.05, 0.45, 0.9]]] },
 ];
 const GUARD = { hand: [-0.27, 1.06, 0.33], blade: [0.12, 0.62, 0.78] };
+// The staff's (Sinestro's lesson on Korugar): wide sweeps across the front, right to left and back,
+// then a stroke down from over the head. Both hands on it: the left one slides along the shaft.
+const STAFF_SWINGS = [
+  { dur: 0.5, hit: [0.12, 0.34], dmg: 18, push: 2.4, keys: [[0, [-0.28, 1.12, 0.28], [0.55, 0.55, 0.62]], [0.1, [-0.46, 1.2, 0.1], [-0.95, 0.12, 0.3]], [0.3, [0.0, 1.14, 0.5], [0.15, 0.05, 1.0]], [0.5, [0.34, 1.14, 0.26], [0.95, 0.1, 0.2]]] },
+  { dur: 0.5, hit: [0.12, 0.34], dmg: 18, push: 2.4, keys: [[0, [0.34, 1.14, 0.26], [0.95, 0.1, 0.2]], [0.1, [0.4, 1.22, 0.12], [0.9, 0.2, -0.3]], [0.3, [0.0, 1.12, 0.5], [-0.15, 0.05, 1.0]], [0.5, [-0.4, 1.12, 0.24], [-0.95, 0.1, 0.25]]] },
+  { dur: 0.62, hit: [0.24, 0.4], dmg: 30, push: 3.4, heavy: true, keys: [[0, [-0.4, 1.12, 0.24], [-0.95, 0.1, 0.25]], [0.18, [-0.12, 1.78, 0.02], [0.0, 0.6, -0.8]], [0.36, [-0.08, 1.02, 0.5], [0.0, -0.4, 0.92]], [0.62, [-0.26, 1.08, 0.34], [0.5, 0.5, 0.7]]] },
+];
+const STAFF_GUARD = { hand: [-0.28, 1.12, 0.28], blade: [0.55, 0.55, 0.62] };
 
 class SwordConstruct {
-  constructor(P) {
+  constructor(P, kind = 'sword') {
     this.P = P;
-    this.blade = new Blade(P.scene, P.geo.sword);
-    this.info = constructInfo('sword');
+    this.kind = kind;
+    this.swings = kind === 'staff' ? STAFF_SWINGS : SWINGS;
+    this.guard = kind === 'staff' ? STAFF_GUARD : GUARD;
+    this.blade = new Blade(P.scene, P.geo[kind]);
+    this.info = constructInfo(kind);
     this.t = 0;
     this.swing = null; // { def, t, hits, n }
     this.combo = 0;
     this.ending = false;
     this.hand = new THREE.Vector3();
-    this.dir = new THREE.Vector3(...GUARD.blade);
+    this.dir = new THREE.Vector3(...this.guard.blade);
     this.edge = new THREE.Vector3(1, 0, 0);
-    this.prevDir = new THREE.Vector3(...GUARD.blade);
+    this.prevDir = new THREE.Vector3(...this.guard.blade);
     const p = P.player;
     this.target = new THREE.Vector3();
     p.animator.reach('R', () => this.target, { pole: new THREE.Vector3(-0.8, -0.55, -0.35), rate: 20 });
+    // the staff in both hands: the left one 45 cm up the shaft
+    this.left = new THREE.Vector3();
+    if (kind === 'staff') p.animator.reach('L', () => this.left, { pole: new THREE.Vector3(0.8, -0.55, -0.35), rate: 18 });
     P.audio.constructForm(0.6);
     this.humSnd = P.audio.swordHum();
     this.queued = true; // the click that formed it also cuts
@@ -1222,9 +1465,10 @@ class SwordConstruct {
   start() {
     const P = this.P, p = P.player;
     if (!P.spend(this.info.perSwing)) { P.lowCharge(); this.queued = false; return; }
-    const n = this.swing && this.swing.t > this.swing.def.dur * 0.45 ? (this.swing.n + 1) % SWINGS.length : this.combo;
-    this.swing = { def: SWINGS[n], t: 0, hits: new Set(), n };
-    this.combo = (n + 1) % SWINGS.length;
+    const sw = this.swings;
+    const n = this.swing && this.swing.t > this.swing.def.dur * 0.45 ? (this.swing.n + 1) % sw.length : this.combo;
+    this.swing = { def: sw[n], t: 0, hits: new Set(), n };
+    this.combo = (n + 1) % sw.length;
     this.queued = false;
     this.idle = 0;
     P.audio.swordSwing(n === 2 ? 1.3 : 1);
@@ -1243,6 +1487,7 @@ class SwordConstruct {
     this.humSnd.stop();
     this.P.audio.dissolve();
     this.P.player.animator.reach('R', null, { rate: 7 });
+    if (this.kind === 'staff') this.P.player.animator.reach('L', null, { rate: 7 });
   }
 
   update(dt, time) {
@@ -1250,7 +1495,7 @@ class SwordConstruct {
     this.t += dt;
     if (this.ending) this.endT += dt;
     this.blade.form = this.ending ? 1 - Math.min(1, this.endT / 0.25) : Math.min(1, this.t / 0.16);
-    if (this.t < 0.14) P.formSparks('sword', this.blade.mesh, 6);
+    if (this.t < 0.14) P.formSparks(this.kind, this.blade.mesh, 6);
     if (!this.ending) {
       const sw = this.swing;
       if (sw) {
@@ -1264,7 +1509,7 @@ class SwordConstruct {
     // the hand's path and the blade's direction, in Hal's frame
     const root = p.rig.root;
     root.updateMatrixWorld(true);
-    let hand = GUARD.hand, dir = GUARD.blade;
+    let hand = this.guard.hand, dir = this.guard.blade;
     if (this.swing && !this.ending) [hand, dir] = sampleSwing(this.swing.def.keys, this.swing.t);
     this.target.set(hand[0], hand[1], hand[2]).applyMatrix4(root.matrixWorld);
     this.prevDir.copy(this.dir);
@@ -1280,6 +1525,7 @@ class SwordConstruct {
     p.rig.bonePosition('foreArm_R', _d);
     this.hand.addScaledVector(_e.subVectors(this.hand, _d).normalize(), 0.075);
     this.blade.place(this.hand, this.dir, this.edge);
+    if (this.kind === 'staff') this.left.copy(this.hand).addScaledVector(this.dir, 0.45);
     this.blade.update(dt, time);
     this.humSnd.set(this.swing ? 1 : 0.35);
     if (this.cutting) this.cut();
@@ -1304,8 +1550,9 @@ class SwordConstruct {
       sw.hits.add(tg);
       const dir = _c.subVectors(tg.position, P.player.position).setY(0).normalize();
       if (tg.parry?.(P.player.position)) { P.audio.clash(); P.hitStop = 0.08; continue; }
-      P.dealDamage(tg, dmg, tg.position, dir);
-      tg.body?.applyImpulse({ x: dir.x * (sw.def.heavy ? 9 : 4) * tg.body.mass() * 0.1, y: 0.6, z: dir.z * (sw.def.heavy ? 9 : 4) * tg.body.mass() * 0.1 }, true);
+      P.dealDamage(tg, dmg, tg.position, dir, this.kind);
+      const push = (sw.def.heavy ? 9 : 4) * (sw.def.push ?? 1);
+      tg.body?.applyImpulse({ x: dir.x * push * tg.body.mass() * 0.1, y: 0.6, z: dir.z * push * tg.body.mass() * 0.1 }, true);
       P.hitStop = sw.def.heavy ? 0.09 : 0.045;
       P.director.shake(sw.def.heavy ? 0.25 : 0.12, 0.25);
       P.audio.swordHit(sw.def.heavy ? 1.3 : 1);
@@ -1314,13 +1561,14 @@ class SwordConstruct {
         v[0] = dir.x * 3 + (Math.random() - 0.5) * 5; v[1] = Math.random() * 4; v[2] = dir.z * 3 + (Math.random() - 0.5) * 5;
       }, { life: 0.45, size: [0.06, 0], color: [[1.2, 5, 2, 1], [0.1, 1.2, 0.4, 0]] });
     }
-    for (const { body } of P.physics.dynamics) {
+    for (const e of P.physics.dynamics) {
+      const body = e.body;
       if (sw.hits.has(body) || P.targetOf(body)) continue;
-      const t = body.translation();
-      _d.set(t.x, t.y, t.z);
-      if (segDist(_d, bl.base, bl.tip) > 0.45) continue;
+      if (e.item) P.physics.smash.toWorld(e.item, e.item.center, _d); else { const t = body.translation(); _d.set(t.x, t.y, t.z); }
+      if (segDist(_d, bl.base, bl.tip) > 0.45 + (e.item ? e.radius * 0.8 : 0)) continue;
       sw.hits.add(body);
-      P.shove(body, _e.subVectors(_d, P.player.position).setY(0).normalize(), _d, 0.6, 10, 400);
+      const at = e.item ? P.physics.smash.nearest(e.item, bl.tip, _e2) : _d;
+      P.shove(body, _e.subVectors(_d, P.player.position).setY(0).normalize(), at, 0.6 * (sw.def.push ?? 1), 10, 400, this.kind);
     }
   }
 

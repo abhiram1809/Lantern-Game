@@ -28,7 +28,7 @@ const SEATED = makePose({ ...POSES.sitEdge, sx: 0.05, nx: -0.1, kx: -0.15, ky: 0
 // below and `dz` ahead of the hip joint with the knee bent up (a: thigh, b: shin). `toe` is the
 // foot's pitch (negative: toes up). Sitting poses are solved for the seat they sit on, so the feet
 // land on the car's floor instead of going through it.
-function legTo(p, side, dy, dz, a, b, toe = -0.15) {
+export function legTo(p, side, dy, dz, a, b, toe = -0.15) {
   const d = Math.min(Math.hypot(dy, dz), a + b - 0.002), psi = Math.atan2(-dz, -dy);
   const phi = psi - Math.acos(THREE.MathUtils.clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1));
   const ky = -a * Math.cos(phi), kz = -a * Math.sin(phi); // the knee, from the hip
@@ -38,7 +38,7 @@ function legTo(p, side, dy, dz, a, b, toe = -0.15) {
   p[`f${side}`] = toe - shin;
   return p;
 }
-const legLengths = (rig) => {
+export const legLengths = (rig) => {
   const w = (n) => rig.bonePosition(n, new THREE.Vector3());
   return [w('thigh_L').distanceTo(w('shin_L')), w('shin_L').distanceTo(w('foot_L'))];
 };
@@ -46,7 +46,7 @@ const legLengths = (rig) => {
 // the pedals. The car's headroom (0.86 m from cushion to headliner) is less than Hal's sitting height,
 // so he sits sunk and reclined like a tall man in a low coupe: a little more upright and the top of
 // his head came out through the roof. The hands are put on the rim by the arm IK (driveHands).
-function drivingPose(rig, car) {
+export function drivingPose(rig, car) {
   const { seat, pedals } = car.userData, [a, b] = legLengths(rig), hipY = seat.y - 0.08;
   const p = makePose({ hy: hipY - rig.hipsHeight, sx: -0.44, cx: -0.1, nx: 0.25, kx: 0.18, lLz: 0.12, lRz: -0.05,
     aL: [0.3, -0.35, 0.85], eL: 0.9, aR: [-0.3, -0.35, 0.85], eR: 0.9 });
@@ -478,7 +478,7 @@ export class Coast extends Story {
     const town = (x, z) => LOT.clone().add(V(x, 0, z));
     await ui.fade(1, 0.35);
     motor.set(0.6);
-    placeCar(town(4.1, -95), Math.PI);
+    placeCar(town(7.9, -95), Math.PI); // southbound, on the right (the east half: x 6..10)
     // one shadow box over the whole shot, held still (chasing the car swept its edge up the street)
     f.shadowSpan(85);
     f.focus(town(6, -125));
@@ -489,7 +489,7 @@ export class Coast extends Story {
     for (const w of car.userData.front) w.rotation.y = 0;
     await tween(7, (k) => {
       const z = -95 - k * 105; // town speed, about 50 km/h
-      placeCar(town(4.1, z), Math.PI);
+      placeCar(town(7.9, z), Math.PI);
       spin(105 / 7 / 60);
       look0.copy(car.position).y += 0.9;
       director.look.lerp(look0, 0.12);
@@ -588,15 +588,18 @@ export class Coast extends Story {
   // the front, a hand up on the roof rail, the right leg lifted in over the sill, ducking under the
   // rail as he lowers himself in onto the seat (the right hand onto the wheel, the outside foot
   // pivoting closer), the left leg brought in after him, settled back, and the door pulled shut.
-  async getIn(car) {
+  // (`spawn: false`: he's already beside the car, wherever it is: free roam)
+  async getIn(car, { spawn = true } = {}) {
     const { player, audio, director, ui } = this, ud = car.userData, rig = this.hal, anim = player.animator, o = player.object;
     const local = (x, y, z) => car.localToWorld(V(x, y, z));
     const door = ud.door, b = rig.bones;
     ud.openDoor(0);
-    this.enterFerris(LOT.clone().add(V(0.4, 0, 13.2)), Math.PI);
     player.autoAnim = true;
-    director.cut(local(5.6, 2.0, -4.6), local(0.9, 0.95, 0.6), 44);
-    await ui.fade(0, 1.4);
+    if (spawn) {
+      this.enterFerris(LOT.clone().add(V(0.4, 0, 13.2)), Math.PI);
+      director.cut(local(5.6, 2.0, -4.6), local(0.9, 0.95, 0.6), 44);
+      await ui.fade(0, 1.4);
+    } else director.move(local(4.6, 1.9, -3.9), local(0.9, 0.95, 0.4), 1.2, ease.inOut, 44);
     await player.walkTo(local(2.45, 0, -0.45), player.walkSpeed);
     player.turnTo(car.rotation.y - 0.44);
     await wait(0.45);

@@ -161,6 +161,80 @@ const CHARACTERS = {
     voice: 'am_liam', speed: 1.02, f0: 122, formant: 1.0,
     fx: [['hp', 80], ['comp', { thr: -18, ratio: 2.5 }], ['reverb', { rt: 0.8, pre: 0.01, wet: 0.08, damp: 0.5 }]],
   },
+  katma: {
+    desc: 'Katma Tui: Korugarian resistance leader, low, steady, guarded, a scientist’s precision',
+    voice: 'bf_isabella', speed: 0.98, f0: 178, formant: 0.97,
+    fx: [['hp', 80], ['lowshelf', 200, 1.5], ['peak', 3000, 1.5, 1], ['comp', { thr: -19, ratio: 3 }], ['reverb', { rt: 0.6, pre: 0.01, wet: 0.06, damp: 0.45 }]],
+    tail: 0.2,
+  },
+  radio: {
+    desc: 'A Coast City morning radio host, warm and quick, on the air',
+    voice: 'am_puck', speed: 1.06, f0: 118, formant: 1.0,
+    fx: [['hp', 90], ['comp', { thr: -20, ratio: 4 }], ['peak', 2500, 2, 1]],
+  },
+  caller: {
+    desc: 'An excited caller on a radio phone-in',
+    voice: 'af_sarah', speed: 1.1, f0: 205, formant: 1.0,
+    fx: [['hp', 120], ['comp', { thr: -18, ratio: 3 }]],
+  },
+  // Coast City (2026-11-18): the diner's Rosie and Dot, Ray at the liquor store, three men and three
+  // women on the street, a kid; outdoors no room, the shops a small one
+  rosie: {
+    desc: 'Rosie: the diner owner, fifties, warm, a smoker\'s rasp, motherly',
+    voice: 'af_sarah', speed: 1.0, f0: 178, formant: 0.97,
+    fx: [['hp', 80], ['sat', 1.4, 0.15], ['lowshelf', 220, 1.5], ['comp', { thr: -18, ratio: 3 }], ['reverb', { rt: 0.45, pre: 0.008, wet: 0.05, damp: 0.5 }]],
+    tail: 0.15,
+  },
+  cook: {
+    desc: 'Dot: the diner cook, young, loud, cheerful',
+    voice: 'af_kore', speed: 1.06, f0: 206, formant: 1.0,
+    fx: [['hp', 90], ['comp', { thr: -18, ratio: 3 }], ['reverb', { rt: 0.5, pre: 0.008, wet: 0.06, damp: 0.5 }]],
+    tail: 0.15,
+  },
+  clerk: {
+    desc: 'Ray: the corner store clerk, sixty, dry, tired, kind underneath',
+    voice: 'am_santa', speed: 0.97, f0: 108, formant: 0.97,
+    fx: [['hp', 70], ['lowshelf', 180, 1.5], ['comp', { thr: -18, ratio: 3 }], ['reverb', { rt: 0.4, pre: 0.008, wet: 0.05, damp: 0.5 }]],
+    tail: 0.15,
+  },
+  townm1: { desc: 'A Coast City man, thirties, easygoing', voice: 'am_liam', speed: 1.02, f0: 126, formant: 1.0, fx: [['hp', 70], ['comp', { thr: -18, ratio: 2.5 }]] },
+  townm2: { desc: 'A Coast City man, forties, deep, friendly', voice: 'am_onyx', speed: 1.0, f0: 98, formant: 0.98, fx: [['hp', 60], ['comp', { thr: -18, ratio: 2.5 }]] },
+  townm3: { desc: 'A Coast City man, twenties, quick, nervous', voice: 'am_eric', speed: 1.05, f0: 132, formant: 1.02, fx: [['hp', 80], ['comp', { thr: -18, ratio: 2.5 }]] },
+  townf1: { desc: 'A Coast City woman, thirties, bright', voice: 'af_bella', speed: 1.02, f0: 212, formant: 1.0, fx: [['hp', 90], ['comp', { thr: -18, ratio: 2.5 }]] },
+  townf2: { desc: 'A Coast City woman, forties, dry', voice: 'af_jessica', speed: 1.0, f0: 196, formant: 0.99, fx: [['hp', 90], ['comp', { thr: -18, ratio: 2.5 }]] },
+  townf3: { desc: 'A Coast City woman, fifties, gentle, worried', voice: 'af_nova', speed: 0.97, f0: 188, formant: 0.98, fx: [['hp', 90], ['comp', { thr: -18, ratio: 2.5 }]] },
+  citykid: { desc: 'A kid of nine on the street', voice: 'af_bella', speed: 1.06, f0: 265, formant: 1.15, fx: [['hp', 120], ['comp', { thr: -20, ratio: 2.5 }]] },
+  korugar: {
+    desc: 'A Korugarian man: careful, quiet, alien-accented English through the ring',
+    voice: 'bm_daniel', speed: 0.94, f0: 104, formant: 0.95,
+    fx: [['hp', 70], ['lowshelf', 180, 1.5], ['comp', { thr: -19, ratio: 3 }], ['reverb', { rt: 0.7, pre: 0.012, wet: 0.07, damp: 0.45 }]],
+    tail: 0.2,
+  },
+  korugarf: {
+    desc: 'A Korugarian woman: quiet, frightened, polite',
+    voice: 'bf_alice', speed: 0.96, f0: 190, formant: 1.0,
+    fx: [['hp', 90], ['comp', { thr: -19, ratio: 3 }], ['reverb', { rt: 0.7, pre: 0.012, wet: 0.07, damp: 0.45 }]],
+    tail: 0.2,
+  },
+  guard: {
+    desc: 'A Korugar guard: hard, flat, through a helmet',
+    voice: 'bm_lewis', speed: 1.0, f0: 92, formant: 0.92,
+    fx: [['hp', 140], ['sat', 2.0, 0.35], ['lp', 5200], ['comp', { thr: -20, ratio: 4 }]],
+  },
+  weaponer: {
+    desc: 'A Weaponer of Qward: ancient, cold, a smith’s patience, the Guardians’ voice turned inside out',
+    voice: { mix: [['bm_lewis', 0.6], ['am_onyx', 0.4]] }, speed: 0.86, f0: 82, formant: 0.88,
+    fx: [['hp', 45], ['octave', 0.5, 0.28, 0.004], ['octave', 0.99, 0.25, 0.017], ['growl', 41, 0.1], ['lowshelf', 150, 3],
+      ['highshelf', 5500, -4], ['comp', { thr: -20, ratio: 3 }], ['reverb', { rt: 2.2, pre: 0.03, wet: 0.2, damp: 0.55, er: 0.2 }]],
+    tail: 0.7,
+  },
+  crowd: {
+    desc: 'A plaza full of people chanting together',
+    voice: { mix: [['am_onyx', 0.5], ['bm_george', 0.5]] }, speed: 0.9, f0: 110, formant: 0.96,
+    fx: [['hp', 80], ['octave', 1.03, 0.5, 0.019], ['octave', 0.97, 0.5, 0.031], ['octave', 1.06, 0.35, 0.047], ['octave', 2, 0.12, 0.011],
+      ['lowshelf', 200, 2], ['comp', { thr: -22, ratio: 3 }], ['reverb', { rt: 2.4, pre: 0.04, wet: 0.3, damp: 0.5, er: 0.25 }]],
+    tail: 0.8,
+  },
   tech2: {
     desc: 'A second technician (his thoughts, overheard)',
     voice: 'am_fenrir', speed: 1.0, f0: 110, formant: 0.98,
@@ -171,6 +245,49 @@ const CHARACTERS = {
 // On top of the speaker's chain for style: 'phone' (voicemail on speaker): telephone band.
 const PHONE_FX = [['hp', 300, 0.9], ['hp', 300, 0.6], ['lp', 3400, 0.9], ['lp', 3400, 0.6], ['peak', 1800, 4, 1],
   ['comp', { thr: -26, ratio: 4, att: 0.004, rel: 0.12 }], ['sat', 1.6, 0.3]];
+// style: 'whisper' (people murmuring near Hal, story/CityLife.js): the voice made breath, the way a whisper
+// is: each 20 ms frame's spectral envelope (LPC, order 18) excited by noise instead of the vocal folds'
+// pulses, the frame's loudness kept; a little of the voiced sound left under it so the words carry (a
+// stage whisper), the lows taken out, and quieter than speech.
+function whisperize(x, rnd) {
+  const N = Math.round(0.02 * SR), hop = N >> 1, P = 18, out = new Float32Array(x.length + N), win = new Float32Array(N);
+  for (let i = 0; i < N; i++) win[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (N - 1));
+  const fr = new Float32Array(N), r = new Float64Array(P + 1), a = new Float64Array(P + 1), tmp = new Float64Array(P + 1), y = new Float64Array(N);
+  for (let s0 = 0; s0 + N <= x.length; s0 += hop) {
+    let e0 = 0;
+    for (let i = 0; i < N; i++) { fr[i] = x[s0 + i] * win[i]; e0 += fr[i] * fr[i]; }
+    if (e0 < 1e-9) continue;
+    for (let k = 0; k <= P; k++) { let acc = 0; for (let i = k; i < N; i++) acc += fr[i] * fr[i - k]; r[k] = acc; }
+    r[0] *= 1.0001; // (a touch of white noise: a stable filter)
+    // Levinson–Durbin
+    a.fill(0); a[0] = 1;
+    let err = r[0];
+    for (let i = 1; i <= P && err > 0; i++) {
+      let acc = r[i];
+      for (let j = 1; j < i; j++) acc += a[j] * r[i - j];
+      const k = -acc / err;
+      tmp.set(a);
+      for (let j = 1; j < i; j++) a[j] = tmp[j] + k * tmp[i - j];
+      a[i] = k;
+      err *= 1 - k * k;
+    }
+    // noise through the all-pole filter, scaled to the frame's energy, windowed and overlapped
+    let e1 = 0;
+    for (let n = 0; n < N; n++) {
+      let v = rnd() * 2 - 1;
+      for (let k = 1; k <= P; k++) if (n - k >= 0) v -= a[k] * y[n - k];
+      y[n] = v;
+      e1 += (v * win[n]) ** 2;
+    }
+    const g = Math.sqrt(e0 / (e1 || 1));
+    for (let n = 0; n < N; n++) out[s0 + n] += y[n] * win[n] * g;
+  }
+  const w = out.subarray(0, x.length);
+  let mixed = mixInto(scale(w, 0.9), x, 0.18);
+  mixed = biquad(biquad(mixed, 'highpass', 260, 0.8), 'lowpass', 8500);
+  return biquad(mixed, 'peak', 3200, 1, 3);
+}
+
 // Per-line overrides.
 const LINE_TWEAKS = {
   carol6: { speed: 1.08 }, carol7: { speed: 1.1 }, carol4: { speed: 0.98 },
@@ -188,6 +305,7 @@ const PAUSE = { ellipsis: 0.42, lead: 0.32 }; // seconds added at a mid-line "�
 // ([US, GB]). Keys are lower case, with straight apostrophes; a possessive ’s is handled.
 const RESPELL = {
   '2814': 'twenty-eight fourteen',
+  qward: 'kward',
   mr: 'mister', mrs: 'missus', dr: 'doctor',
 };
 const ABBR = new Set(['mr', 'mrs', 'dr']); // their full stop isn't a sentence end
@@ -788,6 +906,7 @@ async function render(key, line) {
   const rnd = mulberry32(parseInt(hash(key).slice(0, 8), 16));
   let wet = runFx(dry, s.fx ?? [], rnd);
   if (line.style === 'phone') wet = runFx(wet, PHONE_FX, rnd);
+  if (line.style === 'whisper') wet = whisperize(wet, rnd);
 
   // loudness: active-speech RMS to -19 dBFS, peaks limited to -1 dBFS, then the character's level
   const fr = frameRms(wet), mx = Math.max(...fr);
@@ -795,6 +914,7 @@ async function render(key, line) {
   const rms = Math.sqrt(act.reduce((a, v) => a + v * v, 0) / Math.max(1, act.length));
   wet = limit(scale(wet, Math.pow(10, -19 / 20) / (rms || 1)), Math.pow(10, -1 / 20));
   if (s.level) wet = scale(wet, Math.pow(10, s.level / 20));
+  if (line.style === 'whisper') wet = scale(wet, Math.pow(10, -7 / 20)); // (hushed)
 
   // trim: from just before the first sound of the dry voice to the end of the tail
   const dfr = frameRms(dry), dmx = Math.max(...dfr), thr = dmx * Math.pow(10, -50 / 20);
@@ -901,7 +1021,7 @@ async function main() {
     const inScope = todo.some(([k]) => k === key);
     const s = settingsOf(line.who);
     const h = hash({ VERSION, MODEL, DTYPE, PHONES, who: line.who, text: line.text, style: line.style ?? null, s, tw: LINE_TWEAKS[key] ?? null,
-      PAUSE, PHONE: line.style === 'phone' ? PHONE_FX : null, LEXICON, RESPELL }).slice(0, 16);
+      PAUSE, PHONE: line.style === 'phone' ? PHONE_FX : null, WHISPER: line.style === 'whisper' ? whisperize.toString() : null, LEXICON, RESPELL }).slice(0, 16);
     const file = path.join(OUT, `${key}.mp3`);
     const prev = old.lines[key], prevB = build.lines[key];
     const fresh = prev && prevB?.hash === h && fs.existsSync(file) && prev.text === line.text && prev.who === line.who;

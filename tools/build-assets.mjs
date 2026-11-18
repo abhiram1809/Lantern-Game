@@ -52,6 +52,50 @@ const MODELS = [
     name: 'atrocitus', src: 'assets/raw/Atrocitus.glb', facing: 1, tris: 90000, height: 2.25,
     rig: { neckMid: 0.858, jawBack: 0.07, neckBack: -0.08, headFill: true, neckColumn: true, shoulder: [0.147, 0.782], armRadius: 1.5, armLo: 0.178, armTipIn: 0.04, armMinY: 0.47, armMaxY: 0.693, elbowK: 0.58, wristK: 0.86 },
   },
+  // Katma Tui (the user's model, 2026-11-12), for Part Five: one figure in an A-pose, facing +X, in
+  // a Lantern's uniform (recoloured to the resistance's in the shader until she's given the ring),
+  // pink Korugarian skin, short black hair. The A-pose arm band, as Carol's; the shoulders given (fitted
+  // from her arms, they landed 0.3 m behind her back, one of them high).
+  // Korugar's crowd (Part Five): Abin Sur's scan again, cut down to 1,500 triangles, for the hundreds
+  // packed round the plaza behind the full figures (posed and baked once at runtime, then instanced:
+  // Korugar.buildCrowdFill).
+  { name: 'kor_crowd', src: 'assets/raw/Abin.glb', facing: 1, tris: 1500, height: 1.9 },
+  // Qward's Thunderers (the user's sheet, 2026-11-17, for Part Six): four separate figures in one file,
+  // each facing +X, in bronze war gear: an archer with a bow, a winged soldier, a brute with a mace, a
+  // woman. `figure` picks one by its z on the sheet; heights keep the sheet's own proportions.
+  // The archer is crouched with his bow drawn and the winged one floats with his wings spread, so
+  // their arm joints are given (measured on a GRID render) and the bow, wings and flail are bound
+  // whole to one bone. The winged one's height is to the top of his head, not his wings.
+  {
+    name: 'thunder_archer', src: 'assets/raw/Thunderers.glb', figure: -0.35, facing: 1, tris: 60000, height: 1.9,
+    rig: {
+      legX: 0.3,
+      arms: { L: [[0.22, 1.4], [0.43, 1.17], [0.2, 1.12]], R: [[-0.17, 1.38], [-0.17, 1.12], [-0.01, 0.9, 0.26]] }, // (the bow hand's column there runs through his hips: its depth given)
+      bind: [
+        { bone: 'hand_R', box: [-0.9, 0.72, -0.6, -0.42, 1.02, 0.6] },
+        { bone: 'hand_R', box: [0.42, 0.82, -0.6, 0.95, 1.12, 0.6] },
+        { bone: 'hand_R', box: [-0.42, 0.78, 0.2, 0.42, 0.95, 0.6] },
+        { bone: 'chest', box: [-0.55, 1.35, -0.7, -0.06, 1.98, -0.06] }, // the quiver
+      ],
+    },
+  },
+  {
+    name: 'thunder_winged', src: 'assets/raw/Thunderers.glb', figure: -0.12, facing: 1, tris: 70000, height: 1.9, headTop: 0.142,
+    rig: {
+      arms: [[0.228, 1.563], [0.481, 1.359], [0.625, 1.251]],
+      bind: [
+        { bone: 'chest', box: [-1.5, 1.142, -0.7, 1.5, 1.684, -0.048] },
+        { bone: 'chest', box: [-1.5, 1.684, -0.7, -0.168, 2.6, -0.048] },
+        { bone: 'chest', box: [0.168, 1.684, -0.7, 1.5, 2.6, -0.048] },
+      ],
+    },
+  },
+  {
+    name: 'thunder_brute', src: 'assets/raw/Thunderers.glb', figure: 0.157, facing: 1, tris: 60000, height: 2.1,
+    rig: { arms: [[0.27, 1.62], [0.49, 1.3], [0.57, 1.06]], bind: [{ bone: 'hand_R', box: [-0.85, 0.2, -0.5, -0.44, 0.98, 0.5] }, { bone: 'hand_R', box: [-0.85, 0.2, -0.5, -0.34, 0.56, 0.5] }] },
+  },
+  { name: 'thunder_woman', src: 'assets/raw/Thunderers.glb', figure: 0.4, facing: 1, tris: 60000, height: 1.85, rig: { arms: [[0.19, 1.42], [0.35, 1.21], [0.42, 1.03]] } },
+  { name: 'katma', src: 'assets/raw/Katma-tui.glb', facing: 1, tris: 90000, height: 1.76, rig: { armLo: 0.13, armTipIn: 0.05, armMinY: 0.6, shoulder: [0.1, 0.812] } },
 ];
 
 await MeshoptDecoder.ready;
@@ -134,6 +178,9 @@ for (const model of MODELS) {
     for (const i of p.idx) idx.push(i + off);
     off += p.pos.length / 3;
   }
+  // GRID=dir: render the figure front and side with a 10 cm grid, to measure landmarks for `rig`
+  if (process.env.DUMP) { const fs = await import('node:fs'); fs.writeFileSync(process.env.DUMP, Buffer.from(pos.buffer)); continue; }
+  if (process.env.GRID) { await gridRender(model, prims, pos, Uint32Array.from(idx)); continue; }
   const rig = autoRig(pos, Uint32Array.from(idx), H, model.rig);
   console.log('  landmarks', Object.fromEntries(Object.entries(rig.landmarks).map(([k, v]) => [k, +v.toFixed(3)])));
   addSkin(doc, buffer, meshNode, prims, rig);
@@ -149,7 +196,7 @@ for (const model of MODELS) {
   console.log(`  wrote public/models/${model.name}.glb in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 }
 
-function normalizeGeometry(doc, buffer, prim, { keepSide, facing }, HEIGHT) {
+function normalizeGeometry(doc, buffer, prim, { keepSide, facing, figure, headTop }, HEIGHT) {
   const P = prim.getAttribute('POSITION'), N = prim.getAttribute('NORMAL'), T = prim.getAttribute('TEXCOORD_0');
   const srcIdx = prim.getIndices().getArray();
   const count = P.getCount();
@@ -167,6 +214,9 @@ function normalizeGeometry(doc, buffer, prim, { keepSide, facing }, HEIGHT) {
     tri = srcIdx.filter((_, k) => Math.sign(pos[srcIdx[k - (k % 3)] * 3 + 2]) === keepSide);
     facing = keepSide > 0 ? 1 : -1;
   }
+  // Or one figure of a sheet of separate meshes (the Thunderers: four, whose wings and bows overlap
+  // in z): the connected piece whose bounds' centre is nearest `figure` (its z on the sheet).
+  if (figure !== undefined) tri = pickFigure(pos, srcIdx, figure);
   const remap = new Int32Array(count).fill(-1);
   let m = 0;
   for (const v of tri) if (remap[v] < 0) remap[v] = m++;
@@ -188,6 +238,8 @@ function normalizeGeometry(doc, buffer, prim, { keepSide, facing }, HEIGHT) {
     minY = Math.min(minY, P2[i * 3 + 1]); maxY = Math.max(maxY, P2[i * 3 + 1]);
     minX = Math.min(minX, P2[i * 3]); maxX = Math.max(maxX, P2[i * 3]);
   }
+  // `headTop` (the sheet's own units): where the figure's head ends, for one with wings above it
+  if (headTop !== undefined) maxY = headTop;
   const s = HEIGHT / (maxY - minY);
   let zs = 0, zc = 0;
   for (let i = 0; i < m; i++) {
@@ -203,6 +255,27 @@ function normalizeGeometry(doc, buffer, prim, { keepSide, facing }, HEIGHT) {
 
   const I2 = Uint32Array.from(tri, (v) => remap[v]);
   setArrays(doc, buffer, prim, { pos: P2, nrm: N2, uv: T2, idx: I2 });
+}
+
+function pickFigure(pos, idx, z) {
+  const n = pos.length / 3, key = new Map(), w = new Int32Array(n), par = new Int32Array(n).map((_, i) => i);
+  for (let i = 0; i < n; i++) {
+    const k = `${pos[i * 3].toFixed(5)},${pos[i * 3 + 1].toFixed(5)},${pos[i * 3 + 2].toFixed(5)}`;
+    if (!key.has(k)) key.set(k, i);
+    w[i] = key.get(k);
+  }
+  const f = (x) => { while (par[x] !== x) { par[x] = par[par[x]]; x = par[x]; } return x; };
+  for (let t = 0; t < idx.length; t += 3) { const r = f(w[idx[t]]); par[f(w[idx[t + 1]])] = r; par[f(w[idx[t + 2]])] = r; }
+  const box = new Map();
+  for (let i = 0; i < n; i++) {
+    const r = f(w[i]), b = box.get(r) ?? { lo: Infinity, hi: -Infinity, n: 0 };
+    b.lo = Math.min(b.lo, pos[i * 3 + 2]); b.hi = Math.max(b.hi, pos[i * 3 + 2]); b.n++;
+    box.set(r, b);
+  }
+  // pieces of more than 1% of the sheet are figures; the rest (loose bits) go with the nearest one
+  const big = [...box.entries()].filter(([, b]) => b.n > n * 0.01);
+  const [root] = big.reduce((a, c) => (Math.abs((c[1].lo + c[1].hi) / 2 - z) < Math.abs((a[1].lo + a[1].hi) / 2 - z) ? c : a));
+  return idx.filter((_, k) => f(w[idx[k - (k % 3)]]) === root);
 }
 
 function addSkin(doc, buffer, meshNode, prims, rig) {
@@ -230,6 +303,32 @@ function addSkin(doc, buffer, meshNode, prims, rig) {
     prim.setAttribute('WEIGHTS_0', doc.createAccessor().setType('VEC4').setArray(rig.skinWeight.slice(off * 4, (off + n) * 4)).setBuffer(buffer));
     off += n;
   }
+}
+
+async function gridRender(model, prims, pos, idx) {
+  const colors = await textureColors(prims[0].getAttribute('TEXCOORD_0').getArray(), prims[0].getMaterial().getBaseColorTexture().getImage());
+  const size = 1100, file = `${process.env.GRID}/${model.name}_grid.png`;
+  await renderViews({ pos, idx, colors, file, size, views: ['front', 'side'] });
+  let mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+  for (const i of idx) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], pos[i * 3 + k]); mx[k] = Math.max(mx[k], pos[i * 3 + k]); }
+  const c = mn.map((v, k) => (v + mx[k]) / 2), scale = (size * 0.92) / Math.max(...mx.map((v, k) => v - mn[k]));
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size * 2}" height="${size}">`;
+  for (const [t, ax] of [[0, 0], [1, 2]]) {
+    for (let v = -3; v <= 3.001; v += 0.1) {
+      const px = t * size + size / 2 + (v - (t ? -c[2] : c[0])) * scale * (t ? 1 : 1);
+      const w = Math.abs(v * 2 - Math.round(v * 2)) < 0.01 ? 1.6 : 0.5;
+      if (px > t * size && px < (t + 1) * size) svg += `<line x1="${px}" y1="0" x2="${px}" y2="${size}" stroke="cyan" stroke-width="${w}" opacity="0.6"/><text x="${px + 2}" y="12" fill="cyan" font-size="11">${(t ? -v : v).toFixed(1)}</text>`;
+    }
+    for (let v = 0; v <= 3.001; v += 0.1) {
+      const py = size / 2 - (v - c[1]) * scale;
+      const w = Math.abs(v * 2 - Math.round(v * 2)) < 0.01 ? 1.6 : 0.5;
+      if (py > 0 && py < size) svg += `<line x1="${t * size}" y1="${py}" x2="${(t + 1) * size}" y2="${py}" stroke="yellow" stroke-width="${w}" opacity="0.5"/><text x="${t * size + 2}" y="${py - 2}" fill="yellow" font-size="11">${v.toFixed(1)}</text>`;
+    }
+  }
+  svg += '</svg>';
+  const out = await sharp(file).composite([{ input: Buffer.from(svg) }]).png().toBuffer();
+  await sharp(out).toFile(file);
+  console.log('  grid', file, 'centre', c.map((v) => v.toFixed(3)));
 }
 
 async function debugRender(model, prims, pos, idx, rig) {

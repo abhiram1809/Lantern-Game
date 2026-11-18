@@ -18,7 +18,8 @@ import { TEXTURES } from './fetch-textures.mjs';
 const ONLY = process.env.ONLY;
 const BY = 'CC BY 4.0';
 
-// forward: the way the raw model's front faces (an axis, or a yaw in radians that turns it to +Z). Size by length (along the front after turning),
+// forward: the way the raw model's front faces (an axis, or a yaw in radians that turns it to +Z); pitch
+// turns it about x first. Size by length (along the front after turning),
 // height, or a plain scale. origin 'ground' stands it on y = 0; 'centre' centres it (hand props).
 // drop: parts to remove (node names). opaque: materials that were exported as blended for no reason.
 // simplify: the share of triangles to keep, for heavy scans. tex: the texture size (512 for props
@@ -138,6 +139,70 @@ export const PROPS = [
     title: 'Rusted Chain Shackles', author: 'SangeetBlaze', uid: '924c7cc2ee074e57a81cc82b58e0ac6f' },
   { name: 'rocks', src: 'assets/props/rocks.glb', forward: '+z', scale: 0.01, tex: 512,
     title: 'Assorted Rock Pack', author: 'HenryBoadle', uid: '30592fd5e15640acaebeac8b2eb7a176' },
+  // Coast City's street and its buildings' details (src/city)
+  { name: 'ac_units', src: 'assets/props/ac_units.glb', forward: '+z', scale: 0.0257, drop: /_AC1_/, tex: 512,
+    title: 'AC Units', author: 'caboose3d', uid: '45891324537a48a4804c3500415d7fb1' },
+  { name: 'ac_window', src: 'assets/props/ac_window.glb', forward: '+z', scale: 1, tex: 512,
+    title: 'Window AC Unit-Freepoly.org', author: 'blackrray', uid: 'ef88c605671549fcb5c1d10a8a68460a' },
+  { name: 'newsbox', src: 'assets/props/newsbox.glb', forward: '+z', height: 1.11, simplify: 0.12, tex: 512,
+    title: 'Day 026: News Paper Box', author: 'uttamg911', uid: 'ba846281a00547d19c7daf6ce8949ffc' },
+  { name: 'meter', src: 'assets/props/meter.glb', forward: '+z', height: 1.5, simplify: 0.25, tex: 512,
+    title: 'Parking Meter', author: 'ArcherSterling', uid: 'a1932b57521c4aa1b0148d1e6ad6b7aa' },
+  { name: 'mailbox', src: 'assets/props/mailbox.glb', forward: '+z', height: 1.25, tex: 512,
+    title: 'US Mailbox', author: 'yrdoes', uid: '3376b03ebf1d45ea99fbb6ff350489da' },
+  { name: 'payphone', src: 'assets/props/payphone.glb', forward: '+z', height: 0.55, tex: 512,
+    title: 'Payphone', author: 'n.tendetnik', uid: 'f5ba356c10624413ac881513175adbfd' },
+  { name: 'vending', src: 'assets/props/vending.glb', forward: '+z', height: 1.83, tex: 512,
+    title: 'Early 90s Vending Machine', author: 'gregthorburn', uid: '94c002a46f7f4ac498b294e69e4e62cf' },
+  { name: 'dish', src: 'assets/props/dish.glb', forward: '+z', height: 0.85, tex: 512,
+    title: 'Rusty House Satellite Dish', author: 'TomasKiniulis', uid: '929f056abe02416da19d7b1aa805d235' },
+  { name: 'neon_palm', src: 'assets/props/neon_palm.glb', pitch: -Math.PI / 2, forward: '-z', height: 1.1, tex: 512,
+    title: 'Neon Palm Tree Sign', author: 'kirkieb2', uid: 'f8366d37c75b4a92b784ffbb72f3900a' },
+  { name: 'neon_oil', src: 'assets/props/neon_oil.glb', forward: '+z', height: 0.5, origin: 'centre', tex: 512,
+    title: 'Wilstone Oil Neon', author: 'skudgee', uid: 'c5827592d8e9416d8821e9bebf10f17f' },
+  { name: 'fireescape', src: 'assets/props/fireescape.glb', forward: '+z', scale: 0.01, tex: 1024,
+    title: 'Fire Escape', author: 'KnightFallows', uid: '8b33ab96b91a45b1bdaa81b3effd7970' },
+  { name: 'elecboxes', src: 'assets/props/elecboxes.glb', forward: '+x', scale: 1, tex: 512,
+    title: 'Electrical Boxes', author: 'outlier_spa', uid: 'e5a058d5210448e5b2640cdb3fbcb163' },
+  { name: 'cabinet', src: 'assets/props/cabinet.glb', forward: '+z', height: 1.4, tex: 512,
+    title: 'Electrical box - FREE', author: 'Mathieu.Godard', uid: '383a234d6d80421fbe67080048cbbc70' },
+  { name: 'wheelie', src: 'assets/props/wheelie.glb', forward: '+z', height: 1.07, tex: 512,
+    title: 'Trash Can', author: 'longtail', uid: 'f61aeec14ff441abb0f6add5485a2e90' },
+  { name: 'parkbench', src: 'assets/props/parkbench.glb', forward: '+z', scale: 0.15, tex: 512,
+    title: 'Bench', author: 'sparkb', uid: '07fb4d364c0c4555a14c86e915542378' },
+  { name: 'propane', src: 'assets/props/propane.glb', forward: '+z', scale: 0.027, drop: /CRTank|^Leg\d|pCube[5-8]_Metal|pCylinder[78]_Metal/, tex: 512,
+    title: 'Propane Tanks', author: 'caboose3d', uid: 'c2fe560433dd408691b8ec5ab2695d51' },
+  { name: 'powerpole', src: 'assets/props/powerpole.glb', forward: '+z', height: 9.5, tex: 512, // (simplified, its wires went)
+    title: 'Electricity Pole', author: 'Helindu', uid: '7cb81ca1f1f045889cf5917b9ead7817' },
+  { name: 'planter', src: 'assets/props/planter.glb', forward: '+z', height: 0.8, tex: 512,
+    title: 'Potted Plant, Mediterranean flowering, low poly', author: 'dudecon', uid: 'b8950690664342a497154a8ad2787566' },
+  { name: 'barberpole', src: 'assets/props/barberpole.glb', forward: '+z', height: 0.75, tex: 512,
+    title: 'Barbers Pole', author: 'HPrendering', uid: 'e5eb506d8d5c4cd5a775028a4a3e1d58' },
+  { name: 'cart', src: 'assets/props/cart.glb', forward: '+z', height: 1.0, tex: 512,
+    title: 'Shopping Cart', author: 'adrianxy', uid: 'b96f896453b240ae804d0399f1faf027' },
+  // inside Rosie's Diner and Coast Liquor (src/city/Interiors.js)
+  { name: 'booth', src: 'assets/props/booth.glb', forward: '+z', height: 1.1, tex: 1024,
+    title: 'Diner Booth', author: 'izrafan', uid: '00110b996d944a658db8f24c6ccf36ec' },
+  { name: 'stool', src: 'assets/props/stool.glb', forward: '+z', height: 0.76, tex: 512,
+    title: 'Diner Stool', author: 'MickChambers', uid: '861c5e689ac2483f8083003d2dc64b16' },
+  { name: 'jukebox', src: 'assets/props/jukebox.glb', forward: '+z', height: 1.55, tex: 1024,
+    title: 'Jukebox', author: 'I_Live', uid: '127cd1a00ca143af9db9cf4e58ddd956' },
+  { name: 'espresso', src: 'assets/props/espresso.glb', forward: '+z', height: 0.55, tex: 512,
+    title: 'Commercial Coffee Machine', author: 'mreslan', uid: 'bab05bc7805d4b0dbc2cdcbb48441956' },
+  { name: 'napkins', src: 'assets/props/napkins.glb', forward: '+z', height: 0.16, tex: 256,
+    title: 'Diner Napkin Dispenser', author: 'MickChambers', uid: '1ecc2a062c8b47b791480efb697e4d12' },
+  { name: 'ketchup', src: 'assets/props/ketchup.glb', forward: '+z', height: 0.2, tex: 256,
+    title: 'Condiment Bottle', author: 'legobus5', uid: 'f1b71bc8830d4774a224a3cb472313d0' },
+  { name: 'wallshelf', src: 'assets/props/wallshelf.glb', forward: '+z', height: 2.0, tex: 1024,
+    title: 'Store Wall Shelving', author: 'jimbogies', uid: '4aeb9d62cde942a9804172af11321d2c' },
+  { name: 'cooler', src: 'assets/props/cooler.glb', forward: '+z', height: 1.95, tex: 512,
+    title: 'Low Poly Gas Station Fridge', author: 'LB_Models', uid: 'f146f66f8bc84829895e05de6895f0dc' },
+  { name: 'atm', src: 'assets/props/atm.glb', forward: '+z', height: 1.6, tex: 1024,
+    title: 'ATM Machine', author: 'oscarherry3d', uid: '22ca75eb5e0d4ee0a02c5b5100a55006' },
+  { name: 'magrack', src: 'assets/props/magrack.glb', forward: '+z', height: 1.15, tex: 1024,
+    title: 'Magazine Rack Full of Geo Articles', author: 'Brendan_489', uid: '53f55fbd5c0b4c1cbc219bb717b6819e' },
+  { name: 'oldregister', src: 'assets/props/oldregister.glb', forward: '+z', height: 0.42, tex: 1024,
+    title: 'Old Cash Register_PBR', author: 'Li.Wenzhao', uid: 'cfdc8b3756fa4bb4b7c26d8ac92fd1bc' },
 ];
 
 const YAW = { '+z': 0, '-z': Math.PI, '+x': -Math.PI / 2, '-x': Math.PI / 2 };
@@ -158,7 +223,9 @@ for (const p of PROPS) {
   for (const c of scene.listChildren()) { scene.removeChild(c); top.addChild(c); }
   scene.addChild(top);
   const yaw = typeof p.forward === 'number' ? p.forward : YAW[p.forward];
-  top.setRotation([0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)]);
+  // pitch (about x, first): for a model lying on its back in the file (the neon palm)
+  const pt = (p.pitch ?? 0) / 2, yw = yaw / 2;
+  top.setRotation([Math.cos(yw) * Math.sin(pt), Math.sin(yw) * Math.cos(pt), -Math.sin(yw) * Math.sin(pt), Math.cos(yw) * Math.cos(pt)]);
   let b = getBounds(scene);
   const size = [0, 1, 2].map((i) => b.max[i] - b.min[i]);
   const s = p.scale ?? (p.length ? p.length / size[2] : p.height / size[1]);
@@ -205,6 +272,18 @@ Every spoken line is pre-rendered (\`public/voices/\`, \`npm run voices\`, \`too
 [onnx-community/Kokoro-82M-v1.0-ONNX-timestamped](https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX-timestamped)
 (Apache-2.0) through [kokoro-js](https://github.com/hexgrad/kokoro/tree/main/kokoro.js) (Apache-2.0).
 Each character's voice is a Kokoro voice shifted in pitch and processed for the part.
+
+## People
+
+Coast City's people (\`public/models/people/\`, \`tools/build-people.mjs\`) are from the
+[Microsoft Rocketbox Avatar Library](https://github.com/microsoft/Microsoft-Rocketbox), Copyright (c)
+2020 Microsoft, released under the [MIT License](https://github.com/microsoft/Microsoft-Rocketbox/blob/master/LICENSE.md)
+(its text is in \`assets/people/LICENSE-Rocketbox.md\`), taken from the GLB conversion
+[codepawl/rocketbox-avatars-glb](https://huggingface.co/datasets/codepawl/rocketbox-avatars-glb) on Hugging
+Face. Gonzalez-Franco et al., *The Rocketbox library and the utility of freely available rigged avatars*,
+Frontiers in Virtual Reality 2020, doi:10.3389/frvir.2020.561558. Changed: moved onto the game's skeleton
+(the Biped's weights folded onto it, the fingers and eyes kept), seven of the face blendshapes kept,
+textures resized.
 
 ## Animation
 

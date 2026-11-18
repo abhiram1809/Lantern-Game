@@ -5,10 +5,10 @@ import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometr
 // Every construct the ring can make, in wheel order (clockwise from the top). `cost` is ring charge
 // in percent per use, `drain` per second while held; `range` is [min, max] metres from Hal.
 export const CONSTRUCTS = [
-  { id: 'fist', name: 'Fist', kind: 'attack', cost: 6, range: [2, 14], desc: 'A giant fist that strikes where you aim. Reaches 14 m.' },
+  { id: 'fist', name: 'Fist', kind: 'attack', cost: 13, damage: [42, 56], range: [3, 12], desc: 'A giant fist swung in a hook across where you aim, hitting everything in its arc: a right, then a left if you click again. Breaks a guard. Reaches 12 m.' },
   { id: 'gatling', name: 'Gatling', kind: 'attack', cost: 1, perShot: 0.12, rate: 14, damage: 6, range: [2, 45], desc: 'Rotary cannon. Hold to spin up and fire. Reaches 45 m.' },
   { id: 'sword', name: 'Sword', kind: 'attack', cost: 3, perSwing: 0.8, damage: 24, range: [0, 5], desc: 'A blade of light. Click to cut; click in rhythm for a three-cut combo. Lunges at a target you aim at.' },
-  { id: 'staff', name: 'Staff', kind: 'attack', desc: 'Long reach, sweeping strikes.' },
+  { id: 'staff', name: 'Staff', kind: 'attack', cost: 3, perSwing: 0.7, damage: 18, range: [0, 5], desc: 'A quarterstaff of light, in both hands. Wide sweeps that knock people back without cutting them: for a crowd. Click in rhythm for the combo.' },
   { id: 'hammer', name: 'Hammer', kind: 'attack', cost: 12, damage: 110, range: [4.5, 16], desc: 'A sledgehammer brought down where you aim. Breaks what it lands on. Reaches 16 m.' },
   { id: 'axe', name: 'Axe', kind: 'utility', desc: 'Cut through debris and wreckage.' },
   { id: 'wall', name: 'Wall', kind: 'defense', cost: 10, range: [2.5, 20], life: 20, desc: 'A barrier raised where you aim. Holds for 20 s.' },
@@ -112,6 +112,13 @@ const FRAG = /* glsl */ `
 `;
 
 const GREEN = new THREE.Color(0.05, 0.72, 0.2), RIM = new THREE.Color(0.16, 1.45, 0.42);
+// the yellow light of fear (Sinestro's, from Part Six), and a construct turned to it
+export const FEAR = { color: new THREE.Color(0.75, 0.46, 0.02), rim: new THREE.Color(1.5, 0.95, 0.1), spark: [[5, 3.4, 0.5, 1], [1.2, 0.6, 0.05, 0]], light: 0xffc040 };
+export function fearLight(group) {
+  for (const u of [group.userData.u, group.userData.ou]) { u.uColor.value.copy(FEAR.color); u.uRim.value.copy(FEAR.rim); }
+  if (group.userData.trailU) group.userData.trailU.uTrail.value.set(1.2, 0.75, 0.08);
+  return group;
+}
 const GHOST = new THREE.Color(0.4, 1.3, 0.95), BAD = new THREE.Color(1.5, 0.3, 0.16);
 
 function uniforms(opts) {
@@ -155,6 +162,27 @@ export function ghostMesh(geometry, opts = {}) {
   return mesh;
 }
 
+// A construct in the shape of a model (a downloaded prop): its meshes merged, positions and normals
+// only, scaled to `length` along Z and centred. The prop faces +Z, so the construct does.
+export function shapeOf(object, length) {
+  object.updateMatrixWorld(true);
+  const parts = [];
+  object.traverse((o) => {
+    if (!o.isMesh) return;
+    const g = new THREE.BufferGeometry();
+    const src = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry;
+    g.setAttribute('position', src.attributes.position.clone());
+    g.applyMatrix4(o.matrixWorld);
+    g.computeVertexNormals();
+    parts.push(g);
+  });
+  const geo = mergeGeometries(parts);
+  geo.computeBoundingBox();
+  const b = geo.boundingBox, c = b.getCenter(new THREE.Vector3()), k = length / (b.max.z - b.min.z);
+  geo.translate(-c.x, -c.y, -c.z).scale(k, k, k);
+  return geo;
+}
+
 // ------------------------------------------------------------------------------------- shapes
 const box = (w, h, d, x, y, z, r = 0.08, rot) => {
   const g = new RoundedBoxGeometry(w, h, d, 3, r);
@@ -179,6 +207,15 @@ export function fistGeometry() {
   parts.push(wrist);
   const geo = mergeGeometries(parts.map((g) => { g.deleteAttribute('uv'); return g.index ? g.toNonIndexed() : g; }));
   return mergeVertices(geo, 1e-4).scale(1.08, 1.08, 1.08);
+}
+
+// A geometry's mirror image across x (the left fist from the right): its triangles' winding turned
+// back so their fronts still face out.
+export function mirrorX(src) {
+  const geo = src.clone().scale(-1, 1, 1);
+  const idx = geo.index;
+  if (idx) for (let i = 0; i < idx.count; i += 3) { const b = idx.getX(i + 1); idx.setX(i + 1, idx.getX(i + 2)); idx.setX(i + 2, b); }
+  return geo; // (the normals were mirrored with the positions)
 }
 
 // An open right hand, palm up (+Y), fingers toward +Z curling up at the tips, as if it had caught
@@ -287,6 +324,38 @@ export function swordGeometry() {
   return { geo: mergeVertices(mergeGeometries(parts.map(strip)), 1e-4), base: new THREE.Vector3(0, 0.17, 0), tip: new THREE.Vector3(0, 1.29, 0) };
 }
 
+// A quarterstaff along +Y, held a third of the way up (the origin): a ringed shaft, the emblem's ring
+// at each end. 2.3 m. The hand's end is `base`, the far end `tip`: the length that strikes.
+export function staffGeometry() {
+  const strip = (g) => { g.deleteAttribute('uv'); return g.index ? g.toNonIndexed() : g; };
+  const parts = [
+    new THREE.CylinderGeometry(0.026, 0.026, 2.18, 10).translate(0, 0.4, 0),
+    ...[-0.62, -0.25, 0.25, 1.05, 1.42].map((y) => new THREE.CylinderGeometry(0.036, 0.036, 0.05, 12).translate(0, y, 0)),
+    new THREE.TorusGeometry(0.06, 0.014, 8, 24).rotateY(Math.PI / 2).translate(0, 1.53, 0),
+    new THREE.TorusGeometry(0.06, 0.014, 8, 24).rotateY(Math.PI / 2).translate(0, -0.73, 0),
+    new THREE.SphereGeometry(0.034, 12, 8).translate(0, 1.5, 0),
+    new THREE.SphereGeometry(0.034, 12, 8).translate(0, -0.7, 0),
+  ];
+  return { geo: mergeVertices(mergeGeometries(parts.map(strip)), 1e-4), base: new THREE.Vector3(0, -0.75, 0), tip: new THREE.Vector3(0, 1.55, 0) };
+}
+
+// A car key along +Z, its bow at the origin and its tip at `tip`: the bow is the Corps emblem (a
+// ring between two bars), the blade cut with a few teeth along its bottom edge. About 7.5 cm.
+export function keyGeometry() {
+  const strip = (g) => { g.deleteAttribute('uv'); return g.index ? g.toNonIndexed() : g; };
+  const parts = [
+    new THREE.TorusGeometry(0.0125, 0.0032, 8, 24), // the bow's ring, in the key's plane (x, y)
+    new THREE.BoxGeometry(0.034, 0.0045, 0.004).translate(0, 0.0165, 0),
+    new THREE.BoxGeometry(0.034, 0.0045, 0.004).translate(0, -0.0165, 0),
+    new THREE.BoxGeometry(0.009, 0.007, 0.006).translate(0, 0, 0.016), // the shoulder
+    new THREE.BoxGeometry(0.0035, 0.0075, 0.058).translate(0, 0.0005, 0.047), // the blade
+    ...[0.03, 0.041, 0.052, 0.063].map((z, i) => new THREE.BoxGeometry(0.0035, 0.004 + (i % 2) * 0.002, 0.006).translate(0, -0.0055 - (i % 2) * 0.001, z)),
+  ].map((g) => g.rotateY(0));
+  // the bow's ring stood up across the blade (the key lies in the y-z plane)
+  parts[0].rotateY(Math.PI / 2); parts[1].rotateY(Math.PI / 2); parts[2].rotateY(Math.PI / 2);
+  return { geo: mergeVertices(mergeGeometries(parts.map(strip)), 1e-5), tip: new THREE.Vector3(0, 0, 0.076) };
+}
+
 // A construct blade in a hand, with a ribbon of light trailing the edge while it moves fast. Shared
 // by Hal's sword and Sinestro's. `place(position, bladeDir, edgeDir)` each frame; `form` 0..1.
 export class Blade {
@@ -307,11 +376,12 @@ export class Blade {
     for (let i = 0; i < this.n - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
     geo.setIndex(idx);
     for (let i = 0; i < this.n; i++) { this.age[i * 2] = this.age[i * 2 + 1] = i / (this.n - 1); }
-    this.trailU = { uOpacity: { value: 0 } };
+    this.trailU = { uOpacity: { value: 0 }, uTrail: { value: new THREE.Vector3(0.2, 1.1, 0.45) } };
+    this.mesh.userData.trailU = this.trailU;
     this.trail = new THREE.Mesh(geo, new THREE.ShaderMaterial({
       uniforms: this.trailU, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
       vertexShader: 'attribute float aAge; varying float vAge; void main(){ vAge = aAge; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'uniform float uOpacity; varying float vAge; void main(){ float a = pow(1.0 - vAge, 2.5) * uOpacity; gl_FragColor = vec4(vec3(0.2, 1.1, 0.45) * a, 1.0); }',
+      fragmentShader: 'uniform float uOpacity; uniform vec3 uTrail; varying float vAge; void main(){ float a = pow(1.0 - vAge, 2.5) * uOpacity; gl_FragColor = vec4(uTrail * a, 1.0); }',
     }));
     this.trail.frustumCulled = false;
     this.trail.renderOrder = 22;

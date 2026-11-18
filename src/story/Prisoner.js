@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { wait, waitFor, tween, ease, onFrame } from '../engine/Time.js';
-import { PrisonerSave } from '../engine/Save.js';
+import { PrisonerSave, ProbationSave } from '../engine/Save.js';
 import { Coast } from './Coast.js';
 import { Corps } from './Corps.js';
 import { voyage } from './Voyage.js';
@@ -27,6 +27,11 @@ const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 // the wreck's frame at the lake: along the hull (toward the tail) and out of it on the shore side
 const AX = V(SHIP.axis.x, 0, SHIP.axis.y), OUT = V(-SHIP.axis.y, 0, SHIP.axis.x);
 const SIN_WRECK = ABIN_SPOT.clone().addScaledVector(OUT, 0.9).addScaledVector(AX, -1.2); // where Sinestro waits, off the hull
+// Where Atrocitus works his machine: facing the fifth of its iron spikes (Site.buildDevice's, at 288°),
+// 1.75 m out on its line so his hands reach it (what he walks round is shrunk to let him that close);
+// SPIKE(y) is a point on that spike at a height.
+const GRIP = V(0.309, 0, -0.951), WORK = DEVICE.clone().addScaledVector(GRIP, 1.75), WORK_YAW = Math.atan2(-GRIP.x, -GRIP.z);
+const SPIKE = (y) => { const r = y < 1.2 ? 1.25 - (1.2 - y) * 0.11 : 1.25 - (y - 1.2) * 0.5; return DEVICE.clone().addScaledVector(GRIP, r).setY(y); };
 
 // Part Four, "The Prisoner": the second half of Secret Origin. Friday morning Carol takes Hal back
 // as her pilot (and won't date an employee); that night Sinestro shows him the empty prisoner cell
@@ -249,9 +254,9 @@ export class Prisoner extends Coast {
   }
 
   // Sinestro in a scene of Part Four (the Sinestro class, as Part Three drops him into Ferris).
-  addSinestroAt(scene, blocks = []) {
+  addSinestroAt(scene, blocks = [], opts = {}) {
     const { powers, player, audio, director } = this;
-    const sin = new Sinestro({ scene: scene.scene, physics: scene.physics, powers, player, audio, director, mocap: this.mocap, abin: this.assets.characters.abin, ring: createRing(), attachRing: (r, rig) => this.attachRing(r, rig), blocks });
+    const sin = new Sinestro({ scene: scene.scene, physics: scene.physics, powers, player, audio, director, mocap: this.mocap, abin: this.assets.characters.abin, ring: createRing(), attachRing: (r, rig) => this.attachRing(r, rig), blocks, ...opts });
     scene.updaters.push((dt, t) => sin.update(dt, t));
     return sin;
   }
@@ -376,8 +381,9 @@ export class Prisoner extends Coast {
     this.enterSite(SITE_IN.clone().add(V(0, 0, 30)), Math.PI);
     ui.clock(this.save.info('site').clock);
     const atro = this.addAtrocitus(site);
-    atro.place(DEVICE.clone().add(V(0, 0, -2.1)), 0);
-    const touch = (on) => { const o = new THREE.Vector3(); atro.anim.reach('R', on ? () => o.copy(DEVICE).setY(1.25).add(V(0.25, 0, -0.55)) : null, { pole: V(-1, -0.4, 0), rate: 4 }); };
+    site.deviceBlock.r = 0.95;
+    atro.place(WORK, WORK_YAW);
+    const touch = (on) => { const o = SPIKE(1.3); atro.anim.reach('L', on ? () => o : null, { pole: V(1, -0.4, 0), rate: 4 }); }; // (his left hand on the spike)
     touch(true);
     site.deviceU.uPulse.value = 0.45;
     const sin = (this.sin = this.addSinestroAt(site, site.blocks));
@@ -400,6 +406,8 @@ export class Prisoner extends Coast {
     touch(false);
     director.move(DEVICE.clone().add(V(2.4, 2.0, 9.5)), DEVICE.clone().add(V(-2.4, 1.4, 2.4)), 2.2, ease.inOut, 40);
     const line = this.sayAs(atro.rig, 'atroSite1');
+    await this.atroWalk(DEVICE.clone().add(V(-1.7, 0, -1.9)), 1.6); // (round it, not through it)
+    site.deviceBlock.r = 1.2;
     await this.atroWalk(DEVICE.clone().add(V(-2.9, 0, 2.2)), 1.6);
     await this.atroWalk(DEVICE.clone().add(V(-2.2, 0, 5.4)), 1.6);
     atro.faceYaw = Math.atan2(SITE_IN.x - atro.position.x, SITE_IN.z - atro.position.z);
@@ -441,7 +449,7 @@ export class Prisoner extends Coast {
     this.show(s);
     this.playerActive = true;
     player.spawn(s.physics, s.scene, at, yaw);
-    player.ground = () => 0;
+    player.ground = (x, z) => s.ground(x, z);
     player.surface = 'gravel';
     player.camDist = 2.8;
     powers.attach({ scene: s.scene, physics: s.physics, ...s.airBounds() });
@@ -454,7 +462,7 @@ export class Prisoner extends Coast {
   addAtrocitus(site) {
     if (this.atro) return this.atro;
     const { powers, player, audio, director, engine } = this;
-    const atro = (this.atro = new Atrocitus({ scene: site.scene, physics: site.physics, powers, player, audio, director, engine, mocap: this.mocap, characters: this.assets.characters, ground: () => 0, center: ARENA.center, radius: ARENA.radius, blocks: site.blocks, loose: site.loose }));
+    const atro = (this.atro = new Atrocitus({ scene: site.scene, physics: site.physics, powers, player, audio, director, engine, mocap: this.mocap, characters: this.assets.characters, ground: (x, z) => site.ground(x, z), center: ARENA.center, radius: ARENA.radius, blocks: site.blocks, loose: site.loose }));
     site.updaters.push((dt, t) => atro.update(dt, t));
     return atro;
   }
@@ -464,16 +472,22 @@ export class Prisoner extends Coast {
     const a = this.atro, t0 = this.engine.time, d = new THREE.Vector3(); // (its own vector: _h is a look-at's)
     a.faceYaw = null;
     const steer = onFrame(() => { d.subVectors(to, a.position).setY(0); a.vel.copy(d).setLength(Math.min(speed, d.length() * 3)); });
-    await waitFor(() => d.subVectors(to, a.position).setY(0).length() < 0.12 || this.engine.time - t0 > 12);
+    // (there, or held up against something for half a second: never walking on the spot)
+    let best = Infinity, since = this.engine.time;
+    await waitFor(() => {
+      const left = d.subVectors(to, a.position).setY(0).length(), now = this.engine.time;
+      if (left < best - 0.03) { best = left; since = now; }
+      return left < 0.12 || now - since > 0.5 || now - t0 > 12;
+    });
     steer();
     a.vel.set(0, 0, 0);
   }
 
   // a close shot of Atrocitus from his front, a little to one side, low (he's big)
-  atroClose(duration = 1.4, side = 1) {
+  atroClose(duration = 1.4, side = 1, ahead = 2.9) {
     const a = this.atro, h = a.rig.face?.(V(0, 0, 0)) ?? a.rig.bonePosition('head', V(0, 0, 0));
     const f = V(Math.sin(a.yaw), 0, Math.cos(a.yaw)), r = V(f.z, 0, -f.x);
-    return this.director.move(h.clone().addScaledVector(f, 2.9).addScaledVector(r, 1.0 * side).add(V(0, -0.45, 0)), h.clone().add(V(0, -0.15, 0)), duration, ease.inOut, 36);
+    return this.director.move(h.clone().addScaledVector(f, ahead).addScaledVector(r, 1.0 * side).add(V(0, -0.45, 0)), h.clone().add(V(0, -0.15, 0)), duration, ease.inOut, 36);
   }
 
   mouthOf(who) {
@@ -487,7 +501,7 @@ export class Prisoner extends Coast {
   // their lines when something happens.
   async atroFight(atro, sin, until) {
     const { powers, hud } = this;
-    const foe = { position: atro.position, vel: atro.vel, collider: atro.col, hit: (a, p) => powers.dealDamage(atro.tg, a, p, null) };
+    const foe = { position: atro.position, vel: atro.vel, collider: atro.col, hit: (a, p, d) => powers.dealDamage(atro.tg, a, p, d, 'spike') };
     sin.ally(foe);
     atro.engage();
     let last = -10, lines = 0;
@@ -498,17 +512,25 @@ export class Prisoner extends Coast {
       this.quipping = true;
       this.bark(key).finally(() => (this.quipping = false));
     };
+    let covers = 0;
     atro.onQuip = (k) => {
-      if (k === 'stunned') quip('sinQStun', 4);
+      if (k === 'stunned' || k === 'broken' || k === 'rocked') quip('sinQStun', 4);
+      else if (k === 'cover') quip(covers++ ? 'sinQGun' : 'atroCover', 3);
+      else if (k === 'distract') quip(Math.random() < 0.5 ? 'sinQFlank' : 'atroDistract', 3);
+      else if (k === 'brace') quip('atroBrace', 3);
       else if (k === 'hurt' && Math.random() < 0.4) quip(['atroQ1', 'atroQ2'][lines++ % 2]);
       else if (k === 'charge' && Math.random() < 0.3) quip('atroQ3');
     };
     atro.onHurtHal = (k) => { if (k === 'charge' && Math.random() < 0.5) quip('sinQWall', 10); };
     const bar = onFrame(() => hud.boss('ATROCITUS', atro.health, until));
+    Object.assign(powers, { healDelay: 7, healRate: 3 }); // (health comes back slowly in a real fight)
     this.giveControl('Fight Atrocitus beside Sinestro');
+    hud.tutorial({ kicker: 'Atrocitus', n: 1, of: 1, title: 'Openings', html: 'Block, then strike. His gauntlets turn hooks and the gun between his attacks, and he answers. Hold <kbd>Right-click</kbd> (or <kbd>F</kbd>) to raise your shield; raise it <b>just as he hits</b> to <b>parry</b>, and he is wide open (the bracket turns gold).<br><span class="dim">The <b>charge</b>: a red line (a wall stops it too). A <b>beam</b> overhead, his <b>blood</b>: parried, they go back into him. The <b>slam</b>: fly over it. When Sinestro turns him, his side is yours.</span>' });
     wait(7).then(() => quip('sinQSite', 0));
     await waitFor(() => atro.health <= until);
     atro.onQuip = atro.onHurtHal = null;
+    Object.assign(powers, { healDelay: 4, healRate: 8 });
+    hud.tutorial(null);
     bar();
     hud.boss('ATROCITUS', atro.health, until);
   }
@@ -525,18 +547,22 @@ export class Prisoner extends Coast {
     if (player.flying) player.stopFlying(true);
     // he backs to the machine
     // (round to the machine's far side, where he faces Hal across it)
-    const at = DEVICE.clone().add(V(0, 0, -2.1)), round = DEVICE.clone().add(V(Math.sign(atro.position.x - DEVICE.x || 1) * 2.8, 0, -1.2));
+    // (to WORK, with what he walks round shrunk: inside it, he walked into the machine on the spot until
+    // the walk timed out)
+    site.deviceBlock.r = 0.95;
+    const at = WORK, round = DEVICE.clone().add(V(Math.sign(atro.position.x - DEVICE.x || 1) * 2.8, 0, -1.2));
     director.move(DEVICE.clone().add(V(5.5, 2.2, 6.5)), DEVICE.clone().add(V(0, 1.4, 0)), 1.4, ease.inOut, 40);
     atro.anim.lookAt(null);
     if (atro.position.z > DEVICE.z - 1) await this.atroWalk(round, 3);
     await this.atroWalk(at, 2.4);
-    atro.faceYaw = 0;
+    atro.faceYaw = WORK_YAW;
     await wait(0.4);
-    const R = (x, y, z) => { const o = new THREE.Vector3(); return () => o.copy(DEVICE).add(V(x, y, z)); };
-    atro.anim.reach('R', R(0.35, 1.3, -0.5), { pole: V(-1, -0.4, 0), rate: 6 });
-    atro.anim.reach('L', R(-0.35, 1.3, -0.5), { pole: V(1, -0.4, 0), rate: 6 });
+    // both hands round the spike in front of him, the right above the left
+    const hi = SPIKE(1.48), lo = SPIKE(1.05);
+    atro.anim.reach('R', () => hi, { pole: V(-1, -0.5, -0.2), rate: 6 });
+    atro.anim.reach('L', () => lo, { pole: V(1, -0.5, -0.2), rate: 6 });
     await wait(0.4);
-    await this.atroClose(1.0, 2.6); // (wide of the machine, which is in front of him)
+    await this.atroClose(1.0, -3.6, 2.4); // (wide of the machine, which is in front of him, past its spikes)
     const line = this.sayAs(atro.rig, 'atroDrain');
     await tween(1.6, (k) => (site.deviceU.uPulse.value = 0.45 + 0.55 * k));
     await line;
@@ -1006,6 +1032,7 @@ export class Prisoner extends Coast {
     this.enterOa(land, Math.PI);
     ui.clock(this.save.info('trial').clock);
     this.takeControl();
+    this.standDown(); // (out of the voyage's dive: his arm was left raised)
     const sin = (this.sin = this.addSinestroAt(this.oa));
     const sinAt = land.clone().add(V(1.7, 0, 0.4));
     sin.place(sinAt, Math.PI);
@@ -1049,9 +1076,9 @@ export class Prisoner extends Coast {
     choir.stop(4);
     await ui.fade(1, 2.0);
     this.hallActive = false;
-    await ui.screen({ kicker: 'Part Four · The Prisoner', title: 'THE PRISONER', subtitle: 'End of Part Four', body: 'Atrocitus is back in his chains on Ysmault, and the Blackest Night is coming. Sinestro will see you on Korugar.', buttons: ['Quit to title'] });
-    location.hash = '';
-    location.reload();
+    const pick = await ui.screen({ kicker: 'Part Four · The Prisoner', title: 'THE PRISONER', subtitle: 'End of Part Four', body: 'Atrocitus is back in his chains on Ysmault, and the Blackest Night is coming. Sinestro will see you on Korugar.', buttons: ['Part Five: Probation', 'Quit to title'] });
+    if (pick === 0) { ProbationSave.newGame(); ProbationSave.resumeAfterReload('rent'); }
+    else { location.hash = ''; location.reload(); }
     await new Promise(() => {});
   }
 }

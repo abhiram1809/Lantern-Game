@@ -96,7 +96,8 @@ export function buildHall(oa) {
   const map = new THREE.CanvasTexture(c), emap = new THREE.CanvasTexture(em);
   map.colorSpace = emap.colorSpace = THREE.SRGBColorSpace;
   map.anisotropy = emap.anisotropy = 8;
-  const floorMat = new THREE.MeshStandardMaterial({ map, emissiveMap: emap, emissive: 0xffffff, emissiveIntensity: 0.32, roughness: 0.28, metalness: 0.35 });
+  // (roughness 0.45: at 0.28 the fill light over the dais lay in it as a blown white blot, seen from the Guardians' side)
+  const floorMat = new THREE.MeshStandardMaterial({ map, emissiveMap: emap, emissive: 0xffffff, emissiveIntensity: 0.32, roughness: 0.45, metalness: 0.35 });
   const floor = new THREE.Mesh(new THREE.CircleGeometry(R, 128).rotateX(-Math.PI / 2), floorMat);
   floor.receiveShadow = true;
   group.add(floor);
@@ -133,7 +134,7 @@ export function buildHall(oa) {
   group.add(cap);
 
   // ---- the dais
-  const dais = new THREE.Mesh(new THREE.CylinderGeometry(DAIS.r, DAIS.r + 0.25, DAIS.h, 64).translate(0, DAIS.h / 2, 0), new THREE.MeshStandardMaterial({ color: 0x1d2328, roughness: 0.3, metalness: 0.55 }));
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(DAIS.r, DAIS.r + 0.25, DAIS.h, 64).translate(0, DAIS.h / 2, 0), new THREE.MeshStandardMaterial({ color: 0x1d2328, roughness: 0.55, metalness: 0.55 })); // (0.3 mirrored the key light into the shots from the pillars' side)
   dais.castShadow = dais.receiveShadow = true;
   group.add(dais);
   // its top: the Corps emblem in light

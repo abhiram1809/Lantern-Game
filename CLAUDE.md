@@ -47,7 +47,18 @@ Hammond, Sinestro, and the coda at Martin Jordan's grave. **Part Four, "The Pris
 complete: the second half of *Secret Origin*. Carol takes Hal back as her pilot, Sinestro shows him
 the empty prisoner cell in Abin Sur's wreck, they fight Atrocitus downtown (his machine drains their
 rings, the lantern and the oath bring Hal's back, the hammer breaks the excavator), Atrocitus is
-chained on Ysmault and prophesies, and the Guardians give their verdict on Oa.
+chained on Ysmault and prophesies, and the Guardians give their verdict on Oa. **Part Five,
+"Probation"**, is complete: Hal's first shift as Carol's pilot (the car driven and the prototype
+flown by the player), Sinestro collecting him at dusk in front of Carol, Korugar's capital cheering
+Sinestro out of fear, Katma Tui's resistance, and Hal's report to the Guardians. **Part Six,
+"Exile"**, is complete (2026-11-16 and 17): first light at Ferris with Carol, Sinestro brought in from
+his palace on Korugar, his trial on Oa (his ring taken, his banishment to Qward, Katma Tui chosen),
+Katma's first night on Korugar (the oath, the statue pulled down, Qward's Thunderers), Qward and the
+Weaponers' forge (the yellow ring), Sinestro's return as the Yellow Lantern ("Are you afraid?" asked
+again, yes the answer that wins) and a Parallax hint in the Central Battery, then **free roam** (`src/story/Roam.js`): every world the
+story has been to (Earth's valley and the lake, Oa, Korugar, Ysmault, Qward), the star chart high in
+flight and a travel menu (M), Hal in the suit or his clothes (T), his car with a ring-made key, and Part
+Seven's marker on Hangar Two.
 
 The story of Part One:
 
@@ -174,7 +185,142 @@ otherwise came to the lake and downtown in his clothes with no HUD or constructs
    voyage on to Oa. Ysmault is added to the save's charted worlds.
 5. **The verdict** (`trial`, the Hall of the Guardians): the charge (acting outside their sectors)
    set aside, Sinestro to train Jordan in the field, "the next time we meet... on Korugar"; the end
-   card ("THE PRISONER").
+   card ("THE PRISONER"), which offers Part Five.
+
+Part Five (`src/story/Probation.js`, extends `Prisoner`), the user's outline (2026-11-12: day-to-day
+life first, then Korugar, the crux being that Korugar worships Sinestro out of fear; Hal reports it,
+the Guardians strip him, he becomes the Yellow Lantern, spread over parts; Carol covers the rent
+against his probation and finds out who Hal is when Sinestro collects him, falling for him; driving
+and flying playable in third and first person; no Tom yet). From *Emerald Dawn II* and what Johns
+kept of it; ours: the rent and the advance, the test card, Carol finding out at the pickup (later in
+the comics), the market's whispers, the drones' raid.
+
+1. **The rent** (`rent`, `setupFlat`, the apartment by day, 7:10 AM): the clock radio (`radio1-3`, a
+   caller), Sal knocking (`audio.knock`, `salDoor1-2`); coffee, photo, window, radio off; leave.
+2. **The drive in** (`commute`): `getIn`, the car starts first time, then **driven**
+   (`vehicles/Drive.js`): out of the lot and down the boulevard to its end (`townEnd`), a fade to the
+   desert road at z 1000, the gate, his bay (`HAL_BAY`, the painted space: parked = its middle
+   within 1.2 m across and from pulled right in to `CAR_SPOT` along, square to the lines, stopped
+   0.6 s; stopped close but out of it, the objective says "Park between the lines");
+   `drv.stop()`, `f.carSolid()`, `getOut`. Radio lines go through `radio(key)` (queued, never
+   blocking; `hushRadio()` drops what's left at a chapter's end).
+3. **An advance** (`advance`): Carol on the apron pays Sal; his probation hours pay her back; the card.
+4. **First shift** (`testFlight`): Hal in the flight suit (`wearFlightSuit`, `FlightSuit.js`) walks out
+   to the prototype at the runway's east end (`ROLL`), is seated (`seatInJet`: two-bone legs on the
+   cockpit's measured seat and pedals, `COCKPIT`, hands on stick and throttle, helmet and visor), and
+   **flies** it (`vehicles/Jet.js`) over the airspace (`Ferris.airspace`, `flightAir(true)`). The test
+   card (`VehicleHud.setCard`): take off and gear up, 12,000 ft, 5 g held 3 s, Mach 1.2, a low pass
+   past the tower (< 320 ft, > 380 kt, within 320 m), land on 27 and stop. Carol on the radio
+   (`tower1-9`, `towerRange`, `towerGear`). A crash: `jetDown` (card, restart). The vapour cone and
+   boom at Mach 1; g greys the view (`vhud.gloc`).
+5. **Field training** (`pickup`): dusk (`f.dusk()`), the jet parked, Carol; dinner refused, "the man
+   on my runway"; Sinestro streaks down (as in Part Three); Hal suits up in front of her (`suitUp`
+   dissolves the pilot rig), her hand on his chest (arm IK), "Go. And come back"; up and away.
+6. **Korugar** (`korugar`, method `korugarArrival`): `voyage(earth > korugar)`, Korugar charted, the
+   capital (`scenes/Korugar.js`): the plaza's crowd chanting (`crowd1-2`, `cheer(on)`), Sinestro on
+   his statue's pedestal, his address, down to Hal.
+7. **Order** (`patrol`): the **staff** (`learn('staff')`, four target drones on the plaza); the market
+   (`marketPeople`): four people who praise Sinestro (`kvNa`) and mutter after (`kvNb`, `alien: true`
+   so the ring's decode shows), everyone backing away from Hal's ring; the arrest (`arrest`): a man
+   taken for laughing, lifted to the cells in Sinestro's light.
+8. **The resistance** (`rebels`): the old quarter (`QUARTER`), Katma Tui (`createKatma`, `addKatma`)
+   leading Hal into the courtyard (`HIDEOUT`), three rebels, the Halls of Correction (`PRISON`, cells
+   barred with green light, prisoners kneeling), the raid: two waves of security drones.
+9. **The report** (`report`): Sinestro in the courtyard (the crux: "fear is order" / "that's a cage"),
+   Katma's line, up and `voyage(korugar > oa)`, the hall: Hal's report, "a Lantern may not rule",
+   "Bring him to Oa"; the end card ("PROBATION"). Part Six: the trial, Qward, the Yellow Lantern.
+
+Part Six (`src/story/Exile.js`, extends `Probation`), the user's arc (2026-11-12: the trial, Qward and
+the Weaponers, Sinestro as the Yellow Lantern, Katma given the ring). They picked the first three of
+my seven suggested beats to build (2026-11-16: "implement the first three"; the Weaponers' models come
+from them next). The part's name, "Exile", is mine. Ours, not the comics': Carol's morning, the palace
+scene, Katma testifying, the bubble; from the comics (*Emerald Dawn II*): the trial, the ring taken,
+banishment to Qward through the antimatter, the ring choosing Katma Tui for Sector 1417.
+
+1. **Coming back** (`dawn`, Ferris at 5:48 AM, `f.dawn()`): `arriveFlying` in from the east, land at
+   Hangar Two (`HANGAR_MOUTH`), `suitOff`, `powers.detach()`; Carol waiting by the second airframe
+   (`CAROL_IN`); the talk (`carolDawn1-13`, `halDawn0-10`); the ring relays the Guardians' call
+   (`gCall`); a fade out to the hangar's mouth, `suitUp` in front of her, `powerUp()`, fly up past 60 m.
+2. **Bringing him in** (`palace`, method `bringHimIn()`): `voyage(earth > korugar)`; the forecourt
+   packed (`kor.fillForecourt()`, twelve full figures at the lane's edge, four guards before the
+   portal); Sinestro on the balcony (`BALCONY`), Hal lands at `FORECOURT`; the exchange
+   (`sinPal0-8`, `halPal1-5`, `katmaPal1-2`); the guards come off the portal and are stood down;
+   Katma steps out of the crowd; he comes down to them; Katma carried in `createBubble`; the voyage
+   on to Oa.
+3. **The trial** (`tribunal`): the hall, Sinestro centre of the dais, Hal and Katma behind either
+   side (`addHallKatma`: her rebel and Lantern bodies on one animator, `setYaw` turns both); the
+   charge and testimony (`gTri1-8`, `sinTri1-6`, `halTri1-4`, `katmaTri1-6`); `ringTaken` (his arm
+   drawn out, the ring off his finger into the air, his suit's light, emissive and sheen drained);
+   `banish` (an antimatter `Rift`, `openRift(..., { palette: 'antimatter' })`, behind him; drawn back
+   and dissolved); `ringChooses` (`ringKatma`, the ring to her raised hand, the uniform up from her
+   feet); Sector 1417; a fade, straight on into her night (no end card now).
+4. **Her first night** (`firstnight`, `firstNight()`; the user's call, 2026-11-17: "continue till you
+   are done"; the beats are mine): Korugar at night (`kor.night(true)`), the plaza full and quiet;
+   Katma (in uniform, `addPerson`) speaks the oath (`katmaOath1-4`, her ring hand held out at shoulder
+   height: an open hand raised upright reads badly), her first construct (a shield that flickers and
+   holds); the crowd chants; **the pull** (`pullStatue`: chains of light, `lightChain`, from both ring
+   hands to his shoulders; held click tips him on his toes, `kor.statueTilt(k)`, letting go settles
+   him back; `statueFall()` takes him face down onto the plaza, `statueRubble`); the cheer; an
+   antimatter rift over the plaza and **Qward's Thunderers** (`enemies/Thunderers.js`), two waves
+   (brutes and casters, then archers on the empty pedestal, winged ones and a brute) while Katma holds a
+   dome over the people in the old quarter's mouth; then fly into the breach.
+5. **Qward** (`qward`, `qward()` and `forge()`, `scenes/Qward.js`): out of a rift high over a plain of
+   black glass; the marker north on the yellow column; the ambush by the two glass pillars (archers on
+   top, `PERCHES`); the forge: three Weaponers (`createGuardian(..., { weaponer: true })`) round the
+   crucible, Sinestro drained and ringless before it (`drainSuit`); the ring out of the molten light
+   (`fearRing`, `fearGlow`) onto his finger; the Yellow Lantern's uniform swept up him
+   (`yellowLantern(rig, k)`), `sin.turnYellow()`; Hal steps out (`halQ3`), a yellow fist puts him down,
+   Sinestro goes up the column into a breach of his own; follow him.
+6. **The yellow light** (`yellow`, `yellowLight()`): Korugar an hour on, the plaza empty round the
+   fallen statue (`kor.fallen()`); Sinestro strikes Katma down; Hal out of a rift; the fight (the
+   sparring AI with 680 health, yielding at 30%, yellow constructs, the fear jet); at 62% `afraid()`:
+   a yellow cage (`cage()`) round Hal, the grade to the dream's sepia, the F-104 falling in the sky,
+   "Are you afraid?" (`ui.choice`): **No** ("Liar"): the bars close, 12 damage, asked again; **Yes**
+   (`halY2-3`): the ring's answer, the cage breaks, charge and health full. At 30% he tears a rift and
+   goes (escapes: my pick); Katma up again; **the sting** (`sting()`): Oa's Central Battery, a long
+   segmented shadow crossing its light and two amber eyes opening in it (`parallaxShadow`; the user:
+   Parallax hinted now, the model later), the Guardians' two lines, the ring's "Unknown entity"; the
+   end card ("THE YELLOW LIGHT", "Part Six complete"), which offers free roam.
+7. **Free roam** (`world`, `Roam.openWorld()`, `src/story/Roam.js`; `Roam` extends `Exile` and is
+   Part Six's class in `main.js`). The user's call (2026-11-17: the world open after Part Six, a marker
+   for Part Seven), then their notes the same day: "I really can't travel in space as a Green
+   Lantern", "I should be able to change into Hal Jordan, and I should be able to use my car", "make
+   keys with my ring... unless my lantern is depleted", the recharge not working, the lake unusable.
+   - **Places** (`PLACES`: world, name, `jump` height): `ferris`, `coast` (one Ferris scene; which one
+     follows Hal's z), `lake`, `oa`, `korugar`, `ysmault`, `qward`. `goTo(id)`: within a world a fade
+     (the lake flown into from its sky), between worlds `voyage()`, to or from Qward `breach()` (an
+     antimatter rift opened ahead of him, flown into, its violet flash; out of one at the other end);
+     `enterPlace(id, { sky, breach })` builds and enters the scene and calls its `*Roam()` setup;
+     `leavePlace` clears a fight in progress. Off Earth he must be in the suit (it forms first).
+   - **The star chart**: flying above the place's `jump` (the valley 110 m, the lake 26, Oa 30,
+     Korugar 75, Ysmault 36, Qward 45), E (`jumpReady`, `updateInteractions`, `openRoamChart`); Qward is
+     on the chart (`anti`, off its edge), notes per world (`CHART_NOTES`, `StarMap.open({ notes })`).
+     **M** is the same places by name (`travelMenu`).
+   - **Who he is** (T, `changeClothes`): `becomeHal()` (`suitOff`, no flight or constructs, the vitals
+     hidden, the ring's charge shown) and `becomeLantern()` (`suitUp`, 1% of charge; refused under 2%
+     with `ringSuitLow`), the ring hand raised before his face (`ringFlourish`). **His secret** (the
+     user, 2026-11-18): on Earth's streets he changes only where nobody can see him (`watchers()`,
+     `CityLife.seenBy`): T, the car's "Change, and take the car", and the suit forming for a trip off
+     Earth are refused (`refuseSeen`: a buzz, his thought `halSeen1-3`, a toast) while anyone can; an
+     alley, a roof, his flat, or the diner's restroom (`restroom(sp)`: in, the door, changed, out). The
+     HUD says which (`ui.watching(n)`: "SEEN · n PEOPLE" or "OUT OF SIGHT", top right). `powersFor()` applies it
+     after every place; `roamKeys()` sets the keys line (`CIVILIAN_KEYS`, `LANTERN_KEYS`).
+   - **His car** (`addCarSpot`, `takeCar`, `ringKey`, `driveCar`): E at the driver's door (it follows
+     the car); in the suit he changes first. The key (`keyGeometry` in `Constructs.js`, the Corps emblem
+     for its bow) forms on his palm, goes into the lock (car frame 0.972, 0.8, -0.52), turns, the latch
+     clunks, it dissolves; with under 1% charge it flickers and won't hold (`ringKeyLow`, `halKeyFail`).
+     Then `getIn(car, { spawn: false })`, the old starter (one in three takes two goes), `Drive` on the
+     valley's ground (`roadGround`), the dash, E to get out when stopped (`getOut`); the car stays where
+     it stopped (`carSolid`). Above 95 m over the valley the airspace (`flightAir`) comes on.
+   - **The lantern**: `lanternSpots` on every place; L brings it from wherever it is in one press
+     (`Story.toggleLantern`); under 25% the recharge is the whole oath (`Roam.recharge`).
+   - **Each world**: Ferris, Carol in Hangar Two (`carolRoam`: her lines to Hal or to Green Lantern,
+     then Part Seven's card once); the lake, Abin Sur's ship (`halLake`); Oa (`oaRoam`), Kilowog's
+     "another round" (`addDrillStart`, copied from Corps) and the Guardians in their hall (`gRoam1-3`,
+     the elder, `hallActive` within 48 m); Korugar (`korugarRoam`), by day, the statue down, `StreetLife`
+     (`after`), Katma (`katmaW1-3`); Ysmault (`ysmaultRoam`), Atrocitus chained (`atroY1-3`); Qward
+     (`qwardRoam`, `arenaFight`), a violet circle at `AMBUSH` where E calls a wave of Thunderers (2 + n,
+     archers on the pillars). `collapse()` in free roam is a card and back on his feet where he is.
 
 The user's decisions for the ending (2026-11-11): beats from *Secret Origin*, not invented (the
 rescue, Carol meeting GL, Hammond's exposure at the ship and his telepathic attack, learning Hal's
@@ -232,6 +378,14 @@ pre-rendered clips (`public/voices/`, Kokoro-82M from Hugging Face, see *Voices*
   "make the environment not feel like a 8th grade project but like actual coast city, keep it
   efficient though". Efficiency matters to them: small textures for props seen far off, instanced
   or shared meshes, lazy loading per part.
+- **Everything in a scene can be touched (their standard, 2026-11-11): "GTA 5's level of
+  interactability".** Their words: "I don't want a random asset to be something I cannot at least
+  touch or feel" (they phased through parked cars by the building site); "I should be able to punch
+  cars, destroy fences". Every prop a scene places goes through `props/Smash.js` as solid, loose,
+  breakable or a car (see *The world's props*); no mesh without a collider, nothing big that can't
+  be moved or broken unless the story needs it fixed (then say why in a comment). Check new scenes
+  by walking into, flying into and hooking their props, and that nothing starts overlapping (a prop
+  shoved out at load is the tell).
 - **Props and set dressing: find detailed models, don't build them** (2026-11-10: "better to just
   find one and replace rather than building stuff from scratch"; they pointed at Hugging Face
   datasets). The Sandflow `sand3d-*` sets they named are objects rebuilt as code from primitives,
@@ -267,11 +421,68 @@ pre-rendered clips (`public/voices/`, Kokoro-82M from Hugging Face, see *Voices*
   changed, what you checked, and what you didn't check.
 - **Comic accuracy** is preferred where the constraints allow (the oath, the lantern recharge,
   constructs, the ring's voice). For the story after Part One they want to discuss options first.
+- **Part Five's vehicles** (their call: "flight and car control mechanics in play from third
+  person/first person"): **C** changes the view in the car and the jet (V was already the voices
+  toggle); the jet is flown with mouse aim (War Thunder's instructor, MouseFlight). The flight suit
+  was left to me ("you design it"): see *Characters*.
+- **Free roam's keys** (2026-11-17, mine on their asks): E high in flight is the star chart anywhere,
+  M the travel menu, T changes between Hal and Green Lantern (they asked to "change into Hal Jordan"),
+  E at the car's door makes the key.
+- **The open world (agreed 2026-11-18, three rounds of questions; not built yet).** "GTA's level of
+  detail" for free roam's Coast City. Their picks:
+  - A **dense core** about 1.5 × 1.5 km (downtown, Hal's neighbourhood, the waterfront), the rest a
+    skyline; a **sunny California coast** look (palms, stucco and Spanish tile, art deco on the front,
+    a glass downtown, a pier and beach). **Buildings must not read as blocks**: "repeated assets are
+    fine but bad details are not".
+  - **Traffic, pedestrians, emergencies to answer** (robberies, thugs, crashes, fires...), **time and
+    weather**.
+  - **Public opinion** instead of a wanted level; when it's low, **pressure, no fighting** (cordons,
+    helicopters, booing, the Air Force at the lowest).
+  - **XP** mostly from main missions, some from side missions; their current save gets the XP of the
+    main missions already played. **Points per level** in the six ring stats: efficiency, power,
+    willpower, endurance, flight, focus.
+  - **Secret identity**: change out of sight, or it's filmed and talked about (my suggestion, taken).
+  - **Money, tight**: Ferris pay in, rent out, food and coffee cost; rescues don't pay.
+  - **Interiors**: Hal's apartment, shops and a diner, the Ferris offices, the police station, a
+    hospital and a bar; places like these on **Korugar** once it's freed.
+  - **Out of the suit on Oa or Ysmault Hal suffocates**, badly (their words). Qward too is my default.
+  - **People**: open-source models found online (Hugging Face and the like) and variants derived
+    from our scans; Tripo only for critical characters (their credits are low). Tell them if no
+    high-quality ones exist.
+  - **First:** one block (Hal's) at the full standard, shown to them in close-ups for approval before
+    the rest of the core is built from its kit. **Built 2026-11-18** (`src/city/`, see *Coast City's
+    block* under Scenes) and **approved** the same day ("just the block meets the bar, design wise"),
+    then its interiors ("Yes, interiors") and its people ("Yes, keep going").
+  - **People are Microsoft's Rocketbox avatars** (MIT, 2026-11-18; see *Coast City's people* under
+    Characters): 115 rigged people with fingers, eyes and face blendshapes, every age and background,
+    professions included (police, fire, medical, construction, business: the emergencies later).
+    Shown to the user: the models meet the bar ("if we are only talking about the people, yes"), but
+    "they are not that intelligent", "about 70% there". Their notes (2026-11-18), now built: people
+    with jobs who serve and answer (Rosie works the diner, takes Hal's order), **whispers** to
+    overhear, not only lines when Green Lantern flies; and **Hal may not change where anyone can see
+    him**: "he needs to go somewhere secret". Also: the diner "very unplayable... unwalkable, very
+    glitchy", flickering floor, stuck behind the door (fixed; see the block's Gotchas).
+  - Their leads for people (2026-11-18): restore50's "Humans for Archviz" collection on Sketchfab (2,093
+    CC BY photo-real people, 200-350k triangles, natural poses, not rigged, **not on Objaverse**: they
+    need a Sketchfab login to download), the "Citizen NPC Pack" (low-poly, below the bar), "Rugged Winter
+    Traveler" (restore50, a winter coat). For buildings, "buildings with internals" on Sketchfab: nothing
+    Californian; jimbogies' interiors (a stair lobby, a bay-windowed room, a diner booth) are kept for the
+    interiors later.
 - **Controls they chose:** no jump, ever. `4` opens the construct wheel (time stops), click
   deploys. Double-tap Space flies. `L` stores or summons the lantern (pocket dimension). `E` high in
   flight enters hyperspace (they asked for E). Fist, shield and wall are the starter constructs;
   the gatling (Kilowog) and the sword (Sinestro) are learned on Oa, the hammer against the excavator in
-  Part Four; staff and axe stay locked for later parts.
+  Part Four; staff and axe stay locked for later parts. The fist is a **hook** (their call,
+  2026-11-11): a big sideways area blow, not a straight cross, 13% of the charge each, a right then a
+  left as a two-hit combo. The **guard** is held on right click or `F` whatever is armed (added for
+  blocking in fights; a left click behind it drops it and strikes).
+- **Boss fights (their call, 2026-11-11):** challenging "like Resident Evil", not Souls: opponents
+  that read Hal and punish spam. They beat Sinestro and Atrocitus with a trackpad by holding the
+  gatling down; now the gun is blocked whenever the boss isn't committed and held on him is
+  answered, and it only works in short openings (see *Sinestro* and *Atrocitus*). Their second note
+  the same day: hook spam still won ("just very power-intensive"); they want "very limited reward"
+  for spam and blocking to be what pays, "block, and then attack rather than an all-out brawl".
+  So between attacks a boss turns blows and answers them, and a parry is the big opening.
 - **Travel and planets (their design, 2026-11-09):** after Kilowog's training Hal can go home; the
   star chart unlocks more planets as the story goes on. For now only Oa and Earth are charted.
 
@@ -283,6 +494,7 @@ npm run dev        # Vite on http://localhost:5173 (strictPort)
 npm run build      # production build to dist/ (should be clean, no errors)
 npm run assets     # tools/build-assets.mjs: assets/raw/*.glb → public/models/*.glb (rigged)
 npm run props      # tools/build-props.mjs: assets/props/*.glb → public/models/props/*.glb, and CREDITS.md
+npm run people     # tools/build-people.mjs: assets/people/*.glb (Rocketbox) → public/models/people/ (FETCH=1 downloads)
 node tools/fetch-textures.mjs  # the Poly Haven surfaces (CC0) → public/textures/pbr/<id>/{diff,nor,rough}.webp
 npm run voices     # tools/build-voices.mjs: every line in lines.js → public/voices/*.mp3 + manifest.json
 npm run mocap      # tools/strip-mocap.mjs: assets/mocap/{Xbot,Soldier}.glb → public/anims/
@@ -330,6 +542,9 @@ and reference videos. The built outputs in `public/` are what the game loads.
 | `assets/raw/Carol.glb` | **Carol Ferris** (the user's model, 2026-11-10), built as `carol.glb`. Two figures side by side (`keepSide: 1`), A-pose, a shoulder bag. |
 | `assets/raw/Hector.glb` | **Hector Hammond** (the user's model, 2026-11-11), built as `hammond.glb`. One figure, T-pose, lab coat, glasses, moustache; his skull swells in the shader (`createHammond`). |
 | `assets/raw/Atrocitus.glb` | **Atrocitus** (the user's model, 2026-11-11), built as `atrocitus.glb`. One figure, A-pose, crimson, dark armour with big pauldrons, the Red Lantern emblem. |
+| `assets/raw/Katma-tui.glb` | **Katma Tui** (the user's model, 2026-11-12), built as `katma.glb`. One figure, A-pose, in a Lantern's uniform (recoloured to the resistance's until she gets the ring), pink skin, short black hair. Shoulders given by hand (fitted, they landed behind her back). |
+| `assets/raw/Thunderers.glb` | **Qward's Thunderers** (the user's sheet, 2026-11-17): four separate figures in one file, built as four models: `thunder_archer` (crouched, bow drawn, a quiver), `thunder_winged` (floating, wings spread), `thunder_brute` (A-pose, a flail in his right hand), `thunder_woman` (A-pose). Bronze war gear, winged helmets. |
+| (from `Abin.glb`) | **Korugar's crowd**, `kor_crowd.glb`: Abin Sur's scan at 1,500 triangles, baked into two poses and instanced round the plaza (`Korugar.buildCrowdFill`). |
 | (none) | **Sinestro** has no file: `createSinestro()` derives him at runtime from `abin_sur.glb` with a shader layer (see *Characters*). |
 | (none) | **The Guardians** have no file either: `createGuardian()` (`characters/Guardian.js`) derives them from `abin_sur.glb`. |
 | `assets/raw/hal_a.glb` | Old casual scan: two figures, poor face. Unused; see the commented entry in `build-assets.mjs`. |
@@ -340,6 +555,7 @@ and reference videos. The built outputs in `public/` are what the game loads.
 | `assets/props/*.glb` | **Downloaded props** (2026-11-10), CC BY 4.0 Sketchfab models from Objaverse, credited in `CREDITS.md`: Hal's car (`phoenix`), four period cars for the lots, the prototype (an F22), the phone, palms, Hal's apartment block, the apron's access stand, tug, fuel truck, cones, tool chest, drums, forklift; Coast City's six office blocks (`office1`–`6`, one artist), the street kit (`cityprops`: traffic lights, lamps, hydrants, bins, a dumpster, signs), a bus shelter, a billboard; the gate's guard booth; the kitchenette's fridge and coffee maker; the dream's F-104; Part Four's building site (the excavator, the girder kit, a tower crane, chain-link
 fence, a container, barriers, a mixer, pipes, bricks, a porta-potty) and Ysmault (a butte, obelisks,
 a chain, shackles, a rock pack). `apartment.glb`'s textures were re-encoded as JPEG to keep it under 25 MB. |
+| `assets/people/*.glb` | **Coast City's people** (2026-11-18): 28 Microsoft Rocketbox avatars (MIT, `LICENSE-Rocketbox.md` beside them), the web-tier GLBs of the Hugging Face copy, built by `npm run people`. |
 | `public/textures/pbr/` | **Surface textures** (CC0, Poly Haven, 1K WebP): corrugated iron (the hangars), concrete (the apron, lots, pavements), asphalt (roads, runway), gravelly sand (the desert), white plaster (the tower and office). `pbrMaterial(id, { repeat, tint, map, detailRepeat })` in `fx/Textures.js`. |
 
 Model build settings (`MODELS` in `tools/build-assets.mjs`):
@@ -353,6 +569,10 @@ Model build settings (`MODELS` in `tools/build-assets.mjs`):
 | Carol | 90k | 1.7 m |
 | Hammond | 90k | 1.78 m |
 | Atrocitus | 90k | 2.25 m |
+| Katma Tui | 90k | 1.76 m |
+| Korugar crowd | 1.5k | 1.9 m |
+| Thunderers: archer, brute, woman | 60k each | 1.9, 2.1, 1.85 m |
+| Thunderers: winged | 70k | 1.9 m to the head (`headTop`; the wings reach 2.3) |
 
 Every model faces +Z (`facing: 1`) and has WebP textures.
 
@@ -378,9 +598,11 @@ Every model faces +Z (`facing: 1`) and has WebP textures.
    to restart the checkpoint; before, the story just stopped and Hal kept walking a scene that
    never moved on.
 
-`titleFlow` shows **Begin** on a fresh save, or **Continue**, **New game** and **Chapters** once
-there is a save. Once Part One has reached `free` (or Part Two has a save) it adds **Part Two: The
-Corps**, and Chapters asks which part first. A pause-menu restart reloads the page with
+`titleFlow` shows **Begin** on a fresh save, or **Continue**, **Parts**, **Chapters** and **New
+game** once there is a save. Continue is the checkpoint played last in any part (`latestCheckpoint()`
+in `Save.js`, by each store's `playedAt`); Parts lists every part opened so far with where it
+continues; Chapters asks which part, then the chapter. A part opens once the one before it is
+finished (Part Two once Part One has reached `free`, or once Part Two has a save, and so on). A pause-menu restart reloads the page with
 `{ part, id }` in sessionStorage. That resume, or a URL hash (checkpoint ids are unique across
 parts, e.g. `#oa`), shows a one-button "Continue" card.
 
@@ -411,6 +633,8 @@ grade fade) uses `real`.
   - `engine.gradeUniforms` drives the grade: dream sepia, aberration, vignette, grain, the
     colour flash, `uFocus` (time stopped: drained and green) and `uHurt` (red edges on damage).
 - `engine.paused` keeps rendering but skips updates.
+- `CameraDirector.up` (when set) is the camera's up vector: the jet's cockpit banks with the jet.
+- `Physics.beforeStep` (an array of `fn(dt)`) runs before each world step: a driven car's wheels.
 - `engine.frame(dt, render)` and `async engine.advance(seconds, dt = 1/30)` step the game
   manually, for debugging and captures.
 
@@ -420,7 +644,9 @@ grade fade) uses `real`.
 interactions. Each chapter is an `async` method that awaits waits, tweens, dialogue and the
 player's actions.
 
-**Parts:** `Story` is Part One *and* the shared plumbing. Part Two's `Corps` (`src/story/Corps.js`)
+**Parts:** `Story` is Part One *and* the shared plumbing. Part Six's `Exile` extends `Probation`, and
+its free roam `Roam` extends `Exile` (`main.js` makes a `Roam` for Part Six). Part Five's `Probation` extends `Prisoner`
+(so it has Coast's Ferris, Carol and suit-up, and the Corps methods Prisoner copies).  Part Two's `Corps` (`src/story/Corps.js`)
 and Part Three's `Coast` (`src/story/Coast.js`) extend it, and Part Four's `Prisoner` extends `Coast`
 (Ferris, Carol, the suit-up) with Corps' Oa, travel and Guardian methods copied onto its prototype
 (the list at the end of `Prisoner.js`); they and override `get save()` (their own
@@ -446,7 +672,10 @@ dialogue, barks, `perform`, collapse, interactions) is inherited. `main.js` pick
   catch, the carry, `meetCarolGL()`), `hector` → `hector()` (the fight, `mindAttack()`,
   `sinestroOnEarth()`), `grave` → `grave()` (the end card, which offers Part Four). Part Four's
   (`PRISONER_CHECKPOINTS`) are `pilot` → `pilot()`, `cell` → `cell()`, `site` → `atrocitus()`,
-  `ysmault` → `ysmault()`, `trial` → `trial()` (the end card).
+  `ysmault` → `ysmault()`, `trial` → `trial()` (the end card). Part Six's (`EXILE_CHECKPOINTS`) are
+  `dawn` → `dawn()`, `palace` → `bringHimIn()`, `tribunal` → `tribunal()`, `firstnight` →
+  `firstNight()`, `qward` → `qward()`, `yellow` → `yellowLight()` (the end card), `world` →
+  `openWorld()` (free roam; never resolves).
   The free-roam steps never resolve; travel saves `range` or `earth` itself on arrival. Part Two's
   linear run ends at `homeward`'s end card (Part Three, free flight via `earth`, or the title).
 - `prepare(id)` rebuilds the world state a step expects when the game is resumed from it: which
@@ -476,8 +705,9 @@ camera's near and far planes from `scene.userData` (Space needs a far of 6000).
 **The lantern** (Story, shared): `this.lantern` is one object moved between scenes.
 `placeLantern(sceneObj, spot)` stands it (with a small collider), `pocketLantern()` hides it
 without an effect, `stowLantern()` / `summonLantern(spot)` play the rift (`fx/Rift.js`) with the ring
-arm reaching out, `toggleLantern()` is the L key (summon needs ground in front of Hal; out of sight,
-it is just recalled). `lanternSpots(sceneObj)` registers the two E interactions that follow
+arm reaching out, `toggleLantern()` is the L key (within 30 m it goes into the pocket dimension;
+farther off or on another world it's recalled and set down in front of Hal in the same press; summon
+needs ground in front of him). `lanternSpots(sceneObj)` registers the two E interactions that follow
 `this.lanternSpot`: recharge below 99.5%, put away when full. `lanternReady` is false until the
 pocket-dimension beat after the oath (`learnPocket()`).
 
@@ -488,6 +718,10 @@ shows the prompt and consumes the E press. `openChart()` sets `powers.freeze` (t
 the wheel). `travelTo(id)` → `voyage()` → `arriveOa()` / `arriveEarth()`, which spawn Hal flying
 (`player.airborne(vel)`) and save the checkpoint. Charted worlds are `d.worlds` in the save
 (`allWorlds()` merges parts); `WORLDS` in `ui/TravelHud.js` lists them with their chart positions.
+The ring's lines on a voyage follow the route (`ORBIT_LINE`, `APPROACH_LINE` in `Voyage.js`: Earth →
+Oa, Oa → Earth, Earth → Ysmault, Ysmault → Oa); it said "Course locked: Oa" on every one before.
+`Story.standDown()` puts Hal back on his feet after a cutscene that flew him (the voyage's dive left
+his ring arm raised when `trial()` stood him on the dais: the user's "asking a question").
 
 **Dialogue and UI:**
 
@@ -504,6 +738,9 @@ the wheel). `travelTo(id)` → `voyage()` → `arriveOa()` / `arriveEarth()`, wh
     `Story.perform(body, key, cues)` plays a line on a `BodyLanguage` (head beats, gestures cued to
     words). Kilowog, Sinestro, the Guardians and Carol all speak through it.
   - `style: 'phone'` is a voicemail on speaker (grey, quoted; `name` carries the caller and time).
+  - `ui.overhear({ name, text, whisper })` / `overhearHide()`: a smaller line above the subtitles for
+    what Hal overhears (never takes the dialogue's place); `ui.pick(title, options)`: a small menu over
+    the scene, keys 1-n or a click, a promise with `cancel()`; `ui.watching(n)`: the seen indicator.
     Part Three's ring lines go through `say` with `{ name: 'The ring' }` (its HUD readout is off).
 - **Alien speech:** `toGlyphs()` in `UI.js` is a fixed letter-to-glyph cipher, so the "translation"
   is a literal decode (`ui.decode(english)`). `audio.alienVoice()` gives it a formant-buzz voice.
@@ -518,16 +755,24 @@ the wheel). `travelTo(id)` → `voyage()` → `arriveOa()` / `arriveEarth()`, wh
 
 Each part has its own store, made by `createSave({ part, key, checkpoints, label, first })`:
 `Save` (Part One, key `gl_awakening_v1`), `CorpsSave` (Part Two, `gl_corps_v1`), `CoastSave`
-(Part Three, `gl_coast_v1`, `COAST_CHECKPOINTS`) and `PrisonerSave` (Part Four, `gl_prisoner_v1`,
-`PRISONER_CHECKPOINTS`; offered on the title once Part Three reaches `grave`). Each is kept
+(Part Three, `gl_coast_v1`, `COAST_CHECKPOINTS`), `PrisonerSave` (Part Four, `gl_prisoner_v1`,
+`PRISONER_CHECKPOINTS`; offered on the title once Part Three reaches `grave`) and `ProbationSave`
+(Part Five, `gl_probation_v1`, `PROBATION_CHECKPOINTS`: `rent`, `commute`, `advance`, `testflight`,
+`pickup`, `korugar`, `patrol`, `rebels`, `report`; offered once Part Four reaches `trial`, and by its
+end card) and `ExileSave` (Part Six, `gl_exile_v1`, `EXILE_CHECKPOINTS`: `dawn`, `palace`, `tribunal`, `firstnight`, `qward`, `yellow`, `world`;
+offered once Part Five reaches `report`, and by Part Five's end card). `partOf(id)` searches every part's
+list. Each is kept
 in `localStorage` with a cookie mirror (1 year, SameSite=Lax) for when storage is blocked. Settings
 (voices) always live in Part One's store. `allUnlocks()` / `allWorlds()` merge every part's lists, so
 constructs learned anywhere carry over. The pending restart is `gl_resume` in sessionStorage.
 `PARTS`, `partOf(id)` and `takeResume()` serve the title flow. A store's shape:
 
 ```js
-{ version: 1, checkpoint, reached: [ids], settings: { voice }, stats: { fears }, unlocks: [construct ids], worlds: [world ids], savedAt }
+{ version: 1, checkpoint, reached: [ids], settings: { voice }, stats: { fears }, unlocks: [construct ids], worlds: [world ids], savedAt, playedAt }
 ```
+
+`playedAt` is set by `checkpoint()` only (`savedAt` moves on every write, settings included, and the
+settings live in Part One's store); stores from before it rank by `savedAt`, Part One's by 0.
 
 `unlocks` and `worlds` were added without a version bump (`load()` fills missing fields from the
 blank save). Part Two's `first` is now `summons` (it was `oa`); older Corps saves keep working.
@@ -632,7 +877,9 @@ Every scene exposes `build()`, `update(dt, t, camera, renderer)` and `dispose()`
   `lit()` drawing each line into it and into the groove layer); a crescent of seven pillars
   on the battery side (`HALL_PILLARS`: radius 10.8, 5.9–7.2 m, the eldest's in the middle), a
   Guardian's platform on each; the dais (`DAIS_TOP`); Abin Sur's bier (`BIER`, dark stone, lit
-  edge); a great ring hanging over it; a spotlight on the Guardians. Colliders are hull prisms and
+  edge); a great ring hanging over it; a spotlight on the Guardians. The floor's roughness is 0.45 and
+  the dais's 0.55 (polished harder, the fill and key lights lay in them as white blots in shots from
+  the pillars' side, Part Six's). Colliders are hull prisms and
   boxes. Flight on Oa is bounded by a 200 m radius round (-30, 0, -70) to include it.
 - **`Ferris.js`:** Ferris Aircraft by day (Part Three), the dream's airfield twenty years on:
   runway (z -150), taxiway, the apron with the prototype (`JET_SPOT`, the downloaded F22, nose
@@ -660,6 +907,11 @@ pavement, the palms stood tree by tree on their trunks, `PALMS`, and every kit p
   `flat(w, d, tile)`, cut into tiles of 25 m or so (the desert 125 m), and the scene's near plane is
   0.1 (see Gotchas: the flicker). The sky dome follows the camera.
 
+  `dawn()` (Part Six: the `dawn` sky, a low sun in the east). Hangar Two's inside (dressed for Part
+  Six): a lit corrugated back wall, the shop office along it (lit windows, a door, a railed roof),
+  the company sign and the flag, the safety lines round the airframe's bay, more of the downloaded kit;
+  its floor is rougher (0.68: at 0.35 the work lights made a white blot of it).
+
   Part Three's afternoon adds to it: `freeJet()` (the prototype's boxes out of the world, the jet
   under a pivot at its middle, `jetRig`, with its nozzles' points, gear and gold-tinted canopy),
   `gear(down)`, `parkJet(at, yaw)` (solid again: the boxes are axis-aligned, so park it square to
@@ -678,10 +930,13 @@ pavement, the palms stood tree by tree on their trunks, `PALMS`, and every kit p
   Liebherr crane with blinking beacons; the excavator (`EXCAVATOR`, its parts by name in `digger`:
   `house`, `boom`, `stick`, `bucket`, `tracks`, each node a pivot, `userData.rest`); the spoil heap;
   container, porta-potties, mixer, bricks, pipes; a stack of beams and eight loose ones as physics
-  bodies (`loose`, Atrocitus throws them); barriers; three floodlight towers (spot lights) and sodium
-  street lamps (sprites, additive pools, a point light on every third); ten office blocks with lit
+  bodies (`loose`, Atrocitus throws them); barriers; three floodlight towers (spot lights riding on
+  them) and sodium street lamps (sprites, additive pools, a point light on every third); seven parked
+  cars, three hydrants, bins and cans, a dumpster, two signs, a bus shelter (`buildStreet`); all of it
+  through `smash` (the fence panel by panel, the lamps as poles, the cars as cars), raised pavements
+  and the ground-floor slab you stand on (`walks`, `ground(x, z)`); ten office blocks with lit
   windows at night (`nightWindows`: their glass texels, a soft-edged lit room in one 1.6 × 3.4 m cell
-  in five) and downtown's towers. Atrocitus's machine (`DEVICE`, `buildDevice`: five iron spikes, a
+  in five; triangle colliders) and downtown's towers. Atrocitus's machine (`DEVICE`, `buildDevice`: five iron spikes, a
   crystal heart whose pulse is `deviceU.uPulse`, a ring of Ysmault's script burnt into the ground).
   `blocks` is what Atrocitus and Sinestro walk and fly round.
 - **`Ysmault.js`** (Part Four): the prison world. A basin of rust-red grit under the `ysmault` sky
@@ -690,8 +945,226 @@ pavement, the palms stood tree by tree on their trunks, `PALMS`, and every kit p
   Atrocitus's obelisk is `STAKE`, its two chain anchors `anchors`; `chainBetween(a, b)` /
   `fitChain` stretch the chain prop between two points.
 - **`Space.js`** also has **Ysmault** (`YSMAULT`, `buildYsmault`: rust and basalt, salt flats,
-  fault lines glowing on the night side, a thin red atmosphere, its red dwarf); `show('ysmault')`.
-  `Voyage.js` routes Earth, Oa and Ysmault (`SECTOR`, the approach target and dive per world).
+  fault lines glowing on the night side, a thin red atmosphere, its red dwarf); `show('ysmault')`;
+  and **Korugar** (`KORUGAR`, `buildKorugar`: ochre continents, teal seas, its cities' ordered grids
+  of light on the night side, a white-gold sun). `Voyage.js` routes Earth, Oa, Ysmault and Korugar
+  (`SECTOR`, `ORBIT_LINE`, `APPROACH_LINE`, the approach target and dive per world).
+- **`Korugar.js`** (Part Five): the capital, built (no download fits alien architecture), under the
+  `korugar` sky. `PLAZA_R` 44 round a colossal stone Sinestro (`STATUE`, `PEDESTAL_TOP`: his own figure
+  from `createSinestro`, posed with his hands behind him, turned to stone; a drum cut with the oath in
+  glyphs); towers as one instanced kit (plinth, shaft, fins, crown, spire) under `stoneMaterial` (a
+  world-space shader: slit windows lit amber at random, bronze bands, grime), boxes as colliders and
+  `blocks` for walking round; his banners (`bannerTexture`: crimson, his profile, the emblem, the oath
+  in glyphs; swaying, instanced) on facades and on poles that snap; the Avenue of Order north to the
+  palace (`PALACE`, `BALCONY`), the market east (`MARKET`: stalls and crates through `smash`), the old
+  quarter south (`QUARTER`, archways, the resistance's courtyard `HIDEOUT` with its map and candles),
+  the Halls of Correction (`PRISON`, `CELLS`: alcoves barred with pulsing green light). The palace's
+  front (Part Six): its first two tiers built round openings (`slab`, `holes`) with halls behind them
+  (boxes seen from inside, inset so their walls hide the stone's): the bronze-framed portal between
+  four columns, the oath on its lintel, his banners down the face, two braziers (`fires`, light reach
+  4.2 m); the balcony (`BALCONY`, on the first tier's roof, over the portal on corbels, railed) with
+  the lit doorway behind it and banners either side. `FORECOURT` is below it; `fillForecourt()` packs
+  the avenue (the baked crowd again, `crowdKit`, `instanceCrowd(geo, spots, face)`, turned to the
+  balcony, a lane |x| < 3.9 left clear, two box colliders). **Times Square for Sinestro**
+  (`buildBroadcast`, `scenes/KorugarSigns.js`; the user, 2026-11-17): screens stacked up the plaza's
+  tower faces (a big one over each banner, a second on the tallest, two rows either side) and two on
+  each avenue tower, eight channels (`CHANNELS`: his portrait, slogans, the emblem, "report disorder",
+  a saluting crowd, the news, the day count, the statue), each a 512×256 canvas redrawn at 8 Hz shared
+  by its screens (one instanced quad per channel, an instanced bezel, an additive glow on the wall).
+  His portrait is his own figure rendered once into a picture (`renderPortrait`). Tickers round two
+  plaza towers (`tickerBand`, scrolled by texture offset), neon blade signs down the avenue and over
+  the market (`bladeSign`, static), and skycars in lanes above the towers and down the open avenue
+  (`SkyTraffic`, `ringLane`, `runLane`). The stone's windows and bronze bands are anti-aliased in the
+  shader and fade to their average under a few pixels; the palace's columns are plain basalt; banners
+  hung on walls use `wallBannerMat` (no sway). The crowd:
+  `CROWD_FRONT` (16 spots for the story's full figures) and `buildCrowdFill` (about 1,600 instanced
+  low-poly Korugarians, baked standing and fist-up: `setCheer(on)` swaps them). `airBounds()`.
+- **`Ferris.js`** for Part Five: `roadGround()` (a 16 km heightfield for a car), `freeCar()` /
+  `carSolid()` (his car's stand-in box out while it's driven, back where it stops); the boulevard's
+  furniture is solid now (office blocks as triangle colliders, pavements as 14 cm boxes, palms by the
+  trunk, lamps and signals that snap, bins and hydrants loose, the cars at the lights as cars); the
+  **airspace** (`airspace()`, `flightAir(on)`: a 160 km relief, `reliefAt(x, z)` ridged noise past 9 km
+  with dry lake beds, the coast `coastX(z)` and the Pacific west of town, Coast City from the air as
+  ~1,700 instanced blocks over a paving the desert shader paints itself, the sky dome scaled, fog
+  thinned, far 90 km); `terrainAt(x, z)` (the flats, the mesas, the relief) for the jet; `nearMax`
+  caps the height-driven near plane (0.3 in the cockpit).
+
+- **`Qward.js`** (Part Six): the antimatter world. A plain of black glass (`obsidian()`: glossy, its
+  veins single noise isolines lit gold and violet, a pixel wide at least and faded to their average far
+  off) under the `qward` sky, a dead sun (a black disc in a violet corona, following the camera); 16
+  buttes of the same glass (the `cliff` prop) either side of the way north; two hexagonal glass pillars
+  (`PERCHES`, `PERCH_H` 9, the archers' perches); 22 rocks hanging in the air; the forge at `FORGE`
+  (a slab of rougher glass a few centimetres proud of the plain, eight obelisks with their glyphs turned
+  yellow, `yellowStone`, a lathed crucible of molten light, `forgeMaterial`, its column going up 160 m,
+  a light); ash round the camera; violet lightning in the sky. `RIFT_AT`, `AMBUSH`, `LANDING`,
+  `airBounds()`, `blocks`, `focus(at)`. Props: `QWARD_PROPS`.
+- **Korugar by night** (`kor.night(on)`): the `korugarNight` sky (violet, a moon, stars), dark fog, low
+  hemisphere, a moonlit key, more of the towers' windows lit (`STONE_NIGHT`), the statue's stone darkened
+  (`multiplyScalar(0.2)`: in linear terms); `night(false)` puts the day back. The statue (`scenes/Statue.js`, the user's
+  note "his statue has like his weird hands", and the fall "not very good"): `bakeStatue` poses
+  Sinestro's figure (chin up, his hands clasped behind his back by the arm IK to his live `behind`
+  stance) and bakes it into stone on the CPU (`applyBoneTransform` for positions and, a millimetre out,
+  normals), cut in three (the feet below the ankles by bind height, the head by its bone, the body),
+  jagged stone plugs on the breaks; each piece solid by its own triangles (`statueSolid`).
+  `statueTilt(k)` tips all of him on his toes (`TOES`, up to 0.3 rad); `statueFall({ onEvent })` runs
+  `StatueFall` (its own Rapier world: the plaza and the pedestal's tiers): pinned about the toes as a
+  rigid rod (θ'' = 3g/2L sin θ) to 0.75 rad, then let go with that motion and the chains' pull (5 m/s
+  forward), turning about one axis only; the head breaks off near the ground (a ball with its share of
+  the motion) and rolls; events `crack`, `head`, `impact`, `settled` (Exile's dust, shake, sounds and
+  rubble go on them). `fallen()` runs the same simulation to its end at once, so free roam's statue
+  lies where the chapter's fell. `laid()`: solid where he lies, `fallenBlocks` to walk round.
+
+**Coast City's block** (`src/city/`, 2026-11-18; the first piece of the open world's city): the
+boulevard from Hal's lot to the cross street, both sides, built into the Ferris scene at `LOT`
+(`Ferris.blockOn` when its props are loaded; `buildCity` then leaves that stretch to it).
+- `Kit.js`: the materials (stucco that weathers in the shader toward the ground and in sun-faded
+  patches, painted and old brick, barrel tiles, shutters, frames, iron, roofing, canvas, road paint) and
+  **the glass**: interior mapping (each pane's room in its attributes `aCell`, `aRoom`: the camera's ray
+  followed into a box of a room, its walls, floor, ceiling, a sofa and a picture, shops' shelves of goods
+  and fluorescent tubes, blinds and curtains in front, lit room by room at night or a TV's flicker, the
+  sky in the glass at a grazing angle). `Batch` merges geometry by material: the block is about 20 draw
+  calls and 77k triangles of its own.
+- `Building.js` `building(ctx, spec)`: walls as slabs with their openings cut (reveals, frames, sills,
+  meeting rails, lintels, iron bars), shop fronts (kick plate, mullions, transom, door, the sign board
+  fitted to its lettering, awnings, barrel-tile pent roofs, shutters, neon in the window), doors (and
+  French doors onto balconies), balconies with balusters, belt courses, cornices, copings (concrete or
+  tile, following a mission gable's curve), deco pilasters, streamline bands, downpipes, a flat roof with
+  condensers, vents, a hatch, a dish and an aerial, or a tiled hip. `label` for lettering, `decal` for the
+  mural and the ghost sign. The colliders: the mass, the parapets (walk on a flat roof), a hip's hull.
+- `Signs.js`: two sign atlases (painted boards, lightboxes that glow), vertical blade lettering, window
+  neon, the mural ("Greetings from Coast City") and the ghost sign.
+- `HalsBlock.js`: seventeen buildings (`WEST`, `EAST`: a laundromat with the mural facing the lot, a
+  barber with a mission gable, three-storey flats over a takeout and a pawn shop, a liquor store, a
+  taqueria with the billboard on its roof, a deco savings and loan, a pharmacy, auto parts, Rosie's
+  diner on the corner; courtyard apartments with a hip roof, donuts, records and check cashing, a
+  florist in old brick, the Hotel Marisol with its blade sign, a hardware store, a clinic, a pho house);
+  the street (`BLOCK`: parking lanes added, kerbs at x -0.4 and 12.4, pavements to x -5.9 and 17.9;
+  joints, red kerbs at hydrants, the corners and the bus stop, gutters, the double yellow, the parking
+  T's, meters, about 20 parked cars, crosswalks, drains, manholes, palms in grates, lamps scaled to 7 m
+  street lights, hydrants, newspaper boxes, a mailbox, a cabinet, the bus stop along the kerb, open to
+  the pavement, and a bench); the
+  alleys (walls, power lines, bins, dumpsters, a cart, the fire escape); `setNight(k)` (lamp pools,
+  halos, a few real lights, light from the shops on the pavement, the neon). `Ferris.night()` is the
+  night preset that turns it on.
+- **Colliders are exact**: `ctx.solids` go to Smash with `shrink: 1` (its default shrinks a box 6%,
+  which left the diner's floor half a metre short of every wall: see Gotchas). The fittings built from
+  boxes are solid (`kit().solid`: the counters, the back bar's runs, the kitchen wall and line, the
+  store's counter, cigarette wall, gondolas, candy rack, ice chest), the doorway has a threshold, a
+  door swings away from whoever's coming (`d.away`: in from the street, out from the room), the
+  linings stop at a side wall's windows (`openL` / `openR`), and the booths' tables and vinyl are satin
+  and non-metallic (`satin`; the download had them as metal). The booth's table top is 64.5 cm up.
+- `Interiors.js`, **rooms to walk into** (2026-11-18, the user: "building not interactable yet"):
+  a shop with `interior: 'diner' | 'market'` gets clear glass (`clearGlass`, not the room shader), a
+  glazed door on a hinge that swings in as Hal comes within 1.7 m (`ctx.doors`, `block.update`, a
+  bell: `block.onDoor`), and colliders that are walls, a floor at the pavement's height and a ceiling
+  in place of one block (`building()`, `ctx.inside`). **Rosie's Diner**: booths down both windows
+  (`booth`, two down the side, back from the door), the jukebox, thirteen stools at a red and chrome
+  counter with a foot rail, place mats, napkins and ketchup, the back bar in two runs either side of
+  the pass (the coffee machine, warmers and pots, a pie case, cups), the menu boards, the pass to the
+  kitchen (heat lamps, the order wheel; the line, griddle and hood behind), the restrooms (the men's
+  is somewhere to change: `restroom` spot), pendant lamps. **Coast Liquor**: the counter (the brass register, the lotto
+  lightbox, scratchers, the cigarette wall, a candy rack), three gondolas stocked to the edges, six
+  coolers of cans, wall shelving, the ATM, magazines, the ice chest, a security mirror, a drop
+  ceiling with troffers. Goods are two instanced meshes over a label atlas (`goodsTexture`,
+  `stockShelves`: about 2,500). One point light per room, on only while the camera is within 70 m
+  (three.js lights every surface with every point light: keep them few). `ctx.spots` are what the
+  story makes interactions of (Roam's `blockRoam`): sit at the counter or in a booth (`Roam.sit`:
+  walked up, lowered onto it by `sitEdge` with the hips at the seat's height, `autoAnim` off; E or a
+  step gets up), the jukebox (`Roam.jukebox`, a progression on `musicBox`), the menu, the store's bell,
+  cooler and magazines (barks). **His flat**: E at his building's door on the lot (`enterFlat`): the
+  Bedroom scene by day, or by night as the town is (`flatTime`: lamp, hall light, moon, sky, clock),
+  the fridge, coffee, photo, window, the front door out (`exitFlat`); the bed sleeps the town from day
+  to night or back (`Roam.sleep`, `Ferris.night()` / `day()`).
+- `Lod.js`, **drawing by distance** (the user, 2026-11-18: "once Hal goes 200-300 meters away from the
+  place there is no need to render everything"): `Ferris.lod`, checked five times a second and at once
+  after a cut, from the camera; hysteresis of a tenth. Only drawing changes: bodies, colliders and
+  Smash's items are untouched. The block's tiers (`DRAW`): walls, roofs, glass, signs, pavements and road
+  paint always (from the air they're the town); its trim (frames, sills, iron, copings, awnings) within
+  300 m; parked cars, palms, lamps within 260; small props within 160, casting shadows within 80.
+  Everything else Smash holds at Ferris by size (160 / 260 / 600 m, buildings always); the prototypes
+  (the apron's 1.8 km, Hangar Two's 300 m). Static props are merged per material when placed
+  (`flatten`: a pole's 19 parts, a condenser's 12, one draw call each per material). **Cars**
+  (`addCar`): beyond 15 m a merged copy of themselves (about 10 draw calls, not 54), made again if the
+  car has been hurt since; within it their own parts, for dents, glass and doors. Measured in the block:
+  2,829 draw calls to 974 (the cars were most of it); 230 m off, 1,906 to 491; 420 m, 240 → 230.
+
+**Hal's block's people** (`story/CityLife.js`, `new CityLife(story, ferris).start()` from
+`Roam.blockRoam`; 2026-11-18): 28 of the Rocketbox people (`STAFF`, `DINERS`, `STANDS`, `WALKERS`), each
+with a voice (`townm1-3`, `townf1-3`, `citykid`, `rosie`, `cook`, `clerk`), a `label` (how Hal hears them
+named: "A woman", "Rosie") and a `tag` for the groups that talk; lines for Hal Jordan (`hal`) or Green
+Lantern (`gl`) by `story.civilian` (`TALK`); E beside one: they stop, turn to him, say one not heard just
+now, the jaw on the voice. Movement is one primitive: `go(p, worldPoints, { speed, face })` (state
+`route`, resolved on arrival, paused while they speak), `hold(p, yaw)`, `seatPose`, `carry(p, mesh)` /
+`put(p, at)` (a thing on the right palm kept level in `post`, held out at the waist by `carryPose`).
+- **The diner at work** (`story/DinerLife.js`, from the room's measures `ctx.rooms` and the seats it
+  builds: seven booths' two benches, the two side booths', thirteen stools; each with its sit point,
+  approach, plate spot on the table, and where Rosie stands to serve it). Rosie's routes (`route`): her
+  lane behind the counter, out at the nearer end or through the counter's gate (`gate()` in
+  `Interiors.js`: the counter in two runs with a red half door between them in front of the pass, swung
+  open for her by the block's doors as `staff`, solid to Hal; round the ends only, a trip to a booth was
+  25 to 35 s), the floor by the aisle, the pass between the back bar's two runs. **Hal comes first**: his
+  order is taken first, his ticket goes to the front (Dot cooks it in 6 to 8 s), she walks it faster
+  (`HURRY`), waits at the pass for his plate and takes it straight out, and fetches his coffee from the
+  nearer end of the back bar (measured: asked 23 to 33 s after he sits, eating 40 to 50 s after that). Her loop (`nextTask`): Hal's order first, then plates up at the pass, then customers
+  waiting, tables to clear, coffee to top up at the counter, else wiping the counter (her hand in
+  circles). An order: to the table, her pad out (`pad`), the customer's line and hers overheard, the
+  ticket up at the pass; Dot (`cookLoop`) takes it, cooks it at the griddle (hands working, a sizzle),
+  plates it (`meal(kind)`: a patty melt and fries, a short stack, soup, tuna on rye, cherry pie and tea,
+  a milkshake, coffee), puts it up with the bell and "Order up!"; Rosie carries it out and sets it down,
+  leaning over. Customers eat (fork to mouth, the food going down, `shrink`), leave money and walk out
+  the door (it opens for them: `block.openers`) back onto the pavement as walkers; walkers passing the
+  door turn in (`arrive`) to a free table. **Hal**: wherever he sits (`Roam.sit` → `halSits`), she comes
+  (or says "Be right with you" if she's busy), asks, and `ui.pick` gives him coffee, the patty melt
+  and the cherry pie, or nothing (keys 1-3); she brings it, and he eats while he sits; get up and she
+  clears it. Talking to her (`talkTo`): she stops where she is and they talk, her line, his, hers
+  (`ROSIE_TALK`, by night `ROSIE_NIGHT`, to Green Lantern `ROSIE_GL`). Coming in: she says hello from
+  wherever she is and the room looks up (Dot calls her if it's Green Lantern).
+- **Inside, besides**: Ray at the liquor store's register, a shopper down the aisle (close to the shelf:
+  in the aisle's middle he left Hal no way past); **the store's bell** (`bell()`): Ray comes to the
+  register and answers.
+- **Hal in the way** (`inWay`, `excuse`): anyone on a route or pacing a beat stops short of him rather
+  than walking into him (a kinematic capsule walked into the player's left him stuck), and after 1.2 s
+  asks him to let them by on the overheard channel (`byRosie1-2`, `byRosieG`, `byM1-3`, `byF1-3`, `byK`,
+  `byCook`); not while he sits or flies.
+- **What he overhears** (`TALKS`, `updateTalks`, `playTalk`, `murmur`): pairs near him (the couple, the
+  friends outside Sunny's, the mother and her girl at the bus stop, Rosie and Dale at the counter, Ray
+  and the shopper, the man on his phone) talk among themselves out loud, or whisper about him (Martin
+  Jordan's boy, the Ferris pilot; the girl sees his ring glow) or about Green Lantern ("Don't stare");
+  Green Lantern walking past people gets something under their breath (`MURMUR`). On their own channel
+  (`voice.murmur`, its gain from his distance, cut when he walks away; a line without a clip times out
+  in game time, `silent`), shown in the overheard line (`ui.overhear`, italics for a whisper); one
+  exchange at a time, 40 s before a group talks again. The voices: style `'whisper'` in
+  `build-voices.mjs` (`whisperize`: LPC per 20 ms frame, noise through the envelope, a fifth of the
+  voiced sound kept, 7 dB down).
+- **Who can see him** (`seenBy`, five times a second): anyone active facing him within 80° (and not
+  far above their eye line), within 40 m by day or 20 by night, with nothing fixed between their eyes
+  and his chest (a ray that skips the people's capsules). `Roam.watchers()` uses it: see *his secret*.
+- **The street**: thirteen walkers on one loop (`LOOP`, block-local: down the west pavement, over the
+  crosswalk at the corner, up the east one, out round the bus stop), half each way, keeping right
+  (`lane`), stepping round Hal and slowing, no faster than someone ahead, glancing at him as they pass;
+  the loop's last leg (the lot, where the pavements stop) is crossed **out of sight** (out of the
+  camera's frustum or beyond 70 m: snapped to the other end), and someone at it in view waits, then
+  turns back. A mother and two kids at the bus stop, a man on its seat, a man on his phone against
+  Coast Liquor (the phone on his palm, the hand turned in `post` so it lies along his cheek), two
+  friends talking outside Sunny's (nodding in turn).
+- **Reactions**: Green Lantern flying low (within 16 m, 3 m above): they stop and look up, some point,
+  the kids point, someone calls out (`cityUp1-3`); a construct cast near them (`powers.watchers`): the
+  street runs, then crouches, then walks back to where it was (`return`, `settle`); inside they crouch
+  where they are.
+- **By night** (`ferris.isNight`) half the walkers and the bus stop's people and the friends are gone.
+  **Cost**: anyone beyond 150 m of the camera (45 m inside) isn't drawn or animated; shadows within 40 m.
+  Measured on the west pavement: 22 out, 91 draw calls and 276k triangles of the scene's 1,154 and
+  3.66 M, 0.64 ms a frame for their updates.
+
+**Korugar's streets** (`story/KorugarLife.js`, `StreetLife(story, kor, { era, walkers, guards })`):
+walkers on loops (`ROUTES`: the avenue, the market, the plaza at r 31), guards at posts; each a full
+figure with a kinematic capsule (in `player.camIgnore`, so it doesn't pull the camera in). E beside
+one: they stop, turn to Hal and say a line from their pool (`TALK[era][man|woman|guard]`, not the
+last four heard); under Sinestro the ring then decodes what they mutter after. Reactions: under
+Sinestro they back off from him with their eyes down; they look up at him flying low; a construct
+cast near them (`powers.watchers`) sends everyone within 30 m running, then crouching. Part Five's
+`patrol` adds one (`era: 'sinestro'`, 4 on the avenue, 3 in the market, two guards); free roam's
+Korugar another (`era: 'after'`).
 
 ### Props (`src/props/`, `tools/build-props.mjs`)
 
@@ -743,6 +1216,71 @@ front ones (`atan(base·k)`); `Coast.roll()` plays part of a leg. Plan a maneuve
 rear-axle terms, worked back from where it must end, and check it against everything near it: the
 car's footprint against parked cars' boxes and the low vertices of props, frame by frame.
 
+### Vehicles (`src/vehicles/`, `src/ui/VehicleHud.js`)
+
+- **`Drive.js`**: a car driven by the player, on Rapier's `DynamicRayCastVehicleController` (a
+  dynamic chassis on four raycast wheels with springs and dampers, friction-slip tyres). Mass set
+  (1450 kg, its centre low), rear-wheel drive, speed-sensitive steering, drag and rolling
+  resistance, the handbrake letting the rear go. Brakes are forces times the step (about 0.87 g at
+  30, 60 or 120 fps: 45 mph to a stop in 23 m; see Gotchas). The model follows the chassis; wheels ride their
+  suspension and spin, the fronts steer, the steering wheel turns (`car.userData.steer`, the rim's
+  points with it, so `driveHands` follows). Views (C): a chase camera that swings after the car (and
+  the mouse, settling back behind), or first person from the head bone (`uHideBone` hides his head).
+  Hooks into the physics step through `physics.beforeStep`. Keys W/S/A/D/Space; or a script sets
+  `throttle`, `brake`, `steerIn`.
+- **`Jet.js`**: the prototype flown. A rigid-body flight model (lift linear in alpha to a stall at
+  22°, induced and transonic drag, thrust lapsing with density, the afterburner past 100%, side force
+  from sideslip, weight), rotation from commanded rates (fly-by-wire: an alpha limiter and a 9 g
+  limiter, authority falling with dynamic pressure), substeps of 1/120 s. Mouse aim (MouseFlight /
+  War Thunder): the aim direction is level with the world; the autopilot rolls toward it and pulls,
+  wings-level when it's close; with the gear down it steers the flight path (the nose rides high on
+  approach). On the gear: rolling friction, brakes, nose-wheel steering, no sliding; touching down
+  too hard (5.5 m/s), steep, banked or gear up, or off the runway, is a crash (`onCrash`). The
+  control surfaces hinge (`hingeSurfaces`), afterburner cones (`buildFlames`), the cockpit darkened.
+  Views (C): behind it along the aim, or the cockpit (`eye()`, the HUD; `CameraDirector.up` banks the
+  camera with the jet).
+- **`VehicleHud.js`**: the car's dash; the jet's panel (chase view), its HUD drawn on a canvas in
+  the cockpit (heading tape, pitch ladder, flight-path marker, airspeed and altitude, Mach, g, climb,
+  throttle), the aim circle and nose cross; the test card; `gloc(k)` greying the view.
+
+### The world's props (`src/props/Smash.js`)
+
+`new Smash(physics, scene)` per scene (the site, Ferris, Oa, Ysmault); `smash.update(dt, t, camera,
+renderer)` from the scene's update; `RingPowers.attach` sets `smash.fx` to itself (effects, sounds,
+hazards, damage go through it; null while the ring is off). Every prop is one of:
+
+- **solid** (`smash.solid(object, { mesh })`): fixed; with `mesh: true` its own triangles
+  (`fixedTrimesh`, for buildings, the spoil heap, rocks, palms: a box is wrong for anything not a
+  box), else a box from its bounds. Struck, it sheds chips and dust and sounds by its `stuff`.
+- **loose** (`smash.add(object, { mass, give, stuff })`): a dynamic body at the object's pose with a
+  cuboid fitted to its bounds in its own frame (`localBox`, `box` to override, `shrink`), its real
+  mass (kg); in `physics.dynamics` with its `radius` and `item`. `give` is how far past the ring's
+  usual impulse cap a blow shoves it (heavy things: 3–8).
+- **breaks** (`kind: 'breaks', strong`): fixed until blows total `strong` (a hook is about 25, a
+  gatling round 2.5, a sword cut 6); then `breakOff` makes it dynamic and calls `onBreak` (the site's
+  lamps put their light out and topple; the hydrants start a `geyser`; the Ferris cockpit stand, up
+  against the jet, comes loose).
+- **car** (`kind: 'car'`): loose, 100 health (a hook takes about 18): `dent` pushes the parts'
+  vertices in round the blow, mostly into the body (each part gets its own geometry, positions copied
+  into a plain array: see Gotchas), at most 0.28 m from rest, normals recomputed; panes within reach
+  `shatter` (hidden, glass bits, a sound); the first hit sets off the alarm and hazard lights (12 s);
+  below 55 it smokes, below 22 it burns (`ignite`: a `Fire` without its point light, a fire loop, a
+  hazard) and after 5.5 s (1.2 s at 0) it `explode`s: thrown up and over, every pane gone, charred
+  (`char`), a fireball and smoke, `physics.burst` (which blows the props round it too), 36 damage to
+  Hal and 60 ('explosion', half through any guard) to a boss within 7.5 m, then burns out over 14 s.
+- Blows reach props two ways: the ring (`RingPowers.shove(body, dir, at, k, power, cap, kind)` calls
+  `smash.blow(item, k * power, at, dir, kind)` first: the hook, hammer, sword, gatling, impacts,
+  bursts) and collisions (`Physics.step` runs an `EventQueue`; colliders of loose, breaking and car
+  props carry contact-force events, threshold 25 × their mass, 4000 N for fixed ones; `onForce` →
+  `bump`: strength from the change of speed it took, ×0.6 against the ground, at the solver's contact
+  point). So a thrown beam (about 140 kg now) dents a car and tears a fence panel off, a flung car
+  snaps a lamp post, Atrocitus walking or charging into a car shoves and dents it.
+- Physics `burst` pushes as for at most 400 kg (heavy things move less) and then `smash.blast`.
+- The hook stops against anything fixed along its path (`HookStrike.hitWall`: a level ray from the
+  fist's last position to its knuckles, kept 0.3 m above the ground so the floor doesn't count).
+- Atrocitus charges through breakables (they break) and walks round props wherever they've been
+  knocked (`blocks` entries with a `body`); Sinestro's spikes and Atrocitus's blood mark what they hit.
+
 ### Drones (`src/enemies/Drones.js`)
 
 `DroneSwarm` owns the training drones, their bolts and their effects. `swarm.spawn(pos, 'target' |
@@ -766,20 +1304,89 @@ car's footprint against parked cars' boxes and the low vertices of props, frame 
 
 ### Sinestro (`src/enemies/Sinestro.js`)
 
+- His suit has a roughness floor of 0.58 (`createSinestro`): the scan's suit is metal and
+  mirror-smooth, and the environment map's bright patch in it bloomed into a green ball on his chest
+  in close shots. His ring's point light is at 0 outside a fight (it is kept in the scene: toggling a
+  light recompiles every material).
 - **Out of the fight** he stands (mocap idle) with his hands clasped behind his back (his own
   `BodyLanguage` library, `GESTURES` / `STANCES` in his metres), talks with the ring hand, and
   plays the sword lesson (`demo()`).
 - **In the fight** (`engage()`) he flies: a dynamic capsule with gravity off, steered by a damped
   spring (like the drones), so fists shove him and he recovers. He faces Hal, circles at about
   6.5 m, matches Hal's height when Hal flies, leans into his flight, keeps his left hand behind his
-  back, and is a construct target (`tg`, 420 health).
-- **Moves** (`think()` / `runAction()`): a **lunge** (the blade raised and flaring for 0.6 s, a dash,
-  a cut; Hal's shield blocks it, a sword cut meeting it parries and staggers him for 1.2 s);
-  a **volley** of five light spikes formed behind him and fired with lead (shield and walls stop
-  them); a **guard** (a hex shield in front of his fist when four hits land within a second,
-  turning frontal hits); and below 62% a **slam** (a ring marks the spot under Hal, then a giant
-  fist comes down on it).
-- At 35% he yields (`onYield`); `onQuip` and `onHurtHal` drive his lines.
+  back, and is a construct target (`tg`, 520 health).
+- **Moves** (`think()` / `runAction()`): a **lunge** (`LUNGE`: the blade raised and flaring for
+  0.55 s, a dash, a cut, 22; sometimes a quick second cut; 0.53–0.63 s from the dash's start to the
+  blade landing); a **volley** of five light spikes formed behind him and fired with lead (8 each;
+  shield and walls stop them); a **guard** (a hex shield in front of his fist); and below 62% a
+  **slam** (a ring marks the spot under Hal, then a giant fist comes down on it, 22; dodge it).
+  Cooldowns between attacks are short (0.7–1.6 s), halved while Hal's charge is under 15%. His
+  answers (`armour: true`) hit 1.3× as hard.
+- **Reading Hal** (`think`, `hit(amount, point, dir, kind)`, `onCast`; he is in `powers.watchers`
+  while sparring). The fight is block, then strike. `stance()` says how a blow lands now, and
+  `LANDS` how much of it: `exposed` 1.35× (a parry threw him open), `reeling` 1× (a stagger), `open`
+  0.6× (his volley, his slam, the moment after a cut), `turned` 0.15× (between attacks, behind his
+  raised blade (the lunge's tell, dash and cut), through an answer), `miss` (slipping it). The
+  bracket shows it (`tg.openState()`: amber open, gold OPEN when exposed).
+  - **Turned:** a hook, cut or hammer is turned on his guard (`block`, the "Turned" callout) and
+    answered at once (`answer`): in a lunge's tell he comes straight on, else a quick armoured lunge
+    (or a volley from beyond lunge range, `riposte`), at most once in 1.2 s. The gatling is stopped
+    outright: he guards the moment the barrels spin up aimed at him (`threat`), a round that catches
+    him idle raises it too, and held on him 0.75 s it's answered (`counter`). Gun damage is a further
+    0.5× wherever it lands.
+  - **Hal's shield** (`RingPowers.guardHit`): blocking his cut glances it off (0.6 s stagger, a push
+    back); a **parry** (the shield raised in the 0.5 s before the blade lands) throws him open
+    (`expose`: 1.5 s `exposed`, knocked back, the blade gone). A sword cut meeting his cut is a parry
+    too (`clash`). Parried spikes fly back into him (`s.back`, homing; 10 each, the first exposes him
+    for 1.5 s, `spiked`).
+  - **Poise:** 70 damage inside one of his attacks while it's `open` (`POISE`) breaks him out of it
+    into a 0.6 s stagger, at most once in 2.1 s (`steady`).
+  - **Hooks thrown at him** between attacks he may slip (`onCast`, `dodge`: away and up, then often
+    a quick lunge), likelier the more Hal has thrown (30% plus 20% per hook in 5 s, at most 85%; 75%
+    for the hammer).
+  - **A held shield:** past 0.8 s he circles fast round to its side to attack, or drops the slam on
+    it. A held shield only blocks; mashing the guard doesn't parry (`PARRY_REST`).
+  - Bot numbers (2026-11-11, `tools/fight-bots.js`): hook spam 71–128 dealt in 15 s, 96–108 taken; gun spam
+    23 dealt, 88 taken; parrying every blow 511 in 20 s, 4 taken; blocking early 165, 72 taken;
+    the shield held throughout 20, 36 taken. He yields after 338.
+- At 35% he yields (`onYield`); `onQuip` ('parried', 'riposte', 'counter', 'dodge',
+  'flank', 'slam', 'hurt') and `onHurtHal` drive his lines (`Corps.addSinestro`).
+
+### Qward's Thunderers (`src/enemies/Thunderers.js`)
+
+`new Thunderers({ scene, physics, powers, player, audio, director, mocap, ground, centre, radius,
+blocks })`, `loadThunderers()` (the four GLBs, once), `spawn(kind, at)`, `alive`, `update(dt)`,
+`clear()`; `Exile.thunderWave(T, spawns, label)` runs a wave. Each is a kinematic capsule in the
+scene's dynamics and a construct target; they step out of a violet burst (the dissolve run backward)
+and come apart in it when killed. At most two attack at once (`TOKENS`, as the drones). The kinds
+(`KINDS`):
+
+- **brute** (170): walks at Hal on the mocap; the flail up over his shoulder (0.75 s, arm IK), whirled
+  flat round his fist, then down a pace ahead of him (18, a knock back). A parry staggers and exposes
+  him. The flail's chain and ball (the hand bone's vertices below his fist, `FLAIL`) swing as a
+  pendulum (`flail`, `swingFlail`: a point mass on the chain's length, verlet, gravity, the tell's
+  whirl as a tangential push, the strike flinging it down at where Hal stood), turned in the vertex
+  shader (`FLAIL_GLSL`, `uSwing`: the world rotation taken into the bind frame, S⁻¹·R·S).
+- **caster** (110): keeps 11 m off, side-stepping round him; a bolt forms in her raised hand (0.6 s)
+  and flies with lead (11). Parried, it homes back into her (3×).
+- **archer** (90): crouched where he's placed, on his scan's stance (no animator: the bind pose each
+  frame, `aimBow`). Low and ready, turned to Hal; the tell (1.05 s): side-on to him (yaw + 1.15), the
+  bow comes up to the vertical and points at Hal's chest, both hands moving as one rigid piece from the
+  scan's frame (the arrow from the string hand to the grip, the limbs tip to tip) to the aim's, the
+  arms by two-bone IK and the hands given the turn; a nocked arrow, its head glinting; the loose (the
+  string hand off it, the string snapping back); 10. His scan's bow was a sheet (the space between bow
+  and string filled in, see Gotchas): cut out in the shader (`aBowCut`, `bowCut()`: the hand-bound
+  bow past his fist, the string's end on the other hand, the rest by the bow's own texture cells in its
+  band of height) and replaced by a built recurve (`makeBow`: iron limbs, gold grip and tips, a
+  two-segment string to his string hand). His bow hand's wrist depth is given in the rig (`arms` z).
+- **winged** (120): hovers and circles 11 m out and 6 m up; a shriek and a rise (0.7 s), then a dive
+  through Hal (14); a parry knocks him back and open. Its own animator (`wings`, `WINGED` poses: hover
+  with talons ready, shriek with arms flung wide, dive with arms swept back, strike with hands and feet
+  out, blended by weights) and wings that beat and fold (`beat`, `WING_GLSL`: chest-bound vertices
+  behind the back and out from the torso turned about each wing's root, `uFlap` about the forward axis
+  and `uFold` about the vertical, the bend spread out from the root; a downstroke whoosh close by).
+
+Hit, they reel (a hook interrupts a tell; a gun round seldom does); `openState()` drives the bracket.
 
 ### Hector Hammond (`src/enemies/Hammond.js`)
 
@@ -799,19 +1406,63 @@ car's footprint against parked cars' boxes and the low vertices of props, frame 
 
 - On foot and heavy: a kinematic capsule moved by his own code (`vel`), so constructs hit him but
   don't shove him (it's in `physics.dynamics` with a dummy mesh, where impacts look for targets); mocap `Locomotion` from his speed, facing Hal in the fight (out of it, the way he
-  walks, or `faceYaw`); round the scene's `blocks`, inside `radius` of `center`. 640 health; hits
-  while he's stunned count 1.5×.
-- **Charge:** head down, a red line along the ground (0.85 s), then a straight rush at 11 m/s. A
-  wall, the held shield or anything fixed in his way stops him dead and stuns him (2.4 s, 1.2 s for
-  a column): the opening. Through Hal: 20 and a knock back (`player.dash`).
-- **Beam:** to the nearest loose beam (`loose`, to arm's length: he's kinematic and would shove it
-  away), lifted overhead and held shaking (the tell), thrown with lead; 16 where it hits; it lies
-  where it falls, to be thrown again.
-- **Blood:** his palm lit and dripping (0.75 s), then a fan of seven burning drops; each lands as a
-  fire on the ground for 4.5 s (a `powers.hazards` entry, 9/s). The shield stops them.
+  walks, or `faceYaw`); round the scene's `blocks` (steering round the ones ahead, `avoid`), inside
+  `radius` of `center`; his gait follows how far he really moved, so he never walks on the spot
+  (backwards when he steps back). 900 health (the fight ends at 60%); hits while a charge stopped by
+  a wall has him reeling count 1.25×.
+- **Charge:** head down, a red line along the ground (0.85 s; it follows Hal's lead for the first
+  0.5 s, then sets), then a straight rush at 11 m/s. A wall or anything fixed in his way stops him
+  dead and stuns him (1.8 s, 1.2 s for a column). Hal's shield stops him too (`crash`): held, a
+  0.7 s stagger and Hal shoved back; raised just as he hits, a parry and he's wide open (`expose`,
+  1.8 s, a step back, arms flung wide, leaning back). Through Hal: 26 (34 as an answer) and a knock
+  back (`player.dash`).
+- **Beam:** to the nearest point along a loose beam (`loose`, `alongBeam`, to arm's length: he's
+  kinematic and would shove it away; one against a block he skips, one he can't reach in 3.5 s he
+  leaves for 8 s), lifted overhead and held shaking (the tell), thrown with lead; 20 where it hits;
+  it lies where it falls, to be thrown again. The shield stops it; a parry bats it back at him
+  (`batBack`, `b.back`): 30, and he's open 1.5 s (`backAtHim`).
+- **Blood:** his palm lit and dripping (0.75 s), then a fan of seven burning drops (6 each); each
+  lands as a fire on the ground for 4.5 s (a `powers.hazards` entry, 9/s). The shield stops them;
+  parried, they home back into him (6 each, the first opens him 1.2 s).
 - **Slam** (Hal within 4 m, near the ground): fists up, then into the ground; a shockwave ring
-  rolls out to 9.5 m (14, less with distance), which only flight gets over.
-- `engage()` / `disengage()`, `onQuip` ('charge', 'stunned', 'hurt', 'solid'), `onHurtHal`.
+  rolls out to 9.5 m (20, less with distance), which only flight gets over.
+- **Reading Hal** (`think`, `hit(amount, point, dir, kind)`). Block, then strike, as with Sinestro:
+  `stance()` and `LANDS`: `exposed` 1.35×, `reeling` 1× (stunned or rocked), `side` 1× (turned on
+  Sinestro), `open` 0.6× (a beam lifted, held, thrown; his blood; the slam but its blow; a charge's
+  skid; or Hal behind him), `turned` 0.15× (between attacks, fetching a beam, the charge's tell and
+  rush, the slam's blow, his cover, an answer). `tg.openState()` drives the bracket.
+  - **Turned:** a hook rings off his gauntlets (`deflect(point, true)`, a clank, "Turned") and he
+    answers at once (`answer` → `brace`: a roar, then an armoured quick slam close in, a charge if
+    the line is clear, else his blood), at most once in 1.4 s. The gatling: he covers (`cover`:
+    forearms crossed before his face, walking on at 1.35 m/s) the moment the barrels spin up at him,
+    rounds ring off, and held on him for a second (0.3 s close in) it's answered. Where the gun gets
+    through it's a further 0.4×.
+  - **Poise:** 90 damage inside one attack while it's `open` (`POISE`) rocks him out of it (0.7 s);
+    a beam held overhead comes down on him (1.6 s, 20 more).
+  - **A held shield** past 1.2 s (`shielded`): he won't charge into it; he walks in under it and
+    slams.
+  - Bot numbers (2026-11-11, `tools/fight-bots.js`, Sinestro held off): hook spam 36 dealt in 15 s, 61
+    taken; gun spam 6, 78 taken; parrying 366 in 25 s (three parries), 14 taken; blocking early 50
+    (168 also hitting him mid-attack, the charge ran out); the shield held throughout 0, 37 taken.
+  - **Sinestro's spikes** (`kind 'spike'`, 0.35×) turn him on Sinestro for 1.6 s (`distract`,
+    facing where they came from): his side is open to Hal; enough of Hal's fire turns him back.
+  - **Hal at his lantern** (not in control): he attacks at once, a charge if the line is clear.
+- `engage()` / `disengage()`, `onQuip` ('charge', 'stunned' (a wall, a parry), 'hurt', 'solid',
+  'cover', 'answer', 'rocked', 'brace', 'distract'), `onHurtHal`. `Prisoner.atroFight` maps them to lines
+  (Sinestro's hints `sinQGun`, `sinQFlank`) and shows a tutorial panel of his openings.
+- **His machine:** he works it from `WORK` in `Prisoner.js` (1.75 m out on its fifth spike's line,
+  facing it, his hands on the spike, `SPIKE(y)`); the machine's block (`Site.deviceBlock`, 1.2) is
+  shrunk to 0.95 while he's scripted there, or the push-out kept him 2.55 m away and he walked into
+  it on the spot until the walk timed out (the user: "he keeps walking to his orb").
+
+**The Yellow Lantern** (Part Six): `turnYellow()` turns his shield, fist, blade, spikes, mark, ring
+light and sparks to fear's yellow (`FEAR`, `fearLight(group)` in `Constructs.js`) and builds the
+**fear jet**: the F-104 prop as a construct (`shapeOf(prop('f104'), 14)`). `fearJet` (in phase two
+30% of choices, else 12%, never twice in 9 s): it forms 36 m out beyond him and 16 m up (1.3 s, where
+the camera, on him, can see it, the line it will fly marked on the ground under Hal, its engine heard),
+then dives through Hal's spot at 70 m/s (30 and a knock back; the shield blocks it to 6; a parry breaks
+it and exposes him) and into the ground. Constructor options `health`, `yieldAt`, `centre` (the arena's
+middle); `Prisoner.addSinestroAt(scene, blocks, opts)` passes them.
 
 **Sinestro beside Hal** (`Sinestro.ally(foe)`, Part Four): he flies high and wide round the foe
 (`{ position, vel, collider, hit }`) and fires a volley at him every 3–5.5 s; `aimAt(out)` is what he
@@ -827,7 +1478,24 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
   (charge %/s near a power source; 1.5 on Oa).
 - **Targets:** `addTarget` / `removeTarget` / `targetOf(body)`. Anything with `{ body, collider,
   position, radius, health, maxHealth, alive, hit() }` can be damaged by constructs:
-  `dealDamage(target, amount, point, dir)` hits it, plays a tick and pops a damage number.
+  `dealDamage(target, amount, point, dir, kind)` hits it, plays a tick and pops a damage number;
+  `kind` is what landed ('hook', 'gatling', 'sword', 'hammer', 'blast', 'spike'), passed on as
+  `tg.hit(amount, point, dir, kind)`, and opponents treat each differently. `cast(id, data)` tells
+  `powers.watchers` (the bosses) what Hal just cast (a hook's side, radius, target).
+- **The guard** (`updateGuard`): right click or `F` held raises the shield (`raiseShield(true)`,
+  `shield.quick`) whatever is armed, or nothing; a held gatling or sword goes away; let go, it drops
+  (`release(true)`, 0.05 s cooldown). A left click behind it drops it and strikes in the same frame
+  (`updateCast`), and `guardLatch` keeps it down until the button comes up.
+- **Parry** (`guardHit(from, at)`, `PARRY`, `PARRY_REST`, `HeldShield.fresh()`): an opponent's blow
+  meeting the shield returns 'parry' if the shield went up less than 0.5 s before (and the raise
+  before it was more than 0.8 s earlier: mashing doesn't parry), else 'block', or null if the shield
+  isn't in its way. A parry stops time 0.16 s, shakes, flashes (`parryFlash`, the grade faded out in
+  `update`), rings (`audio.parry`), gives back 4% charge and says "Parry"; for 0.6 s after one the
+  shield parries everything (a whole volley). The bosses call it for their melee and projectiles;
+  `damage(amount, from)` (drones, Hector) still only blocks.
+- **Callouts and the bracket:** `hud.callout(text, kind)` pops a word over the reticle ('parry',
+  'block', 'turned', 'counter'); a target's `openState()` ('open' / 'exposed') colours the bracket
+  (`#target.open`, `#target.exposed` with OPEN under it).
 - **Aim assist:** for attack constructs, a live target within a few degrees of the reticle (wider
   for small, distant ones), in range and in clear view, takes the aim (`aim.target`). The HUD
   brackets the aimed or nearest target with its health bar.
@@ -840,15 +1508,24 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
   and held constructs; water counts as a surface), capped to the construct's range measured from
   Hal's chest. The scroll wheel caps the range. A hologram ghost shows where the construct will
   form (red when it can't: low charge, or no footing for a wall).
-- **Constructs** (`FistStrike`, `HeldShield`, `WallConstruct` in `RingPowers.js`):
-  - Fist: Hal's ring arm thrusts (fast IK, `rate`), the fist launches from the ring, sweeps
-    debris along its path, strikes with hit-stop, shake, sparks and an impulse capped by mass
-    (light things fly, heavy ones shift), recoils and dissolves. Range 2–14 m, 6% charge.
-  - Shield: held while the button is down, in front of Hal's fist; a kinematic body, so debris
-    bounces off it; `blocks(point)` stops damage from the front. 2% + 3%/s.
+- **Constructs** (`HookStrike`, `HeldShield`, `WallConstruct` in `RingPowers.js`):
+  - Fist (`HookStrike`, `hookFrame`, `throwHook`): a hook. A giant fist (`fistGeometry`, the left one
+    `mirrorX` of it) forms off to Hal's side and swings round him in a level arc through the aim
+    point (radius the aim's distance, 3–11 m, at the aim's height; 0.11 s forming, 0.24 s swinging),
+    the ring's beam its arm, knuckles leading. Everything in the swept arc, from his side out past
+    the fist, is hit once: targets take 42 (the right) or 56 (the left) as 'hook', loose bodies are
+    knocked along; the first target hit gets hit-stop, shake, a flash and a ring. A click during
+    the right hook (it's buffered, `hook.queued`) throws the left within 1.1 s; then it's the right
+    again. 13% charge each; cooldown 0.3 s after a right, 0.8 s after a left. Hal throws it: the
+    hand on keys in his frame (`HOOK_HAND`, cocked by the shoulder, elbow out and up, whipped across)
+    and the chest turning into it (`HOOK_CHEST`, `animator.lean.yaw`); the newest hook owns the arm
+    (`powers.hooks`). The aim ghost is the next hook at mid-swing, with its arc drawn as a line.
+  - The hook, the gatling, the sword and the hammer strike the scene's props through `shove` (see
+    *The world's props*), and the hook stops dead against anything fixed (`hitWall`).
+  - Shield: held while the button is down (armed), or as the guard; in front of Hal's fist; a
+    kinematic body, so debris bounces off it; `blocks(point)` stops damage from the front. 2% + 3%/s.
   - Wall: rises out of the ground as a kinematic body (it lifts what it comes up under), stands
     20 s, at most three. The player collides with it. 10%.
-  - Fist and its blast damage targets: 40 along its path, 45 for a direct hit.
   - Gatling (`GatlingConstruct`, Part Two): held at Hal's right hip with both hands on it (arm IK
     to its grips), aimed at the aim point. Hold to spin the barrels up, then hitscan rounds at
     14/s with tracers (instanced streaks), sparks and 6 damage each. 1% to form, 0.12% a round.
@@ -867,6 +1544,10 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
     behind him it's a mallet seen side-on), landing square: 110 damage, a 3.6 m splash, a hard shove
     (`impact({ damage, splash, power })`), a ground ring and dust. 12%, 4.5–16 m; `hammerScale` grows
     it with the distance. No sweep on the way down (see Gotchas).
+  - Staff (Part Five, from Sinestro on Korugar): `SwordConstruct` with `kind: 'staff'`
+    (`staffGeometry`, 2.3 m held a third of the way up, `STAFF_SWINGS`: two wide sweeps and a stroke
+    down, both hands on it, the left sliding along the shaft); 18 / 18 / 30 damage, a much bigger
+    shove (`push`): crowd control, not cutting. 3% to form, 0.7% a sweep.
   - While the shield or the gatling is up, `RingPowers.update` sets `player.strafe`: Hal faces
     where the camera looks and moves where the keys say (see *Player*). The constructs don't
     turn Hal themselves any more. Choosing another construct puts the held one away.
@@ -889,7 +1570,8 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
 - **Flight effects:** charge drain (0.12%/s, more boosting), a green aura light, light trails off
   the ring fist and boots, airflow sound, takeoff and landing shockwaves.
 - **Lantern:** `Story.addRecharge()` adds "Recharge the ring" (enabled under 100%).
-- **Health:** fire zones and the training's core breach do damage; it regenerates after 4 s.
+- **Health:** fire zones and the training's core breach do damage; it regenerates after
+  `healDelay` (4 s) at `healRate` (8/s). The boss fights set 7 s and 3/s while they last.
   At 0, `Story.collapse()` shows a card and restarts the checkpoint.
 
 ### Effects (`src/fx/`)
@@ -909,6 +1591,9 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
 - **`GreenLight.js`:** the orb (core, halos, rays, sparks), the fresnel bubble that carries Hal,
   and additive light shafts.
 - **`Cloth.js`:** verlet cloth for the curtains.
+- **`Rift.js`:** the tear in the air: `new Rift(radius, { palette })`, 'pocket' (the ring's green, the
+  lantern's pocket dimension) or 'antimatter' (violet-black, pale arms, round stars, a thinner rim:
+  the way into Qward); `Story.openRift(scene, at, radius, flow, opts)`.
 - **`Textures.js`:** canvas textures (noise, wood, fabric, glow), the clock face and the photo.
 
 ### Physics (`src/engine/Physics.js`)
@@ -939,6 +1624,15 @@ The main recent effort went here, and the user cares about it most.
 5. Compress textures to WebP, prune, and write the result to `public/models/<name>.glb`.
 
 Multi-primitive meshes are supported: all primitives are rigged together and each gets a skin.
+
+**Sheets of separate figures** (the Thunderers): `figure: z` keeps the connected mesh whose bounds'
+centre is nearest that z on the sheet (`pickFigure`: four figures whose wings and bow overlap in z, so
+a cut by z can't split them); `headTop` (the sheet's own units) scales a figure to the top of its head
+rather than its wings. `GRID=dir` renders a figure front and side with a 10 cm grid instead of rigging it
+(measure joints on it); `DUMP=file` writes its vertices. The rig's `arms` gives the arm joints outright
+in metres (for figures posed off any A- or T-pose: the archer), z found in the limb's column; `bind`
+boxes (metres) take what's inside out of every landmark and weight it wholly to one bone (the winged
+one's wings to the chest, the flail and the bow to the hand that holds them, the quiver to the chest).
 
 **Per-model rig overrides:** a `MODELS` entry may carry `rig: { … }`, passed to `autoRig` and
 merged over `RIG_DEFAULTS` in `autorig.mjs` (the defaults are the original constants, so the
@@ -1073,6 +1767,9 @@ shielding his eyes, floating, carried head-first, reaching, fist raised, and Abi
     elbows (0.5 of the way, less while running) and wrists (0.65) back toward straight and, for Hal
     only (`adduct` 0.12, set in `Player`), the upper arms in to his sides. Xbot's walk carries 35°
     elbows and cocked wrists, and Hal's walk read as mincing; Kilowog keeps `adduct` 0 (armour).
+  - `smoothArms` low-passes the arm bones per rig (a time constant of about 0.1 s at idle, light in
+    the walk and run): the idle clip's arm keys carry a tremor, a few millimetres at the hand frame to
+    frame, repeating with the clip (the user's "her hand is still shaky", on Katma).
   - Measured clip speeds: walk 1.55 m/s (0.967 s cycle), run 3.36 m/s (0.70 s cycle). Xbot's hips
     are at 1.04 m, and `scale = rig.hipsHeight / 1.04`.
 - `MocapClip(source, name)` is a single looping clip, used for the dad's idle.
@@ -1117,8 +1814,10 @@ Third-person controller with momentum (ground) and flight:
   shield). `player.inputBlocked` is set while the wheel has the mouse. `player.moveScale` slows
   him while he fires a held construct.
 
-Scripted movement uses `walkTo(target, speed)` (with stuck detection), `turnTo(yaw)` and
-`lookAt(target, weight)`.
+Scripted movement uses `walkTo(target, speed)` (with stuck detection; it drops Hal out of flight
+first, since the walk only runs on the ground), `turnTo(yaw)` and `lookAt(target, weight)`.
+`Story.touchDown()` puts a flying Hal on his feet (constructs away, the drop, the landing waited
+out) before a scene that needs him standing.
 
 **`walkTo` does nothing while `player.control` is true.** The player starts without control,
 `giveControl(objective)` hands it over, and cutscenes call `takeControl()` before scripted moves.
@@ -1163,6 +1862,15 @@ crash site. `player.surface` picks the footstep sound.
   - Body language: `GUARDIAN_STANCES.sleeves` (each hand in the other's sleeve; the hands are hidden
     while `uHandL` / `uHandR` are 0) and `GUARDIAN_GESTURES.decree` / `release` (set the hand's
     uniform to 1 first, so it comes out of the sleeve). `seed` varies the fringe, dome and skin.
+- **The Weaponers of Qward** (`createGuardian(abin, mocap, { weaponer: true, seed })`, Part Six; no
+  scan of theirs: derived the way the Guardians are, as their mirror in the antimatter universe): grey
+  skin, bald (`uHairOn` 0, no hair cards), dark brows rising at the ends, gold eyes, a taller narrower
+  dome (head 1.22×), black robes trimmed gold with no emblem and a dark sheen (the warm one went orange
+  in the forge's light), full height (1.02). Not reviewed by the user.
+- **Sinestro as the Yellow Lantern** (`yellowLantern(rig, k)`, `su.uYellow`): in his shader layer, the
+  uniform's green turned gold and the rest a deeper black, swept up him from his feet as k goes 0 to 1
+  with a burning line at the edge (`sYEdge`); the suit's glow and emissive go gold with it. The chest
+  emblem is still the Corps' shape, in gold.
 - `createHammond(gltf)` (the user's scan, 2026-11-11): `rig.hu.uSwell` (0..1) swells his **whole
   head**, face, jaw and glasses included, as in the comics (the user, after a first pass that grew
   only the cranium: "his entire face enlarges"): everything above the neck scales about the neck's
@@ -1181,10 +1889,57 @@ crash site. `player.surface` picks the footstep sound.
   (his head sits low between the shoulders) and an arm band fitted under the pauldrons (`armMaxY`)
   with the elbow and wrist further out along the arm (`elbowK`, `wristK`; short forearms, fingers
   curled under), all three new `autorig.mjs` options whose defaults leave the other models unchanged.
+- **Coast City's people** (`characters/People.js`, `tools/build-people.mjs`, 2026-11-18): Microsoft's
+  Rocketbox avatars (MIT; the GLB copy on Hugging Face, `codepawl/rocketbox-avatars-glb`; raw files in
+  `assets/people/`, 28 of them in `PEOPLE`). `build-people` moves each onto **our skeleton**: the Biped is
+  skinned into its bind pose (the figure in centimetres under a turned root), faced +Z and set on the
+  ground, and its 80 joints' weights folded onto ours (Spine1 to spine, clavicles to chest, toes to the
+  foot, the face's bones to the head) with **translation-only bones** like autorig's, so the mocap, the
+  poses and the IK drive them as the scans; kept beyond our 17: fifteen finger joints a hand
+  (`thumb1_L` .. `pinky3_R`) and the eyes (`eye_L`, `eye_R`). Of 175 blendshapes, seven: `jawOpen`,
+  `blinkL/R`, `smileL/R`, `pucker`, `browUp`. Textures: the staff's (Rosie, Dot, Ray) at 1024, passers-by
+  a 768 face and a 512 body (about 6 MB of GPU memory each). `people.json` lists heights. At runtime
+  `loadPeople(ids)` (once each), `createPerson(gltf, { grip, seed })` → `{ rig, update(dt), setGrip(side,
+  name), lookEyes(target), smile, setShape }`: blinks every 2–6 s, the jaw shape from `rig.u.uJaw` (set by
+  `Story.updateMouths` from the voice; the shader jaw is off for them), the eyes turned to a target
+  (capped), the fingers curled about axes found from the rest pose (`GRIPS`: relaxed, hold, fist, open;
+  the thumb folds toward the middle finger). Their hair and lashes are cut-outs with alpha to coverage.
+  `tools/people-test.js` (`stand`, `faces`, `hands`, `enterCoast`, `counter`) is the page helper.
+- **Hal's flight suit** (`characters/FlightSuit.js`, `createPilot(casual)`, Part Five; designed by
+  me at the user's request): a skinned coverall made from the casual scan's own body below the neck
+  (not the hands or head), Taubin-smoothed until the T-shirt's hems and jeans' creases are gone,
+  pushed out by a thickness field (loose sleeves and legs, close cuffs and collar, the anti-g layer
+  thicker), never less than 5 mm off the skin, bound to the same skeleton and weights; the scan
+  under it is discarded in its shader (`coverBase`, `vCover` from the skin weights), and the cuffs and
+  collar are cut clean in the shader. Painted in bind space: sage CWU-27/P with yoke and side seams,
+  a zip, slanted zip pockets, a name tag (HAL JORDAN, Ferris Aircraft, test pilot), Ferris wings, the
+  flag and the Ferris roundel on the shoulders (`patchAtlas`, a canvas), the anti-g trousers over
+  belly, thighs and calves, open at the knees, a parachute harness with Koch fittings and a chest
+  buckle, black laced boots, creases at the joints. The helmet (`rig.helmet`, `wearHelmet(on)`,
+  `helmetVisor(k)`): a dome on the head bone, ear cups, a gold visor; the hair under it is discarded.
+- **Held hands** (`Exile.steadyHand(person, side, offset, { dur, pole })`): a hand raised along an eased
+  path to a spot in the person's own frame (from the rest shoulder), then held still; tied to the
+  root, not the swaying shoulder bone, and short of a straight arm. Katma's ring moments use it: the
+  ring choosing her (she turns first, then holds her hand out; the ring flies to her finger, not her
+  wrist; then she brings it in to look at it), her oath, her first shield.
+- `createKatma(gltf, { uniform, citizen, seed })` (the user's scan): `uniform: false` (Part Five)
+  recolours the Lantern uniform's green to oxblood leather and paints out and flattens the emblem
+  (`KATMA_EMBLEM_Y`); `citizen` makes Korugar's women from her (the regime's grey, other skin and
+  hair). `JAW.katma` (estimated from her profile; `MOUTH_GAIN` 0.32 keeps it small: wide open it shows
+  a grey smear).
+- `createKorugarian(abinGltf, { seed, guard })`: Sinestro's layer on Abin Sur's scan with a seed
+  (skin from rose to crimson, the hairline or bald, face width, no glow in the eyes, a moustache on
+  one in four) and the uniform recoloured by luminance to the regime's grey, matte (`KOR_GARB`); guards
+  black with bronze.
 - `createLightFigure(gltf)`: a scan drawn as the ring's light (Martin at the grave): translucent
   green, fresnel rim, a trace of the scan's shading so the face reads, the dissolve sweep as its
   formation, and a depth-only skinned twin (same geometry and skeleton, patched the same way) so
   only the nearest surface is coloured.
+- **The scan's ring** (`withoutScanRing` in `Characters.js`): Abin Sur's scan has his ring sculpted
+  as a lumpy band across three fingers of the right hand. Sinestro (and so Korugar's people and his
+  statue) gets a copy of the geometry with every non-skin vertex of the fingers folded onto the
+  nearest skin vertex (its normal and UV too) and flagged `aRingless`, which his shader paints the
+  hands' pink; worked out once per scan and shared. Abin Sur keeps his.
 - `createSinestro(abinGltf)`: Sinestro derived from Abin Sur's scan, matched facially to a comic
   reference the user chose. A shader layer over `patchMaterial`, worked in the bind pose's object
   space from the scan's front profile (chin 1.665, mouth 1.72, nose 1.75–1.79, brow ridge 1.83,
@@ -1246,11 +2001,12 @@ run through its own effects chain (`CHARACTERS` in the script):
 | ring | bf_emma | (unchanged) | band-limited, a metallic comb, a short room |
 | hammond | am_adam | 108 Hz | presence, a little room: soft-spoken, precise |
 | atrocitus | bm_george + am_onyx | 72 Hz | formants down, an octave-down layer, growl, saturation, a room: huge, rasping |
+| weaponer | bm_lewis + am_onyx | 82 Hz | formants down, an octave layer, a faint growl, a 2.2 s hall |
 | pilot (radio, `phone` band), tech, tech2 | am_onyx, am_liam, am_fenrir | | Part Three's afternoon and the lake |
 | light, dad, kid, tom, landlord | blends and others | | see the script |
 
 `style: 'phone'` lines (the voicemails) also get a telephone band. Loudness is levelled (speech
-RMS -19 dBFS, peaks under -1 dBFS). All 300 voiced lines are 6.0 MB of MP3.
+RMS -19 dBFS, peaks under -1 dBFS). All 585 voiced lines are 12.4 MB of MP3.
 
 - `npm run voices` renders only what changed (text, voice settings or the pipeline, by hash in
   `build.json`); `ONLY=key1,key2`, `WHO=carol,tom`, `FORCE=1`, `SURVEY=1` (median F0 of every
@@ -1260,6 +2016,12 @@ RMS -19 dBFS, peaks under -1 dBFS). All 300 voiced lines are 6.0 MB of MP3.
 - `public/voices/manifest.json`: `{ version: 1, lines: { key: { who, text, file, dur, end, words:
   [[charIndex, s]...], mouth } } }`; `end` is where the speech stops and a reverb tail begins,
   `mouth` a base64 openness curve (60 frames/s) taken from the speech's envelope.
+- `Voice.murmur(text, who, { gain })`: a clip on a channel of its own (never cancels the dialogue or is
+  cancelled by it), `{ done, stop(), mouth(), gain(v) }`; null when there's no clip or the voices are
+  off (the caller times it).
+- `style: 'whisper'` lines (`build-voices.mjs` `whisperize`) are made breath: LPC (order 18) per 20 ms
+  frame, white noise through each frame's envelope at its loudness, 18% of the voiced sound under it, a
+  high-pass, 7 dB down.
 - `Voice.speak(text, who, onWord)` plays the clip through `audio.master` (so the pause muffle and
   volume apply), fires `onWord` on the word timings, sets `voice.mouth` / `voice.who` for the lip
   sync, and resolves at `end` (the tail rings on under the next line). Skipping fades it out.
@@ -1271,6 +2033,9 @@ RMS -19 dBFS, peaks under -1 dBFS). All 300 voiced lines are 6.0 MB of MP3.
 
 The checks that have worked:
 
+0. **Test silently** when the user asks (they did on 2026-11-12, asleep): `localStorage.gl_mute = '1'`
+   routes the whole mix into a zero gain (`AudioBank.init`), and voices off in the save avoids the
+   browser's speech fallback.
 1. **Run your own dev server on 5180** from Bash, in the background. The user's server is on 5173;
    leave it alone.
 
@@ -1307,6 +2072,10 @@ The checks that have worked:
    - The canvas capture has no HUD (it's DOM): use a pane screenshot for the HUD.
    - `shot(name, 0)` renders the camera from before a `director.cut()` you just made: step at
      least a frame (`shot(name, 1 / 30)`). Captures are 1536×960 (pixel ratio 1.5): crop with that.
+   - **Boss fights:** `tools/fight-bots.js` (`setupDuel()` from `#duel`, `setupSite()` from `#site`,
+     then `run(secs, mode, opts)`: 'hookSpam', 'gunSpam', 'blocker' (`late: true` parries, else it
+     blocks early; `greedy` also hits mid-attack), 'turtle'). It keeps Hal alive and reports damage
+     dealt by stance, damage taken by attack, parries and blocks. The guard is `KeyF` events.
    - `tools/propview.html?src=/path.glb` renders any GLB from six angles with a parts list; put
      candidate downloads in `shots/` (ignored by git) to look at them before they're used.
    - Part Two: `__game.story.travelTo('earth' | 'oa')` from `#range` or `#earth` runs a trip;
@@ -1327,6 +2096,257 @@ The checks that have worked:
    still playing. Every source edit makes Vite reload all tabs, theirs included.
 
 ## Gotchas (learned the hard way)
+
+- **An interaction's action runs with `story.busy` already set** (`updateInteractions` sets it, then
+  calls the action). Free roam's sit, restroom, flat door, sleep and talking to people each began
+  `if (this.busy) return`, so E did nothing at all on them (the user: "I can't press E... I can't even
+  talk anymore"); only the store's bell, which had no guard, worked. Test E by pressing it
+  (`KeyE` events), not by calling the action.
+- **Rapier's character controller gives no movement on some frames on a flat floor box.** On the shops'
+  15 cm floors it was one frame in five (a frame in forty outdoors): the move came back zero with the
+  floor as its only contact, and the "walked into something" damping then slowed his walk to a crawl
+  (the user's "walking is sluggish"). `Player.updateGround` moves again without the press down when the
+  floor alone stopped it (`floorOnly`). None of the controller's settings (nudge, autostep, snap) fixed it.
+- **An interaction placed on a seat behind a table is out of reach.** The booths' prompt was centred on
+  the bench, which Hal's capsule can't get within 0.75 m of past the table's end: no "Sit" ever showed.
+  Seats are reached from their approach. And a prompt with a bigger radius beside small ones steals E
+  (the menu's, among the stools).
+- **Check a room with Hal's capsule, not by eye.** A 3.9 m propane cage stood across Coast Liquor's door,
+  and the shopper browsing mid-aisle left no way past. The test: a grid of capsule overlap queries
+  (`world.intersectionsWithShape` with his capsule, skipping the people) printed as a map, then walking
+  each route with held keys and counting frames that move under half speed.
+
+- **Smash shrinks a box 6% by default** (so loose props don't start touching), and the block's walls,
+  floors and building masses went through it too: the diner's 16 m floor stopped half a metre short of
+  each wall (Hal sank 7 cm when he walked up to one), long wall pieces left gaps at the corners and the
+  door's jambs, the counter came up short. Fixed colliders pass `shrink: 1`. The test that found it: a
+  ray straight down at a row of points across the room.
+- **A walk-in room's linings must stop at its windows.** Lined over, the side windows were a white wall
+  from inside, and the dado lay on the window's kick plate and fought it: "a lot of flickering in the
+  floor". Two frames with nothing moved, diffed, showed it as a red band (1.75% of pixels; 0.03% after).
+  And a dado offset worked out with `max(n, 0)` only goes out for walls facing +x or +z: on the right
+  wall (facing -x) it lay flat on the face and flickered on the corner pier by the door (the user's
+  "this one corner keeps flickering"); the chrome rail on it also crossed that wall's windows. Measure
+  trim from the face the normal points out of (`shell`'s `out`), and diff a view of every wall.
+- **A downloaded booth's table top is where it is.** Plates were set 12 cm above it and half off its edge
+  (the table is 64.5 cm up and 66 cm across, not a guess's 76): measure a prop's parts' bounds before
+  setting things on it. Its table and vinyl were metal, too, and the sun through the window mirrored off
+  them into a white blaze.
+- **`find(o => o.p === p.partner)` with no partner finds anything without a `p`.** A customer eating
+  alone, done, looked for their partner, found Hal's record (it has no person), and ended his order.
+- **A walker turned customer has no `home`**: setting it threw inside an async step that nobody caught,
+  and the customer stood frozen at the stool. Catch a fire-and-forget async (`.catch(console.warn)`).
+- **Timing a line by `requestAnimationFrame` stalls in a hidden test tab** (it draws once a second); a
+  line with no clip is timed in game time (`silent`), so stepping the engine moves it.
+- **A new key in the voices' hash re-renders every line** (`WHISPER: null` added to every line's hash:
+  816 clips, ten minutes); the output was byte-identical, so only new files showed in git.
+- **One frame after a long camera cut, the distance culling hasn't caught up** (the booth was missing in
+  a capture): step a few frames after a cut before reading a capture.
+
+- **A downloaded rig's bones aren't world-aligned.** The mocap retarget composes world deltas as local
+  rotations and the parameter poses set Euler angles directly: both assume every bone rests at the
+  identity, as autorig writes. A Biped (Rocketbox) rests at its own orientations, so it's re-skinned onto
+  translation-only bones at build time (`build-people.mjs`), not mapped by name at runtime.
+- **A Smash item's pose is its body's.** Turning a placed prop in the page (the bus shelter) does
+  nothing: the body sets it back each frame. Change it where it's placed and reload. The shelter stood
+  across the pavement for a day (its long axis is the model's z); look at street furniture from above.
+- **A pedestrian moved off-screen must be put there, not steered there.** Setting a walker's place on
+  the loop and letting the easing follow slid him nineteen metres across the lot; the hop snaps the
+  position and the heading.
+
+- **A seated pose needs the player's auto-animation off.** With `player.autoAnim` on, the player's own
+  update plays the walk every frame: Hal "sat" standing with the stool through his legs.
+- **The block's things are in its frame, the story's in the world's.** The doors and seats were made
+  in the block's coordinates (LOT is 6 km off) and compared with Hal's world position: nothing opened.
+  Spots go to world space when built; the doors compare Hal's position less the block's.
+
+- **Switching a car's parts on and off brings back what Smash hid.** A shattered pane is a hidden part;
+  the distance culling showed the parts again when the camera came back. The parts go under one group
+  (`detail`) that's switched as a whole, and the merged copy is made from what's showing.
+- **Transparent things at zero opacity still cost a draw call.** The night's pools and halos were drawn
+  all day at opacity 0: their group is off by day.
+
+- **A mesh-name pattern can match the material's name too.** GLTFLoader names meshes after node and
+  material (`Cube_Material001_0`): hiding the power line's second pole by /001|003/ hid its wires and
+  crossarms. Anchor patterns on the node name (`/^(Cylinder001|Cube00[345])_/`).
+- **Poly Haven's plaster diffuse is a mid grey**: multiplied by a building's paint it came out a shade of
+  mud. The stucco material's colour is lifted (1.38).
+- **The interior shader needs a horizontal normal.** Glass made of thin boxes gave their top and bottom
+  faces a zero tangent (NaN pixels, smeared by the bloom): panes are planes, and the shader falls back.
+- **Part Three's town drive was on the wrong side of the road** (heading south at x 4.1, the west half);
+  traffic keeps right, so southbound is the east half (x 6..10). It's at x 7.9 now; anything new that
+  drives or parks on the boulevard follows that.
+
+- **A part's end card that starts the next part must finish this one's save.** Part One's card
+  sits inside its last step (`powers`) and its "Part Two" button reloaded into Part Two before `free`
+  was saved; the title's Continue read Part One's store only, so after six parts it still offered
+  "The ring's power" (the user: "the home screen shows me that I'm stuck at the ring's power
+  chapter"). The card saves `free` now, the title moves such old saves on, and Continue is the latest
+  checkpoint in any part.
+
+- **A scanned bow can be a sheet.** Tripo filled the space between the archer's bow and its string:
+  lying flat across him at eye level it read as a thin bow, and raised to the vertical it was a wall.
+  A cut by bind boxes or by distance missed what was weighted to his hips; the bow's own texture cells
+  (the atlas cells its hand-bound vertices use) found the rest. Look at a held weapon turned, not
+  only in the pose it was scanned in.
+- **`autoRig`'s arm depth is the middle of the column at that x and y**, and where the column runs
+  through the body (the archer's bow hand in front of his hips) it lands inside him: his wrist was
+  20 cm behind his hand. Give `arms` a z where the column holds more than the arm.
+- **Entering a scene isn't putting Hal in it.** `enterCrash()` shows the lake and binds the powers but
+  never spawned the player: free roam's lake showed on screen with Hal still in the valley's physics
+  world, and nothing worked (the user: "I can't use it"). Spawn him in every place you enter.
+- **The lantern's E interactions are per scene.** Free roam registered them only at the lake, so a
+  lantern set down at Ferris or on Korugar had no "Recharge" (the user: "I can't really recharge my
+  lantern"). `lanternSpots(scene)` in every place.
+- **Locking a Rapier body's translation axis stopped its friction.** The statue, its sideways
+  translation locked, slid along the plaza at 7 m/s for ever; lock only rotations. And a body
+  balanced for a moment fell asleep across the pedestal: `setCanSleep(false)` for a scripted fall.
+- **A rigid statue on a tall plinth comes to rest leaning on it** (legs on the cap, head on the plaza):
+  as it tips about its toes, the cap holds its legs. Pulled down by chains it's dragged forward off
+  the plinth; the simulation gives it that pull as the ankles go.
+- **A two-bone arm held near full reach shakes.** Katma's offered hand was 0.49 m from her shoulder
+  on a 0.52 m arm and followed her idle's swaying shoulder: the elbow swung. Hold hands short of a
+  straight arm, in the body's frame (`steadyHand`); and the idle clip itself trembles (`smoothArms`).
+
+- **The breach's flash outlives the chapter.** Qward ends by tweening `uFlash` to 1; played on into
+  `yellow` (no voyage, whose arrival fades it), every frame came out white. A chapter entered from a
+  flash fades it itself. (See "Nothing fades the grade's uFlash" below.)
+- **A camera inside a translucent construct tints the whole frame.** Katma's dome over the people stood
+  inside the fight's ground; the follow camera went into it and everything turned green. Keep big
+  constructs out of where the player goes.
+- **A sprite's quad is as big as its scale.** The forge's glow sprite (11 m) whited out a close shot
+  placed 4 m from it; and from 95 m the Central Battery's lens filled the frame and the bloom clipped it
+  to white (the sting is shot from 330 m with the exposure turned down while it's on screen).
+- **`Color.multiplyScalar` works in linear terms.** 0.42 darkened the statue's stone to about 0.67 of its
+  sRGB look; 0.2 gives about 0.45.
+- **`Material.clone()` doesn't carry `onBeforeCompile`.** The forge's rougher copy of the glass lost its
+  veins until the patch and its cache key were assigned to it.
+- **Spawn enemies relative to the player, not the arena.** The first Thunderers came through on top of
+  Hal (fixed spots, and Hal had walked to one); they come in round him now, 10 to 16 m out, ahead of him,
+  and clear of the pedestal and the fallen statue.
+- **A sheet of figures may not split by position.** The Thunderers' wings and bow overlap the next
+  figure in z: pick each by its connected mesh (`figure`).
+
+- **Hard-edged procedural windows crawl when the camera moves**, and on a curved face (a column) they
+  are noise: the user's "a lot of flickering in Sinestro's speech scene". Anti-alias their edges with
+  `fwidth` and fade a pattern smaller than a few pixels to its average (`stoneMaterial`). The test is
+  the frame diff with the camera moved 3 cm (`director.pos` and `look`, not `camera.position`, which
+  the director overwrites); the columns lit up solid red.
+- **A swaying banner hung 5 to 20 cm off a wall cuts in and out of it** (its sway is up to 33 cm).
+  Hang wall banners still (`wallBannerMat`).
+- **A ring sculpted into a scan can't be cut out**: under the band there is no finger, and dropping
+  its triangles opened holes through the hand. Fold the band's vertices onto the nearest skin and
+  paint them skin in the shader (`withoutScanRing`). GLTFLoader's ImageBitmaps read straight with the
+  glTF's UVs (row = v × height): plot the UVs onto the texture before trusting a texel lookup.
+- **A scripted flight between two points must clear what's between them.** Sinestro's straight line
+  from the balcony to the forecourt went through the rail and the balcony's slab ("he does not cleanly
+  come down"); a cubic through points over the rail's top fixed it.
+- **In page tests, `#screen button` also finds the last card's buttons** (the card's HTML stays when
+  it hides): click `#screen.show button`.
+
+- **A green ball on a character's chest can be the environment map.** Sinestro's suit is metal and
+  mirror-smooth; in close shots on Korugar a bright patch of the environment map lay in it and the
+  bloom made a glowing ball of it. Turning off his ring light, the braziers, the wash light, the sun
+  and his glow changed nothing. `material.envMapIntensity` does nothing for `scene.environment` (use
+  `scene.environmentIntensity` to test); hiding the body, then zeroing metalness, finds it. The fix
+  is a roughness floor. **Probe in the same call that reaches the moment, with `engine.paused`:**
+  the test tab runs on between calls, and three probes in a row measured a different shot.
+- **A hall seen through an opening needs the opening cut.** The palace's portal hall (a box seen
+  from inside) sat behind the first tier's solid front and never showed: the portal read as a black
+  slab. Build the wall round the hole.
+- **The towers' stone paints lit windows on anything.** Small trim under the balcony (the corbels)
+  in `stoneMaterial` came out as glowing white blocks. Use a plain material for trim.
+- **The `cones` prop is a roadworks kit** (barriers, lamps, cones): placed indoors it walled off a
+  close-up.
+- **Cameras placed by offset from a spot can land inside a crowd.** The palace's first cut was inside
+  a man's head; keep cameras to the lane (|x| < 2.7 on the forecourt).
+
+- **A scripted walk only runs on the ground.** `walkTo` is steered in `updateGround`; started while
+  Hal was flying (the player usually is by a fight's end), it never ran and never resolved: after
+  Korugar's raid Hal hovered over the courtyard for ever (the user: "he just keeps levitating").
+  `walkTo` now drops him out of flight first, and before a walk or a talk that follows a fight or a
+  flight, a chapter calls `Story.touchDown()` (holster, drop, wait for the landing). Test the end
+  of every fight with Hal in the air.
+- **A goal zone must be where the player sees the goal.** The commute's "parked" test was centred on
+  `CAR_SPOT` (where Part Three's scripted drive leaves the car, 3 m out of the bay's mouth), not on
+  the painted space: a car parked between the lines, level with the others, was outside it, and the
+  chapter waited for ever (the user: "can't get out of car after I park it in my spot"). The
+  scripted test had parked on `CAR_SPOT` and passed. Test the zone by doing what a player does
+  (drive in between the lines and brake), and say on screen why a near miss doesn't count.
+- **Rapier's wheel brake is an impulse per step, not a force.** `setWheelBrake(i, 34)` let a wheel
+  lose at most 34 N·s a step: a fixed number braked twice as hard at 60 fps as at 30 (at 30 fps, 7 m
+  to stop from walking pace). Pass force × dt (`Drive.step`). Its engine force is already a force.
+- **A story field can't share a name with a chapter method, again.** Part Five's flight-suit rig was
+  `this.pilot`, and `pilot()` is Part Four's first chapter (inherited): `this.pilot ??= createPilot()`
+  kept the method and `player.setRig(function)` threw. It's `this.pilotRig`.
+- **A seated pose outlives the seat.** After the cockpit, Hal stood up on the apron still in the
+  seated pose (every shot of the pickup aimed low at a man sitting on concrete). Leaving a seat
+  calls `standDown()`.
+- **The jet's aim vector shared a scratch vector with its rotation axis.** `loc` (the aim in the
+  jet's frame) lived in `_t`, and integrating the rotation copied the angular velocity into `_t`:
+  the nose-wheel steering then read the spin axis and ran the jet 220 m off the runway. Its own
+  vector (`_ax`).
+- **Mouse aim points the nose; on approach the nose isn't where it's going.** Slow, the nose rides
+  10° above the flight path, so aiming it at the runway dived the jet in. With the gear down the aim
+  steers the flight path.
+- **From altitude, layered ground planes z-fight even when tiled.** The far relief, the near desert
+  and a city paving plane overlapped; with a small cockpit near plane they flickered. The relief is
+  cut out under the near desert, the sea and desert discard each other along `coastX`, and the city's
+  paving is painted in the desert's own shader, not a layer.
+- **A driven car's chassis was found disabled** (`isEnabled()` false, the car never moved) after
+  getting in, cause not found (nothing in our code disables bodies); `Drive.step` re-enables it.
+- **A shell made from the scan frays at its rim.** The coverall's edge follows the scan's triangles;
+  snapping the rim vertices to a line folded the triangles behind them. Cut the cuffs and collar in
+  the shader (`discard` past a plane) and let the skin under them overlap.
+- **The bedroom clock always said PM** (`ClockFace.set(text, pm = true)`), mornings included; `setClock`
+  now defaults to AM in the morning variant.
+- **A crowd of pills.** Capsules with spheres for heads read as a crowd from 40 m and as toys up close,
+  and close-ups have the crowd behind the speakers. Bake a low-poly scan in a pose and instance it.
+
+- **A loaded model's vertex positions may be interleaved.** The first car dents threw spikes across
+  the car: the denting read `position.array` as x, y, z triples, but the GLB's positions share one
+  buffer with normals and UVs. Read with `getX/getY/getZ` and give the part its own plain
+  `BufferAttribute` before moving vertices (`Smash.dent`).
+- **A prop's bounding box can reach far past it.** office6 is 66 × 57 m: in either of the site's side
+  slots it stood out over the street (a parked car loaded inside it and was shoved out) and into
+  office5. Buildings and other non-box things get triangle colliders (`smash.solid(o, { mesh: true })`),
+  and a prop knocked or shoved at load means it starts overlapping something: test for that.
+- **A contact's other body's origin isn't where they touched.** Collision dents first landed at the
+  car's bottom corner: the box point nearest the ground's origin. Take the solver's contact point
+  (`world.contactPair`, `solverContactPoint`).
+- **A nearness test for "the fist met a wall" finds the floor.** A low hook on Oa's deck (a hull
+  prism, not a heightfield) or over a pavement stopped the instant it started. Walls are found along
+  the fist's path, level, above the ground (`hitWall`).
+- **Adding or removing a light mid-fight recompiles every material** (a visible hitch): a burning car's
+  `Fire` has its point light taken off, and a snapped lamp's light is left in the scene at 0.
+- **A prop placed in a group has its pose in the group's frame**; a body made from it lands in the
+  wrong place. `Smash.add` attaches the object to the scene first.
+
+- **`v.copy(p).y += 1.2` is a number, not a vector.** Atrocitus's charge took `const from =
+  _b.copy(me).y += 1.2` as its ray origin: the ray was garbage, so no wall or shield ever stopped
+  him (the bots found it: the shield "blocked" the damage and he ran straight through). Write
+  `_b.set(me.x, me.y + 1.2, me.z)`, and check any `.y +=` used as a value.
+- **Nothing fades the grade's `uFlash`.** The story tweens it back itself; the parry's flash left
+  once and stayed, and every frame after came out washed green. Fade what you set (`parryFlash`).
+
+- **A target's `hit` wrapper must pass every argument on.** Sinestro's and Atrocitus's `tg.hit` were
+  `(a, p, d) => this.hit(a, p, d)`: the new `kind` never arrived, so a hook into a guard counted as
+  a plain blow (blocked, no guard break) and Sinestro's spikes never turned Atrocitus. Both pass
+  `(a, p, d, k)` now; Hammond's and the drones' ignore `kind`.
+- **A boss's "guard when shot at" must not fire over its own answer.** Atrocitus covered whenever
+  he wasn't `open()`; his armoured answer isn't open, so the next frame's cover replaced it and he
+  never punished anyone. Cover is triggered when he isn't `committed()`.
+- **If the gun alone can break an attack, a player who fires at every tell never gets hit.** A
+  scripted "fire only in his openings" bot did 945 damage in 20 s and took none: every attack was
+  interrupted before it landed. Poise needs more than the gun does in a tell (it takes a hook as
+  well), and the rush or dash itself isn't an opening. Test a fight with bots: hold the gun down,
+  fire only in openings, spam hooks with the real charge, and look at damage dealt and taken.
+- **A scripted spot inside an NPC's walk-round radius can't be reached.** Atrocitus was walked to
+  2.1 m from his machine, whose block pushed him out to 2.55 m: he walked on the spot into it until
+  the 12 s timeout. Shrink the block for the scripted moment, and give scripted walks a no-progress
+  stop (`atroWalk`). His gait now follows his real movement, not his wanted velocity.
+- **A stagger on every hit is a stun-lock.** Hooks every 0.8 s held Sinestro in stagger the whole
+  fight (he could never dodge). After a stagger, a short immunity (`steady`), as action games do.
 
 - **A chapter method can't share a name with a story field.** Part Four's third step was `site()`,
   and `Story.site` is the lake scene: `setupCrash` read `this.site`, got the method, and the next
@@ -1546,6 +2566,173 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-18, the diner and the store made playable) on 5180, muted, voices off, fixed-step with held
+  keys from `#world`: walking in and out of both doors and round both rooms by waypoints, every frame at
+  full speed (the floor's stalls all caught by the retry); capsule maps of both rooms (the store's door
+  clear, every aisle wider than Hal, the diner's kitchen closed to him, the gate solid); E pressed (not
+  called) on a booth, a stool, the restroom (changed), his flat's door both ways, the store's bell, a
+  passer-by and Rosie (her three-line exchange); the whole order from sitting to eating at a booth, a
+  stool and a side booth; Rosie stopping a metre short of Hal in her way, "Pardon me, sir.", and walking
+  on when he stepped aside; the gate shut and swung open for her (captures); no console errors; a clean
+  build; the 11 new lines rendered (not heard).
+
+- (2026-11-18, the diner at work, whispers, his secret) on 5180, muted, voices off, fixed-step and
+  scripted keys from `#world`: walking in through Rosie's door and out (no trench, no sinking, the door
+  out from the room, in from the street), along the front wall and into the corner, into the counter
+  (it stops him); the floor at 0.15 to the walls (rays), the flicker band gone (frame diff 0.03%);
+  Rosie's day over three minutes (an order taken with her pad, the ticket up, Dot cooking and the bell,
+  plates served, tables cleared to the back bar, customers leaving through the door and walking off,
+  walkers turning in and sitting); Hal in a booth: Rosie comes, asks, the menu (key 2), his line, hers,
+  the patty melt and pie brought, carried at the waist, set down, him eating; the NPCs eating (fork to
+  mouth); the meals on the tables in close-up; talking to Rosie (her line, his, hers); overheard talk and
+  whispers on screen (pane screenshot: the overheard line in italics, "SEEN · 2 PEOPLE"); T refused in
+  view of four people (his thought, the toast), allowed in the alley; the restroom change; no console
+  errors; a clean build; 66 new lines rendered (whispers checked by spectrogram, none heard).
+
+- (2026-11-18, the block's people) on 5180, muted, fixed-step captures and scripted input from `#world`:
+  the 28 people built and in close-up (faces front, three-quarter and profile; the whole figure; the
+  jaw shape open, the smile, the eyes on the camera; the hands relaxed, holding, a fist); walking on the
+  mocap; the street by day (walkers both ways, the bus stop, the friends at Sunny's, the man on his
+  phone in close-up, the phone along his cheek); the diner (Rosie, Dot through the pass, the couple,
+  the man at the counter, the one by the window); the store (Ray, the shopper); sitting at the counter:
+  Rosie carrying the mug, leaning over, setting it in front of him; talking to a walker from the game
+  camera (he stops, turns, his line); a hook cast near the bus stop (they run, crouch, walk back);
+  flying over (the mother and kids look up, the kids point); night (10 out, 22 by day); draw calls and
+  the update's cost; no console errors; a clean build; the 64 new lines rendered (none heard).
+
+- (2026-11-18, Hal's block) on 5180, muted, fixed-step captures from `#world`: the block by day and by
+  night from the street, close to each front (Bayview, the liquor store and its vending machine,
+  newspaper box and meter, the barber, the bank, the hotel and the bus stop, the records shop, the mural
+  from the lot), from a roof and down the west alley; no console errors; Part Three's town shot with the
+  Phoenix on its new lane (clear of the parked cars); a clean build.
+
+- (2026-11-17, free roam, the Thunderers, the statue, Katma's hand) on 5180, muted, voices off,
+  fixed-step, synthetic input: free roam from `#world`: T to Hal and back (the dissolve, the ring hand
+  up); the car: the key formed on his palm, into the lock and turned, getting in from where it stood,
+  driven (reverse, steering, braking into a parked car), E stopped, getting out (the front wheel
+  straightened since); the key failing on an empty ring; T refused without charge; M from Hal's clothes
+  to Korugar (the suit first, the voyage, arriving in control); E flying at 125 m over the valley: the
+  star chart with all five worlds (the airspace on above 95 m), Oa by the voyage, Oa to Qward by the
+  breach, Qward's circle (a wave called and beaten), M to Ysmault (Atrocitus talking), M to the lake
+  (Hal in it, walking and flying), M to Ferris, L and E there from 10% (the whole oath, to 100%); Oa's
+  Guardians in close-up and Kilowog's round (five drones, the drill ending). The Thunderers in daylight
+  at Ferris: the winged one's beat, shriek and dive; the brute's flail hanging, whirled flat and flung;
+  the archer low, then side-on with the built bow vertical and drawn, the arrow nocked (the scan's sheet
+  gone). Katma's ring in the trial: her hand's frame-to-frame jitter measured (0 while held; the idle's
+  0.26 mm mean, was 1.4); the hand turned to, raised and held, the ring to the finger, the look at it.
+  The statue standing (his hands clasped behind him) and its fall in `firstnight` played through
+  (tipping, the crack, off the plinth, the head broken off and rolling, the impact, the rubble), and
+  free roam's fallen statue (the same layout); the broken ends' plugs. No console errors; a clean build;
+  `npm run voices` rendered the 30 new lines (614 in all).
+
+- (2026-11-17, the rest of Part Six) on 5180, muted, voices off, fixed-step, scripted input: played on
+  from `tribunal` into `firstnight` (no end card between); `firstnight` from its hash: the opening down
+  the old quarter's street, Katma's oath (her hand held out), the shield flickering and holding, the
+  chant, the pull (the chains, the tilt, the fall from the side, the rubble), the rift, both waves
+  (the new spawns ahead of Hal, the brute's tell and swing in close-up, the bolts), the talk, into the
+  breach and on into `qward`; Qward (the plain, the cracks after three passes, the pillars, the sky and
+  dead sun, the ambush's seven, the forge, the Weaponers in close-up, the ring, the yellow sweep, Hal's
+  line, the fist, the rise, the breach) and on into `yellow`; `yellow` from its hash: Sinestro in gold at
+  night, Katma struck down, Hal's arrival, the fight, the fear jet (formed in view, the ring on the
+  ground, the dive), the cage and the question (No: asked again; Yes: the cage breaks), the yield in the
+  open, the rift, Katma, the sting (the shadow and the eyes in the Battery), the end card; free roam's
+  Korugar by day with the statue down. `npm run voices` rendered every line (585); a clean build.
+  Damage dealt to the Thunderers and Sinestro by script, not by a person playing.
+
+- (2026-11-17, the user's Part Six notes, Korugar, free roam) on 5180, muted, voices off,
+  fixed-step, synthetic input: the palace's opening shot with a 3 cm camera shift (only edges change;
+  the columns lit up solid before), Sinestro rising over the rail and down, the green ball gone from
+  his chest; the short voyage's course lock framed on Hal; Katma beside Hal through the Korugar → Oa
+  voyage (not captured in hyperspace); Sinestro's right hand in close-up without the scan's ring (faint
+  creases left in extreme close-up); Katma's hand held out for the ring. Korugar's screens, tickers,
+  neon and traffic from the plaza, the avenue, the market and above; in `#patrol` the street life (9
+  people), talking to one (her line, then the mutter decoded). Free roam from `#world` and played on
+  from the trial's card: the menu to Korugar, Ferris, the lake and Coast City in turn (each arrives in
+  control), Katma talking on Korugar, Carol's Part Seven card. `npm run voices` rendered the 24 new
+  lines; a clean `vite build`.
+
+- (2026-11-16, Part Six's first three beats) on 5180, muted, voices off, fixed-step, synthetic input:
+  `dawn` from its hash (the flight in, the landing, the suit off, Carol's whole scene in captures, the
+  ring's call, the cut to the apron, the suit-up in front of her) and played on by real flight (double
+  tap, held Space) into `palace`; `palace` from its hash (the avenue and forecourt from the air, the
+  landing, every line's shot, the portal and balcony, Katma out of the crowd, Sinestro coming down,
+  the bubble, the take-off) and played on into `tribunal`; `tribunal` (every line's shot, the ring
+  taken, the rift and Sinestro drawn into it, the ring to Katma and her uniform, the end card). The
+  build is clean; `npm run voices` rendered the 68 new and changed lines (none listened to).
+
+- (2026-11-12, landing after Korugar's fights) on 5180, muted, voices off, fixed-step with Hal put in
+  the air by script: the raid ended with him flying 12 m over the courtyard (he drops, lands, walks
+  to Katma, and the chapter plays on through her lines into `report` and its confrontation), and 45 m
+  away over the roofs at 22 m (a fade, and he's beside her for her line); flying into the courtyard
+  after her (dropped, walked to his spot, her challenge); the staff drill ended at 10 m (down before
+  Sinestro's line, on into the market). No console errors; a clean `vite build`.
+
+- (2026-11-12, parking and brakes) on 5180, muted, with synthetic keys at 60 Hz steps: down the
+  staff lot's aisle, a right turn in, braked between the lines (stopped at 36.1, 51.4, level with the
+  neighbours): taken in 1 s, and Hal got out in full (captures: the door, the turn, out, the door
+  shut) into `advance`; stopped short in the aisle, and in the next bay over, it isn't taken and the
+  objective says "Park between the lines of your space". Braking from 20 m/s: 0.86 g at 30 Hz, 0.89 at
+  60, 0.90 at 120. No console errors; a clean `vite build`.
+
+- (2026-11-12, Part Five) on 5180, fixed-step, **muted** (`gl_mute`) and voices off, synthetic input
+  and scripted controls: every checkpoint from its hash, and played on chapter to chapter from
+  `commute` through `advance`, `testflight`, `pickup` into `korugar`, and from `patrol` through
+  `rebels` and `report` to the end card. Katma's rig (bones, weights: face and jaw on the head) and in
+  close-up; the flight suit in close-up (front, three-quarter, back, chest, legs, cuffs, collar,
+  walking); Korugarians and guards. The rent's shots and its interactions; getting in, the car
+  driven (reverse, steering, the chase and first-person views with his hands on the turning wheel),
+  the boulevard to the desert road, the gate, parking in the bay and getting out; Carol's advance; the
+  walk-out, the seat, the chase and cockpit views with the HUD (pane screenshot), the whole test card
+  (take-off at 150 kt, 12,000 ft, the 9 g turn, Mach 1.2 in 23 s, the low pass, a touchdown at 4.2 m/s
+  that rolled straight and braked to a stop) into the pickup; the pickup's shots (Sinestro landing,
+  the suit-up in front of Carol, her hand on his chest); the voyage to Korugar, the plaza (statue,
+  banners, the baked crowd cheering), the staff on four drones, the market's four talkers and their
+  mutters, the arrest; the courtyard, Katma's lines facing Hal, the cells (open, lit, prisoners), the
+  raid's two waves, the confrontation, the jump to Oa and the Guardians to the end card. `npm run
+  voices` rendered all 119 new lines (none listened to). A clean `vite build`.
+
+- (2026-11-11, everything touchable) on 5180, fixed-step, voices off, synthetic input. The site:
+  92 props registered, none shoved at load (after moving office6 out and a floodlight off the spoil
+  heap); a hook dents a car (14 cm on the door, no shards), breaks its panes, sets off the alarm and
+  hazard lights and shoves it 3–4 m; four hooks set one burning and it goes up 4.6 s later (fireball,
+  flipped, charred, burning wreck); a flung car snapped a lamp post and tore fence panels off; a lamp
+  hooked snaps and its light goes out; Atrocitus charging tears a panel off and goes through; Hal
+  walks across a pavement, down the kerb and stops at a car's side (it gives 7 cm); the hook stops
+  against the excavator (aimed high and low) and swings through open air; a hydrant hooked flies 24 m
+  and the water goes up (soft spray, its own particles); the boss bots unchanged
+  (parry 282 in 20 s, spam 57). Ferris: 30 props, Hal still walks out of his building into his car,
+  the fuel truck shot with the gatling burns in 3.5 s and goes up. Oa: a crate hooked flies 13 m (6.5
+  m aimed at the floor). Played from `#ysmault` through the voyage to Oa and the hall: the ring's
+  lines follow the route, the HUD reads Sector 2814 → Sector 666, and Hal stands in the hall with his
+  arms down. No console errors; a clean `vite build`.
+
+- (2026-11-11, block then strike) on 5180, fixed-step, voices off, synthetic input, with scripted
+  bots (`tools/fight-bots.js`, numbers under *Sinestro* and *Atrocitus*): hook spam, gun spam, parrying,
+  blocking early, greedy blocking and the shield held throughout, against both. The guard on F and
+  on the right button (it puts the gun away, drops on release, a click behind it hooks at once and
+  it stays down until the button comes up). Captures: Sinestro's tell, the guard up, the parry's
+  flash, him knocked open, a hook into him; the HUD (PARRY, the gold OPEN bracket, the new tutorial
+  and key hints); Atrocitus's charge parried, him reeling (arms wide, stepping back), the hook; a
+  beam held, parried, flying back and hitting him. The 0.53–0.63 s from Sinestro's dash to his blade
+  landing. No console errors; a clean `vite build`.
+
+- (2026-11-11, hooks and smarter bosses) on 5180, fixed-step, voices off, synthetic input and
+  scripted bots (Hal's health held up so a run could finish; real charge where it says so):
+  - Sinestro, 15–20 s runs: the gatling held down did 0 damage and took 84 (lethal); firing only in
+    his openings did 184 and took 92; hooks every 0.8 s on the real charge did 274 of the 338 the
+    fight needs before the ring ran dry, with dodges, and took 83; a hook into his guard broke it
+    (0.84 s stagger).
+  - Atrocitus: the gatling held down did 53 (shots at his back as his charges went past) and his
+    answers came; firing in openings did 206 and took 31; hook spam did 273 and took 47, and he
+    braced; a hook into his cover knocked it open; a spike from his side turned him 90° and the gun
+    got through from Hal's side.
+  - The hook from the game camera (the right sweeping in, the left after it, the arc line and
+    ghost) and Hal's arm from the side and behind (cocked, elbow up, across); 42 and 56 damage, 13%
+    each; the Part One plate knocked 4.9 m (the step passes).
+  - Atrocitus at his machine: the intro (his hand on a spike), his walk round it (no walking on the
+    spot), the drain (both hands on the spike, the new close-up clear of the spikes), on to "Call
+    the lantern". His cover pose in close-up. A clean `vite build`.
+
 - (2026-11-11, the suit in Part Four) on 5180, fixed-step, voices off, synthetic input: played on
   from `pilot` (Carol's scene run through) into `cell` (Hal in the suit, the HUD up with health and
   charge, constructs on), the three clues found, on into `site` (suited, HUD, Atrocitus's bar); a
@@ -1699,6 +2886,90 @@ Verified by playing in the browser:
 
 Not verified:
 
+- The shops by hand at the real frame rate (every walk since the fixes was stepped by script with held
+  keys); someone standing still in Hal's way (seated, or holding at a spot) doesn't step aside: he walks
+  round them; the counter's gate seen with Rosie through it at full speed.
+- The diner by hand with sound: the whispers and the murmured lines heard (only their spectrograms and
+  levels), the gain falling off as he walks away, Rosie's service at real speed for long (minutes, not
+  an hour), crowding (two people routed through one spot pass through each other: they aren't steered
+  round each other), the order menu with a real mouse, Hal eating with the camera behind him, a
+  customer and Rosie at the same table at once; who-sees-him through the diner's glass (the front wall
+  is one solid behind its windows, so people inside don't see the pavement through them).
+
+- The block's people by hand and with sound: the lines heard, walkers stepping round Hal and Hal
+  walking into them (code path only), several people answering at once, Ray's bell by hand, the hop at
+  the lot with the real follow camera, walkers at the crosswalk's kerbs seen close, frame rate with
+  everyone out and the diner lit at night; the people not yet shown to the user.
+
+- The distance culling played by hand: popping at the tiers' edges at full speed (seen only in captures
+  at fixed spots), a car's merged copy after a dent.
+- The interiors by hand: walking in and out through the doors with the real camera, sitting at the real
+  pace, the jukebox's tune and the door bells heard, Coast Liquor's door used (only Rosie's walked
+  through), Hal flying indoors (constructs and flight are off in the flat only).
+- Hal's block played by hand: walking and driving into everything (the pavements, kerbs, parked cars, the
+  props knocked off walls and roofs), standing on its roofs, frame rate (about 470k triangles with the
+  parked cars and palms; 20 cars), the other story chapters that pass through it (Part Five's commute,
+  driven; the airspace from above), the night preset outside free roam (nothing calls it yet).
+
+- Free roam by hand with a real mouse and keys and sound: driving the six kilometres from the field to
+  the city (the road the whole way, the far plane, the boulevard's props driven into), the car's
+  interaction after a drive into the city, getting in with something parked close to its door, flying
+  into the standing statue (its triangles are solid now), the Qward arena past a few waves (balance),
+  the star chart's virtual cursor from flight; the Guardians' and Atrocitus's free-roam lines heard;
+  the oath recharge at its real pace; frame rate with every world's scene cached at once (Ferris, the
+  lake, Oa with seven Guardians, Korugar, Ysmault, Qward). The archer's aim at every angle (seen from
+  four), the winged one's wing roots from below, the flail's chain in a long fight; the statue's fall
+  from the chapter's own camera at full frame rate (seen in fixed steps at night, dark), the head's
+  roll into Hal or Katma.
+
+- The rest of Part Six with a real mouse and keys and sound: the pull's feel (hold to pull), the
+  Thunderers' balance (two waves on Korugar, seven on Qward), the Yellow fight's balance (680 health,
+  the fear jet's 70 m/s dive: is the tell enough?), the cage's choice by click; every new line heard
+  (rendered, none listened to); frame rate at night on Korugar and on Qward (16 buttes, 22 floating
+  rocks, 1,600 ash points); the Thunderers' rigs in close-up beyond the brute's swing (the archer and
+  the winged one move as a whole; the woman's long hair is on the head and chest bones); the Weaponers
+  and the yellow uniform shown to the user.
+
+- Free roam by hand: flying the six kilometres from the field to the city (bounds, the far plane,
+  the city's collision on landing), the lake reached from the valley, frame rate on Korugar with
+  ~100 screens redrawn and 15 walkers, people reacting to a construct (`scare`) and to flying low
+  (code paths only), walking into a walker; the screens in the Part Five and Six chapters' own shots
+  (seen only in my test shots); the Korugarian street lines heard.
+
+- Part Six with real input and sound: the flights by hand, the voices' pace (all lines were timed on
+  the fallback); Hangar Two's and the palace's new dressing at full frame rate; the forecourt's
+  crowd (about 470 instanced, 12 full figures, 4 guards) for frame rate; Sinestro's rougher suit in
+  Parts Two to Five (only seen on Korugar and in the hall); the hall's rougher floor and dais from
+  the range.
+
+- Part Five with a real mouse and keys at full frame rate: the car's feel (grip, steering, the
+  handbrake), the jet's mouse aim by hand (every flight was scripted through `jet.aim` and the keys),
+  how hard the landing is for a person, the g grey-out's strength, the cockpit at altitude for
+  distant flicker (near 0.3), frame rate over the airspace (the 160 km relief, ~1,700 city blocks) and
+  in the plaza (16 full figures, ~1,600 instanced, Sinestro, the statue); the car hitting the
+  boulevard's lamps and parked cars (colliders built, never driven into); Korugarian lines heard; the
+  staff's sweeps seen close; the vapour cone at Mach 1; Katma's jaw at speaking openings (only held
+  wide open); the jet crash's card in play (code path shared with the restart).
+
+- The props at full frame rate with a real mouse: frame rate with several cars burning, smoke and the
+  glass bits; the dents by eye in every car model (one checked closely); the bus shelter's glass; the
+  floodlight towers knocked over (their spots then light the ground). Ferris's staff-lot cars and
+  Hector's slabs hitting them; the Part Three drive played through to the bay with the staff-lot cars
+  now loose (they're where they were; only walked out to the car); the cemetery's new trunk and bench
+  colliders walked into; Ysmault's buttes and rocks flown into. Every new sound by ear.
+
+- The parry with a real mouse, trackpad and keys at full frame rate: whether the 0.5 s window feels
+  fair, the guard on a trackpad's two-finger click, how often a person lands one. The new sounds
+  (`parry`, `turned`) by ear. Part One's core breach step, Kilowog's live fire and Hector with the
+  new guard (only the code path is shared; not played). A parried volley seen in a capture (the
+  numbers show the spikes landing back on him).
+
+- The hooks and both bosses' new AI with a real mouse and keys, voices on, in real time: how hard
+  the fights feel to a person (the bots react instantly and never miss), the openings' length at
+  full speed, the new lines heard (10 rendered); Kilowog's targets drill and the live-fire drill
+  with hooks (only the Part One plate was tested); the excavator beat and the rest of Part Four
+  played on since (the code it uses is unchanged); Hector's fight with hooks.
+
 - Part Four with a real mouse and keys, voices on, in real time: the Atrocitus fight's balance (his
   health, the charge's stun window, how hard the beams and the blood are to dodge), the 24 s
   excavator timer, Sinestro's volleys landing; the pilot and cell chapters since their last visual
@@ -1759,6 +3030,49 @@ Not verified:
 - the Sinestro sounds and voice (never heard)
 
 ## Open items and ideas
+
+- Part Six's later beats are mine, from the user's arc and my suggested defaults (they didn't pick
+  before going to sleep): Hal follows Sinestro to Qward, he comes back to Korugar, he escapes, Parallax
+  is a shadow in the Battery. The Weaponers are derived from the Guardian generator (no scan): a Tripo
+  scan would be better. The Yellow Lantern's emblem is still the Corps' shape in gold. Parallax's model
+  comes later (the user).
+- The Thunderers don't speak; they have no hurt or death animation beyond a kneel and the dissolve (the
+  winged one droops its wings); the flail's chain is rigid (it swings, it doesn't bend); the archer
+  doesn't reach for a new arrow from his quiver.
+- Hal's block (2026-11-18), what's left: two shops and Hal's flat can be walked into; the other
+  fifteen shops and the flats over them can't yet (their glass is the room shader), and nobody works
+  in them; the diner's corner is square (streamline diners round it), every
+  shop's interior is the same shelves (a barber's chairs, the diner's booths and counter, the laundromat's
+  machines), the alleys are bare (back doors, crates, graffiti, a van), no interiors to walk into, the
+  rest of the boulevard beyond the crossing is still the old office blocks, no time cycle (`night()` is a
+  preset), no traffic yet. Its people (`CityLife`): nobody goes in or out of a door, the diners never
+  leave, no one buys anything (money isn't built), the walkers' loop is one route (no crossing mid-block
+  or turning into the cross street), people don't react to cars, to Hal changing in view, or to
+  emergencies (none yet); the man on his phone isn't at the payphone (its handset is part of its one
+  mesh); a Rocketbox face is 8k triangles, the scans' 90k (fine at talking distance, plainer in a
+  close-up cutscene). The diner: nobody pays at a register (money on the table), Hal's food isn't paid
+  for (money isn't built), people in a route don't steer round each other, the kitchen has one cook and
+  no dishwasher, the store's clerk has no work beyond his register and the bell, the other shops have no
+  staff. Overheard talk is a few scripts per group; walkers on their own only murmur at Green Lantern.
+- Free roam's Coast City has people only on Hal's block, no traffic (only the parked cars), and
+  the lake stays at night while the valley is day: the open world agreed on 2026-11-18 (see *Working
+  with this user*) is the plan for all of it. The fallen statue's head is the scan's bald head (his
+  painted hair is in the live figure's shader, not the stone's).
+
+- Free roam's Part Seven marker is a placeholder card at Carol until Part Seven is written.
+- Korugar's look is built from the user's brief ("Times Square, but for Sinestro"); the comic wiki
+  pages couldn't be fetched (refused, paywalled), so no scans were studied: ask for reference images.
+- **Part Seven** is open: the user's to choose. My suggestions (2026-11-17): Black Hand and the
+  Blackest Night (Atrocitus's prophecy; who took the machine from the building site), or the Manhunters
+  over Coast City (the old roadmap's neon night city). The part name "Exile" is a placeholder of mine.
+- Korugar's forecourt crowd is the baked low-poly figures beyond the lane's full figures: fine past
+  4 m, poor closer (cameras are kept to the lane).
+
+- Korugar is built, not downloaded (towers, stalls, banners, the prison): the user prefers found
+  models; nothing on Objaverse was searched for it. Its courtyard and lanes are plain walls up close.
+- The F22's cockpit is the model's own simple console (darkened); a downloaded cockpit would be better.
+- The flight suit is mine, unreviewed by the user (they asked me to design it): show it to them.
+- Tom Kalmaku is still a voice only (the user: "No need for tom yet").
 
 - **Part Four** is built (2026-11-11). Ours, not the comic's: the machine built from the cell (it
   drains rings; who took it is left open: Black Hand later?), the excavator, the hammer learned
@@ -1832,29 +3146,46 @@ src/engine/                 Engine (renderer + post), Input, Physics (Rapier), C
                             Audio (WebAudio synth), Voice (pre-rendered clips, lip-sync curve,
                             speech fallback), Save (checkpoints)
 src/characters/             Rig + Animator, IK, Mocap, Poses, Player (walk + flight), Characters,
-                            BodyLanguage (talking gestures), Guardian + Robe + HairCards (the Guardians)
+                            BodyLanguage (talking gestures), Guardian + Robe + HairCards (the Guardians),
+                            FlightSuit (Hal's test-pilot kit), People (Coast City's Rocketbox people: load, fingers,
+                            eyes, blinks, the jaw blendshape)
 src/powers/                 RingPowers (charge, health, wheel, aim, constructs incl. the sword, flight fx),
                             Constructs (list, shaders, fist / shield / wall / gatling / sword geometry, Blade)
 src/scenes/                 Bedroom (+ hallway, kitchenette, buildJet; night or morning), Dream, Hyperspace,
                             CrashSite, Oa (Part Two) + Hall (the Guardians' hall), Space (Earth and Oa
                             from orbit, and Ysmault), Ferris (Part Three: the airfield, the road, the lots),
-                            Site (Part Four: downtown at night, the building site), Ysmault (the prison world)
+                            Site (Part Four: downtown at night, the building site), Ysmault (the prison world),
+                            Korugar (Part Five: Sinestro's capital, by day or night) + KorugarSigns (its screens, tickers,
+                            neon, traffic) + Statue (his statue baked in stone, its fall),
+                            Qward (Part Six: the antimatter world, the Weaponers' forge)
 src/props/                  Props (downloaded models: load, clone, helpers), Car (makeCar: paint, wheels,
-                            the driver's door, seat / pedals / rim / tail points)
+                            the driver's door, seat / pedals / rim / tail points), Smash (every prop
+                            touchable: solid, loose, breakable, cars that dent, burn and go up)
 src/enemies/                Drones (training drones: model, spring flight, AI, bolts, breakup), Sinestro
                             (the sparring opponent, or an ally: flight, blade, spikes, guard, slam), Hammond
                             (Hector at Ferris: the shell, thrown slabs, psychic waves), Atrocitus (Part
-                            Four: charge, thrown beams, burning blood, slam)
+                            Four: charge, thrown beams, burning blood, slam), Thunderers (Part Six: Qward's
+                            soldiers, four kinds with tells)
+src/vehicles/               Drive (the car driven: raycast wheels, views), Jet (the prototype flown: flight model,
+                            mouse aim, gear, cockpit)
 src/fx/                     Sky, Particles + Fire, Water, Trees, GreenLight, Cloth, Textures, Rift
                             (pocket dimension), EarthMap (continent outlines, city-light density)
-src/story/                  Story (Part One + shared plumbing, the lantern), Corps (Part Two, travel),
-                            Coast (Part Three), Prisoner (Part Four), Voyage (flights between worlds),
+src/city/                   Coast City's kit: Kit (materials, the glass with rooms behind it, Batch), Building (the
+                            generator), Signs (lettering, neon, the mural), HalsBlock (the first block), Lod
+                            (drawing by distance, merged props, cars' merged copies), Interiors (the diner,
+                            the corner store)
+src/story/                  Story (Part One + shared plumbing, the lantern), Corps (Part Two, travel), KorugarLife (Korugar's street life),
+                            CityLife (Hal's block's people: walkers, talk, whispers, who sees him), DinerLife (Rosie's
+                            service, Dot's kitchen, the customers, Hal's order),
+                            Coast (Part Three), Prisoner (Part Four), Probation (Part Five), Exile (Part Six), Roam (free roam after it),
+                            Voyage (flights between worlds),
                             lines (all dialogue)
 src/ui/UI.js                HUD, subtitles, glyph cipher + decode, choice, cards, pause, toasts
 src/ui/PowerHud.js          vitals, ring charge, armed construct, ring readout, reticle, marker,
                             training panel, target bracket, damage numbers, construct wheel
 src/ui/TravelHud.js         flight readout, arrival card, StarMap (the ring's star chart), WORLDS
-tools/                      build-assets, autorig, build-props, propview.html, fetch-textures, build-voices,
+src/ui/VehicleHud.js        the car's dash, the jet's panel and HUD, the test card, the g grey-out
+tools/                      build-assets, autorig, build-props, build-people, people-test.js, propview.html, fetch-textures, build-voices,
                             voices.html, strip-mocap, extract-posters, debug renderers
 public/models, public/anims built GLBs loaded at runtime (props in public/models/props); public/textures/posters,
                             public/textures/pbr (Poly Haven surfaces); public/voices (clips + manifest.json)
@@ -1865,6 +3196,259 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-18: the diner's flickering corner
+- The user, after the fixes below ("All good"): one corner by the door kept flickering. The red dado on
+  the right wall's lining had no thickness and fought the wall (see Gotchas); `Interiors.js` `shell`
+  measures the dado and its rail from each wall's face, and the rail stops at the windows.
+- Verified on 5180 by frame diffs with the camera moved 0.5 mm: that corner from two angles (the
+  pier's band solid red before, steady after), the side wall and the back wall. Not verified: by hand.
+
+### 2026-11-18: the diner and the store made playable
+- The user: "I still can't do anything at Rosie's Diner... walking is sluggish... the objects outside
+  the grocery store actually block the entrance... I can't press E. I can't even talk anymore"; the
+  whispers and Rosie serving were good, and the store's bell worked.
+- E: the `busy` guards removed (`Roam.js` sit, restroom, flat, sleep; `CityLife.talk`); seats' prompts
+  from their approach (`Roam.blockRoam`); the menu's moved to the aisle (`Interiors.js`); overheard talk
+  while he sits (`updateTalks`).
+- Walking: the controller's retry (`Player.updateGround`, `floorOnly`); the propane cage off the store's
+  door (`HalsBlock.js`); the shopper beside the shelf; people wait for Hal and ask to get by
+  (`CityLife.inWay`, `excuse`, 11 lines rendered).
+- The diner's pace: the counter's gate (`Interiors.js` `gate`, the counter in two runs; `HalsBlock.js`
+  doors `staff`), Hal's order first (`DinerLife.js` `HURRY`, the ticket to the front, waiting at the
+  pass, the nearer coffee).
+- Verified: see Status (2026-11-18, the diner and the store made playable). Not verified: by hand at the
+  real frame rate (the window wasn't in view, so no frames ran in real time), the new lines heard.
+
+### 2026-11-18: the diner at work, whispers, changing out of sight, the diner made walkable
+- The user, on the people: they meet the bar but "are not that intelligent... no one is serving them";
+  whispers to hear; "Hal should not be allowed to change into Green Lantern if he's in someone's field
+  of view"; the diner "very unplayable... unwalkable... flickering in the floor... stuck behind" the
+  door; the waitress "just going back and forth... not someone that answers to you". "70% there."
+- `story/DinerLife.js` (new: seats, routes, Rosie's tasks, Dot's kitchen, customers in and out, Hal's
+  order, meals); `story/CityLife.js` rewritten (`go`, `hold`, `carry`, `put`, `carryPose`, `TALKS`,
+  `murmur`, `playTalk`, `MURMUR`, `seenBy`, labels and tags); `Roam.js` (`watchers`, `refuseSeen`,
+  `restroom`, the seen indicator, T / the car / off-Earth gated); `Voice.murmur`; `UI.overhear`,
+  `watching`, `pick` (and `index.html`, `style.css`); `People.js` (`extraJaw`); `build-voices.mjs`
+  (`whisperize`, style `'whisper'`); 68 lines (`lines.js`, rendered).
+- The diner: `HalsBlock.js` (exact colliders, the door swinging away, `openers`), `Building.js` (the
+  threshold, `openL`/`openR`), `Interiors.js` (fittings solid, linings round windows, the back bar in
+  two runs at the pass, side booths back from the door with seats, the restroom spot, `satin`, the
+  table's height, the room's measures).
+- Verified: see Status (2026-11-18, the diner at work...). Not verified: by hand, by ear.
+
+### 2026-11-18: people on Hal's block
+- The user: "Yes, keep going" (after the interiors; the people were next in the plan). Their own leads
+  needed a Sketchfab login (restore50) or were below the bar; Microsoft's Rocketbox library (MIT) was
+  found as GLB on Hugging Face and checked in close-up first.
+- `tools/build-people.mjs` (new, `npm run people`), 28 sources in `assets/people/` with the MIT licence,
+  `public/models/people/`; `characters/People.js` (new); `story/CityLife.js` (new); `Interiors.js`
+  (`ctx.posts`: Rosie, Dot, Ray, the shopper, the booths' far benches), `HalsBlock.js` (`posts` into the
+  world; **the bus shelter turned along the kerb**, it had stood across the pavement), `Roam.js`
+  (`CityLife` from `blockRoam`, seats `taken`, Rosie on `sit`, Ray on the bell), 64 lines and ten voices
+  (`lines.js`, `build-voices.mjs`, `UI.js` speakers, `Story.js` mouth gains), `CREDITS.md` (and its
+  generator) a People section, `tools/people-test.js`.
+- Verified: see Status (2026-11-18, the block's people). Not verified: by hand, by ear, frame rate.
+
+### 2026-11-18: rooms to walk into: Rosie's Diner, Coast Liquor, Hal's flat
+- The user, approving the block: "Yes, interiors" (doors, the shops and the diner, Hal's flat).
+- `city/Interiors.js` (new), `Building.js` (clear glass, `door()`, hollow colliders), `HalsBlock.js`
+  (the rooms, doors, room lights, goods, the furniture's colliders and draw distances), `Kit.js`
+  (`clearGlass`, `glow`), `Signs.js` (`goodsTexture`), `Roam.js` (`blockRoam`, `sit`, `jukebox`,
+  `buildFlat`, `enterFlat`, `exitFlat`, `flatTime`, `sleep`; `PLACES.home`), `Ferris.js` (`day()`,
+  `isNight`), `Bedroom.js` (`dayFill`), 11 props (`build-props.mjs`, credited), 8 lines (rendered).
+- Verified on 5180, muted, by script: Hal walked in through Rosie's door (it swung open, he stands on
+  the diner's floor); the diner and the store inside by day and night and from the street; sat at
+  the counter and in a booth and got up; the jukebox; up to the flat, slept into the night (the flat
+  and the town both night), out to the lot; the draw calls (the street 1,190, the diner 993, the store
+  784); no console errors; a clean build. Not verified: walking it by hand (the door's swing against
+  his capsule, the camera in the rooms), the jukebox and the bells by ear, the store's door.
+
+### 2026-11-18: drawing by distance
+- The user approved the block's design ("meets the bar, design wise"; the buildings aren't interactable
+  yet) and asked that what's 200-300 m from Hal not be drawn.
+- `city/Lod.js` (new: `Lod`, `mergeByMaterial`, `flatten`), `HalsBlock.js` (tiers, static props merged,
+  the night kit off by day, the hip roof's tiles on their own key), `Building.js` (`roofTile`),
+  `Ferris.js` (`lod` over the block and every Smash item by size, cars as merged copies, the jets).
+- Verified on 5180 by script: draw calls and triangles in the block, mid-block, 230 m and 420 m off,
+  from the air over the town and the field, on the apron, and back in the block (everything back, the
+  same counts); captures at each; no errors; a clean build. Not verified: a car dented, then seen from
+  past 15 m (the copy is remade, by the code path only); frame rate itself.
+
+### 2026-11-18: Hal's block, the first piece of the open world's Coast City
+- The user: "Start the block" (the plan agreed the same day). Their leads for people and buildings were
+  evaluated (see *Working with this user*).
+- `src/city/` (new: `Kit.js`, `Building.js`, `Signs.js`, `HalsBlock.js`), `Ferris.js` (`blockOn`, the
+  stretch left to the block, the road's power poles there skipped, `night()`), 20 downloaded props
+  (`build-props.mjs`: `pitch` for a model on its back; credited), nine Poly Haven surfaces
+  (`fetch-textures.mjs` fetches only what's missing), `Coast.drive`'s town shot on the right lane.
+- Verified: see Status (2026-11-18, Hal's block). Not verified: by hand, frame rate.
+
+### 2026-11-18: Continue goes to the checkpoint played last
+- The user: the title showed them stuck at Part One's "The ring's power" though they'd finished
+  Part Six; they asked whether the cookies were saving. They were: the title's Continue only read
+  Part One's store, which never got past `powers` (see Gotchas).
+- `Save.js` (`playedAt`, `latestCheckpoint()`), `main.js` (`titleFlow`: Continue, Parts, Chapters,
+  New game; old Part One saves moved on to `free`), `Story.ringTraining`'s end card saves `free`.
+- Verified on 5180 with seeded saves (Part One at `powers`, its `savedAt` newest as a settings write
+  leaves it, Parts Two to Six finished): Continue read "Part Six · Free roam" and started free roam;
+  Parts listed all six; a Part One chapter played last took Continue; no saves, no Continue. A clean
+  build. Not verified: the user's own browser's saves (each browser and address keeps its own).
+
+### 2026-11-17: free roam everywhere, Hal or Green Lantern, his car; the Thunderers, the statue, Katma's hand
+- The user, after playing Part Six: the flying Thunderers in A-poses and their weapons badly held;
+  Katma's hand "still shaky" with the ring; the statue's fall "not very good" and its "weird hands";
+  free roam not interactive (change into Hal, drive the car, "make keys with my ring... unless my
+  lantern is depleted"), the recharge not working, the crash site unusable, no space travel outside
+  missions ("I need you to imbibe that level of love for this game").
+- **Free roam**: `story/Roam.js` (new; Exile's free roam moved there), `main.js` (Part Six is a
+  `Roam`), `Coast.getIn({ spawn })`, `Story.toggleLantern` (one press brings it), `keyGeometry`
+  (`Constructs.js`), the chart's Qward node and notes (`TravelHud.js`, `style.css`), the routes'
+  ring lines (`Voyage.js`), 30 lines in `lines.js` (rendered).
+- **Thunderers** (`enemies/Thunderers.js`): the winged one's poses and wing shader, the brute's flail
+  pendulum, the archer's raised and drawn bow (his scan's sheet cut out, a built bow), the archer's
+  rebuilt rig (`autorig.mjs` `arms` z, `build-assets.mjs`).
+- **The statue**: `scenes/Statue.js` (new), `Korugar.js` (`statueTilt`, `statueFall`, `fallen`, `laid`,
+  `statueSolid`, a rougher bronze cap), `Exile.pullStatue` on the fall's events, `fallenBlocks`.
+- **Hands**: `Exile.steadyHand` for Katma's ring, oath and shield; `Mocap.smoothArms` for every idle.
+- Verified: see Status (2026-11-17, free roam...). Not verified: real input, sound, frame rate.
+
+### 2026-11-17: the rest of Part Six (her first night, Qward, the yellow light)
+- The user, going to sleep: "Added assets for the thunderers... parallax we can hint in this part and
+  release the model later, continue till you are done". Built on my default picks (see Open items).
+- **Models**: `assets/raw/Thunderers.glb` (four figures) built as `thunder_archer`, `thunder_winged`,
+  `thunder_brute`, `thunder_woman` (`build-assets.mjs`: `figure`, `headTop`, `GRID`, `DUMP`;
+  `autorig.mjs`: `arms`, `bind`; the others' defaults unchanged).
+- **Story**: `Exile.js` (`firstNight`, `pullStatue`, `lightChain`, `thunderWave`, `setupQward`,
+  `enterQward`, `qward`, `forge`, `drainSuit`, `yellowLight`, `afraid`, `cage`, `sting`, `fearRing`,
+  `fearGlow`, `parallaxShadow`; the trial's end card removed), `Save.js` (three checkpoints), 67 lines
+  in `lines.js`, the `weaponer` voice (`build-voices.mjs`, `UI.js`), `qward` respelled.
+- **Scenes**: `scenes/Qward.js` (new); `Korugar.js` (`night`, `statueTilt`, `statueFall`, `fallen`,
+  `STONE_NIGHT`); skies `korugarNight`, `qward`.
+- **Enemies and powers**: `enemies/Thunderers.js` (new); `Sinestro.js` (`turnYellow`, `fearJet`,
+  `health`/`yieldAt`/`centre`); `Constructs.js` (`FEAR`, `fearLight`, `shapeOf`, the blade trail's colour);
+  `Characters.js` (`yellowLantern`, `uYellow`); `Guardian.js` (`weaponer`, `uHairOn`);
+  `Prisoner.addSinestroAt` options.
+- Verified: see Status (2026-11-17, the rest of Part Six). Not verified: real input, sound, frame rate.
+
+### 2026-11-17: Part Six fixes, Korugar as Times Square, its people, free roam
+- The user's notes after playing Part Six: flicker in Sinestro's speech scene, his descent from the
+  balcony, Katma's upright hand, Hal missing at the course lock, Sinestro's hands showing rings on
+  every finger; Korugar should be "a New York Times Square, but for Sinestro" with NPCs to interact
+  with; after Part Six the world opens with an indicator for Part Seven.
+- **Fixes**: `Korugar.js` (anti-aliased windows, basalt columns, still wall banners, the oath lintel
+  off its box), `Exile.js` (the descent's cubic, Katma's hand, Katma carried through the voyage),
+  `Voyage.js` (the short trip's ring shot), `Characters.js` (`withoutScanRing`, a roughness floor),
+  `Sinestro.js` (his ring light off outside fights), the braziers' and doorway lamp's reach.
+- **Korugar**: `scenes/KorugarSigns.js` (new), `buildBroadcast`; `story/KorugarLife.js` (new), used in
+  `Probation.patrol`; `Player.camIgnore`; 21 street lines.
+- **Free roam**: `Exile.openWorld`, `travelMenu`, `goTo`, `partSeven`, `addTalker`; checkpoint `world`;
+  `korugar>earth` in `Voyage.js`; lines `katmaW1-3`, `ringOrbitEarthFrom1417`.
+- Verified: see Status (2026-11-17). Not verified: real input, frame rate, sound.
+
+### 2026-11-16: Part Six, "Exile": coming back, bringing him in, the trial
+- The user asked for suggestions for Part Six, then for the first three beats, built while they
+  slept (tested muted).
+- **Story**: `story/Exile.js` (new), 65 lines in `lines.js` (rendered), `Save.js` (`EXILE_CHECKPOINTS`,
+  `ExileSave`, `partOf` over every part), `main.js` (Part Six on the title), Part Five's end card
+  offering it.
+- **Scenes**: `Korugar.js` (the palace's front, its openings and halls, the balcony, braziers,
+  `FORECOURT`, `fillForecourt`, `instanceCrowd`); `Ferris.js` (`dawn()`, Hangar Two's back wall,
+  office, sign, flag, lines, props, rougher floor); `Hall.js` (rougher floor and dais); the `dawn` sky.
+- **Effects**: `Rift.js` palettes (antimatter), round stars; `Story.openRift` takes options.
+- **Sinestro**: a roughness floor (0.58), his ring light off outside fights (`Sinestro.js`).
+- Verified: see Status (2026-11-16). Not verified: real input, sound, frame rate.
+
+### 2026-11-12: Hal stuck in the air after the raid
+- The user: after the resistance chapter's drones, Hal "just keeps levitating" and the scene never
+  came. The chapter took control and walked him to Katma, but a scripted walk only runs on the
+  ground (see Gotchas). `Player.walkTo` drops out of flight; `Story.touchDown()` (new) lands him;
+  `Probation.rebels` calls it after the raid (and cuts back to Katma if he's over the lane or on a
+  wall) and on reaching the courtyard, and `patrol` after the staff drill.
+- Verified: see Status (2026-11-12, landing after Korugar's fights). Not verified: real input; the
+  other parts' fights (covered by `walkTo`'s fallback, not played).
+
+### 2026-11-12: parking in his space, and the car's brakes
+- The user: "can't get out of car after I park it in my spot". The parked test was centred 3 m
+  from the painted bay (see Gotchas); it's on `HAL_BAY` now (`Ferris.js`), with a hint when he's
+  stopped close but not in it (`Probation.commute`). The brakes were an impulse per step, so they
+  were weak at low frame rates; they're forces now (`Drive.step`).
+- Verified: see Status (2026-11-12, parking and brakes). Not verified: parking with a real keyboard.
+
+### 2026-11-12: Part Five, "Probation"
+- The user's outline (day-to-day life, then Korugar's fear, the report; Carol covering the rent and
+  finding out; driving and flying playable; the flight suit designed by me; Katma from their scan),
+  built overnight while they slept, tested muted.
+- **Story**: `story/Probation.js` (new), lines in `lines.js` (119 voiced: new voices `katma`, `radio`,
+  `caller`, `korugar`, `korugarf`, `guard`, `crowd` in `build-voices.mjs`, labels in `UI.js`),
+  `Save.js` (`PROBATION_CHECKPOINTS`, `ProbationSave`), `main.js` (Part Five on the title), Part
+  Four's end card offering it.
+- **Vehicles**: `vehicles/Drive.js`, `vehicles/Jet.js`, `ui/VehicleHud.js` (all new), styles;
+  `Physics.beforeStep`, `CameraDirector.up`, `Car.js` steering wheel on a pivot (`userData.steer`).
+- **Characters**: `characters/FlightSuit.js` (new: the coverall and helmet), `createKatma`,
+  `createKorugarian`, `JAW.katma`, `MOUTH_GAIN` for the new voices; models `katma.glb` and
+  `kor_crowd.glb` (`build-assets.mjs`).
+- **Scenes**: `scenes/Korugar.js` (new), the `korugar` sky, Korugar in `Space.js` and `Voyage.js`, the
+  star chart's note; `Ferris.js` (the airspace, the road's ground, the boulevard's colliders, the
+  car's box, `terrainAt`, `nearMax`); `Bedroom.setClock` AM by day.
+- **Powers**: the staff (`staffGeometry`, `STAFF_SWINGS`, `SwordConstruct` by kind).
+- **Audio**: `knock()`; `gl_mute` for silent testing.
+- Verified: see Status (2026-11-12, Part Five). Not verified: real input, frame rate, sound.
+
+### 2026-11-11: everything touchable, Hal's arm in the hall, the voyage's readout
+- The user: parked cars by the building site Hal "can phase right through"; "every element should
+  have some level of interactability... punch cars, destroy fences... GTA 5's level"; also Hal's hand
+  left up in the hall "like he's asking a question", and the ring saying "course logged to Oa" on the
+  way to Ysmault.
+- **Props** (`props/Smash.js`, new; `Physics.js` contact-force events and a mass-capped `burst`;
+  `RingPowers.js` `shove`, `hitWall`, the hook's and sword's prop sweeps, the gatling; `Audio.js`
+  `crunch`, `glass`, `clatter`, `snap`, `alarm`): see *The world's props*.
+- **Scenes**: `Site.js` (everything through `smash`; new cars, hydrants, bins, a dumpster, signs, a bus
+  shelter; raised pavements; office6 swapped out of the two side slots, the third floodlight moved,
+  the heap a triangle collider; beams about 140 kg), `Ferris.js` (the staff-lot and apartment-lot cars,
+  the apron and hangar vehicles and kit, the cones, the apartment block, palms, power poles, the
+  cemetery's trunks and bench), `Oa.js` (the crates), `Ysmault.js` (the buttes and rocks).
+  Atrocitus charges through breakables and walks round moved props; spikes and blood mark props.
+- **Fixes**: `Story.standDown()` in `trial()`; per-route ring lines (`Voyage.js`, five new lines
+  rendered).
+- Verified: see Status (2026-11-11, everything touchable). Not verified: real input, frame rate with
+  fires, sounds by ear.
+
+### 2026-11-11: block, then strike (the guard, parries, turned blows)
+- The user: hooks spammed still won the boss fights, just at a cost in charge; they asked for
+  "very limited reward" for spam and for blocking to pay, "block, and then attack rather than an
+  all-out brawl".
+- **The guard and the parry** (`RingPowers.js`: `updateGuard`, `guardHit`, `PARRY`, `PARRY_REST`,
+  `HeldShield.fresh`, `parryFlash`; `Audio.js` `parry`, `turned`; `PowerHud.callout`, the bracket's
+  open states, `style.css`): right click or F raises the shield whatever is armed; raised just in
+  time it parries.
+- **Sinestro** and **Atrocitus** (`stance`, `LANDS`, `answer`, `expose`, `openState`): between
+  attacks they turn blows (0.15×) and answer them; a parry exposes them (1.35×); parried spikes,
+  beams and blood go back into them; Atrocitus reels visibly and won't charge a held shield.
+  Sinestro's guard no longer breaks to a hook (`breakGuard` gone); his blade is put away when a cut
+  is cut short.
+- **Fixed:** Atrocitus's charge passed through walls and the shield (its ray origin was a number,
+  see Gotchas).
+- Tutorials (`Story.js` the core breach step, `Corps.js` live fire and sparring, `Prisoner.js` the
+  Atrocitus panel), key hints and `README.md`.
+- Verified: see Status (2026-11-11, block then strike). Not verified: real input and sound.
+
+### 2026-11-11: the hook, and bosses that read Hal
+- The user: Atrocitus "keeps walking to his orb"; both boss fights beatable "with a mousepad while
+  spamming gatling gun"; the AI should block spam and punish it, the gun usable only in small
+  openings; the fist a big sideways AOE hook, 13% a use, a right and left combo; "something like
+  Resident Evil, make the opponents more intelligent".
+- **The hook** (`RingPowers.js` `HookStrike`, `hookFrame`, `throwHook`, the arc ghost; `Constructs.js`
+  fist entry and `mirrorX`; hints in `Story.js` and `Corps.js`). `FistStrike` and `sweep` are gone.
+- **Reading Hal**: `dealDamage(..., kind)`, `powers.cast()` / `watchers`, `healDelay` / `healRate`.
+  Sinestro (`Sinestro.js`: guard on the gun's spin-up, armoured answers, openings, poise, dodges,
+  ripostes, flanking a shield, `steady`; 520 health) and Atrocitus (`Atrocitus.js`: cover, armoured
+  answers, openings, poise, braces, distraction by Sinestro, steering round blocks, beam fetching
+  along the beam, gait from real movement; 900 health). Tutorial panels and lines for both
+  (`Corps.duel`, `Prisoner.atroFight`); 10 new voiced lines.
+- **His machine**: `WORK`, `SPIKE`, `Site.deviceBlock`, `atroWalk` stops when it can't progress, the
+  drain's close-up moved clear of the spikes.
+- Verified: see Status (2026-11-11, hooks and smarter bosses). Not verified: a person playing them.
 
 ### 2026-11-11: Part Four in the suit, and the fist hurting Atrocitus
 - The user: at the lake and against Atrocitus, Hal was in his base form, flying but with no health

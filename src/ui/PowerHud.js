@@ -46,6 +46,7 @@ export class PowerHud {
     this.tut = el('tutorial');
     this.target = el('target', '', '<i class="c tl"></i><i class="c tr"></i><i class="c bl"></i><i class="c br"></i><div class="hp"><i></i></div>');
     this.dmg = el('dmg');
+    this.call = el('callout');
     this.dmgPool = Array.from({ length: 24 }, () => { const d = document.createElement('div'); this.dmg.appendChild(d); return d; });
     this.dmgNext = 0;
     this.dmgLast = new WeakMap();
@@ -158,10 +159,25 @@ export class PowerHud {
     t.classList.toggle('show', !!state);
     if (!state) return;
     t.classList.toggle('locked', state.locked);
+    t.classList.toggle('open', state.open === 'open');
+    t.classList.toggle('exposed', state.open === 'exposed');
     const s = Math.round(state.size);
     t.style.transform = `translate(${state.x - s / 2}px, ${state.y - s / 2}px)`;
     t.style.width = t.style.height = `${s}px`;
     t.querySelector('.hp i').style.width = `${Math.max(0, state.health) * 100}%`;
+  }
+
+  // A word over the reticle for what just happened in a fight: 'parry', 'block', 'turned' (a blow
+  // the opponent's guard took), 'counter' (a hit into an opening).
+  callout(text, kind = '') {
+    const c = this.call, now = performance.now();
+    if (c.dataset.kind === 'parry' && kind !== 'parry' && now - this.callAt < 600) return; // (a parry's word stays up)
+    this.callAt = now;
+    c.dataset.kind = kind;
+    c.textContent = text;
+    c.className = '';
+    void c.offsetWidth;
+    c.className = `pop ${kind}`;
   }
 
   // A number popping up where a construct struck. Rapid hits on the same target add up into one

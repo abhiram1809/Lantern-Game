@@ -11,7 +11,9 @@ import { Story, chapterMenu } from './story/Story.js';
 import { Corps } from './story/Corps.js';
 import { Coast } from './story/Coast.js';
 import { Prisoner } from './story/Prisoner.js';
-import { Save, CorpsSave, CoastSave, PrisonerSave, PARTS, partOf, takeResume } from './engine/Save.js';
+import { Probation } from './story/Probation.js';
+import { Roam } from './story/Roam.js';
+import { Save, CorpsSave, CoastSave, PrisonerSave, ProbationSave, ExileSave, PARTS, partOf, takeResume, latestCheckpoint } from './engine/Save.js';
 
 const POSTERS = ['airforce', 'jets', 'testpilot', 'flightseat', 'sidewall', 'squadron', 'whitejet'];
 
@@ -61,7 +63,7 @@ async function boot() {
 
   const { part, id } = await titleFlow(ui);
   audio.init();
-  story = new ({ corps: Corps, coast: Coast, prisoner: Prisoner }[part] ?? Story)({ engine, ui, input, audio, voice, assets: { characters, posters } });
+  story = new ({ corps: Corps, coast: Coast, prisoner: Prisoner, probation: Probation, exile: Roam }[part] ?? Story)({ engine, ui, input, audio, voice, assets: { characters, posters } });
   try {
     await story.run(id);
   } catch (err) {
@@ -74,9 +76,10 @@ async function boot() {
   }
 }
 
-// Title card: Begin, or Continue / New game / Chapters once there's a save; Part Two once Part One
-// is finished, Part Three once Part Two is, Part Four once Part Three is. A restart from the pause menu reloads the page and lands
-// here with the checkpoint to resume. Resolves with { part, id }.
+// Title card: Begin, or Continue (the checkpoint played last, in whichever part) / Parts / Chapters
+// / New game once there's a save; Part Two once Part One is finished, Part Three once Part Two is, and
+// so on to Part Six. A restart from the pause menu reloads the page and lands here with the
+// checkpoint to resume. Resolves with { part, id }.
 async function titleFlow(ui) {
   const resume = takeResume();
   const debug = location.hash.slice(1);
@@ -87,35 +90,48 @@ async function titleFlow(ui) {
     return r;
   }
   for (;;) {
-    const save = Save.load(), corps = CorpsSave.load(), coast = CoastSave.load(), prisoner = PrisonerSave.load();
-    const has = save.checkpoint && save.checkpoint !== 'home';
-    const partTwo = save.reached.includes('free') || corps.reached.length > 0;
-    const partThree = corps.reached.includes('homeward') || coast.reached.length > 0;
-    const partFour = coast.reached.includes('grave') || prisoner.reached.length > 0;
-    const buttons = has ? [{ label: 'Continue', sub: Save.info(save.checkpoint).label }, 'New game'] : ['Begin'];
-    if (partTwo) buttons.push({ label: 'Part Two: The Corps', sub: corps.checkpoint ? `Continue · ${CorpsSave.info(corps.checkpoint).label}` : 'The summons' });
-    if (partThree) buttons.push({ label: 'Part Three: Coast City', sub: coast.checkpoint ? `Continue · ${CoastSave.info(coast.checkpoint).label}` : 'The morning after' });
-    if (partFour) buttons.push({ label: 'Part Four: The Prisoner', sub: prisoner.checkpoint ? `Continue · ${PrisonerSave.info(prisoner.checkpoint).label}` : 'His pilot' });
-    if (has || partTwo || save.reached.length > 1) buttons.push('Chapters');
+    const save = Save.load(), corps = CorpsSave.load(), coast = CoastSave.load(), prisoner = PrisonerSave.load(), probation = ProbationSave.load(), exile = ExileSave.load();
+    // Part One's end card went on to Part Two before `free` was saved, so those saves still read
+    // "The ring's power" (the user, 2026-11-18: "stuck at the ring's power chapter"). Part One is done.
+    if (save.checkpoint === 'powers' && corps.reached.length && !save.reached.includes('free')) Save.update((d) => { d.checkpoint = 'free'; d.reached.push('free'); });
+    const parts = [
+      Save,
+      ...(save.reached.includes('free') || corps.reached.length ? [CorpsSave] : []),
+      ...(corps.reached.includes('homeward') || coast.reached.length ? [CoastSave] : []),
+      ...(coast.reached.includes('grave') || prisoner.reached.length ? [PrisonerSave] : []),
+      ...(prisoner.reached.includes('trial') || probation.reached.length ? [ProbationSave] : []),
+      ...(probation.reached.includes('report') || exile.reached.length ? [ExileSave] : []),
+    ];
+    const short = (p) => p.label.split(' · ')[0], last = short(parts.at(-1)).replace('Part ', '');
+    const latest = latestCheckpoint();
+    const buttons = latest ? [{ label: 'Continue', sub: `${short(latest.save)} · ${latest.save.info(latest.id).label}` }] : ['Begin'];
+    if (parts.length > 1) buttons.push('Parts');
+    if (latest || save.reached.length > 1) buttons.push('Chapters');
+    if (latest) buttons.push('New game');
     const pick = await ui.screen({
       emblem: true,
-      kicker: partFour ? 'Parts One to Four' : partThree ? 'Parts One to Three' : partTwo ? 'Parts One and Two' : 'Part One',
+      kicker: parts.length === 1 ? 'Part One' : parts.length === 2 ? 'Parts One and Two' : `Parts One to ${last}`,
       title: 'GREEN LANTERN',
-      subtitle: partFour ? 'Awakening · The Corps · Coast City · The Prisoner' : partThree ? 'Awakening · The Corps · Coast City' : partTwo ? 'Awakening · The Corps' : 'Awakening',
+      subtitle: parts.map((p) => p.label.split(' · ')[1]).join(' · '),
       body: 'Test pilot Hal Jordan is coming home after a long day. Tonight, something in the sky has other plans.',
       small: 'Headphones recommended &nbsp;·&nbsp; WASD move &nbsp;·&nbsp; Mouse look &nbsp;·&nbsp; E interact &nbsp;·&nbsp; L lantern &nbsp;·&nbsp; Space advance &nbsp;·&nbsp; V voices &nbsp;·&nbsp; Esc pause',
       buttons,
       stack: buttons.length > 2,
     });
     const label = typeof buttons[pick] === 'string' ? buttons[pick] : buttons[pick].label;
-    if (label === 'Continue') return { part: 'awakening', id: save.checkpoint };
+    if (label === 'Continue') return { part: latest.part, id: latest.id };
     if (label === 'Begin' || label === 'New game') { Save.newGame(); return { part: 'awakening', id: 'home' }; }
-    if (label.startsWith('Part Two')) return { part: 'corps', id: corps.checkpoint ?? CorpsSave.first };
-    if (label.startsWith('Part Three')) return { part: 'coast', id: coast.checkpoint ?? CoastSave.first };
-    if (label.startsWith('Part Four')) return { part: 'prisoner', id: prisoner.checkpoint ?? PrisonerSave.first };
+    if (label === 'Parts') {
+      const data = parts.map((p) => p.load());
+      const p = await ui.screen({
+        kicker: 'Parts', title: 'CHOOSE A PART', stack: true,
+        buttons: [...parts.map((x, i) => ({ label: x.label.replace(' · ', ': '), sub: data[i].checkpoint ? `Continue · ${x.info(data[i].checkpoint).label}` : x.info(x.first).label })), 'Back'],
+      });
+      if (p === parts.length) continue;
+      return { part: parts[p].part, id: data[p].checkpoint ?? parts[p].first };
+    }
     let chapters = Save;
-    if (partTwo) {
-      const parts = [Save, CorpsSave, ...(partThree ? [CoastSave] : []), ...(partFour ? [PrisonerSave] : [])];
+    if (parts.length > 1) {
       const p = await ui.screen({ kicker: 'Chapters', title: 'CHOOSE A PART', stack: true, buttons: [...parts.map((x) => x.label.replace(' · ', ': ')), 'Back'] });
       if (p === parts.length) continue;
       chapters = parts[p];

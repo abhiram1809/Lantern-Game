@@ -10,7 +10,7 @@ export const toGlyphs = (s) => [...s].map((c) => {
 const randomGlyph = () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-const SPEAKERS = { hal: 'Hal Jordan', abin: 'Abin Sur', light: '', dad: 'Martin Jordan', kid: 'Young Hal', thought: '', kilowog: 'Kilowog', sinestro: 'Sinestro', guardian: 'The Guardians', carol: 'Carol Ferris', tom: 'Tom Kalmaku', landlord: 'Sal Delgado', pilot: 'Viper One-One', hammond: 'Hector Hammond', tech: 'Air Force technician', tech2: 'Air Force technician', atrocitus: 'Atrocitus' };
+const SPEAKERS = { hal: 'Hal Jordan', abin: 'Abin Sur', light: '', dad: 'Martin Jordan', kid: 'Young Hal', thought: '', kilowog: 'Kilowog', sinestro: 'Sinestro', guardian: 'The Guardians', carol: 'Carol Ferris', tom: 'Tom Kalmaku', landlord: 'Sal Delgado', pilot: 'Viper One-One', hammond: 'Hector Hammond', tech: 'Air Force technician', tech2: 'Air Force technician', atrocitus: 'Atrocitus', katma: 'Katma Tui', radio: 'KCST 1040', caller: 'Caller', korugar: 'Korugarian', korugarf: 'Korugarian', guard: 'A guard', crowd: 'The crowd', weaponer: 'A Weaponer of Qward', rosie: 'Rosie', cook: 'Dot', clerk: 'Ray', townm1: 'A passer-by', townm2: 'A passer-by', townm3: 'A passer-by', townf1: 'A passer-by', townf2: 'A passer-by', townf3: 'A passer-by', citykid: 'A kid' };
 const ADVANCE = ['Space', 'Enter', 'Click', 'KeyE'];
 
 export class UI {
@@ -21,6 +21,9 @@ export class UI {
       body: document.body, loading: $('#loading'), fill: $('#loading .fill'), fade: $('#fade'), flash: $('#flash'),
       chapter: $('#chapter'), objective: $('#objective'), clock: $('#clock'), prompt: $('#prompt'), controls: $('#controls'),
       sub: $('#subtitle'), speaker: $('#subtitle .speaker'), text: $('#subtitle .text'),
+      over: $('#overheard'), overSpeaker: $('#overheard .speaker'), overText: $('#overheard .text'),
+      watched: $('#watched'), watchedLabel: $('#watched .label'),
+      pick: $('#pick'), pickTitle: $('#pick .title'), pickOptions: $('#pick .options'),
       choice: $('#choice'), question: $('#choice .question'), options: $('#choice .options'), keys: $('#choice .keys'),
       screen: $('#screen'), letterbox: $('#letterbox'), frame: $('#frame'), hud: $('#hud'),
       pause: $('#pause'), checkpoint: $('#checkpoint'),
@@ -119,6 +122,44 @@ export class UI {
   }
 
   hideSubtitle() { this.el.sub.classList.remove('show'); }
+
+  // What Hal overhears: people talking among themselves, or whispering. A smaller line of its own above
+  // the subtitles, so it never takes the dialogue's place; `whisper` sets it in italics, dimmer.
+  overhear({ name = '', text, whisper = false }) {
+    const { over, overSpeaker, overText } = this.el;
+    over.classList.toggle('whisper', whisper);
+    overSpeaker.textContent = name;
+    overText.textContent = text;
+    over.classList.add('show');
+  }
+  overhearHide() { this.el.over.classList.remove('show'); }
+
+  // A small menu over the scene (an order at the diner): number keys or a click; the scene keeps going.
+  // Resolves with the option's index; `cancel()` on the returned promise closes it unanswered (-1).
+  pick(title, options) {
+    const { pick, pickTitle, pickOptions } = this.el;
+    pickTitle.textContent = title;
+    pickOptions.innerHTML = options.map((o, i) => `<button data-i="${i}"><span class="key">${i + 1}</span>${esc(o)}</button>`).join('');
+    pick.classList.add('show');
+    let stop, done;
+    const p = new Promise((resolve) => {
+      done = (i) => { stop?.(); pick.classList.remove('show'); if (i >= 0) this.audio.bell(i === 0 ? 880 : 988, 0.05, 0.6); resolve(i); };
+      pickOptions.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => done(Number(b.dataset.i))));
+      stop = onFrame(() => { options.forEach((_, i) => { if (this.input.hit(`Digit${i + 1}`)) { this.input.consume?.(`Digit${i + 1}`); done(i); } }); });
+    });
+    p.cancel = () => done(-1);
+    return p;
+  }
+
+  // Whether anyone can see him (his secret: he changes only out of sight). n: how many are watching;
+  // null hides it
+  watching(n) {
+    const w = this.el.watched;
+    if (n == null) { w.classList.remove('show'); return; }
+    w.classList.add('show');
+    w.classList.toggle('seen', n > 0);
+    this.el.watchedLabel.textContent = n > 0 ? (n === 1 ? 'SEEN · 1 PERSON' : `SEEN · ${n} PEOPLE`) : 'OUT OF SIGHT';
+  }
 
   // Morph the glyph line on screen into English, character by character.
   async decode(english, duration = 2.2) {

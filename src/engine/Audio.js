@@ -6,7 +6,10 @@ export class AudioBank {
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14;
     comp.ratio.value = 4;
-    comp.connect(ctx.destination);
+    // (testing: localStorage gl_mute = '1' keeps the whole mix silent, voices included)
+    let mute = false;
+    try { mute = localStorage.getItem('gl_mute') === '1'; } catch { /* storage blocked */ }
+    comp.connect(mute ? this.gain(0, ctx.destination) : ctx.destination);
     this.lowpass = this.filter('lowpass', 20000, 0.7, comp); // muffles everything while time is stopped
     this.master = this.gain(0.85, this.lowpass);
     this.reverb = ctx.createConvolver();
@@ -251,6 +254,13 @@ export class AudioBank {
     if (surface === 'wood') this.tone({ freq: 90 + Math.random() * 20, peak: 0.12, dur: 0.08, wet: 0 });
   }
   tick() { this.burst({ type: 'bandpass', from: 3200, q: 4, peak: 0.12, dur: 0.03, wet: 0.05 }); }
+  // a fist on an apartment door (Sal, Part Five)
+  knock(n = 3) {
+    for (let i = 0; i < n; i++) {
+      this.tone({ type: 'triangle', freq: 150, to: 85, peak: 0.32, dur: 0.11, wet: 0.25, delay: i * 0.21 });
+      this.burst({ buffer: this.brownBuf, from: 500, to: 200, peak: 0.25, dur: 0.12, wet: 0.2, delay: i * 0.21 });
+    }
+  }
   door() {
     this.burst({ buffer: this.brownBuf, from: 300, to: 120, peak: 0.6, dur: 0.5, wet: 0.3 });
     this.tone({ type: 'triangle', freq: 70, to: 45, peak: 0.25, dur: 0.4, wet: 0.2 });
@@ -488,6 +498,48 @@ export class AudioBank {
     this.bell(587, 0.12 * scale, 1.2);
     this.burst({ type: 'bandpass', from: 2400, to: 700, q: 2, peak: 0.25 * scale, dur: 0.3, wet: 0.3 });
     this.tone({ freq: 120, to: 60, peak: 0.3 * scale, dur: 0.3, wet: 0.2 });
+  }
+  // The world being hit (props/Smash.js), each scaled by how hard and how near.
+  // Sheet metal: a car's panel, a container, a dumpster: a deep thump, a crumple, a ring.
+  crunch(scale = 1) {
+    this.tone({ freq: 120, to: 48, attack: 0.003, peak: 0.45 * scale, dur: 0.35, wet: 0.25 });
+    this.burst({ buffer: this.brownBuf, from: 1800, to: 260, attack: 0.002, peak: 0.55 * scale, dur: 0.45, wet: 0.3 });
+    this.burst({ buffer: this.crackleBuf, type: 'bandpass', from: 2600, to: 900, q: 1.4, attack: 0.004, peak: 0.3 * scale, dur: 0.3, wet: 0.25 });
+    this.tone({ type: 'triangle', freq: 340 + Math.random() * 80, to: 280, peak: 0.05 * scale, dur: 0.7, wet: 0.5 });
+  }
+  // Glass going: a crack, then the pieces raining down.
+  glass(scale = 1) {
+    this.burst({ type: 'highpass', from: 5200, to: 2600, attack: 0.001, peak: 0.45 * scale, dur: 0.18, wet: 0.3 });
+    for (let i = 0; i < 6; i++) this.tone({ type: 'triangle', freq: 2600 + Math.random() * 3400, attack: 0.002, peak: 0.035 * scale, dur: 0.12 + Math.random() * 0.2, wet: 0.4, delay: 0.04 + Math.random() * 0.35 });
+    this.burst({ buffer: this.crackleBuf, type: 'highpass', from: 3500, attack: 0.02, peak: 0.25 * scale, dur: 0.6, wet: 0.3, delay: 0.05 });
+  }
+  // Something light knocked over: plastic, wood, a bin.
+  clatter(scale = 1) {
+    this.burst({ type: 'bandpass', from: 900 + Math.random() * 500, to: 500, q: 1.2, attack: 0.002, peak: 0.35 * scale, dur: 0.22, wet: 0.2 });
+    this.burst({ type: 'bandpass', from: 1300, to: 700, q: 1.5, attack: 0.002, peak: 0.2 * scale, dur: 0.15, wet: 0.2, delay: 0.09 + Math.random() * 0.06 });
+  }
+  // A post or a pole giving way: a crack of metal and a groan.
+  snap(scale = 1) {
+    this.burst({ type: 'highpass', from: 3000, to: 1400, attack: 0.001, peak: 0.4 * scale, dur: 0.12, wet: 0.2 });
+    this.tone({ type: 'sawtooth', freq: 210, to: 90, attack: 0.01, peak: 0.06 * scale, dur: 0.6, wet: 0.4 });
+    this.burst({ buffer: this.brownBuf, from: 900, to: 160, attack: 0.004, peak: 0.35 * scale, dur: 0.4, wet: 0.3 });
+  }
+  // One beat of a car alarm's wail.
+  alarm(scale = 1, high = true) {
+    this.tone({ type: 'square', freq: high ? 880 : 620, to: high ? 980 : 560, attack: 0.01, peak: 0.035 * scale, dur: 0.3, wet: 0.25 });
+  }
+  // A parry: the shield meeting a blow at the last moment rings high and clear over a heavy knock.
+  parry() {
+    [1318, 1976, 2637].forEach((f, i) => this.tone({ type: 'triangle', freq: f, to: f * 1.01, attack: 0.002, peak: 0.11 / (i + 1), dur: 1.4, wet: 0.7 }));
+    this.bell(784, 0.16, 1.6);
+    this.tone({ freq: 140, to: 50, attack: 0.002, peak: 0.5, dur: 0.4, wet: 0.2 });
+    this.burst({ type: 'highpass', from: 5000, to: 2000, attack: 0.002, peak: 0.3, dur: 0.2, wet: 0.4 });
+  }
+  // A blow turned by an opponent's guard: a dull clank, no bite.
+  turned(scale = 1) {
+    this.tone({ type: 'square', freq: 210, to: 140, attack: 0.002, peak: 0.05 * scale, dur: 0.14, wet: 0.2 });
+    this.burst({ type: 'bandpass', from: 1600, to: 500, q: 3, attack: 0.002, peak: 0.28 * scale, dur: 0.2, wet: 0.25 });
+    this.tone({ freq: 90, to: 50, peak: 0.25 * scale, dur: 0.25, wet: 0.2 });
   }
   wallRise() {
     this.constructForm(1);

@@ -5,6 +5,7 @@ import { glowTexture } from '../fx/Textures.js';
 import { Particles } from '../fx/Particles.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { buildHall } from './Hall.js';
+import { Smash } from '../props/Smash.js';
 
 // Oa: Kilowog's training ground, a disc of dark stone with the Corps' hex lines inlaid in light,
 // floating high above the city. The Central Power Battery, a lantern hundreds of metres tall,
@@ -106,6 +107,7 @@ export class Oa {
     this.buildCity();
     this.buildBattery();
     this.buildTraffic();
+    this.smash = new Smash(this.physics, s); // (the crates: props/Smash.js)
     this.buildProps();
     this.hall = buildHall(this);
 
@@ -564,7 +566,7 @@ export class Oa {
       const strip = new THREE.Mesh(new THREE.BoxGeometry(s * 1.01, s * 0.06, s * 1.01), edge);
       box.add(strip);
       this.scene.add(box);
-      this.physics.dynamicBox(box, { x: s / 2, y: s / 2, z: s / 2 }, { density: 350, friction: 0.7, restitution: 0.15 });
+      this.smash.add(box, { mass: 350 * s * s * s, shrink: 0.99, glass: false, restitution: 0.15, friction: 0.7 });
     }
   }
 
@@ -582,6 +584,7 @@ export class Oa {
 
   update(dt, t, camera, renderer) {
     this.physics.step(dt);
+    this.smash.update(dt, t, camera, renderer);
     this.time.value = t;
     this.deckMat.emissiveIntensity = 0.5 + Math.sin(t * 0.8) * 0.06;
     // the flyers leave short trails

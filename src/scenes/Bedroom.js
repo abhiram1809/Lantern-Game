@@ -586,6 +586,7 @@ export class Bedroom {
       const hallDay = new THREE.PointLight(0xdfe6ee, 0.9, 6, 2);
       hallDay.position.set(-2.4, 2.0, 2.8);
       s.add(hallDay);
+      this.dayFill = [bounce, hallDay]; // (free roam turns them off at night: Roam.flatTime)
       this.clockLight.intensity = 0.15;
     }
     this.greenFill = new THREE.PointLight(0x55ff88, 0, 14, 1.6);
@@ -667,7 +668,7 @@ export class Bedroom {
     return it;
   }
 
-  setClock(text) { this.clockFace.set(text); }
+  setClock(text, pm = !this.morning) { this.clockFace.set(text, pm); } // (by day it's morning: AM)
 
   lightning(strength = 1) {
     const u = this.sky.userData.uniforms;

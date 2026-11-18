@@ -23,7 +23,7 @@ import { loadProps } from '../props/Props.js';
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const ORB_SPOT = V(0.55, 1.5, -0.75);
 // how wide each character opens their mouth on a full syllable (uJaw; 1 is about 2 cm)
-const MOUTH_GAIN = { hal: 0.55, abin: 0.4, dad: 0.5, kilowog: 0.95, sinestro: 0.42, guardian: 0.34, carol: 0.5, hammond: 0.45 };
+const MOUTH_GAIN = { hal: 0.55, abin: 0.4, dad: 0.5, kilowog: 0.95, sinestro: 0.42, guardian: 0.34, carol: 0.5, hammond: 0.45, katma: 0.32, korugar: 0.4, korugarf: 0.36, guard: 0.4, rosie: 0.45, cook: 0.45, clerk: 0.42, townm1: 0.45, townm2: 0.45, townm3: 0.45, townf1: 0.42, townf2: 0.42, townf3: 0.42, citykid: 0.45 };
 const SEATED = makePose({ ...POSES.sitEdge, sx: 0.05, nx: -0.1, kx: -0.15, ky: 0.05 });
 export const STARTER_CONSTRUCTS = ['fist', 'shield', 'wall'];
 export const POWER_KEYS = '<b>4</b> constructs (time stops) &nbsp; <b>Click</b> use &nbsp; <b>Q</b> holster &nbsp; <b>Space</b> ×2 fly / drop &nbsp; <b>C</b> descend &nbsp; <b>L</b> lantern';
@@ -118,7 +118,7 @@ export class Story {
       if (this.player.control) this.player.lookAt(best?.look ?? null, 0.55);
     }
     if (best && this.input.hit('KeyE')) {
-      this.busy = true;
+      this.busy = true; // (so an action mustn't return early on `busy`: it's always set by now)
       this.ui.prompt();
       this.focus = null;
       Promise.resolve(best.action()).finally(() => (this.busy = false));
@@ -139,6 +139,35 @@ export class Story {
   ambience(...handles) {
     for (const h of this.loops) h.stop(2.5);
     this.loops = handles;
+  }
+
+  // Back on his feet after a cutscene that flew him (a voyage's dive leaves the flying pose and a
+  // raised ring arm on him): standing, his own walk and idle again.
+  standDown() {
+    const { player } = this, an = player.animator;
+    player.flying = false;
+    player.flightState.k = 0;
+    player.pivot.quaternion.identity();
+    player.pivot.position.y = 1;
+    an.reach('R', null, { rate: 30 });
+    an.reach('L', null, { rate: 30 });
+    an.lean.pitch = an.lean.roll = an.lean.yaw = an.twist = 0;
+    an.feet.ground = player.ground;
+    player.autoAnim = true;
+    an.play(player.loco, 0);
+    an.update(1 / 30);
+  }
+
+  // On his feet before a scripted walk or a talk, if the player left him flying (a scripted walk
+  // only runs on the ground: after the raid on Korugar, Hal hovered for ever over the courtyard).
+  // He drops out of the air and lands (the kneeling landing from high up), and the constructs go.
+  async touchDown() {
+    const { player, powers } = this;
+    powers.holster();
+    if (!player.flying) return;
+    player.stopFlying(true);
+    await Promise.race([waitFor(() => player.grounded), wait(5)]);
+    await wait(Math.max(0, player.landing) + 0.25);
   }
 
   giveControl(objective) {
@@ -1329,7 +1358,7 @@ export class Story {
     const plate = this.throwPlate();
     await wait(1.6);
     this.ringSay('ringDebris');
-    step(2, 'Strike', 'The ghost shows where the fist will land. Aim at the burning plate and <kbd>Click</kbd>.<br><span class="dim">Scroll to change the range. Fists reach 14 m.</span>');
+    step(2, 'Strike', 'The fist swings in a hook: the ghost and its arc show where. Aim at the burning plate and <kbd>Click</kbd>; click again straight away for a left hook.<br><span class="dim">Each hook takes 13% of the charge. Scroll to change the range; hooks reach 12 m.</span>');
     powers.markerTarget = { pos: plate.mesh.position, label: 'Burning debris' };
     await waitFor(() => plate.rested);
     await waitFor(() => plate.mesh.position.distanceTo(plate.rest) > 2.5);
@@ -1341,11 +1370,9 @@ export class Story {
     const core = V(6.3, 1.0, -2.8);
     this.ringSay('ringCore');
     await wait(2);
-    step(3, 'Shield', 'Open the wheel with <kbd>4</kbd> and choose the <b>Shield</b>.');
+    step(3, 'Shield', 'Face the wreck and <b>hold</b> <kbd>Right-click</kbd> (or <kbd>F</kbd>) to raise the shield, and keep it up.<br><span class="dim">It comes up whatever you have armed. Raised just as a blow lands, it parries.</span>');
     powers.markerTarget = { pos: core, label: 'Power core' };
-    await Promise.race([waitFor(() => powers.selected === 'shield' && !powers.wheelState), wait(30)]);
-    step(3, 'Shield', 'Face the wreck and <b>hold</b> <kbd>Click</kbd> to raise the shield.');
-    await Promise.race([waitFor(() => powers.shield?.form > 0.9), wait(12)]);
+    await Promise.race([waitFor(() => powers.shield?.form > 0.9), wait(30)]);
     this.ringSay('ringBreach');
     const hurt = await this.coreBreach(core);
     powers.markerTarget = null;
@@ -1391,7 +1418,7 @@ export class Story {
       body: 'Sector 2814 has a new guardian. Abin Sur’s ring chose a man without fear. What Hal does with it is another story.',
       buttons: ['Explore as Green Lantern', { label: 'Part Two: The Corps', sub: 'The summons' }, 'Play again'],
     });
-    if (pick === 1) { CorpsSave.resumeAfterReload(CorpsSave.first); return new Promise(() => {}); }
+    if (pick === 1) { this.save.checkpoint('free'); CorpsSave.resumeAfterReload(CorpsSave.first); return new Promise(() => {}); } // Part One is done
     if (pick === 2) { Save.newGame(); location.hash = ''; location.reload(); }
   }
 
@@ -1528,9 +1555,10 @@ export class Story {
   toggleLantern() {
     const { player, powers } = this;
     if (!this.lanternStowed) {
-      // too far off to see: the ring simply recalls it
-      if (this.lanternScene !== this.current || player.position.distanceTo(this.lantern.position) > 30) { this.pocketLantern(); this.audio.ringBlip(); this.ringSay('ringStowed'); return; }
-      return this.stowLantern();
+      // in sight: into the pocket dimension. Too far off to see (or on another world): the ring calls
+      // it back, and sets it down here (one press, not two: the user couldn't find their lantern)
+      if (this.lanternScene === this.current && player.position.distanceTo(this.lantern.position) <= 30) return this.stowLantern();
+      this.pocketLantern();
     }
     if (player.flying || !player.grounded) { powers.say('Land to set the lantern down.', { voice: false }); return; }
     const spot = player.position.clone().add(V(Math.sin(player.yaw) * 1.25, 0, Math.cos(player.yaw) * 1.25));
@@ -1545,9 +1573,9 @@ export class Story {
     this.player.animator.reach('R', aim ? () => { rig.bonePosition('upperArm_R', sh); return sh.add(_rq.copy(aim).sub(sh).normalize().multiplyScalar(dist)); } : null, { pole: V(-0.4, -0.85, -0.3), rate: 7 });
   }
 
-  openRift(sceneObj, at, radius, flow) {
+  openRift(sceneObj, at, radius, flow, opts) {
     const { engine } = this;
-    const rift = new Rift(radius).addTo(sceneObj.scene);
+    const rift = new Rift(radius, opts).addTo(sceneObj.scene);
     rift.group.position.copy(at);
     rift.flow = flow;
     const stop = onFrame((dt) => rift.update(dt, engine.time, engine.camera, engine.renderer));

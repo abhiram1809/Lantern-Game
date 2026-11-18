@@ -8,9 +8,11 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 export const WORLDS = [
   { id: 'oa', name: 'Oa', sector: 'Sector 0', note: 'Home of the Guardians and the Central Power Battery. Kilowog’s range.', at: [0, 0] },
   { id: 'earth', name: 'Earth', sector: 'Sector 2814', note: 'Home. The lake where Abin Sur fell, outside Coast City.', at: [0.6, 0.34] },
-  { id: 'korugar', name: 'Korugar', sector: 'Sector 1417', note: 'Uncharted.', at: [-0.52, 0.28] },
+  { id: 'korugar', name: 'Korugar', sector: 'Sector 1417', note: 'Sinestro’s world. Its capital keeps his order.', at: [-0.52, 0.28] },
   { id: 'ysmault', name: 'Ysmault', sector: 'Sector 666', note: 'Uncharted.', at: [0.16, -0.7] },
   { id: 'mogo', name: 'Mogo', sector: 'Sector 2261', note: 'Uncharted.', at: [-0.6, -0.42] },
+  // (not in this universe: the ring tears a breach to it, as Sinestro did; off the chart's edge)
+  { id: 'qward', name: 'Qward', sector: 'Antimatter universe', note: 'The Weaponers’ world, through a breach. The Thunderers.', at: [0.82, -0.8], anti: true },
 ];
 export const worldInfo = (id) => WORLDS.find((w) => w.id === id);
 
@@ -83,19 +85,20 @@ export class StarMap {
 
   get isOpen() { return !!this.resolve; }
 
-  open({ charted, here }) {
+  // `notes`: what the ring says of a world now (the story moves on: Ysmault holds Atrocitus again)
+  open({ charted, here, notes = {} }) {
     this.charted = charted;
     this.here = here;
-    const list = WORLDS.map((w) => ({ ...w, open: charted.includes(w.id), here: w.id === here }));
+    const list = WORLDS.map((w) => ({ ...w, note: notes[w.id] ?? w.note, open: charted.includes(w.id), here: w.id === here }));
     this.list = list;
     this.el.innerHTML = `
       <div class="head"><div class="kicker">Ring · Star chart</div><h1>SET A COURSE</h1></div>
       <div class="body">
         <div class="chart"><canvas width="760" height="760"></canvas><svg class="course" viewBox="-1 -1 2 2" preserveAspectRatio="none"><line x1="0" y1="0" x2="0" y2="0"/></svg>
-          ${list.map((w, i) => `<button class="node${w.open ? '' : ' locked'}${w.here ? ' here' : ''}" data-i="${i}" style="left:${50 + w.at[0] * 44}%;top:${50 + w.at[1] * 44}%"><i></i><span>${esc(w.open ? w.name : '???')}</span></button>`).join('')}
+          ${list.map((w, i) => `<button class="node${w.open ? '' : ' locked'}${w.here ? ' here' : ''}${w.anti ? ' anti' : ''}" data-i="${i}" style="left:${50 + w.at[0] * 44}%;top:${50 + w.at[1] * 44}%"><i></i><span>${esc(w.open ? w.name : '???')}</span></button>`).join('')}
           <div class="cursor"></div>
         </div>
-        <div class="side">${list.map((w, i) => `<button class="dest${w.open ? '' : ' locked'}${w.here ? ' here' : ''}" data-i="${i}">
+        <div class="side">${list.map((w, i) => `<button class="dest${w.open ? '' : ' locked'}${w.here ? ' here' : ''}${w.anti ? ' anti' : ''}" data-i="${i}">
             <div class="name">${esc(w.open ? w.name : 'Uncharted')}<span>${esc(w.sector)}</span></div>
             <div class="note">${esc(w.here ? 'You are here.' : w.open ? w.note : 'The ring has no route here yet.')}</div></button>`).join('')}
         </div>

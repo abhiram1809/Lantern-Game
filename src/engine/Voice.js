@@ -150,6 +150,43 @@ export class Voice {
     this.mouth = 0;
   }
 
+  // A line overheard: people talking among themselves, or whispering. On its own channel, so it never
+  // cuts the dialogue off (or is cut by it); `gain` (0..1) is set as the listener moves (by distance).
+  // Returns { done, stop(), mouth(), gain(v) }: `mouth()` is the openness now, for the speaker's jaw.
+  murmur(text, who, { gain = 1 } = {}) {
+    const clip = this.enabled && this.clips.get(`${who}|${text}`);
+    if (!clip || !this.audio?.ctx) return null; // (no clip, or voices off: the caller times it in game time)
+    const ctx = this.audio.ctx, out = ctx.createGain();
+    out.gain.value = gain;
+    out.connect(this.audio.master);
+    const h = { src: null, t0: 0, stopped: false };
+    const done = this.buffer(clip.file).then((buf) => new Promise((res) => {
+      if (!buf || h.stopped) { res(); return; }
+      const src = (h.src = ctx.createBufferSource());
+      src.buffer = buf;
+      src.connect(out);
+      h.t0 = ctx.currentTime + 0.02;
+      src.start(h.t0);
+      const over = Math.min(buf.duration, (clip.end ?? buf.duration) + 0.1);
+      const tick = () => { if (h.stopped || (ctx.state === 'running' && ctx.currentTime - h.t0 >= over)) res(); else requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    }));
+    return {
+      done,
+      stop() {
+        h.stopped = true;
+        out.gain.setTargetAtTime(0, ctx.currentTime, 0.03);
+        try { h.src?.stop(ctx.currentTime + 0.15); } catch { /* already stopped */ }
+      },
+      mouth() {
+        if (!h.src || h.stopped) return 0;
+        const f = Math.floor((ctx.currentTime - h.t0) * MOUTH_RATE);
+        return f >= 0 && f < clip.mouth.length ? clip.mouth[f] / 255 : 0;
+      },
+      gain(v) { out.gain.setTargetAtTime(v, ctx.currentTime, 0.08); },
+    };
+  }
+
   cancel() {
     const c = this.current;
     if (c?.src) {

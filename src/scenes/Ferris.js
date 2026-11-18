@@ -5,7 +5,10 @@ import { createSky } from '../fx/Sky.js';
 import { Particles } from '../fx/Particles.js';
 import { noiseTexture, pbrMaterial } from '../fx/Textures.js';
 import { prop, piece, meshes, boundsIn, hasProp } from '../props/Props.js';
+import { Smash } from '../props/Smash.js';
 import { makeCar } from '../props/Car.js';
+import { buildHalsBlock, BLOCK_PROPS } from '../city/HalsBlock.js';
+import { Lod } from '../city/Lod.js';
 
 // Ferris Aircraft, mid-morning: the airfield in the desert outside Coast City where Martin Jordan
 // flew (the dream's airfield, in daylight, twenty years on). North to south: the runway, a taxiway,
@@ -17,6 +20,7 @@ const _d = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3
 export const JET_SPOT = V(14, 0, -26); // the prototype on the apron, nose to the east
 export const CAROL_SPOT = V(19.5, 0, -20.5);
 export const CAR_SPOT = V(36, 0, 54); // Hal's space in the staff lot, nose to the north
+export const HAL_BAY = V(36, 0, 51); // the painted space itself (its lines run z 48.5 to 53.5); CAR_SPOT, where Part Three leaves the car, is 3 m back in its mouth
 export const GATE = V(4, 0, 112);
 export const LOT = V(0, 0, 6000); // behind the apartment building (Hal's car)
 export const CEMETERY = V(150, 0, 5150); // the memorial park on the edge of town, east of the road (Martin Jordan's grave)
@@ -27,8 +31,14 @@ const HANGARS = [{ x: -62, n: '1' }, { x: 0, n: '2' }, { x: 62, n: '3' }];
 const HANGAR = { w: 54, d: 30, h: 15, z0: 8 }; // doors on the north face (z0), facing the apron
 // the downloaded models the scene uses (src/props, CREDITS.md): load them before build()
 export const CEMETERY_PROPS = ['tombstones', 'cemgate', 'ironfence', 'cypress', 'bench'];
+// how the downloaded things round the field are made (props/Smash.js): their weight, and which are vehicles
+// (the stand is up against the jet's side: fixed there until a blow knocks it loose)
+const LOOSE = {
+  stand: { kind: 'breaks', strong: 16, mass: 350 }, toolbox: { mass: 140 }, drums: { mass: 240 }, cones: { mass: 20, stuff: 'plastic', glass: false },
+  tug: { kind: 'car', mass: 1600 }, forklift: { kind: 'car', mass: 2600 }, fueltruck: { kind: 'car', mass: 9000, give: 8 },
+};
 export const FERRIS_PROPS = ['phoenix', 'fairheaven', 'negotiator', 'sialia', 'fairheaven_sw', 'prototype', 'palms', 'apartment', 'stand', 'fueltruck', 'tug', 'cones', 'toolbox', 'drums', 'forklift',
-  'office1', 'office2', 'office3', 'office4', 'office5', 'office6', 'cityprops', 'busstop', 'billboard', 'booth'];
+  'office1', 'office2', 'office3', 'office4', 'office5', 'office6', 'cityprops', 'busstop', 'billboard', 'booth', ...BLOCK_PROPS];
 // the street kit's pieces (cityprops), by part name
 export const KIT = {
   mast: /low_poly_metal_street_props_0$/, signal: /low_poly011_/, lamp: /low_poly012_/, sign: /low_poly008_/, stop: /low_poly005_/,
@@ -36,6 +46,28 @@ export const KIT = {
 };
 const PALMS = [/^Palm_tree_001/, /^Palm_tree_002/]; // the two trees in the palms model
 export const BOULEVARD = { x0: 2, x1: 10, z0: -24, z1: -440, cross: -210 }; // in the lot's frame (LOT): the road out of town
+// The coastline, west of Coast City: x of the shore at a given z (metres; the sea is west of it)
+export const coastX = (z) => -6800 + 650 * Math.sin(z / 2300) + 320 * Math.sin(z / 770 + 1.3) + 140 * Math.sin(z / 260);
+const COAST_GLSL = (z) => `(-6800.0 + 650.0 * sin(${z} / 2300.0) + 320.0 * sin(${z} / 770.0 + 1.3) + 140.0 * sin(${z} / 260.0))`;
+// The desert's relief past the field (the airspace's mountains), in metres above the flats: nothing
+// within 9 km of the field, ranges beyond, the coast's plain falling to the sea in the west.
+const hash2 = (x, z) => { const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); };
+const vnoise = (x, z) => {
+  const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz, u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
+  const a = hash2(ix, iz), b = hash2(ix + 1, iz), c = hash2(ix, iz + 1), d = hash2(ix + 1, iz + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+};
+export function reliefAt(x, z) {
+  const r = Math.hypot(x, z - 3000), ss = (a, b, t) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+  let ridge = 0, amp = 1, f = 1 / 9000;
+  for (let o = 0; o < 5; o++) { const n = 1 - Math.abs(vnoise(x * f + o * 7.1, z * f - o * 3.3) * 2 - 1); ridge += n * n * amp; amp *= 0.5; f *= 2.1; }
+  let h = (ridge - 0.45) * 2100 * ss(9000, 17000, r);
+  // the coast: the plain toward the sea, under it past the shore
+  const c = coastX(z);
+  h *= ss(c - 400, c + 9000, x);
+  if (x < c) h = -8 - (c - x) * 0.01;
+  return Math.max(h, x < c ? h : 0);
+}
 
 let seed = 7;
 const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
@@ -72,6 +104,8 @@ export class Ferris {
     s.userData.near = 0.1; // outdoors, no shot is closer: 3x the depth precision of the default 3 cm
     this.sky = createSky('desert', 1500);
     s.add(this.sky);
+    this.smash = new Smash(this.physics, s); // (everything placed here can be touched: props/Smash.js)
+    this.blockOn = hasProp('ac_units'); // Hal's block is built (city/HalsBlock.js): what stood on its stretch steps aside
     this.buildLight();
     this.buildGround();
     this.buildRunway();
@@ -88,14 +122,31 @@ export class Ferris {
     this.buildApronProps();
     this.buildStaffLot();
     this.buildApartmentLot();
+    // Hal's block (src/city): the boulevard from his lot to the crossing, built to the open world's
+    // standard; buildCity leaves that stretch to it
     this.buildCity();
+    // things far from the camera aren't drawn (city/Lod.js): the block's own tiers, and everything else
+    // Smash holds by its size (a bin from 160 m, a car from 260, a shed from 600; buildings always)
+    this.lod = new Lod();
+    const drawn = new Set();
+    if (this.blockOn) this.block = buildHalsBlock(this, LOT, this.lod, drawn);
     // Hal's car: sun-faded maroon, the driver's door in primer
     this.car = makeCar('phoenix', { paint: 0x5a1d19, primer: true, dust: 0.7 });
     this.car.position.copy(CAR_SPOT);
     s.add(this.car);
+    drawn.add(this.car); // (the story's car: always drawn)
     this.carBox = this.physics.fixedBox({ x: CAR_SPOT.x, y: 0.65, z: CAR_SPOT.z }, { x: 0.93, y: 0.65, z: 2.45 }); // the body, not the mirrors
     this.exhaust = new Particles(300, { additive: false, puffy: true, drag: 0.8, turbulence: 0.4 });
     s.add(this.exhaust.points);
+    for (const it of this.smash.items) {
+      if (drawn.has(it.object) || !it.object.children.length && !it.object.isMesh) continue;
+      if (it.kind === 'car') { this.lod.addCar(it.object, 260, it); continue; } // (merged beyond 15 m)
+      const r = it.radius ?? 1;
+      this.lod.add(it.object, r < 1.2 ? 160 : r < 4 ? 260 : r < 12 ? 600 : Infinity, { moves: it.kind !== 'solid' });
+    }
+    // the prototypes: the one on the apron (it flies: measured where it is), the airframe in Hangar Two
+    const onApron = (o) => { for (let a = o; a; a = a.parent) if (a === this.jet) return true; return false; };
+    s.traverse((o) => { if (o.name === 'prototype') this.lod.add(o, onApron(o) ? 1800 : 300, { moves: true }); });
     return this;
   }
 
@@ -148,11 +199,20 @@ export class Ferris {
         float gH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float gN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(gH(i), gH(i + vec2(1, 0)), f.x), mix(gH(i + vec2(0, 1)), gH(i + vec2(1, 1)), f.x), f.y); }`)
         .replace('#include <map_fragment>', `#include <map_fragment>
+        if (vGw.x < ${COAST_GLSL('vGw.y')}) discard; // (the Pacific, west of town: Ferris.airspace)
         float gA = gN(vGw / 90.0) * 0.6 + gN(vGw / 23.0) * 0.3 + gN(vGw / 6.0) * 0.1;
+        // Coast City's ground, seen from the air: paved, in blocks, toward the shore (not in a layer
+        // of its own over the sand: two layers fought from up high)
+        // (an irregular spread, thickest downtown, thinning out into the desert at its edges)
+        float gSpread = length((vGw - vec2(-1800.0, 7800.0)) / vec2(4300.0, 4600.0)) + (gN(vGw / 1400.0) - 0.5) * 0.55 + (gN(vGw / 380.0) - 0.5) * 0.18;
+        float gCity = (1.0 - smoothstep(0.82, 0.98, gSpread)) * step(${COAST_GLSL('vGw.y')} + 200.0, vGw.x)
+          * (1.0 - step(abs(vGw.x - 6.0), 700.0) * step(${(LOT.z - 600).toFixed(1)}, vGw.y) * step(vGw.y, ${(LOT.z + 400).toFixed(1)}));
+        vec2 gGr = abs(fract(vGw / 120.0) - 0.5);
         float gB = gN(vGw / 41.0 + 7.3);
         diffuseColor.rgb *= mix(vec3(1.08, 1.02, 0.94), vec3(0.86, 0.7, 0.58), smoothstep(0.45, 0.75, gA));
         diffuseColor.rgb *= mix(1.0, 0.82, smoothstep(0.6, 0.85, gB));
-        diffuseColor.rgb *= 0.9 + 0.12 * gN(vGw * 1.7) + 0.08 * gN(vGw * 9.0);`);
+        diffuseColor.rgb *= 0.9 + 0.12 * gN(vGw * 1.7) + 0.08 * gN(vGw * 9.0);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.3, 0.29) * (1.0 - 0.35 * step(0.46, max(gGr.x, gGr.y))), gCity);`);
     };
     const ground = new THREE.Mesh(flat(16000, 16000, 125), sand);
     ground.position.set(0, -0.03, 3000);
@@ -260,7 +320,7 @@ export class Ferris {
     const roofMat = pbrMaterial('corrugated_iron_02', { repeat: [d / 1.4, w / 2.8], tint: new THREE.Color(1.6, 1.58, 1.55), metalness: 0.4 });
     const trim = new THREE.MeshStandardMaterial({ color: 0x3d4046, roughness: 0.5, metalness: 0.6 });
     const dark = new THREE.MeshStandardMaterial({ color: 0x4a4e54, roughness: 0.8, metalness: 0.2 }); // the inside of the back wall
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x8e8b84, roughness: 0.35, metalness: 0.1 });
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x8e8b84, roughness: 0.68, metalness: 0.05 }); // (sealed concrete: at 0.35 the work lights made a white blot of it from eye height)
     for (const H of HANGARS) {
       const gx = new THREE.Group();
       gx.position.set(H.x, 0, z0);
@@ -286,7 +346,7 @@ export class Ferris {
       }
       // inside: a dark interior, a polished floor, roof trusses
       add(flat(w - 0.4, d), floorMat, 0, 0.02, d / 2);
-      add(new THREE.BoxGeometry(w - 1, h - 0.5, 0.1), dark, 0, h / 2, d - 0.3);
+      const backIn = add(new THREE.BoxGeometry(w - 1, h - 0.5, 0.1), dark, 0, h / 2, d - 0.3);
       for (let z = 3; z < d; z += 5) add(new THREE.BoxGeometry(w - 1, 0.5, 0.3), trim, 0, h - 0.6, z);
       // the name, and the hangar's number
       const [nc, ng] = canvas(1024, 160);
@@ -333,12 +393,46 @@ export class Ferris {
           add(new THREE.BoxGeometry(1.4, 0.15, 0.6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.1, 1.9) }), x, h - 1.2, d / 2);
         }
         // tool chests, drums, the forklift, a work stand at the cockpit
-        const place = (name, x, z, r) => { const o = prop(name); o.position.set(x, 0, z); o.rotation.y = r; gx.add(o); return o; };
+        const place = (name, x, z, r) => { const o = prop(name); o.position.set(x, 0, z); o.rotation.y = r; gx.add(o); this.smash.add(o, LOOSE[name]); return o; };
         place('toolbox', 8, 6, 0.3);
         place('toolbox', 11, 9.5, -0.2 + Math.PI);
         place('drums', -19, 25, 0.6);
         place('forklift', 15, 22, -2.2);
         place('stand', 0.5, d / 2 - 1.2, 0.3);
+        place('toolbox', -16, 27.5, Math.PI + 0.1);
+        place('drums', 21, 26, -0.4);
+        // its back wall lit (the corrugated sheet), and along its foot the shop office: plaster, a
+        // band of lit windows, a door, its roof railed as a mezzanine
+        backIn.material = pbrMaterial('corrugated_iron_02', { repeat: [(w / 7) * 5, h / 1.4], tint: new THREE.Color(1.35, 1.32, 1.27), metalness: 0.35, roughness: 0.9 });
+        const plaster = pbrMaterial('white_plaster_02', { repeat: [5, 1], tint: new THREE.Color(1.1, 1.06, 1.0) });
+        const OW = 22, OD = 4.4, OH = 3.4, ox = 6, oz = d - 0.35 - OD / 2;
+        add(new THREE.BoxGeometry(OW, OH, OD), plaster, ox, OH / 2, oz);
+        add(new THREE.BoxGeometry(OW + 0.3, 0.25, OD + 0.3), trim, ox, OH + 0.12, oz);
+        const win = new THREE.MeshStandardMaterial({ color: 0x1d2a30, emissive: 0xffd9a0, emissiveIntensity: 0.42, roughness: 0.35, metalness: 0.2 });
+        for (let i = 0; i < 6; i++) add(new THREE.BoxGeometry(2.6, 1.25, 0.06), win, ox - OW / 2 + 2.2 + i * 3.1, 1.9, oz - OD / 2 - 0.02).castShadow = false;
+        add(new THREE.BoxGeometry(1.05, 2.2, 0.06), new THREE.MeshStandardMaterial({ color: 0x5a6068, roughness: 0.6, metalness: 0.4 }), ox + OW / 2 - 1.3, 1.1, oz - OD / 2 - 0.03);
+        for (let x = ox - OW / 2; x <= ox + OW / 2 + 0.01; x += 1.1) add(new THREE.BoxGeometry(0.05, 1.0, 0.05), trim, x, OH + 0.75, oz - OD / 2 + 0.1);
+        add(new THREE.BoxGeometry(OW, 0.06, 0.08), trim, ox, OH + 1.25, oz - OD / 2 + 0.1);
+        this.physics.fixedBox({ x: H.x + ox, y: OH / 2, z: z0 + oz }, { x: OW / 2, y: OH / 2, z: OD / 2 });
+        // the floor's safety lines round the airframe's bay, and the back wall: the company's sign
+        // and the flag (Hangar Two is where Carol's people work; Part Six spends a scene in it)
+        const paint = new THREE.MeshStandardMaterial({ color: 0xd8b23a, roughness: 0.8, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        for (const [w, dd, x, z] of [[30, 0.18, -6, 9.5], [30, 0.18, -6, 26.5], [0.18, 17, -21, 18], [0.18, 17, 9, 18]]) add(new THREE.PlaneGeometry(w, dd).rotateX(-Math.PI / 2), paint, x, 0.03, z).castShadow = false;
+        const [sc, sg] = canvas(2048, 384);
+        sg.fillStyle = '#e9e5dc'; sg.fillRect(0, 0, 2048, 384);
+        sg.fillStyle = '#a3191b'; sg.fillRect(0, 300, 2048, 34);
+        sg.fillStyle = '#23262b'; sg.font = '900 170px "Arial Black", Arial, sans-serif'; sg.textAlign = 'center'; sg.fillText('FERRIS AIRCRAFT', 1024, 190);
+        sg.font = '700 64px Arial, sans-serif'; sg.fillText('TEST  &  DEVELOPMENT  ·  HANGAR TWO', 1024, 272);
+        const sign = add(new THREE.PlaneGeometry(20, 3.75), new THREE.MeshStandardMaterial({ map: tex(sc), roughness: 0.7 }), 4, 9.2, d - 0.38);
+        sign.rotation.y = Math.PI;
+        const [fc, fg] = canvas(760, 400);
+        for (let i = 0; i < 13; i++) { fg.fillStyle = i % 2 ? '#f2efe8' : '#b22234'; fg.fillRect(0, (i * 400) / 13, 760, 400 / 13 + 1); }
+        fg.fillStyle = '#3c3b6e'; fg.fillRect(0, 0, 304, (400 * 7) / 13);
+        fg.fillStyle = '#f2efe8';
+        for (let r = 0; r < 9; r++) for (let c = 0; c < (r % 2 ? 5 : 6); c++) { fg.beginPath(); fg.arc(25 + c * 50 + (r % 2 ? 25 : 0), 18 + r * 22.5, 6, 0, 7); fg.fill(); }
+        const flag = add(new THREE.PlaneGeometry(7.6, 4), new THREE.MeshStandardMaterial({ map: tex(fc), roughness: 0.9 }), -17, 9.2, d - 0.38);
+        flag.rotation.y = Math.PI;
+        for (const m of [sign, flag]) m.castShadow = false;
       }
     }
   }
@@ -408,7 +502,11 @@ export class Ferris {
     const n = Math.floor(len / 55);
     const poles = new THREE.InstancedMesh(poleGeo, pole, n), arms = new THREE.InstancedMesh(armGeo, pole, n);
     const m4 = new THREE.Matrix4();
-    for (let i = 0; i < n; i++) { m4.makeTranslation(13, 0, 130 + i * 55); poles.setMatrixAt(i, m4); m4.makeTranslation(13, 9.4, 130 + i * 55); arms.setMatrixAt(i, m4); }
+    for (let i = 0; i < n; i++) {
+      const z = 130 + i * 55;
+      if (this.blockOn && z > LOT.z - 206 && z < LOT.z - 20) { m4.makeScale(0, 0, 0); poles.setMatrixAt(i, m4); arms.setMatrixAt(i, m4); continue; } // (the block's pavement: its poles are in the alleys)
+      m4.makeTranslation(13, 0, z); poles.setMatrixAt(i, m4); m4.makeTranslation(13, 9.4, z); arms.setMatrixAt(i, m4); this.physics.fixedBox({ x: 13, y: 5, z }, { x: 0.15, y: 5, z: 0.15 });
+    }
     poles.castShadow = true;
     s.add(poles, arms);
     // the gate: a guard booth with its barrier raised, the company's sign on a low wall
@@ -472,6 +570,7 @@ export class Ferris {
       const m = new THREE.Mesh(geo, mat);
       m.position.set(x, h / 2 - 2, z);
       s.add(m);
+      (this.mesas ??= []).push({ x, z, r: top * 1.15, h: h - 2 });
     }
   }
 
@@ -484,7 +583,7 @@ export class Ferris {
       o.position.set(J.x + x, 0, J.z + z);
       o.rotation.y = r;
       s.add(o);
-      if (solid) { const b = boundsIn(s, meshes(o, () => true)), c = b.getCenter(V(0, 0, 0)), h = b.getSize(V(0, 0, 0)).multiplyScalar(0.5); this.physics.fixedBox({ x: c.x, y: h.y, z: c.z }, { x: h.x * 0.9, y: h.y, z: h.z * 0.9 }); }
+      if (solid) this.smash.add(o, LOOSE[name]);
       return o;
     };
     // (the jet's nose is east, +x; its right side, the one Carol stands on, is south, +z)
@@ -500,11 +599,15 @@ export class Ferris {
     const cb = boundsIn(pack, [src]), cc = cb.getCenter(V(0, 0, 0));
     const at = new THREE.Matrix4().makeTranslation(-cc.x, -cb.min.y, -cc.z).multiply(src.matrixWorld);
     for (const [x, z, r] of [[-1.5, 7.6, 0.3], [-1.5, -7.6, 1.2], [-10.6, 0, 2.1]]) {
-      const cone = new THREE.Mesh(src.geometry, src.material);
+      const cone = new THREE.Mesh(src.geometry, src.material), holder = new THREE.Group();
       cone.castShadow = true;
       cone.matrixAutoUpdate = false;
-      cone.matrix.makeRotationY(r).setPosition(J.x + x, 0, J.z + z).multiply(at);
-      s.add(cone);
+      cone.matrix.copy(at);
+      holder.add(cone);
+      holder.position.set(J.x + x, 0, J.z + z);
+      holder.rotation.y = r;
+      s.add(holder);
+      this.smash.add(holder, { mass: 4, stuff: 'plastic', glass: false }); // (one boot sends it skittering)
     }
   }
 
@@ -538,8 +641,10 @@ export class Ferris {
     bin.position.set(-24, 0.7, 9);
     bin.castShadow = bin.receiveShadow = true;
     g.add(bin);
+    const palms = [];
     for (const [x, z, h, r] of [[-27, -8, 11, 0.4], [26, -6, 12.5, 2.2], [31, 4, 9.5, 4.1]]) {
       const p = prop('palms');
+      palms.push(p);
       p.position.set(x, 0, z);
       p.rotation.y = r;
       p.scale.setScalar(h / 10.5);
@@ -550,7 +655,12 @@ export class Ferris {
       car.position.set(x, 0, 4.8);
       car.rotation.y = r;
       g.add(car);
+      this.smash.add(car, { kind: 'car', mass: 1300, shrink: 0.97 });
     }
+    // the block, the dumpster and the palms are there to be touched too
+    this.smash.solid(block, { stuff: 'stone', mesh: true });
+    this.smash.add(bin, { mass: 420 });
+    for (const p of palms) this.smash.solid(p, { stuff: 'wood', mesh: true });
     this.lotCarSpot = L.clone().add(V(-1.6, 0, 4.8)); // nose in, toward the building
     this.physics.fixedGround(120, 0, 12, L.x, L.z); // he walks out to his car here
   }
@@ -562,7 +672,11 @@ export class Ferris {
     const s = this.scene, g = new THREE.Group(), B = BOULEVARD;
     g.position.copy(LOT);
     s.add(g);
-    const put = (o, x, z, yaw = 0, sc = 1) => { o.position.set(x, 0, z); o.rotation.y = yaw; o.scale.setScalar(sc); g.add(o); return o; };
+    const put = (o, x, z, yaw = 0, sc = 1, y = 0) => { o.position.set(x, y, z); o.rotation.y = yaw; o.scale.setScalar(sc); g.add(o); return o; };
+    // (what stands along the street can be driven into and knocked down: palms are solid at the
+    // trunk, the lamps' and signals' poles snap; their boxes are the pole, not the arm out over the road)
+    const trunk = (o) => this.smash.solid(o, { stuff: 'wood', shrink: 1, box: new THREE.Box3(V(-0.28, 0, -0.28), V(0.28, 7, 0.28)) });
+    const pole = (o, mass, strong) => this.smash.add(o, { kind: 'breaks', mass, strong, shrink: 1, glass: false, box: new THREE.Box3(V(-0.14, 0, -0.14), V(0.14, 6.5, 0.14)) });
     const len = B.z0 - B.z1;
     // pavements, kerbs, the cross street
     const pave = (x0, x1, z0, z1) => {
@@ -571,15 +685,21 @@ export class Ferris {
       m.receiveShadow = true;
       g.add(m);
     };
+    const own = this.blockOn; // the stretch from the lot to the crossing is Hal's block's (city/HalsBlock.js)
     for (const [x0, x1] of [[B.x0 - 5.5, B.x0], [B.x1, B.x1 + 5.5]]) {
-      pave(x0, x1, B.z0, B.cross + 8);
+      if (!own) pave(x0, x1, B.z0, B.cross + 8);
       pave(x0, x1, B.cross - 8, B.z1);
     }
     const kerbMat = new THREE.MeshStandardMaterial({ color: 0xb9b4aa, roughness: 0.85 });
-    for (const x of [B.x0, B.x1]) for (const [z0, z1] of [[B.z0, B.cross + 8], [B.cross - 8, B.z1]]) {
+    const spans = own ? [[B.cross - 8, B.z1]] : [[B.z0, B.cross + 8], [B.cross - 8, B.z1]];
+    for (const x of [B.x0, B.x1]) for (const [z0, z1] of spans) {
       const k = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, z0 - z1), kerbMat);
       k.position.set(x, 0.075, (z0 + z1) / 2);
       g.add(k);
+    }
+    // the pavements are solid (a car mounts the kerb with a bump; Hal walks on them), 14 cm up
+    for (const [x0, x1] of [[B.x0 - 5.5, B.x0], [B.x1, B.x1 + 5.5]]) for (const [z0, z1] of spans) {
+      this.physics.fixedBox({ x: LOT.x + (x0 + x1) / 2, y: 0.07, z: LOT.z + (z0 + z1) / 2 }, { x: (x1 - x0) / 2, y: 0.07, z: (z0 - z1) / 2 });
     }
     const cross = new THREE.Mesh(flat(320, 12), pbrMaterial('asphalt_02', { repeat: [60, 2.2] }));
     cross.position.set(6, 0.02, B.cross); // over the boulevard (it was 1 mm under it, and fought it)
@@ -592,45 +712,54 @@ export class Ferris {
     // the blocks: fronts to the street, a few metres of plaza between them
     const blocks = ['office5', 'office2', 'office4', 'office1', 'office6', 'office5', 'office4', 'office2', 'office1', 'office3'];
     for (const side of [-1, 1]) {
-      let z = B.z0 - 6, i = side > 0 ? 3 : 0;
+      let z = own ? B.cross - 9 : B.z0 - 6, i = side > 0 ? 3 : 0;
       while (z > B.z1 + 20) {
         const name = blocks[i++ % blocks.length], o = prop(name);
         const b = new THREE.Box3().setFromObject(o), w = b.max.x - b.min.x, dep = b.max.z - b.min.z;
         if (z - w < B.cross + 9 && z > B.cross - 9) { z = B.cross - 9; continue; } // leave the crossing clear
         const x = side < 0 ? B.x0 - 5.5 - dep / 2 - 1 : B.x1 + 5.5 + dep / 2 + 1;
-        put(o, x, z - w / 2, side < 0 ? Math.PI / 2 : -Math.PI / 2);
+        this.smash.solid(put(o, x, z - w / 2, side < 0 ? Math.PI / 2 : -Math.PI / 2), { stuff: 'stone', mesh: true });
         z -= w + 4 + rnd() * 8;
       }
     }
     // the blocks round the lot, so it sits in town and not at the edge of the desert
-    for (const [name, x, z, r] of [['office2', -78, 10, Math.PI / 2], ['office5', -70, -50, Math.PI / 2], ['office4', -76, 70, Math.PI / 2], ['office6', 92, 30, -Math.PI / 2], ['office5', 66, -48, -Math.PI / 2], ['office1', 70, 96, -Math.PI / 2], ['office4', -20, 86, Math.PI], ['office2', 40, 70, Math.PI]]) put(prop(name), x, z, r);
+    for (const [name, x, z, r] of [['office2', -78, 10, Math.PI / 2], ['office5', -70, -50, Math.PI / 2], ['office4', -76, 70, Math.PI / 2], ['office6', 92, 30, -Math.PI / 2], ['office5', 66, -48, -Math.PI / 2], ['office1', 70, 96, -Math.PI / 2], ['office4', -20, 86, Math.PI], ['office2', 40, 70, Math.PI]]) this.smash.solid(put(prop(name), x, z, r), { stuff: 'stone', mesh: true });
     // downtown, behind Hal's building: the towers through the haze
-    for (const [name, x, z, sc, r] of [['office3', -120, 190, 2.3, 0.3], ['office1', -40, 260, 2.0, -0.2], ['office3', 70, 230, 1.9, 1.2], ['office4', 150, 170, 1.7, 0.5], ['office6', -210, 120, 1.2, 0.9]]) put(prop(name), x, z, r, sc);
+    for (const [name, x, z, sc, r] of [['office3', -120, 190, 2.3, 0.3], ['office1', -40, 260, 2.0, -0.2], ['office3', 70, 230, 1.9, 1.2], ['office4', 150, 170, 1.7, 0.5], ['office6', -210, 120, 1.2, 0.9]]) this.smash.solid(put(prop(name), x, z, r, sc), { stuff: 'stone', mesh: true });
     // street furniture: palms in the verge, lamps at the kerb, hydrants, bins
     for (let z = B.z0 - 10, n = 0; z > B.z1 + 10; z -= 18, n++) {
-      if (Math.abs(z - B.cross) < 12) continue;
+      if (Math.abs(z - B.cross) < 12 || (own && z > B.cross)) continue;
       for (const side of [-1, 1]) {
         const xk = side < 0 ? B.x0 - 0.9 : B.x1 + 0.9;
         if (n % 2 === 0) {
           // the palms model is two trees 3.5 m apart: stood one by one on their trunks along the kerb
           // (as a pair, turned at random, one could land out on the road in the car's way)
           const yaw = rnd() * 6, sc = 0.62 + rnd() * 0.12;
-          put(piece('palms', PALMS[0], { root: true }), xk - side * 0.6, z + side * 4 + 1.8, yaw, sc);
-          put(piece('palms', PALMS[1], { root: true }), xk - side * 0.6, z + side * 4 - 1.8, yaw + 2.1, sc * 0.95);
+          trunk(put(piece('palms', PALMS[0], { root: true }), xk - side * 0.6, z + side * 4 + 1.8, yaw, sc));
+          trunk(put(piece('palms', PALMS[1], { root: true }), xk - side * 0.6, z + side * 4 - 1.8, yaw + 2.1, sc * 0.95));
         }
-        else put(piece('cityprops', KIT.lamp, { root: true }), xk, z, side < 0 ? 0 : Math.PI);
-        if (n % 5 === 2) put(piece('cityprops', rnd() < 0.5 ? KIT.bin : KIT.can, { root: true }), xk + side * 3.6, z + 2); // on the pavement, back from the kerb
-        if (n % 7 === 3) put(piece('cityprops', KIT.hydrant, { root: true }), xk + side * 0.1, z - 3);
+        else pole(put(piece('cityprops', KIT.lamp, { root: true }), xk, z, side < 0 ? 0 : Math.PI, 1, 0.14), 45, 14);
+        if (n % 5 === 2) this.smash.add(put(piece('cityprops', rnd() < 0.5 ? KIT.bin : KIT.can, { root: true }), xk + side * 3.6, z + 2, 0, 1, 0.14), { mass: 18, stuff: 'plastic' }); // on the pavement, back from the kerb
+        if (n % 7 === 3) {
+          const hx = xk + side * 0.1, hz = z - 3;
+          this.smash.add(put(piece('cityprops', KIT.hydrant, { root: true }), hx, hz, 0, 1, 0.14), { kind: 'breaks', mass: 70, strong: 12, glass: false, onBreak: (item, at, dir, k, smash) => smash.geyser(V(LOT.x + hx, 0.3, LOT.z + hz)) });
+        }
       }
     }
     // the crossing: signals on the corners, a sign, a car waiting on the cross street
-    for (const [x, z, yaw] of [[B.x0 - 1, B.cross + 7, 0], [B.x1 + 1, B.cross - 7, Math.PI]]) put(piece('cityprops', KIT.mast, { root: true }), x, z, yaw);
-    for (const [x, z, yaw] of [[B.x1 + 1, B.cross + 7, -Math.PI / 2], [B.x0 - 1, B.cross - 7, Math.PI / 2]]) put(piece('cityprops', KIT.signal, { root: true }), x, z, yaw);
-    put(piece('cityprops', KIT.sign, { root: true }), B.x1 + 1.4, B.cross + 8.5, 0.4);
-    put(makeCar('negotiator', { paint: 0x6b6f72, dust: 0.25 }), 24, B.cross + 2.2, -Math.PI / 2);
-    put(makeCar('fairheaven', { paint: 0x8e8a7c, dust: 0.25 }), -30, B.cross - 2.2, Math.PI / 2);
-    put(prop('busstop'), B.x1 + 3.2, -120, -Math.PI / 2);
-    put(prop('billboard'), -26, -60, 0.6).scale.setScalar(1.3);
+    // (the block's kerbs are out at the parking lanes: its corners' signals stand there)
+    const xw = own ? -1.0 : B.x0 - 1, xe = own ? 13.0 : B.x1 + 1;
+    for (const [x, z, yaw] of [[xw, B.cross + 7, 0], [B.x1 + 1, B.cross - 7, Math.PI]]) pole(put(piece('cityprops', KIT.mast, { root: true }), x, z, yaw, 1, x === xw && own ? 0.14 : 0), 160, 30);
+    for (const [x, z, yaw] of [[xe, B.cross + 7, -Math.PI / 2], [B.x0 - 1, B.cross - 7, Math.PI / 2]]) pole(put(piece('cityprops', KIT.signal, { root: true }), x, z, yaw, 1, x === xe && own ? 0.14 : 0), 60, 16);
+    this.smash.add(put(piece('cityprops', KIT.sign, { root: true }), own ? 13.4 : B.x1 + 1.4, B.cross + 8.5, 0.4, 1, 0.14), { kind: 'breaks', mass: 35, strong: 9, glass: false });
+    this.smash.add(put(makeCar('negotiator', { paint: 0x6b6f72, dust: 0.25 }), 24, B.cross + 2.2, -Math.PI / 2), { kind: 'car', mass: 1300, shrink: 0.97 });
+    this.smash.add(put(makeCar('fairheaven', { paint: 0x8e8a7c, dust: 0.25 }), -30, B.cross - 2.2, Math.PI / 2), { kind: 'car', mass: 1300, shrink: 0.97 });
+    if (!own) { // (the block has its own bus stop, and the billboard is up on the taqueria's roof)
+      this.smash.add(put(prop('busstop'), B.x1 + 3.2, -120, -Math.PI / 2, 1, 0.14), { kind: 'breaks', mass: 380, strong: 30 });
+      const bb = put(prop('billboard'), -26, -60, 0.6);
+      bb.scale.setScalar(1.3);
+      this.smash.solid(bb, { stuff: 'metal' });
+    }
   }
 
   // Boxes round a placed model's parts (those whose names pass `test`), so Hal walks round its
@@ -708,6 +837,59 @@ export class Ferris {
     s.userData.exposure = 0.95;
   }
 
+  // Night over the valley and the town (free roam): the night sky, the moon for the key light, the
+  // town's windows, signs, neon and street lamps on (city/HalsBlock.js)
+  night() {
+    const s = this.scene;
+    this.sky.removeFromParent();
+    this.sky = createSky('night', 1500);
+    s.add(this.sky);
+    this.sun.color.set(0x9fb2d8);
+    this.sun.intensity = 0.22;
+    this.hemi.color.set(0x34405e);
+    this.hemi.groundColor.set(0x1c1a1c);
+    this.hemi.intensity = 0.13;
+    s.fog.color.set(0x121722);
+    s.fog.density = 0.0009;
+    s.userData.exposure = 1.0;
+    this.isNight = true;
+    this.block?.setNight(1);
+  }
+
+  // Back to the day the scene was built with (free roam, sleeping through the night)
+  day() {
+    const s = this.scene;
+    this.sky.removeFromParent();
+    this.sky = createSky('desert', 1500);
+    s.add(this.sky);
+    this.sun.color.set(0xffeed6);
+    this.sun.intensity = 2.7;
+    this.hemi.color.set(0xc6d8ec);
+    this.hemi.groundColor.set(0x8c7458);
+    this.hemi.intensity = 0.55;
+    s.fog.color.set(0xd5dde2);
+    s.fog.density = 0.00042;
+    s.userData.exposure = 0.82;
+    this.isNight = false;
+    this.block?.setNight(0);
+  }
+
+  // First light (Part Six): the sun just over the mesas in the east, the field still grey and cool.
+  dawn() {
+    const s = this.scene;
+    this.sky.removeFromParent();
+    this.sky = createSky('dawn', 1500);
+    s.add(this.sky);
+    this.sun.color.set(0xffc08e);
+    this.sun.intensity = 1.6;
+    this.hemi.color.set(0x8e9cc4);
+    this.hemi.groundColor.set(0x5e4a40);
+    this.hemi.intensity = 0.5;
+    s.fog.color.set(0xb7a3a2);
+    s.fog.density = 0.0006;
+    s.userData.exposure = 0.95;
+  }
+
   // The memorial park on the edge of Coast City where Martin Jordan is buried (built when first
   // needed; the downloaded models in CEMETERY_PROPS): a lawn in the desert behind an iron fence, its
   // gate onto a drive from the road, rows of headstones, cypresses, his stone by a bench. Walkable.
@@ -771,14 +953,144 @@ export class Ferris {
       st.add(plate);
       this.graveStone = st;
     }
-    if (hasProp('bench')) put(prop('bench'), GRAVE.x - 0.4, GRAVE.z + 3.2, 0);
+    if (hasProp('bench')) this.smash.solid(put(prop('bench'), GRAVE.x - 0.4, GRAVE.z + 3.2, 0), { stuff: 'wood' });
     if (hasProp('cypress')) {
-      for (const [x, z] of [[GRAVE.x - 1.7, GRAVE.z - 1.8], [GRAVE.x - 1.5, GRAVE.z + 1.9]]) put(prop('cypress'), x, z, rnd() * 6); // behind it, either side
-      for (let x = -28; x <= 28; x += 7) for (const side of [-1, 1]) put(prop('cypress'), x + (rnd() - 0.5) * 2, side * (D / 2 + 1.5), rnd() * 6).scale.setScalar(0.85 + rnd() * 0.35);
-      for (let z = -22; z <= 22; z += 7) put(prop('cypress'), W / 2 + 1.5, z + (rnd() - 0.5) * 2, rnd() * 6).scale.setScalar(0.85 + rnd() * 0.35);
+      // (each with a trunk to walk into)
+      const tree = (o) => this.smash.solid(o, { stuff: 'wood', shrink: 1, box: new THREE.Box3(V(-0.35, 0, -0.35), V(0.35, 5.5 * o.scale.y, 0.35)) });
+      for (const [x, z] of [[GRAVE.x - 1.7, GRAVE.z - 1.8], [GRAVE.x - 1.5, GRAVE.z + 1.9]]) tree(put(prop('cypress'), x, z, rnd() * 6)); // behind it, either side
+      for (let x = -28; x <= 28; x += 7) for (const side of [-1, 1]) { const o = put(prop('cypress'), x + (rnd() - 0.5) * 2, side * (D / 2 + 1.5), rnd() * 6); o.scale.setScalar(0.85 + rnd() * 0.35); tree(o); }
+      for (let z = -22; z <= 22; z += 7) { const o = put(prop('cypress'), W / 2 + 1.5, z + (rnd() - 0.5) * 2, rnd() * 6); o.scale.setScalar(0.85 + rnd() * 0.35); tree(o); }
     }
     this.physics.fixedGround(110, 0, 12, C.x - 20, C.z);
     return g;
+  }
+
+  // Ground for a car the whole way from town to the field and out over the desert (built when first
+  // driven: walking needs only the patches round the lot, the field and the park).
+  roadGround() {
+    if (this.roadGroundBody) return;
+    this.roadGroundBody = this.physics.fixedGround(16000, 0, 160, 0, 3000);
+  }
+  // The car is driven out of its bay: its stand-in box goes (carSolid puts one back where it stops).
+  freeCar() {
+    if (this.carBox) { this.physics.world.removeRigidBody(this.carBox); this.carBox = null; }
+  }
+  // The test range, for the prototype's flight (built when first flown): the desert out to the
+  // horizon from altitude (a 160 km relief of ranges and dry lake beds round the flats), the coast
+  // and the Pacific west of town, Coast City's spread of blocks and towers from the boulevard to the
+  // shore, and the haze and draw distance for flying high (`flightAir(on)`).
+  airspace() {
+    if (this.air) return this.air;
+    const s = this.scene, g = (this.air = new THREE.Group());
+    s.add(g);
+    // the relief: a grid of 160 km at 384 cells, its height by reliefAt, sunk 2 m under the near flats
+    const N = 384, SIZE = 160000, geo = new THREE.PlaneGeometry(SIZE, SIZE, N, N).rotateX(-Math.PI / 2);
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i) + 3000; p.setY(i, reliefAt(x, z) - 2); }
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
+    mat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vRw; varying vec3 vRn;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvRw = (modelMatrix * vec4(transformed, 1.0)).xyz; vRn = normalize(mat3(modelMatrix) * objectNormal);');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+        varying vec3 vRw; varying vec3 vRn;
+        float rH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float rN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(rH(i), rH(i + vec2(1, 0)), f.x), mix(rH(i + vec2(0, 1)), rH(i + vec2(1, 1)), f.x), f.y); }`)
+        .replace('#include <map_fragment>', `#include <map_fragment>
+        if (abs(vRw.x) < 7990.0 && vRw.z > -4990.0 && vRw.z < 10990.0 && vRw.x > ${COAST_GLSL('vRw.z')}) discard; // (the near desert's there)
+        vec2 q = vRw.xz;
+        float n1 = rN(q / 2600.0) * 0.6 + rN(q / 700.0) * 0.3 + rN(q / 160.0) * 0.1;
+        vec3 sand = mix(vec3(0.62, 0.5, 0.38), vec3(0.5, 0.36, 0.26), smoothstep(0.4, 0.75, n1));
+        // dry lake beds: pale, flat, round-ish pans on the flats
+        float lake = smoothstep(0.62, 0.66, rN(q / 5200.0 + 3.7)) * (1.0 - smoothstep(4.0, 30.0, vRw.y + 2.0));
+        sand = mix(sand, vec3(0.86, 0.82, 0.74), lake);
+        // the ranges: darker rock on the slopes, paler scree in the gullies, a dusting high up
+        float slope = 1.0 - vRn.y;
+        vec3 rock = mix(vec3(0.36, 0.27, 0.22), vec3(0.24, 0.2, 0.19), rN(q / 400.0));
+        vec3 c = mix(sand, rock, smoothstep(0.08, 0.3, slope) * smoothstep(20.0, 160.0, vRw.y));
+        c = mix(c, vec3(0.8, 0.78, 0.76), smoothstep(1500.0, 1900.0, vRw.y) * (1.0 - smoothstep(0.35, 0.6, slope)));
+        // the coast: a pale beach, then the coastal plain greener toward the sea
+        float cx = ${COAST_GLSL('vRw.z')};
+        c = mix(c, vec3(0.42, 0.44, 0.3), (1.0 - smoothstep(cx, cx + 6000.0, vRw.x)) * 0.6);
+        c = mix(c, vec3(0.85, 0.78, 0.62), 1.0 - smoothstep(cx, cx + 120.0, vRw.x));
+        diffuseColor.rgb = c;`);
+    };
+    const relief = new THREE.Mesh(geo, mat);
+    relief.position.z = 3000;
+    relief.receiveShadow = false;
+    g.add(relief);
+    // the sea, west of the shore: deep blue, the sun glinting off it
+    const seaGeo = flat(80000, 160000, 4000);
+    const sea = new THREE.Mesh(seaGeo, new THREE.MeshStandardMaterial({ color: 0x1c4660, roughness: 0.28, metalness: 0.1 }));
+    sea.material.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vSw;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvSw = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vSw;')
+        .replace('#include <map_fragment>', `#include <map_fragment>
+        float sx = ${COAST_GLSL('vSw.z')};
+        if (vSw.x > sx) discard;
+        diffuseColor.rgb = mix(vec3(0.16, 0.42, 0.46), diffuseColor.rgb, smoothstep(0.0, 900.0, sx - vSw.x));`);
+    };
+    sea.position.set(-46000, 0.05, 3000);
+    g.add(sea);
+    // Coast City from the air: blocks and towers between the boulevard and the shore (the streets
+    // the drive passes are the real models: this is the rest of the city, kept clear of them)
+    const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+    const cityMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.75, metalness: 0.1 });
+    cityMat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vCw; varying vec3 vCn;')
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvCw = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz; vCn = normalize(mat3(modelMatrix * instanceMatrix) * objectNormal);');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vCw; varying vec3 vCn;\nfloat cH(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 15731.7); }')
+        .replace('#include <map_fragment>', `#include <map_fragment>
+        vec3 bc = mix(vec3(0.7, 0.68, 0.64), vec3(0.42, 0.45, 0.5), cH(floor(vCw.xz / 37.0)));
+        float side = 1.0 - step(0.9, abs(vCn.y));
+        vec2 w = vec2(dot(vCw.xz, normalize(vec2(-vCn.z, vCn.x) + 1e-4)), vCw.y);
+        float win = step(0.35, fract(w.x / 3.2)) * step(0.4, fract(w.y / 3.6));
+        bc = mix(bc, vec3(0.16, 0.2, 0.26), win * side * 0.8);
+        bc *= mix(1.0, 0.7, (1.0 - side));
+        diffuseColor.rgb = bc;`);
+    };
+    const spots = [];
+    for (let i = 0; i < 6000 && spots.length < 1700; i++) {
+      const x = -6200 + rnd() * 8800, z = 3600 + rnd() * 9400;
+      if (x < coastX(z) + 250) continue;
+      if (Math.abs(x - 6) < 900 && z > LOT.z - 700 && z < LOT.z + 500) continue; // the real streets
+      // the same spread as the paving under it (the desert shader's gSpread, roughly)
+      const spread = Math.hypot((x + 1800) / 4300, (z - 7800) / 4600);
+      if (spread > 0.9 || rnd() < spread * 0.5) continue;
+      const down = Math.hypot(x + 1800, z - 7600);
+      const h = down < 1000 ? 70 + rnd() * 240 : down < 2400 ? 22 + rnd() * 80 : 8 + rnd() * 26;
+      spots.push([x, z, 18 + rnd() * 36, h, 18 + rnd() * 36, rnd() * 0.2]);
+    }
+    const city = new THREE.InstancedMesh(box, cityMat, spots.length);
+    const m4 = new THREE.Matrix4(), qy = new THREE.Quaternion();
+    spots.forEach(([x, z, w, h, d, r], i) => { qy.setFromAxisAngle(_up, r); m4.compose(V(x, 0, z), qy, V(w, h, d)); city.setMatrixAt(i, m4); });
+    city.frustumCulled = false;
+    g.add(city);
+    g.visible = false;
+    return g;
+  }
+
+  // Flying high: the range shown, the haze thinned and the view out to 90 km; and back.
+  flightAir(on) {
+    this.airspace().visible = on;
+    const s = this.scene;
+    s.fog.density = on ? 0.000032 : 0.00042;
+    s.userData.far = on ? 90000 : 2400;
+    this.sky.scale.setScalar(on ? 40 : 1);
+  }
+
+  // The ground's height at (x, z) for something flying low: the flats, the mesas round the field, the
+  // ranges past them.
+  terrainAt(x, z) {
+    let h = Math.max(0, reliefAt(x, z) - 2);
+    for (const m of this.mesas ?? []) if (Math.hypot(x - m.x, z - m.z) < m.r) h = Math.max(h, m.h);
+    return h;
+  }
+
+  // The parked car solid again, where it stopped.
+  carSolid() {
+    if (this.carBox) this.physics.world.removeRigidBody(this.carBox);
+    const c = this.car, q = c.quaternion;
+    this.carBox = this.physics.fixedBox({ x: c.position.x, y: 0.65, z: c.position.z }, { x: 0.93, y: 0.65, z: 2.45 }, { x: q.x, y: q.y, z: q.z, w: q.w });
   }
 
   // Flight inside the field and well past it: everything that bounds Hal in the air at Ferris.
@@ -792,8 +1104,7 @@ export class Ferris {
     car.position.copy(at);
     car.rotation.y = yaw;
     this.scene.add(car);
-    const b = boundsIn(this.scene, meshes(car, () => true)), c = b.getCenter(V(0, 0, 0)), h = b.getSize(V(0, 0, 0)).multiplyScalar(0.5);
-    this.physics.fixedBox({ x: c.x, y: h.y, z: c.z }, { x: h.x * 0.95, y: h.y, z: h.z * 0.97 });
+    this.smash.add(car, { kind: 'car', mass: 1300, shrink: 0.97 });
     return car;
   }
 
@@ -805,15 +1116,18 @@ export class Ferris {
 
   update(dt, t, camera, renderer) {
     this.physics.step(dt);
+    this.smash.update(dt, t, camera, renderer);
     // high over the field the near plane goes out with the camera's height: from 150 m up, 3.5 cm
     // between the apron's slab and the desert under it was inside one step of the depth buffer
-    const near = THREE.MathUtils.clamp((camera.position.y - 4) * 0.01, 0.1, 2);
+    const near = THREE.MathUtils.clamp((camera.position.y - 4) * 0.01, 0.1, this.nearMax ?? 2); // (a cockpit view holds it close)
     if (Math.abs(near - camera.near) > 0.02) { camera.near = near; camera.updateProjectionMatrix(); }
     this.sky.position.copy(camera.position); // the dome goes with the camera (the lot is 6 km away)
     this.sky.userData.uniforms.uTime.value = t;
     if (this.follow) this.focus(this.follow(camera));
     this.exhaust.update(dt, t, camera, renderer);
     if (this.beacon) this.beacon.visible = Math.sin(t * 3) > 0;
+    this.block?.update(dt, t, camera);
+    this.lod.update(dt, camera);
     for (const fn of this.updaters) fn(dt, t);
   }
 

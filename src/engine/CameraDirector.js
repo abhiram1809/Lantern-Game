@@ -62,6 +62,8 @@ export class CameraDirector {
     const s = this.shakeAmount;
     c.position.x += (Math.sin(t * 0.9) * 0.012 + Math.sin(t * 2.3) * 0.004) * h + (Math.random() - 0.5) * 0.06 * s;
     c.position.y += (Math.sin(t * 1.3 + 1) * 0.008) * h + (Math.random() - 0.5) * 0.06 * s;
+    // (an up other than the world's: a cockpit's view banks with the jet)
+    if (this.up) c.up.copy(this.up); else c.up.set(0, 1, 0);
     c.lookAt(this.look);
     if (s > 0) this.shakeAmount = Math.max(0, s - (this.shakeDecay ?? 1) * dt);
   }

@@ -7,7 +7,10 @@ import { createShaft } from '../fx/GreenLight.js';
 import { worldInfo } from '../ui/TravelHud.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const SECTOR = { earth: '2814', oa: '0', ysmault: '666' };
+const SECTOR = { earth: '2814', oa: '0', ysmault: '666', korugar: '1417' };
+// the ring's readout for each leg: leaving (by route) and arriving (by destination)
+const ORBIT_LINE = { 'earth>oa': 'ringOrbit', 'oa>earth': 'ringOrbitEarth', 'earth>ysmault': 'ringOrbitYsmault', 'ysmault>oa': 'ringOrbitFrom666', 'earth>korugar': 'ringOrbitKorugar', 'korugar>oa': 'ringOrbitFrom1417', 'korugar>earth': 'ringOrbitEarthFrom1417', 'oa>korugar': 'ringOrbitOaKorugar', 'oa>ysmault': 'ringOrbitOaYsmault', 'ysmault>earth': 'ringOrbit666Earth', 'ysmault>korugar': 'ringOrbit666Korugar', 'korugar>ysmault': 'ringOrbit1417Ysmault' };
+const APPROACH_LINE = { oa: 'ringApproach', earth: 'ringApproachEarth', ysmault: 'ringApproachYsmault', korugar: 'ringApproachKorugar' };
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
 // A flight between worlds, as a cutscene in four parts (after the 93604faf space-flight reference):
@@ -49,8 +52,10 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
     space.earth.position.set(0, 0, 0);
     space.oa.position.set(0, 0, 0);
     space.ysmault.position.set(0, 0, 0);
-    space.oa.rotation.y = from === 'oa' ? Math.PI : 0; // leaving Oa (or Ysmault), the planet is behind him
+    space.korugar.position.set(0, 0, 0);
+    space.oa.rotation.y = from === 'oa' ? Math.PI : 0; // leaving Oa (or Ysmault, or Korugar), the planet is behind him
     space.ysmault.rotation.y = from === 'ysmault' ? Math.PI : 0;
+    space.korugar.rotation.y = from === 'korugar' ? Math.PI : 0;
     story.show(space);
     space.scene.add(o);
     o.position.set(0, 0, 0);
@@ -75,7 +80,13 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
         // the ring plots the course: his ring hand out toward the stars, the light gathering on it
         director.cut(V(-1.7, 1.75, -2.4), V(0, 1.5, -0.2), 40);
         director.move(V(-1.45, 1.7, -2.1), V(0, 1.55, -0.3), 4.2, ease.inOut, 38);
-      } else await wait(0.6);
+      } else {
+        // (the short trip too: the shot down the curve of the world has him at its top edge, and on
+        // a shorter window out of it, just as the ring locks the course)
+        await wait(0.6);
+        director.cut(V(-1.7, 1.75, -2.4), V(0, 1.5, -0.2), 40);
+        director.move(V(-1.5, 1.72, -2.2), V(0, 1.55, -0.3), 2.4, ease.inOut, 38);
+      }
     } else {
       // Oa below and behind: up and away from the city-world
       director.cut(V(-1.6, 2.6, -3.4), V(0.4, 0, 6), 52);
@@ -89,7 +100,8 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
     player.animator.reach('R', () => { player.rig.bonePosition('upperArm_R', sh); return sh.add(aim.clone().sub(sh).normalize().multiplyScalar(0.62)); }, { pole: V(-0.4, -0.85, -0.3), rate: 4 });
     story.ringGlow = 6;
     audio.riser(long ? 3 : 1.6, 0.3);
-    story.ringSay('ringOrbit');
+    const orbit = ORBIT_LINE[`${from}>${to}`];
+    if (orbit) story.ringSay(orbit);
     hud.set({ mode: 'COURSE LOCKED', rows: [['Route', `Sector ${SECTOR[from]} → Sector ${SECTOR[to]}`], ['Destination', dest.name], ['Distance', '18.6 MLY']], speed: 0.2 });
     await wait(long ? 3.0 : 1.2);
 
@@ -98,7 +110,7 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
     player.animator.reach('R', null, { rate: 4 });
     player.flightState.k = 1;
     player.animator.play(player.flightGen, 0.5);
-    const world = { earth: space.earth, oa: space.oa, ysmault: space.ysmault }[from];
+    const world = { earth: space.earth, oa: space.oa, ysmault: space.ysmault, korugar: space.korugar }[from];
     audio.whoosh(1.8, 0.8);
     await tween(1.6, (k) => {
       o.rotation.set(1.45 * ease.inOut(Math.min(1, k * 1.6)), Math.PI, 0, 'YXZ');
@@ -160,16 +172,17 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
     space.earth.position.set(0, 0, 0);
     space.oa.position.set(0, 0, 0);
     space.ysmault.position.set(0, 0, 0);
-    space.oa.rotation.y = space.ysmault.rotation.y = 0;
+    space.korugar.position.set(0, 0, 0);
+    space.oa.rotation.y = space.ysmault.rotation.y = space.korugar.rotation.y = 0;
     story.show(space);
     space.scene.add(o);
     o.position.set(0, 0, 0);
     o.rotation.set(1.2, Math.PI, 0, 'YXZ');
     space.drift.set(0, 0, -30);
     player.flightState.k = 1;
-    hud.set({ mode: 'ORBITAL APPROACH', speed: 0.35, rows: [['Destination', dest.name], ['Sector', SECTOR[to]], ['Status', { oa: 'Central Battery in range', ysmault: 'No life signs' }[to] ?? 'Atmosphere: breathable']] });
-    story.ringSay('ringApproach');
-    const target = { oa: V(0, -50, -760), ysmault: V(30, -40, -700) }[to] ?? V(-12, -25, -60);
+    hud.set({ mode: 'ORBITAL APPROACH', speed: 0.35, rows: [['Destination', dest.name], ['Sector', SECTOR[to]], ['Status', { oa: 'Central Battery in range', ysmault: 'No life signs', korugar: 'Population 9.2 billion' }[to] ?? 'Atmosphere: breathable']] });
+    story.ringSay(APPROACH_LINE[to] ?? 'ringApproach');
+    const target = { oa: V(0, -50, -760), ysmault: V(30, -40, -700), korugar: V(-20, -45, -720) }[to] ?? V(-12, -25, -60);
     if (to === 'earth') {
       // arriving over the night side, the planet's curve ahead of him
       space.earth.position.set(0, 40, -120);
@@ -190,10 +203,10 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
     player.animator.play(player.flightGen, 0.4);
     director.cut(V(0.3, 1.9, 3.0), target, 52);
     audio.whoosh(1.6, 0.8);
-    const planet = { earth: space.earth, oa: space.oa, ysmault: space.ysmault }[to], p0 = planet.position.clone();
+    const planet = { earth: space.earth, oa: space.oa, ysmault: space.ysmault, korugar: space.korugar }[to], p0 = planet.position.clone();
     await tween(1.5, (k) => {
       o.rotation.set(0.15 + 1.6 * ease.inOut(Math.min(1, k * 2)), Math.PI, 0, 'YXZ');
-      planet.position.copy(p0).addScaledVector(V(0, 0.08, 1), k * k * (to === 'earth' ? 50 : to === 'ysmault' ? 380 : 420));
+      planet.position.copy(p0).addScaledVector(V(0, 0.08, 1), k * k * (to === 'earth' ? 50 : to === 'ysmault' || to === 'korugar' ? 380 : 420));
       space.drift.set(0, -20 * k, -60 * k);
       director.fov = 52 + 20 * k * k;
     }, ease.linear);

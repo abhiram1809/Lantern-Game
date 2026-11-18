@@ -54,6 +54,7 @@ export class Player {
     this.ground = null; // (x, z) => ground height, for foot placement
     this.lean = { pitch: 0, roll: 0, accel: 0 };
     this.ignore = new Set(); // collider handles the controller and camera pass through (held constructs)
+    this.camIgnore = new Set(); // collider handles only the camera passes through (people in the street)
     // flight
     this.canFly = false;
     this.flying = false;
@@ -118,6 +119,13 @@ export class Player {
     this.kcc.enableSnapToGround(0.35);
   }
 
+  // the last move touched nothing but floor
+  floorOnly() {
+    const n = this.kcc.numComputedCollisions();
+    for (let i = 0; i < n; i++) if (this.kcc.computedCollision(i).normal1.y < 0.7) return false;
+    return n > 0;
+  }
+
   place(position, yaw = this.yaw) {
     if (this.rb) {
       this.rb.setTranslation({ x: position.x, y: position.y + CENTER + SKIN, z: position.z }, true);
@@ -137,6 +145,8 @@ export class Player {
   get position() { return this.object.position; }
 
   walkTo(target, speed = this.walkSpeed) {
+    // (the walk is steered in updateGround only: started in flight, it never ran and never ended)
+    if (this.flying) this.stopFlying(true);
     return new Promise((resolve) => (this.script = { target: target.clone(), speed, resolve }));
   }
 
@@ -154,7 +164,7 @@ export class Player {
   filter = (c) => !this.ignore.has(c.handle) && !(this.flying && this.air?.ignoreInFlight?.has(c.handle));
   // The camera only dodges the world, not things that move (drones, debris, crates): those would
   // snap it into Hal's head whenever one passed behind him.
-  camFilter = (c) => this.filter(c) && !c.parent()?.isDynamic();
+  camFilter = (c) => this.filter(c) && !c.parent()?.isDynamic() && !this.camIgnore.has(c.handle); // (and people walking by: Korugar's streets)
 
   takeOff() {
     if (this.flying || !this.rb) return;
@@ -248,8 +258,16 @@ export class Player {
       this.vy = this.grounded ? -1 : this.vy - 9.81 * dt;
       this.fall = Math.max(this.fall, -this.vy);
       this.kcc.computeColliderMovement(this.collider, { x: vx * dt, y: this.vy * dt, z: vz * dt }, undefined, undefined, this.filter);
-      const m = this.kcc.computedMovement();
+      let m = this.kcc.computedMovement();
       this.grounded = this.kcc.computedGrounded();
+      // Rapier's controller now and then gives no movement at all on a flat floor it only touches from
+      // above (a frame in five on the shops' 15 cm floor boxes, the user's "sluggish" walking indoors):
+      // the same step again without the press down
+      const step = Math.hypot(vx, vz) * dt;
+      if (step > 1e-4 && Math.hypot(m.x, m.z) < 0.5 * step && this.floorOnly()) {
+        this.kcc.computeColliderMovement(this.collider, { x: vx * dt, y: 0.002, z: vz * dt }, undefined, undefined, this.filter);
+        m = this.kcc.computedMovement();
+      }
       const t = this.rb.translation();
       const next = { x: t.x + m.x, y: t.y + m.y, z: t.z + m.z };
       this.rb.setNextKinematicTranslation(next);
