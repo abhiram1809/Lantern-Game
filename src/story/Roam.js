@@ -266,7 +266,9 @@ export class Roam extends Exile {
     const w = this.roam?.where, P = PLACES[w];
     if (!P) return 'Free roam';
     const extra = { ferris: 'Part Seven: Carol, in Hangar Two', coast: 'Part Seven: Carol, at Ferris', oa: 'Kilowog has another round', ysmault: 'Atrocitus, at his obelisk', qward: 'Call the Thunderers at the circle', korugar: 'Katma Tui, by the statue', lake: 'Abin Sur’s ship' }[w];
-    return `Free roam · ${P.name}${extra ? ` · ${extra}` : ''}`;
+    // where the work is (story/Work.js), on the field as Hal
+    const h = this.dayCycle?.hour ?? 0, work = w === 'ferris' && this.civilian && this.life ? (this.work ? 'On the clock: the prototype on the apron' : h >= 9 && h < 17 ? 'Work: the time clock in Hangar Two, or the prototype' : null) : null;
+    return `Free roam · ${P.name}${work ? ` · ${work}` : extra ? ` · ${extra}` : ''}`;
   }
 
   // The keys line under the controls: what Hal can do as he is now.

@@ -117,7 +117,8 @@ in front of you. Beside it, **E** recharges the ring (or puts it away when the r
 | T | Change: Green Lantern to Hal Jordan, or back (the suit needs a little charge) |
 | G (on the ground) | Hal's phone: messages (What Up), photos, the map, his bank, the paper, the weather |
 | N | The map of Coast City and the valley (WASD or drag to pan, Q/E or the wheel to zoom, Enter or a click for a waypoint) |
-| E (the time clock in Hangar Two) | Clock in as Hal, any time from 9 to 5 ($62 an hour), and out; on the clock, E by the prototype flies a test card |
+| E (the time clock in Hangar Two) | Clock in as Hal, any time from 9 to 5 ($62 an hour), and out |
+| E (by the prototype on the apron) | As Hal from 9 to 5: clock in (if he isn't) and fly a test card; a crash goes back to the last step done (the landing to final approach) |
 | E (at the car's door) | Hal makes a key with the ring and gets in (in the suit, he changes first); with the ring out of charge, the key won't form |
 | E (stopped, driving) | Get out; the car stays where you left it |
 

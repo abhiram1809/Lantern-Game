@@ -65,14 +65,22 @@ export const WORK = {
     f.scene.add(clock);
     const dc = () => this.dayCycle;
     const open = () => { const h = dc()?.hour ?? 0; return h >= SHIFT_FROM && h < SHIFT_TO; };
-    const it = f.interact({ position: CLOCK_STAND, radius: 1.6, look: CLOCK.clone().setY(1.5), label: 'Clock in', action: () => (this.work ? this.clockOut() : this.clockIn()) });
+    const it = f.interact({ position: CLOCK_STAND, radius: 2.2, look: CLOCK.clone().setY(1.5), label: 'Clock in', action: () => (this.work ? this.clockOut() : this.clockIn()) });
     Object.defineProperty(it, 'label', { get: () => {
       if (this.work) return `Clock out · ${money(this.earned())} so far`;
       if (!this.civilian) return 'The time clock (Hal’s, not Green Lantern’s)';
       return open() ? `Clock in · $${PAY_HOUR} an hour` : 'The time clock · shifts are 9 to 5';
     } });
-    const jet = f.interact({ position: JET_SPOT.clone().add(V(-2.6, 0, 3.6)), radius: 3, look: JET_SPOT.clone().setY(1.6), label: 'Fly a test card', action: () => this.testCard() });
-    Object.defineProperty(jet, 'enabled', { get: () => !!this.work && this.civilian && !this.player.flying && !this.driving });
+    // the prototype: on the clock, up for a card; off it in the hours, clocked in and up in one go; else
+    // why not (its spot was under the wing, inside the airframe's colliders, and only showed once he was
+    // clocked in: the user couldn't work at all). On the apron south of it, clear of the wing.
+    const jet = f.interact({ position: JET_SPOT.clone().add(V(-2, 0, 9.6)), radius: 3.4, look: JET_SPOT.clone().setY(1.6), label: 'Fly a test card', action: () => this.atPrototype() });
+    Object.defineProperty(jet, 'enabled', { get: () => !this.player.flying && !this.driving && !this.flyingCard });
+    Object.defineProperty(jet, 'label', { get: () => {
+      if (!this.civilian) return 'The prototype · Hal flies it, 9 to 5';
+      if (this.work) return 'Fly a test card';
+      return open() ? `Clock in and fly a test card · $${PAY_HOUR} an hour` : 'The prototype · test flights 9 to 5';
+    } });
     this.workIts = [it, jet];
     // the shift's end: five o'clock, or walking (or driving) off the field
     f.updaters.push(() => {
@@ -91,7 +99,18 @@ export const WORK = {
   },
   earned() { return Math.round(this.hoursWorked() * PAY_HOUR * 100) / 100; },
 
-  async clockIn() {
+  // E at the prototype: clocked in first if he isn't, then up
+  async atPrototype() {
+    const h = this.dayCycle?.hour ?? 0;
+    if (!this.civilian) { await this.bark('halClockGL'); return; }
+    if (!this.work) {
+      if (h < SHIFT_FROM || h >= SHIFT_TO) { await this.bark(h < SHIFT_FROM ? 'halClockEarly' : 'halClockLate'); return; }
+      await this.clockIn({ quiet: true });
+    }
+    await this.testCard();
+  },
+
+  async clockIn({ quiet = false } = {}) {
     const { ui, audio } = this, dc = this.dayCycle;
     const h = dc?.hour ?? 0;
     if (!this.civilian) { this.bark('halClockGL'); return; }
@@ -99,6 +118,7 @@ export const WORK = {
     this.work = { day: dc.day, hour: h };
     audio.clunk?.() ?? audio.door?.();
     ui.toast(`Clocked in · ${dc.clock} · $${PAY_HOUR} an hour`);
+    if (quiet) return;
     this.powers.markerTarget = { pos: JET_SPOT.clone().setY(3), label: 'The prototype · a test card' };
     await this.bark('halClockIn');
   },
@@ -163,14 +183,56 @@ export const WORK = {
       cone.scale.setScalar(1 + (0.7 - boomT));
       this.vhud.gloc(clamp((jet.g - 6.2) / 3.2, 0, 1) * 0.95);
     });
-    // the card: off the ground, then eight thousand feet, or seven g, or both, then home
+    // the card: off the ground, then eight thousand feet, or seven g, or both, then home. Each step ticked
+    // is a checkpoint (the user, 2026-11-19: "checkpoint every part of the flight... bring Hal back to that
+    // position"; a crash had ended the card with Carol shouting): crash and the jet's put back where the
+    // last step was ticked, flying as it was, and the step's flown again. The landing's from a lined-up
+    // final approach (his own, once he's flown onto one).
     const r = Math.random(), alt = r < 0.7, g7 = r > 0.4;
-    const card = [{ text: 'Take off, gear up', done: false }];
-    if (alt) card.push({ text: 'Climb to 8,000 ft', done: false });
-    if (g7) card.push({ text: 'Pull 7 g (2 s)', done: false });
-    card.push({ text: 'Land on runway 27 and stop', done: false });
+    const snap = () => ({ pos: jet.pos.clone(), vel: jet.vel.clone(), quat: jet.quat.clone(), w: jet.w.clone(), throttle: jet.throttle, gear: jet.gearDown, onGround: jet.onGround, aim: { ...jet.aim } });
+    // the final approach the landing restarts from without one of his own: 4 km out on runway 27's line,
+    // 690 ft up on a three-degree path, 165 kt, gear down, nose a little up
+    const approach = () => {
+      const x = 4800, z = RUNWAY_Z, h = 210, p = 0.07, yaw = -Math.PI / 2;
+      return { pos: V(x, f.terrainAt(x, z) + jet.hc + h, z), vel: V(-85, -4.4, 0), quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(-p, yaw, 0, 'YXZ')), w: V(0, 0, 0), throttle: 0.42, gear: true, onGround: false, aim: { yaw, pitch: -0.052 } };
+    };
+    let held = 0, gearNag = 0, finalCp = null;
+    const steps = [{ text: 'Take off, gear up', until: () => !jet.onGround && jet.alt > 40 && !jet.gearDown }];
+    if (alt) steps.push({ text: 'Climb to 8,000 ft', start: () => this.radio('towerJobAlt'), until: () => jet.alt * FT > 7900, done: () => this.radio('towerJobAltOk') });
+    if (g7) steps.push({ text: 'Pull 7 g (2 s)', start: () => { held = 0; this.radio('towerJobG'); }, until: () => { held = jet.g > 6.8 ? held + 1 / 60 : Math.max(0, held - 2 / 60); return held > 2; }, done: () => this.radio('towerJobGOk') });
+    steps.push({ text: 'Land on runway 27 and stop', landing: true,
+      start: () => { this.radio('towerJobHome'); this.mark(V(300, 2, RUNWAY_Z), 'Runway 27'); },
+      until: () => {
+        if (!jet.gearDown && jet.alt < 150 && jet.vel.y < -2 && (gearNag -= 1 / 60) < 0) { gearNag = 8; this.radio('towerGear'); }
+        // on final: lined up east of the runway, low, gear down, heading west (the checkpoint from here on)
+        if (!finalCp && jet.gearDown && !jet.onGround && jet.pos.x > 1100 && jet.pos.x < 7000 && Math.abs(jet.pos.z - RUNWAY_Z) < 200 && jet.alt * FT < 2500 && jet.alt * FT > 250 && jet.vel.x < -40) {
+          finalCp = snap();
+          ui.toast('Checkpoint · on final for runway 27');
+        }
+        return jet.onGround && jet.speed < 4 && !jet.offField(jet.pos.x, jet.pos.z);
+      } });
+    const card = steps.map((st) => ({ text: st.text, done: false }));
     const tick = (i) => { card[i].done = true; this.vhud.setCard(card); audio.ringChime?.(); };
-    let ok = false;
+    // back to a checkpoint: a cut through black, the jet as it was there
+    const reset = async (st, label) => {
+      jet.enabled = false;
+      await ui.fade(1, 0.4);
+      jet.pos.copy(st.pos); jet.vel.copy(st.vel); jet.quat.copy(st.quat); jet.w.copy(st.w);
+      jet.throttle = st.throttle;
+      jet.brake = 0;
+      if (jet.gearDown !== st.gear) { jet.gearDown = st.gear; jet.onGear?.(st.gear); }
+      jet.onGround = st.onGround;
+      jet.aim.yaw = st.aim.yaw; jet.aim.pitch = st.aim.pitch;
+      jet.crashed = false;
+      jet.snap = true;
+      jet.place?.();
+      crashed = false;
+      ui.toast(`Checkpoint · ${label}`);
+      await wait(0.35);
+      await ui.fade(0, 0.6);
+      jet.enabled = true;
+    };
+    let ok = false, quit = false;
     try {
       director.mode = 'follow';
       await ui.fade(0, 1.0);
@@ -179,60 +241,49 @@ export const WORK = {
       ui.controls(false);
       this.busy = false;
       jet.enabled = true;
-      this.hud.tutorial({ kicker: 'Ferris Two-Seven', title: 'A test card', n: 1, of: 1, html: '<b>Mouse</b> point where to fly &nbsp; <b>W</b> <b>S</b> throttle &nbsp; <b>A</b> <b>D</b> roll &nbsp; <b>Q</b> <b>E</b> rudder &nbsp; <b>G</b> gear &nbsp; <b>B</b> brakes &nbsp; <b>C</b> cockpit view' });
+      this.hud.tutorial({ kicker: 'Ferris Two-Seven', title: 'A test card', n: 1, of: 1, html: '<b>Mouse</b> point where to fly &nbsp; <b>W</b> <b>S</b> throttle &nbsp; <b>A</b> <b>D</b> roll &nbsp; <b>Q</b> <b>E</b> rudder &nbsp; <b>G</b> gear &nbsp; <b>B</b> brakes &nbsp; <b>C</b> cockpit view &nbsp; a crash goes back to the last checkpoint' });
       this.vhud.setCard(card);
       ui.objective('Fly the test card');
       this.radio('towerJob1').then(() => this.radio('halTower1'));
-      let warned = 0, i = 0;
-      const watch = () => {
-        if (Math.hypot(jet.pos.x, jet.pos.z + 150) > 42000 && (warned -= 1 / 60) < 0) { warned = 12; this.radio('towerRange'); }
-        return crashed;
-      };
-      await waitFor(() => watch() || (!jet.onGround && jet.alt > 40 && !jet.gearDown));
-      if (crashed) return;
-      tick(i++);
-      if (alt) {
-        this.radio('towerJobAlt');
-        await waitFor(() => watch() || jet.alt * FT > 7900);
-        if (crashed) return;
-        tick(i++);
-        this.radio('towerJobAltOk');
+      let warned = 0, cp = snap(), cpName = 'on the runway';
+      for (let i = 0; i < steps.length && !quit; i++) {
+        const st = steps[i];
+        st.start?.();
+        for (let tries = 0; ; tries++) {
+          await waitFor(() => {
+            if (Math.hypot(jet.pos.x, jet.pos.z + 150) > 42000 && (warned -= 1 / 60) < 0) { warned = 12; this.radio('towerRange'); }
+            return crashed || st.until();
+          });
+          if (!crashed) break;
+          // a crash: again from the checkpoint (or, after a few, the choice to call it a day)
+          if (tries >= 2) {
+            const pick = ui.pick('The prototype', ['Again, from the checkpoint', 'Call it a day']);
+            if ((await pick) === 1) { quit = true; break; }
+          }
+          if (st.landing) await reset(finalCp ?? approach(), finalCp ? 'on final for runway 27' : 'the approach to runway 27');
+          else { await reset(cp, cpName); st.start?.(); }
+        }
+        if (quit) break;
+        tick(i);
+        st.done?.();
+        cp = snap();
+        cpName = st.text.toLowerCase();
       }
-      if (g7) {
-        this.radio('towerJobG');
-        let held = 0;
-        await waitFor(() => { held = jet.g > 6.8 ? held + 1 / 60 : Math.max(0, held - 2 / 60); return watch() || held > 2; });
-        if (crashed) return;
-        tick(i++);
-        this.radio('towerJobGOk');
+      if (!quit) {
+        ok = true;
+        jet.enabled = false;
+        jet.throttle = 0;
+        this.hushRadio();
+        await this.radio('towerJobDone');
+        await wait(0.8);
       }
-      this.radio('towerJobHome');
-      this.mark(V(300, 2, RUNWAY_Z), 'Runway 27');
-      let gearNag = 0;
-      await waitFor(() => {
-        if (!jet.gearDown && jet.alt < 150 && jet.vel.y < -2 && (gearNag -= 1 / 60) < 0) { gearNag = 8; this.radio('towerGear'); }
-        return watch() || (jet.onGround && jet.speed < 4 && !jet.offField(jet.pos.x, jet.pos.z));
-      });
-      if (crashed) return;
-      tick(i);
-      ok = true;
-      jet.enabled = false;
-      jet.throttle = 0;
-      this.hushRadio();
-      await this.radio('towerJobDone');
-      await wait(0.8);
     } finally {
       flying();
-      engineSnd.stop(crashed ? 0.2 : 1.2);
-      if (crashed) {
-        audio.explosion(1.2);
-        director.shake(0.6, 1.4);
-        this.say('jetCrash', { skip: false });
-        await wait(2.0);
-      }
+      engineSnd.stop(1.2);
+      this.hushRadio();
       this.takeControl();
       this.busy = true;
-      await ui.fade(1, crashed ? 1.0 : 1.2);
+      await ui.fade(1, 1.2);
       this.mark(null);
       this.hud.tutorial(null);
       ui.objective(null);
@@ -247,13 +298,14 @@ export const WORK = {
       this.jet = null;
       cone.removeFromParent();
       f.parkJet(JET_SPOT, Math.PI / 2);
-      // out of the kit, back in his own clothes, on the apron by the airframe
+      // out of the kit, back in his own clothes, on the apron south of the airframe (where its prompt is:
+      // clear ground; put down under its wing, inside its colliders, he was stuck there, suit or not)
       this.ring.removeFromParent();
       player.setRig(this.casualRig);
       this.hal = this.casualRig;
       this.attachRing(this.ring, this.casualRig);
       this.powers.ring = this.ring;
-      const at = JET_SPOT.clone().add(V(-3.4, 0, 4.2));
+      const at = JET_SPOT.clone().add(V(-2, 0, 9.6));
       this.enterFerris(at, Math.atan2(JET_SPOT.x - at.x, JET_SPOT.z - at.z));
       this.ferrisRoam(f, 'ferris');
       this.roam.where = 'ferris';
@@ -267,7 +319,7 @@ export const WORK = {
       this.busy = false;
       this.giveControl(this.roamObjective());
       this.roamKeys?.();
-      if (crashed) { ui.toast('The prototype went in · Carol is not pleased'); this.say('carolJetLost', { skip: false }); }
+      if (quit) ui.toast('Card left for tomorrow · still on the clock');
       else if (ok) { this.life?.gain(25, 'a test card flown'); ui.toast(`Card flown · on the clock since ${clockOf(this.work?.hour)}`); }
     }
   },

@@ -1419,11 +1419,18 @@ roam and the chapters that load Ferris with it):
   Two (`CLOCK`); as Hal between 9 and 5 E clocks in (or Carol, asked, `offerShift`), E again clocks out, and
   five o'clock or leaving the field (1.6 km) clocks him out; paid for the hours on it at **$62 an hour**
   (`PAY_HOUR`: Salary.com's US average for an experimental test pilot; the user guessed $250 and asked me to
-  check). On the clock, E by the prototype on the apron flies **a test card** (`testCard`): Part Five's jet,
+  check). E by the prototype (on the apron south of it, `atPrototype`) clocks him in if he isn't and flies
+  **a test card** (`testCard`); its prompt says why not outside the hours or in the suit, and the objective
+  names where the work is. The card: Part Five's jet,
   cockpit and flight suit, the walk out cut (a fade to the seat at the runway's east end), the card off the
   ground, then 8,000 ft or 7 g held 2 s or both (random), then down on 27 and stopped; Carol on the radio
-  (`towerJob*`); 25 XP; a crash is a toast and Carol's line, not a reload. After it he's on the apron in his
-  own clothes (`casualRig`).
+  (`towerJob*`); 25 XP. **Each step ticked is a checkpoint** (the user: "checkpoint every part of the
+  flight"): a crash cuts through black to the jet as it was when the last step was ticked, flying, and the
+  step's flown again (`snap`, `reset`); the landing restarts on final approach, his own once he's flown onto
+  one (`finalCp`: lined up east of 27, low, gear down), else 4 km out on a three-degree path (`approach`).
+  After three crashes in a step, "Again, from the checkpoint" or "Call it a day". After it he's on the
+  apron south of the jet in his own clothes (`casualRig`; he was put under its wing, inside its colliders,
+  and couldn't get out even as Green Lantern).
 - **Home** (`blockRoam`): E at either of his building's two front doors (lot x ±13.6, the stoops) or on the
   lawn between them (the one spot there was stood in front of the middle wall, at neither door); out of the
   door he went in by (`homeDoor`). The bed is a choice (`sleep`: till morning, till evening, a two-hour nap;
@@ -2419,6 +2426,11 @@ The checks that have worked:
 
 ## Gotchas (learned the hard way)
 
+- **An interaction placed inside a prop's colliders never shows.** The prototype's "Fly a test card" spot
+  was under its wing, inside the airframe's boxes, and appeared only once he was clocked in: the user
+  couldn't work at Ferris at all. Map each new spot with Hal's capsule (the overlap grid under *Check a room
+  with Hal's capsule*) and walk to it before calling it done; and show a prompt that says why not rather
+  than none.
 - **A wheel modelled turned spins like a bent axle.** Three of the four town cars have their front wheels
   steered 20 to 30° in the model; spun about the car's axle by their hub pivots, they wobbled from side to
   side (the user's "wheels... wobbling left and right"). `Car.js` `straighten` finds each wheel's disc axis
@@ -2965,6 +2977,19 @@ The checks that have worked:
 ## Status
 
 Verified by playing in the browser:
+
+- (2026-11-19, the test card's checkpoints) on 5180, muted, voices off, fixed-step with real key events
+  from `#world`: as Hal at 10, E at the prototype (clocked in, seated); a takeoff by keys ("Take off, gear
+  up" ticked); a crash forced in the climb: back flying from where takeoff was ticked, the card still on the
+  climb; the climb done; a crash in the landing: on final 4.6 km out, 200 m up, gear down, holding a steady
+  glide for five seconds; two more crashes, the choice, "Call it a day": on the apron at the clear spot, in
+  his clothes, in control, still clocked in, walking away. A real landing to a stop not flown by me.
+
+- (2026-11-19, work at Ferris fixed) on 5180, muted, voices off, fixed-step with real key events from
+  `#world`: the capsule map round the old prototype spot (inside the jet's colliders) and the new one (clear);
+  T to Hal, 10 AM, walked from the hangar's mouth to the new spot, the prompt "Clock in and fly a test card ·
+  $62 an hour", E: clocked in and in the cockpit; W throttle, a pull, G: "Take off, gear up" ticked; the climb:
+  "Climb to 8,000 ft" ticked. The landing and the clock-out after a flown card not replayed.
 
 - (2026-11-19, the second round of the open world) on 5180, muted, voices off, fixed-step and scripted keys
   from `#world`: the receptionist drawn (the `remote` gate); every traffic car's wheels within 0.2° of their
@@ -3703,6 +3728,19 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-19: the test card's checkpoints, and out from under the wing
+- The user: a crash on landing ended the card with Carol shouting; "checkpoint every part of the flight";
+  after landing Hal was stuck under the wing, even as Green Lantern. `story/Work.js`: the card as steps,
+  each ticked a checkpoint, a crash a reset to it (the landing to final approach), the choice after three;
+  Hal put down at the prompt's clear spot.
+- Verified: see Status (2026-11-19, the test card's checkpoints).
+
+### 2026-11-19: work at Ferris that can be done
+- The user: "I'm unable to work at Ferris Aircraft." The prototype's spot was inside its colliders (see
+  Gotchas). `story/Work.js`: the spot moved clear of the wing, `atPrototype` (clock in and fly in one E),
+  prompts that say why not (the hours, the suit), the clock's radius 2.2; `Roam.roamObjective` names the work.
+- Verified: see Status (2026-11-19, work at Ferris fixed).
 
 ### 2026-11-19: work, a phone, a map, the city's life, parks, a freeway and a channel
 - The user, after playing the streamed city: the receptionist missing and naming Green Lantern "Mr. Jordan";
