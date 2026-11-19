@@ -922,6 +922,7 @@ export class Corps extends Story {
       this.drilling = true;
       await this.wave('attacker', 4 + Math.floor(Math.random() * 3), 0.7);
       this.drilling = false;
+      this.life?.gain(40, 'Kilowog’s round'); // (free roam's XP, story/Life.js)
       this.quip('kwDone', 1, [['poozer', 'shrug']]);
       it.enabled = true;
     } }));

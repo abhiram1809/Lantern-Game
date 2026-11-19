@@ -444,7 +444,17 @@ block debris, bolts and Hal.
    Sunny's Donuts, the Hotel Marisol, and more), windows with rooms behind them, parked cars and meters,
    palms and street lamps, the alleys behind; everything on it can be knocked about, and it lights up at
    night. Walk into **Rosie's Diner** (sit at the counter or in a booth with **E**, put
-   a coin in the jukebox) or **Coast Liquor**; the doors open as you walk up. Hal's own front door, on
+   a coin in the jukebox), **Coast Liquor**, or any of the other shops: each has someone behind its
+   counter and something to buy (**E** at the counter: tacos at Mendoza's, a haircut at Ortega's, a load
+   of washing, a record, flowers, phở); the doors open as you walk up.
+   **Over the crossing**, the next block south: the **Blue Marlin** bar on the corner (Gus behind the
+   bar, two regulars, a pool table, a beer), the **14th Precinct** of the Coast City Police (the desk
+   sergeant, the bull pen, the holding cell), **St. Mary's** with its emergency room (the triage nurse,
+   the doctor; see a doctor to heal), the **Palms** picture house (a ticket for the matinee, popcorn),
+   Tony's Pizza, a travel agent, a thrift shop, the cleaner's, bail bonds, a bookshop, a TV shop, a beauty
+   salon, a boxing gym and the Ocean Market. Walkers of its own, parked cruisers and an ambulance.
+   **The Ferris offices** by the staff lot are open too: the lobby, the receptionist, models of the
+   company's jets, and the wall of its test pilots, Martin Jordan among them. Hal's own front door, on
    the lot, takes him up to his flat: the fridge, the coffee, the window, and the bed, where sleeping
    turns the town from day to night or back.
    **People live on it**: Rosie runs the diner (she takes orders, Dot cooks them, Rosie brings the plates
@@ -458,6 +468,23 @@ block debris, bolts and Hal.
    By night the street empties out.
    **Your secret**: on Earth Hal can only change (**T**) where nobody can see him; the HUD says "SEEN" or
    "OUT OF SIGHT". Try an alley, a roof, his flat, or the diner's restroom.
+   **The day goes by**: a minute every two seconds, the sun across the sky and the town's lamps coming
+   on at dusk; clear days mostly, the marine layer some mornings, overcast, now and then rain. Sleep in
+   the flat to skip to the morning or the evening.
+   **Money is tight**: Carol puts Hal on the schedule at Ferris in the mornings (a day's flying, $120);
+   the rent ($75 a week) is paid at the notice by the flat's door, and Sal changes the lock if it's very
+   late; Rosie's coffee and food cost (she'll run a tab), and Ray sells sodas, candy and scratchers.
+   **The ring learns**: XP from the story's chapters, Kilowog's rounds, Qward's waves and the city's
+   emergencies; each level is a point to spend in the ring's six stats (**K**).
+   **The city has emergencies**: the ring hears them and marks them (a hold-up at Coast Liquor, a
+   mugging in the alley, a crash at the crossing). Answer them and the city likes Green Lantern more
+   (the panel under the clock shows what it thinks); break things in town and it likes him less. The
+   police or an ambulance come after; when the flats over Lucky Dragon burn, fly the woman on the roof
+   down. Traffic runs on the boulevard and the cross street.
+   **Korugar, freed**: in the old quarter, across the lane from the resistance's courtyard, the tavern
+   they call the **Broken Chain** (the keeper, his regulars, spiced tea and stew); at the market, a fruit
+   seller, a baker and a carver at their stalls. Nothing costs the Lantern who freed them.
+   **No air**: out of the uniform on Oa, Ysmault or Qward, Hal suffocates in seconds. Press **T**.
 
 ## Characters and movement
 

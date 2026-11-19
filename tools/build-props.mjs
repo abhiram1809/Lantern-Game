@@ -37,6 +37,18 @@ export const PROPS = [
     title: "Sialia SW '68 - Low poly model", author: 'Daniel Zhabotinsky', uid: 'eea2291a90f04a4b860c9e74be14f2d6' },
   { name: 'fairheaven_sw', src: 'assets/props/fairheaven_sw.glb', forward: '-x', length: 5.0,
     title: "Fairheaven SW '84 - Low poly model", author: 'Daniel Zhabotinsky', uid: 'aa0becb6e854422596cac6b21bf79787' },
+  // the city's emergencies (story/Emergencies.js): the police, the paramedics, a robber's gun, the
+  // police line, the news helicopter over a city that's turned against Green Lantern
+  { name: 'policecar', src: 'assets/props/policecar.glb', forward: '-x', length: 4.98,
+    title: "Fairheaven LT '80 Cop Cruiser - Low poly model", author: 'Daniel Zhabotinsky', uid: '61766c1e6e1e4b2b803c174f33433a74' },
+  { name: 'ambulance', src: 'assets/props/ambulance.glb', forward: '-x', length: 5.7, tex: 1024,
+    title: "Shvan '92 Ambulance - Low poly model", author: 'Daniel Zhabotinsky', uid: '2856dd3c61f940909dced9a5c0379484' },
+  { name: 'revolver', src: 'assets/props/revolver.glb', forward: '+z', length: 0.17, drop: /^Bullet/, tex: 512, // (anchored: its parent is "Gun_and_Bullets")
+    title: '.38 Snub Nose Revolver', author: 'Ashe52', uid: 'ec633e69247e4ab29c8a38783027e8fb' },
+  { name: 'policeline', src: 'assets/props/policeline.glb', forward: '+z', height: 0.95, tex: 512,
+    title: 'Police Crowd Barrier', author: 'zurovsky7', uid: '8d112420532b48b8b5a11a4b8f33106f' },
+  { name: 'helicopter', src: 'assets/props/helicopter.glb', forward: '+x', length: 10.7, tex: 1024,
+    title: 'Helicopter', author: 'surveytown', uid: '5052016c9a3b4f3c82c206974aba3fbf' },
   // Ferris Aircraft's prototype on the apron
   // (it lies 39 degrees off its axis in the file: the yaw from the main gear to the nose wheel)
   { name: 'prototype', src: 'assets/props/f22.glb', forward: Math.atan2(4.19, 5.21), length: 18.9, tex: 2048,

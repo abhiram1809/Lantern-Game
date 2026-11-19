@@ -127,9 +127,26 @@ export class Smash {
   // A blow (`strength`: a hook about 18, the hammer 30, one round of the gatling 2.5, a sword cut
   // 6), landing at `at`, going `dir`. Returns false if what was struck stays put (a solid, or a
   // breakable that held).
+  // Gone for good (a car towed, a police line taken down): out of the items, the physics step's list
+  // (a body removed but left in it was read the next step: Rapier panicked, and every call after was
+  // "recursive use of an object"), the world, the scene; its fire too
+  remove(item) {
+    if (!item) return;
+    const i = this.items.indexOf(item);
+    if (i >= 0) this.items.splice(i, 1);
+    const d = this.physics.dynamics, j = d.findIndex((e) => e.body === item.body);
+    if (j >= 0) d.splice(j, 1);
+    if (item.hazard) item.hazard.active = () => false;
+    item.fire?.group.removeFromParent();
+    item.fireLoop?.stop?.(0.5);
+    if (item.body && this.physics.world.bodies.contains(item.body.handle)) this.physics.world.removeRigidBody(item.body);
+    item.object?.removeFromParent();
+  }
+
   blow(item, strength, at, dir, kind = 'blow') {
     if (!item || strength <= 0) return false;
     item.lastHit = this.clock;
+    item.lastKind = kind; // (what did it, for `onEvent`: the ring's blows, or a collision's 'bump')
     const fx = this.fx, gun = kind === 'gatling';
     this.chips(item, at, dir, strength);
     if (item.kind === 'solid') { if (!gun) this.sound(item.stuff, at, strength / 18); return false; }
@@ -158,6 +175,7 @@ export class Smash {
     this.sound('snap', at, 1);
     this.glow.emit(24, (q, v) => { q[0] = at.x; q[1] = at.y; q[2] = at.z; v[0] = dir.x * 3 + (Math.random() - 0.5) * 5; v[1] = Math.random() * 4; v[2] = dir.z * 3 + (Math.random() - 0.5) * 5; }, { life: 0.5, size: [0.05, 0], color: [[4, 2.6, 1.2, 1], [1.2, 0.4, 0.1, 0]] });
     item.onBreak?.(item, at, dir, strength, this);
+    this.onEvent?.('break', item, at);
   }
 
   // Rapier's contact force events (Physics.step): something hit something hard enough.
@@ -218,7 +236,7 @@ export class Smash {
     this.dent(item, at, dir, damage);
     if (!gun || Math.random() < 0.25) this.sound('crunch', at, Math.min(1.3, damage / 22));
     // the alarm, the first time it's touched
-    if (!item.alarm) item.alarm = 12;
+    if (!item.alarm) { item.alarm = 12; if (!item.hurt) { item.hurt = true; this.onEvent?.('car', item, at); } }
     if (item.health <= CAR.fire && !item.burning) this.ignite(item);
     if (item.health <= 0) item.fuse = Math.min(item.fuse ?? CAR.fuse, 1.2);
   }
@@ -295,6 +313,7 @@ export class Smash {
 
   ignite(item) {
     item.burning = true;
+    this.onEvent?.('burn', item, null);
     item.fuse ??= CAR.fuse;
     const at = this.toWorld(item, item.engine);
     item.fire = new Fire(at, { radius: 0.45, rate: 60, height: 1.1 });
@@ -309,6 +328,7 @@ export class Smash {
   // cars beside it, the car itself thrown up and over, every window gone, the paint burnt black.
   explode(item) {
     item.wreck = true;
+    this.onEvent?.('explode', item, null);
     item.burning = false;
     item.alarm = 0;
     const fx = this.fx, c = this.toWorld(item, item.center), body = item.body, m = item.mass;

@@ -206,3 +206,28 @@ export function takeResume() {
 export const allUnlocks = () => [...new Set(Object.values(PARTS).flatMap((p) => p.load().unlocks))];
 // Planets charted for travel in any part.
 export const allWorlds = () => [...new Set(Object.values(PARTS).flatMap((p) => p.load().worlds))];
+
+// The open world's own state (free roam on Earth: the clock and the weather, and what the later
+// systems add to it), in a store of its own beside the parts': it isn't a checkpoint, and it carries
+// on whichever part the player was last in. `update(fn)` reads, changes and writes it.
+const LIFE_KEY = 'gl_life_v1';
+const lifeBlank = () => ({ version: 1, hour: 9.5, day: 1, weather: 'clear', weatherNext: 13 });
+export const LifeSave = {
+  load() {
+    let raw = null;
+    try { raw = localStorage.getItem(LIFE_KEY); } catch { /* storage blocked */ }
+    raw ??= readCookie(LIFE_KEY);
+    try {
+      const d = raw ? JSON.parse(raw) : null;
+      return d?.version === 1 ? { ...lifeBlank(), ...d } : lifeBlank();
+    } catch {
+      return lifeBlank();
+    }
+  },
+  write(d) {
+    const raw = JSON.stringify(d);
+    try { localStorage.setItem(LIFE_KEY, raw); } catch { /* storage blocked */ }
+    try { writeCookie(LIFE_KEY, raw); } catch { /* cookies blocked */ }
+  },
+  update(fn) { const d = this.load(); fn(d); this.write(d); return d; },
+};

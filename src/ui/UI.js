@@ -22,7 +22,7 @@ export class UI {
       chapter: $('#chapter'), objective: $('#objective'), clock: $('#clock'), prompt: $('#prompt'), controls: $('#controls'),
       sub: $('#subtitle'), speaker: $('#subtitle .speaker'), text: $('#subtitle .text'),
       over: $('#overheard'), overSpeaker: $('#overheard .speaker'), overText: $('#overheard .text'),
-      watched: $('#watched'), watchedLabel: $('#watched .label'),
+      watched: $('#watched'), watchedLabel: $('#watched .label'), life: $('#life'),
       pick: $('#pick'), pickTitle: $('#pick .title'), pickOptions: $('#pick .options'),
       choice: $('#choice'), question: $('#choice .question'), options: $('#choice .options'), keys: $('#choice .keys'),
       screen: $('#screen'), letterbox: $('#letterbox'), frame: $('#frame'), hud: $('#hud'),
@@ -153,6 +153,22 @@ export class UI {
 
   // Whether anyone can see him (his secret: he changes only out of sight). n: how many are watching;
   // null hides it
+  // free roam's panel under the clock (story/Life.js): his money (and Rosie's tab), his level and the
+  // XP into it, points to spend, and as Green Lantern what the city thinks; null hides it
+  life(s) {
+    const L = this.el.life;
+    if (!s) { L.classList.remove('show'); return; }
+    L.classList.add('show');
+    L.querySelector('.cash b').textContent = s.money;
+    L.querySelector('.cash .tab').textContent = s.tab > 0 ? `tab $${s.tab.toFixed(2)}` : '';
+    L.querySelector('.n').textContent = `LV ${s.level}`;
+    L.querySelector('.bar i').style.width = `${Math.round(s.xp * 100)}%`;
+    L.querySelector('.pts').textContent = s.points > 0 ? `${s.points} · K` : '';
+    const op = L.querySelector('.op');
+    op.textContent = s.opinion == null ? '' : `${s.mood.toUpperCase()} ${s.opinion > 0 ? '+' : ''}${s.opinion}`;
+    op.className = `op ${s.opinion == null ? '' : s.opinion >= 25 ? 'good' : s.opinion > -10 ? 'mid' : 'bad'}`;
+  }
+
   watching(n) {
     const w = this.el.watched;
     if (n == null) { w.classList.remove('show'); return; }

@@ -12,10 +12,16 @@ import { LOT } from '../scenes/Ferris.js';
 import { Bedroom } from '../scenes/Bedroom.js';
 import { CityLife } from './CityLife.js';
 import { createSky } from '../fx/Sky.js';
+import { DayCycle } from '../scenes/DayCycle.js';
+import { LifeSave } from '../engine/Save.js';
+import { Life, STATS, MAX_STAT, SHIFT_PAY, money } from './Life.js';
+import { Traffic } from '../city/Traffic.js';
+import { Emergencies } from './Emergencies.js';
+import { Pressure } from './Pressure.js';
 import { ARRIVAL as LAKE_ARRIVAL, SHIP } from '../scenes/CrashSite.js';
 import { HAL_START } from '../scenes/Oa.js';
 import { HALL } from '../scenes/Hall.js';
-import { ARRIVAL as KOR_ARRIVAL } from '../scenes/Korugar.js';
+import { ARRIVAL as KOR_ARRIVAL, TAVERN } from '../scenes/Korugar.js';
 import { YSMAULT_PROPS, LANDING as YS_LANDING } from '../scenes/Ysmault.js';
 import { QWARD_PROPS, RIFT_AT, AMBUSH } from '../scenes/Qward.js';
 import { Thunderers, loadThunderers } from '../enemies/Thunderers.js';
@@ -24,6 +30,7 @@ import { constructMesh, keyGeometry } from '../powers/Constructs.js';
 import { createShaft } from '../fx/GreenLight.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const _air = new THREE.Vector3();
 
 // Where free roam goes. `world` is the ring's (the voyage's route); `jump` is how high Hal must fly
 // for the ring to open the star chart there (over the city's towers in the valley, over Korugar's).
@@ -43,6 +50,11 @@ const CHART_NOTES = {
   ysmault: 'The dead world of the Inversions. Atrocitus, back in his chains.',
 };
 const EARTH = ['coast', 'ferris', 'lake'], AWAY = ['oa', 'korugar', 'ysmault', 'qward'];
+const AIRLESS = new Set(['oa', 'ysmault', 'qward']);
+// a shopkeeper's thanks by their voice (Roam.shopBuy)
+const THANKS = { townm1: 'thxM1', townm2: 'thxM2', townm3: 'thxM3', townf1: 'thxF1', townf2: 'thxF2', townf3: 'thxF3' };
+const TAKES = { wash: 0.75, haircut: 0.5, shave: 0.3, press: 1.0, movie: 2.0, workout: 1.0 }; // (hours: what a purchase takes)
+const SECTORS = { oa: 'SECTOR 0', korugar: 'SECTOR 1417', ysmault: 'SECTOR 666', qward: 'QWARD' }; // (off Earth the clock's place shows where he is) // (no air for a man out of the uniform; Korugar has its people's)
 const CIVILIAN_KEYS = '<b>T</b> Green Lantern &nbsp; <b>L</b> lantern &nbsp; <b>M</b> travel';
 const LANTERN_KEYS = `${POWER_KEYS} &nbsp; <b>T</b> Hal Jordan &nbsp; <b>M</b> travel &nbsp; <b>E</b> high up: star chart`;
 
@@ -68,10 +80,76 @@ export class Roam extends Exile {
     const free = this.player.control && !this.busy && !this.menuOpen && !this.chart.isOpen && !this.powers.wheelState && !this.lanternMoving;
     if (free && this.input.hit('KeyM')) { this.input.consume?.('KeyM'); this.travelMenu(); }
     else if (free && this.input.hit('KeyT')) { this.input.consume?.('KeyT'); this.changeClothes(); }
+    else if (free && this.life && this.input.hit('KeyK')) { this.input.consume?.('KeyK'); this.ringStats(); }
     if (dt > 0) this.roamTick?.(dt);
     // in sight or out of it, on Earth's streets (he changes only where no one can see him)
     const earth = this.current === this.ferrisScene && this.cityLife?.started && !this.driving;
     this.ui.watching(earth && this.player.control ? this.watchers().length : null);
+    if (dt > 0) this.updateAir(dt);
+    this.updateDay(dt);
+  }
+
+  // ---------------------------------------------------------------- the day
+  // Earth's clock runs wherever he is (scenes/DayCycle.js); the valley shows it when he's there
+  updateDay(dt) {
+    const dc = this.dayCycle;
+    if (!dc || !this.roaming) return;
+    if (dt > 0) dc.tick(dt);
+    const here = this.current === this.ferrisScene, cam = this.engine.camera;
+    if (here) { dc.apply(cam); dc.update(dt, cam); } else dc.quiet();
+    // the rent coming due, and late (a day's turning over)
+    if (this.life && dc.day !== this.dayShown) {
+      if (this.dayShown != null) {
+        const st = this.life.rentState(dc.day);
+        if (st.late > 0) this.ui.toast(`The rent is ${st.late} day${st.late > 1 ? 's' : ''} late · ${money(st.owed)} to Sal${st.late > 4 ? ' before he changes the lock' : ''}`);
+        else if (st.soon) this.ui.toast(`The rent is due ${st.due === dc.day ? 'today' : 'tomorrow'} · ${money(st.owed)}, at the flat`);
+      }
+      this.dayShown = dc.day;
+    }
+    const world = PLACES[this.roam?.where]?.world;
+    const text = world && world !== 'earth' ? SECTORS[world] : dc.clock;
+    if (text !== this.clockShown) { this.clockShown = text; this.ui.clock(text); }
+  }
+
+  // ---------------------------------------------------------------- no air
+  // Out of the uniform on a world with no air for him (the user: on Oa or Ysmault he "suffocates,
+  // badly"; Qward too): a breath held, then the colour draining and the edges closing in, his heart
+  // racing, his health going faster and faster (gone in about seven seconds), his hands at his throat,
+  // his legs going. T forms the uniform, the ring's life support; if he goes down, the ring forms it on
+  // him at the last (`collapse`).
+  updateAir(dt) {
+    const { player, powers, engine, audio } = this, g = engine.gradeUniforms;
+    const choking = this.roaming && this.civilian && AIRLESS.has(PLACES[this.roam?.where]?.world) && !powers.dead && this.current !== this.flat;
+    const c = this.choke;
+    if (choking && !c) {
+      this.choke = { t: 0, beat: 0.6, said: 0 };
+      this.ringSay('ringNoAir');
+      this.hud.vitals.classList.add('show');
+      const throat = (side) => { const at = V(0, 0, 0); return () => { const y = player.yaw; player.rig.bonePosition('neck', at); return at.add(_air.set(Math.sin(y) * 0.11 + Math.cos(y) * side * 0.04, -0.03, Math.cos(y) * 0.11 - Math.sin(y) * side * 0.04)); }; };
+      this.chokeHands = [throat(1), throat(-1)]; // (each its own vector: the animator reads both before it solves either)
+    }
+    if (!this.choke) return;
+    const k = this.choke;
+    if (choking) {
+      k.t += dt;
+      // the held breath, then a drain that grows: about 7.5 s from the first breath to the last
+      if (k.t > 1.5) { powers.health = Math.max(0, powers.health - (5 + 4 * (k.t - 1.5)) * dt); powers.lastHurt = 0; }
+      if (k.t > 1.2 && k.said < 1) { k.said = 1; this.bark('halNoAir1'); }
+      if (k.t > 4.2 && k.said < 2) { k.said = 2; this.bark('halNoAir2'); }
+      if (k.t > 0.8 && !k.hands && player.control) { k.hands = true; player.animator.reach('L', this.chokeHands[0], { weight: 0.9, rate: 5 }); player.animator.reach('R', this.chokeHands[1], { weight: 0.9, rate: 5 }); }
+      // his heart: faster as it goes, the red at the edges with every beat
+      if ((k.beat -= dt) < 0) { k.beat = THREE.MathUtils.lerp(0.95, 0.38, Math.min(1, k.t / 7)); audio.heartbeat(); powers.hurtFx = Math.min(0.85, powers.hurtFx + 0.12 + 0.05 * k.t); }
+      player.hamper = THREE.MathUtils.lerp(1, 0.25, Math.min(1, k.t / 6));
+      g.uChoke.value = Math.min(1, k.t / 7);
+      if (powers.health <= 0) { powers.dead = true; powers.onDeath?.(); }
+    } else {
+      // breathing again: the colour back over a second or two
+      g.uChoke.value = Math.max(0, g.uChoke.value - dt * 0.7);
+      if (k.hands) { k.hands = false; player.animator.reach('L', null, { rate: 4 }); player.animator.reach('R', null, { rate: 4 }); }
+      player.hamper = 1;
+      if (!k.back && !powers.dead && k.t > 2 && !this.civilian) { k.back = true; wait(1.4).then(() => this.bark('halNoAirBack')); }
+      if (g.uChoke.value <= 0) { this.choke = null; if (this.civilian) this.hud.vitals.classList.remove('show'); }
+    }
   }
 
   // ---------------------------------------------------------------- his secret
@@ -121,6 +199,8 @@ export class Roam extends Exile {
     this.chartWorlds(['earth', 'oa', 'korugar', 'ysmault', 'qward']);
     this.roam = { where: null, lastEarth: 'ferris' };
     this.civilian = false;
+    this.life = new Life(this);
+    this.life.apply();
     await this.enterPlace('ferris');
     ui.fade(0, 1.0);
     this.roaming = true;
@@ -153,6 +233,26 @@ export class Roam extends Exile {
     this.hud.show(true);
     this.hud.vitals.classList.toggle('show', !this.civilian);
     this.roamKeys();
+    this.life?.hud();
+  }
+
+  // ---------------------------------------------------------------- the ring's stats
+  // K: what the ring has learned of him (his level, the XP to the next) and the points to spend on
+  // its six stats (story/Life.js)
+  async ringStats() {
+    const { life, ui } = this;
+    this.menuOpen = true;
+    this.takeControl();
+    this.powers.holster?.();
+    for (;;) {
+      const s = life.d.stats, ids = Object.keys(STATS), lv = life.level;
+      const pick = await ui.screen({ kicker: `The ring · Level ${lv}`, title: 'WILL', body: life.d.points > 0 ? `${life.d.points === 1 ? 'A point' : `${life.d.points} points`} to spend. What should the ring make of him?` : 'No points to spend. Every level brings one: the story’s chapters, Kilowog’s rounds, Qward’s waves, the city’s emergencies.', stack: true,
+        buttons: [...ids.map((k) => ({ label: `${STATS[k].name} · ${s[k]}/${MAX_STAT}`, sub: STATS[k].what })), 'Done'] });
+      if (pick >= ids.length) break;
+      if (!life.raise(ids[pick])) this.audio.denied(); else this.audio.ringChime();
+    }
+    this.menuOpen = false;
+    this.giveControl(this.roamObjective());
   }
 
   // ---------------------------------------------------------------- travel
@@ -378,11 +478,31 @@ export class Roam extends Exile {
   // ---------------------------------------------------------------- Earth: the valley
   ferrisRoam(f, id) {
     const { audio, player, powers, engine } = this;
+    if (!this.dayCycle) {
+      this.dayCycle = new DayCycle(f, LifeSave, { audio, engine });
+      // the town's night lights compiled in now: the first dusk otherwise recompiled every material
+      // in view as the lamps came on (adding a light does)
+      if (f.block) { f.block.setNight(1); engine.renderer.compile(f.scene, engine.camera); f.block.setNight(0); }
+      this.dayCycle.apply(engine.camera);
+    }
+    // the streets' traffic (city/Traffic.js), in free roam only
+    if (!this.traffic && f.block) { this.traffic = new Traffic(f, this, { count: 16, lot: LOT }); f.updaters.push((dt) => this.traffic.update(dt)); }
+    // and what goes wrong on them, for Green Lantern to answer (story/Emergencies.js)
+    if (!this.emergencies && f.block) { this.emergencies = new Emergencies(this, f); f.updaters.push((dt) => this.emergencies.update(dt)); }
+    // and what a city that's turned against Green Lantern does about it (story/Pressure.js)
+    if (!this.pressure && f.block) { this.pressure = new Pressure(this, f); f.updaters.push((dt) => this.pressure.update(dt)); }
     f.follow = () => (this.driving ? f.car.position : player.position);
     this.ambience(audio.wind(0.05), audio.traffic(id === 'coast' ? 0.05 : 0.015));
     powers.attach({ scene: f.scene, physics: f.physics, ground: () => 0, floor: () => 0, canLand: (x, z) => Math.abs(x) < 4200 && z > -1200 && z < 7600, center: V(0, 0, 3200), radius: 5400, ceiling: 650 });
     powers.regen = 0;
     player.boostScale = 2.4; // (six kilometres from the field to the city)
+    // what the ring breaks in town costs him the city's goodwill (story/Life.js): not collisions
+    f.smash.onEvent = (ev, item) => {
+      if (!this.life || this.civilian || item.lastKind === 'crash' || (item.object?.position.z ?? 0) < 3200) return;
+      const n = { break: 1.5, car: 1, burn: 2, explode: 4 }[ev] ?? 0;
+      const why = { break: 'city property broken', car: 'a parked car hit', burn: 'a car set burning', explode: 'a car blown up' }[ev];
+      if (n) this.life.opine(-n, why);
+    };
     this.lanternSpots(f);
     this.carolRoam(f);
     this.addCarSpot(f);
@@ -420,15 +540,44 @@ export class Roam extends Exile {
       player.control = false;
       player.turnTo(Math.atan2(CAROL_IN.x - player.position.x, CAROL_IN.z - player.position.z));
       carol.root.rotation.y = Math.atan2(player.position.x - CAROL_IN.x, player.position.z - CAROL_IN.z);
-      const key = this.civilian ? ['carolRoamHal1', 'carolRoamHal2'][hal++ % 2] : ['carolRoamGL1', 'carolRoamGL2'][gl++ % 2];
+      // as Hal by day she puts him on the schedule (a shift once a day, story/Life.js), else tells him to go home
+      const shift = this.civilian && this.shiftOpen(), done = this.civilian && this.life?.d.worked === this.dayCycle?.day;
+      const key = this.civilian ? (shift ? 'carolShift0' : done ? 'carolShiftDone' : ['carolRoamHal1', 'carolRoamHal2'][hal++ % 2]) : ['carolRoamGL1', 'carolRoamGL2'][gl++ % 2];
       await this.carolSay(key, [['', 'open']], { skip: false });
       if (!told) {
         told = true;
         this.takeControl();
         await this.ui.screen({ kicker: 'Part Seven', title: 'COMING NEXT', body: 'Carol has something to tell you. Part Seven begins here, in Hangar Two, when it’s written.', buttons: ['Back to free roam'] });
       }
+      if (shift && await this.offerShift()) return;
       this.giveControl(this.roamObjective());
     } });
+  }
+
+  // A day's flying for Ferris (from seven in the morning until one: the day goes by to four, and his
+  // pay with it, less if he came in late); the only money he makes
+  shiftOpen() { const dc = this.dayCycle; return !!dc && !!this.life && dc.hour >= 7 && dc.hour < 13 && this.life.d.worked !== dc.day; }
+  async offerShift() {
+    const { ui, dayCycle: dc, life } = this;
+    const pick = ui.pick('Ferris Aircraft', ['Fly the shift (till 4 PM)', 'Not today']);
+    const i = await Promise.race([pick, wait(12).then(() => -1)]);
+    pick.cancel();
+    if (i !== 0) return false;
+    this.takeControl();
+    await this.bark('halShift');
+    await ui.fade(1, 0.9);
+    const hours = Math.max(2, 16 - dc.hour), pay = Math.round(SHIFT_PAY * Math.min(1, hours / 8));
+    dc.setHour(16);
+    dc.apply(this.engine.camera);
+    life.d.worked = dc.day;
+    await wait(0.8);
+    ui.toast(`Four o’clock · ${hours >= 7.5 ? 'a full day’s flying' : `${Math.round(hours)} hours flown`}`);
+    await ui.fade(0, 0.9);
+    life.pay(pay, hours >= 7.5 ? 'a day’s test flying' : 'a short day’s flying');
+    life.gain(15, 'a day at Ferris');
+    await this.carolSay(hours >= 7.5 ? 'carolShiftEnd' : 'carolShiftLate', [['', 'open']], { skip: false });
+    this.giveControl(this.roamObjective());
+    return true;
   }
 
   // ---------------------------------------------------------------- his car
@@ -707,6 +856,7 @@ export class Roam extends Exile {
   async collapse() {
     if (!this.roaming) return super.collapse();
     const { player, ui, powers } = this;
+    const choked = !!this.choke && this.civilian; // (before the fade: the choke clears as he goes down)
     this.takeControl();
     player.stopFlying(true);
     player.autoAnim = false;
@@ -717,7 +867,10 @@ export class Roam extends Exile {
     this.drilling = false;
     this.arenaBusy = false;
     await ui.fade(1, 1.6);
-    await ui.screen({ kicker: 'Hal is down', title: 'THE LIGHT FADES', body: 'Not this time. The ring brings him round.', buttons: ['Get up'] });
+    if (choked) { powers.setCharge(Math.max(powers.charge, 3)); await this.becomeLantern(); } // (the ring's life support, at the last)
+    await ui.screen(choked
+      ? { kicker: 'No air', title: 'SUFFOCATED', body: 'He held on as long as a man can. At the last the ring closed the uniform round him.', buttons: ['Get up'] }
+      : { kicker: 'Hal is down', title: 'THE LIGHT FADES', body: 'Not this time. The ring brings him round.', buttons: ['Get up'] });
     powers.dead = false;
     powers.health = powers.maxHealth;
     powers.setCharge(Math.max(powers.charge, 40));
@@ -764,10 +917,39 @@ export class Roam extends Exile {
   }
 
   // ---------------------------------------------------------------- Korugar
-  // No rally now: the plaza's people about their business, Katma Tui by the fallen statue.
+  // No rally now: the plaza's people about their business, Katma Tui by the fallen statue; the old
+  // quarter's tavern open, the market's vendors at their stalls (the open world's places "on Korugar
+  // once it's freed"). Nothing he takes is paid for: he's the Lantern who freed them.
   korugarRoam(kor) {
     for (const m of [kor.crowdDown, kor.crowdUp, kor.forecourt?.down, kor.forecourt?.up]) if (m) m.visible = false;
-    this.streetsAfter ??= new StreetLife(this, kor, { era: 'after', walkers: { plaza: 5, avenue: 4, market: 4 }, guards: [{ at: V(-4.6, 0, -47), yaw: 0 }, { at: V(4.6, 0, -47), yaw: 0 }] });
+    const T = TAVERN, bx = T.x1 - 1.9, bz = (T.z0 + T.z1) / 2;
+    // behind three stalls, facing the street (a stall on the north side is turned round)
+    const behind = (g) => { const sgn = g.rotation.y ? 1 : -1; return { at: g.position.clone().add(V(0, 0, sgn * 1.25)), yaw: sgn > 0 ? Math.PI : 0, front: g.position.clone().add(V(0, 0, -sgn * 1.15)) }; };
+    const stalls = (kor.stalls ?? []).slice(0, 3).map(behind);
+    const posts = [
+      { at: V(T.x1 - 1.0, 0, bz), yaw: -Math.PI / 2, kind: 'man', tag: 'keeper', label: 'the keeper', lines: ['korTav1', 'korTav2', 'korTav3'] },
+      { at: V(bx - 1.0, 0, bz - 2.2), yaw: Math.PI / 2, kind: 'man', label: 'a man at the bar', lines: ['korPatM1', 'korPatM2'] },
+      { at: V(T.x0 + 3.6, 0, T.z1 - 2.2), yaw: -2.4, kind: 'woman', label: 'a woman by the hearth', lines: ['korPatF1', 'korPatF2'] },
+      ...[['korVenF1', 'woman', 'the fruit seller'], ['korVenM1', 'man', 'the baker'], ['korVenM2', 'man', 'the carver']].map(([line, kind, label], i) => stalls[i] && { ...stalls[i], kind, label, tag: `vendor${i}`, lines: [line, `${line}b`] }).filter(Boolean),
+    ];
+    this.streetsAfter ??= new StreetLife(this, kor, { era: 'after', walkers: { plaza: 5, avenue: 4, market: 4 }, guards: [{ at: V(-4.6, 0, -47), yaw: 0 }, { at: V(4.6, 0, -47), yaw: 0 }], posts });
+    if (!this.korShops) {
+      this.korShops = true;
+      const give = (tag, title, items, said) => async () => {
+        const who = this.streetsAfter.people.find((q) => q.tag === tag);
+        const pick = this.ui.pick(title, [...items.map(([n]) => n), 'Nothing, thanks']);
+        const i = await Promise.race([pick, wait(12).then(() => -1)]);
+        pick.cancel();
+        if (i < 0 || i >= items.length) return;
+        if (who) { this.speakingRig = who.rig; await this.say(said, { skip: false }); this.speakingRig = null; }
+        const [, heal, bark] = items[i];
+        this.powers.health = Math.min(this.powers.maxHealth, this.powers.health + heal);
+        this.bark(bark);
+      };
+      kor.interact({ position: V(bx - 1.0, 0, bz + 0.4), radius: 1.1, look: V(bx + 0.3, 1.1, bz), label: 'Have something · The Broken Chain', action: give('keeper', 'The Broken Chain', [['A cup of spiced tea', 12, 'halKorTea'], ['A bowl of stew', 35, 'halKorStew']], 'korTavGive') });
+      const wares = [['Fruit from the terraces', 10, 'halEat1'], ['Warm bread', 18, 'halEat2'], ['A carved emblem', 0, 'halKorEmblem']];
+      stalls.forEach((st, i) => { const v = posts.find((q) => q.tag === `vendor${i}`); if (v) kor.interact({ position: st.front, radius: 1.0, look: st.at.clone().setY(1.0), label: `Take something · ${v.label}`, action: give(v.tag, v.label, [wares[i]], v.kind === 'woman' ? 'korVenGiveF' : 'korVenGiveM') }); });
+    }
     this.korKatma ??= this.addTalker(kor, createKatma(this.assets.characters.katma, { uniform: true }), V(-3.5, 0, 9.5), 0.3, ['katmaW1', 'katmaW2', 'katmaW3']);
     this.lanternSpots(kor);
   }
@@ -841,6 +1023,7 @@ export class Roam extends Exile {
     if (this.roam.where !== 'qward') return;
     ui.objective(this.roamObjective());
     ui.toast(`Wave ${n} beaten`);
+    this.life?.gain(30 + 10 * n, `Qward, wave ${n}`);
     this.ringSay('ringArenaClear');
   }
 
@@ -854,13 +1037,16 @@ export class Roam extends Exile {
     const { audio, player } = this;
     b.hal = player.position;
     b.onDoor = () => { audio.bell(1568, 0.07, 1.6); audio.bell(1975, 0.05, 1.4, 0.09); };
+    if (f.office) f.office.hal = player.position; // (the Ferris offices' doors: city/Office.js)
     this.blockIts = [];
-    for (const sp of b.ctx.spots) {
+    for (const sp of [...b.ctx.spots, ...(f.office?.spots ?? [])]) {
       const act = {
         seat: () => this.sit(sp), jukebox: () => this.jukebox(sp), menu: () => this.bark('halMenuRoam'),
-        counter: async () => { audio.bell(2093, 0.16, 1.8); await wait(0.5); if (this.cityLife?.started) this.cityLife.bell(); else this.bark('halBell'); },
+        counter: async () => { audio.bell(2093, 0.16, 1.8); await wait(0.5); if (this.cityLife?.started) { await this.cityLife.bell(); await this.buyAtStore(); } else this.bark('halBell'); },
         cooler: () => this.bark('halCooler'), magazines: () => this.bark('halMags'),
         restroom: () => this.restroom(sp),
+        buy: () => this.shopBuy(sp),
+        look: () => this.bark(sp.line),
       }[sp.kind];
       // (a seat from where he stands to sit: its bench is past the table's end, out of reach)
       const it = f.interact({ position: sp.kind === 'seat' ? sp.approach ?? sp.at : sp.at, radius: sp.kind === 'seat' ? 0.7 : 1.1, look: sp.look ?? sp.at.clone().setY(sp.at.y + 0.9), label: sp.label, action: act });
@@ -874,6 +1060,63 @@ export class Roam extends Exile {
     // home: his building's front door, on the lot
     const door = LOT.clone().add(V(0.4, 0, 12.7));
     this.blockIts.push(f.interact({ position: door, radius: 1.4, look: door.clone().add(V(0, 1.4, 0.8)), label: 'Go up to the apartment', action: () => this.enterFlat() }));
+  }
+
+  // At Coast Liquor's register, once Ray's there: a soda, a candy bar or a scratcher (story/Life.js's
+  // money; a scratcher now and then wins). Green Lantern's is on the house.
+  async buyAtStore() {
+    const { ui, life, cityLife: cl } = this;
+    if (!life || !cl) return;
+    if (!this.civilian) { await cl.clerkSay('clerkGFree'); return; }
+    const items = [['A soda', 0.6, 'soda'], ['A candy bar', 0.35, 'candy'], ['A scratcher', 1, 'scratch']];
+    const pick = ui.pick('Coast Liquor', [...items.map(([n, p]) => `${n} · ${money(p)}`), 'Nothing, thanks']);
+    const i = await Promise.race([pick, wait(12).then(() => -1)]);
+    pick.cancel();
+    if (i < 0 || i >= items.length) return;
+    const [name, price, kind] = items[i];
+    if (!life.spend(price, name.replace(/^A /, 'a '))) { this.audio.denied(); await cl.clerkSay('clerkShort'); return; }
+    this.audio.bell(2400, 0.05, 1.2); // (the register)
+    await cl.clerkSay(kind === 'scratch' ? 'clerkScratch' : 'clerkThanks');
+    if (kind !== 'scratch') { this.bark(kind === 'soda' ? 'halSoda' : 'halCandy'); return; }
+    // the scratcher: mostly nothing, sometimes his dollar back twice, now and then real money
+    await wait(1.4);
+    const r = Math.random(), win = r < 0.02 ? 100 : r < 0.1 ? 10 : r < 0.3 ? 2 : 0;
+    if (win) { this.audio.ringChime(); life.pay(win, 'a winning scratcher'); this.bark(win >= 10 ? 'halScratchBig' : 'halScratchWin'); }
+    else this.bark('halScratchLose');
+  }
+
+  // At the other shops' counters (city/Shops.js): what each sells, paid from his money (story/Life.js),
+  // and what it does: food heals a little, the clinic all of it, the laundromat and the barber take
+  // the time they take. Green Lantern has no wallet: they tell him so.
+  async shopBuy(sp) {
+    const { ui, life, cityLife: cl, powers, dayCycle: dc } = this;
+    if (!life) return;
+    const keep = cl?.people.find((p) => p.tag === `shop:${sp.shop}`), female = /f\d$/.test(keep?.voice ?? '');
+    if (!this.civilian) { if (keep) await cl.say(keep, female ? 'shopGLf' : 'shopGLm'); return; }
+    const pick = ui.pick(sp.label.replace(/^Buy something · /, ''), [...sp.sell.map(([n, p]) => (p ? `${n} · ${money(p)}` : n)), 'Nothing, thanks']);
+    const i = await Promise.race([pick, wait(12).then(() => -1)]);
+    pick.cancel();
+    if (i < 0 || i >= sp.sell.length) return;
+    const [name, price, what] = sp.sell[i];
+    if (price && !life.spend(price, name.toLowerCase())) { this.audio.denied(); this.bark('halShort'); return; }
+    if (price) this.audio.bell(2400, 0.05, 1.2);
+    if (keep && what !== 'balance') await cl.say(keep, THANKS[keep.voice] ?? 'thxM1');
+    const [kind, n] = what.split(':');
+    if (kind === 'food') { powers.health = Math.min(powers.maxHealth, powers.health + Number(n)); this.bark(Number(n) >= 20 ? 'halEat2' : 'halEat1'); }
+    else if (kind === 'heal') { powers.health = powers.maxHealth; this.bark('halClinic'); }
+    else if (kind === 'balance') { if (keep) await cl.say(keep, 'shopBank3'); ui.toast(`Hal Jordan · checking · ${money(life.d.money)}${life.d.tab ? ` · owes Rosie ${money(life.d.tab)}` : ''}`); }
+    else if (TAKES[kind]) {
+      // what takes a while: the screen dark for it, the clock on (a load washed, a picture seen, a workout)
+      this.takeControl();
+      await ui.fade(1, 0.7);
+      dc?.setHour(dc.hour + TAKES[kind]);
+      if (dc) dc.apply(this.engine.camera);
+      if (kind === 'workout') powers.health = powers.maxHealth;
+      await wait(0.6);
+      await ui.fade(0, 0.7);
+      this.giveControl(this.roamObjective());
+      this.bark({ wash: 'halWash', press: 'halPress', movie: 'halMovie', workout: 'halWorkout' }[kind] ?? 'halHaircut');
+    } else this.bark({ record: 'halRecord', flowers: 'halFlowers', oil: 'halOil', tape: 'halTape', drink: 'halBeer', book: 'halBook', jacket: 'halJacket', radio: 'halRadio' }[kind] ?? 'halEat1');
   }
 
   // Sit on a stool or a bench: walked up to, turned, lowered onto it; up again on E or a step
@@ -933,6 +1176,11 @@ export class Roam extends Exile {
     const room = (this.flat = new Bedroom(this).build({ morning: true }));
     this.dayLights(room);
     room.interact({ position: V(-4.05, 0, 2.82), radius: 0.9, look: V(-4.6, 1.2, 2.82), label: 'Go out', action: () => this.exitFlat() });
+    // the rent notice by the door, the week it's due (story/Life.js)
+    const rent = room.interact({ position: V(-3.2, 0, 2.0), radius: 0.75, look: V(-3.9, 0.05, 2.7), label: 'Pay the rent', action: () => this.payRent() });
+    const due = () => (this.life ? this.life.rentState(this.dayCycle?.day ?? 1) : null);
+    Object.defineProperty(rent, 'enabled', { get: () => !!due()?.soon, set() {} });
+    Object.defineProperty(rent, 'label', { get: () => { const st = due(); return st ? `Pay Sal the rent · ${money(st.owed)}${st.late ? ` · ${st.late} day${st.late > 1 ? 's' : ''} late` : ''}` : 'Pay the rent'; } });
     room.interact({ position: V(0.8, 0, 2.35), radius: 0.8, look: V(0.8, 1.0, 3.0), label: 'Check the fridge', action: () => this.checkFridge() });
     room.interact({ position: V(0.1, 0, 2.45), radius: 0.8, look: V(0.22, 1.0, 3.0), label: 'Make coffee', action: () => this.bark('coffee') });
     room.interact({ position: V(1.25, 0, -1.25), radius: 0.9, look: V(1.3, 0.92, -1.86), label: 'Look at the photo', action: () => this.bark('halHomePhoto') });
@@ -942,8 +1190,25 @@ export class Roam extends Exile {
     return room;
   }
 
+  async payRent() {
+    const day = this.dayCycle?.day ?? 1, st = this.life.rentState(day);
+    if (!this.life.payRent(day)) { this.audio.denied(); this.ui.toast(`The rent is ${money(st.owed)}. He has ${money(this.life.d.money)}.`); await this.bark('halRentShort'); return false; }
+    this.audio.paper?.();
+    await this.bark('halRentPaid');
+    return true;
+  }
+
   async enterFlat() {
     const { player, ui, audio, powers } = this;
+    // five days late, Sal changes the lock: paid at the door, or not tonight
+    const st = this.life?.rentState(this.dayCycle?.day ?? 1);
+    if (st && st.late > 5) {
+      await this.bark('halLocked');
+      const pick = ui.pick('Sal changed the lock', [`Pay him ${money(st.owed)}`, 'Not now']);
+      const i = await Promise.race([pick, wait(12).then(() => -1)]);
+      pick.cancel();
+      if (i !== 0 || !(await this.payRent())) return;
+    }
     this.busy = true;
     this.takeControl();
     powers.holster?.();
@@ -1015,12 +1280,12 @@ export class Roam extends Exile {
     this.bark('halSleep');
     await wait(1.2);
     await ui.fade(1, 1.4);
-    const f = this.ferrisScene, night = !f.isNight;
-    if (night) f.night(); else f.day();
+    const f = this.ferrisScene, night = !f.isNight, dc = this.dayCycle;
+    if (dc) { dc.setHour(night ? 19.65 : 7.1); dc.apply(this.engine.camera); } else if (night) f.night(); else f.day();
     this.flatTime(this.flat, night);
     player.place(V(-0.2, 0, -0.45), Math.PI);
     await wait(1.0);
-    ui.toast?.(night ? 'Evening · 7:40 PM' : 'Morning · 7:05 AM');
+    ui.toast?.(night ? `Evening · ${dc?.clock ?? '7:40 PM'}` : `Morning · ${dc?.clock ?? '7:05 AM'}`);
     await ui.fade(0, 1.4);
     this.busy = false;
     this.giveControl(this.roamObjective());

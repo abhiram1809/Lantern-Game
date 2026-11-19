@@ -1,0 +1,143 @@
+// What a city that's turned against Green Lantern does about it (the user's call, 2026-11-18: when
+// public opinion is low, "pressure, no fighting: cordons, helicopters, booing, the Air Force at the
+// lowest"). The booing is in what people mutter (story/CityLife.js's mood pools); here, by how low it's
+// gone (story/Life.js's opinion) while he's in town in the uniform:
+// - below -30, a news helicopter: up over him, circling and keeping him in view (a beam on him at
+//   night, a light's cone drawn, not a light: one added mid-play recompiles every material);
+// - below -50, police lines across the block's two ends, each with a cruiser behind it, its bar going;
+// - below -80, the Air Force: a pair of jets low over the town every so often, the boom after.
+import * as THREE from 'three';
+import { prop, loadProps, meshes, boundsIn, pivot } from '../props/Props.js';
+import { LOT } from '../scenes/Ferris.js';
+import { LANES } from '../city/Traffic.js';
+
+const V = (x, y, z) => new THREE.Vector3(x + LOT.x, y, z + LOT.z);
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _down = new THREE.Vector3(0, -1, 0);
+
+export class Pressure {
+  constructor(story, f) {
+    Object.assign(this, { story, f });
+    this.t = 0;
+    this.loaded = loadProps(['helicopter', 'policeline', 'policecar', 'prototype']).then(() => (this.ready = true));
+  }
+
+  update(dt) {
+    const story = this.story, life = story.life;
+    if (!this.ready || !life || dt <= 0) return;
+    this.t += dt;
+    const o = life.opinion, here = story.roaming && story.current === this.f && !story.civilian && story.player.position.z > LOT.z - 320;
+    this.heli(dt, here && o < -30);
+    this.cordon(here && o < -50 || (this.lines && o < -45)); // (a margin, so a point either way doesn't flicker it)
+    this.airForce(dt, here && o < -80);
+  }
+
+  // ---------------------------------------------------------------- the helicopter
+  heli(dt, want) {
+    const story = this.story, hp = story.player.position;
+    if (want && !this.chopper) {
+      const g = new THREE.Group(), body = prop('helicopter');
+      g.add(body);
+      // its rotors on hubs of their own (the main one's blades are one mesh, the tail's another)
+      const main = meshes(body, (n) => true).filter((m) => /elise/i.test(m.material?.name ?? '')), tail = meshes(body, () => true).filter((m) => /^rotor$/i.test(m.material?.name ?? ''));
+      const hub = (list) => (list.length ? pivot(body, list, boundsIn(body, list).getCenter(new THREE.Vector3())) : null);
+      this.rotor = hub(main);
+      this.tailRotor = hub(tail);
+      // the beam: a long cone, drawn additively, from its nose down to him
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1, 24, 1, true).translate(0, -0.5, 0), new THREE.MeshBasicMaterial({ color: 0xfff2d8, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      cone.frustumCulled = false;
+      this.f.scene.add(cone);
+      this.beam = cone;
+      g.position.copy(hp).add(_a.set(-140, 90, 80));
+      this.f.scene.add(g);
+      this.chopper = { g, a: Math.random() * 6, life: 0, gone: false, sound: story.audio.wind?.(0) };
+      story.ui.toast('A news helicopter is following Green Lantern');
+    }
+    const c = this.chopper;
+    if (!c) return;
+    // circling him at 70 m, 55 m up; leaving when it's no longer wanted, away to the east
+    c.a += dt * 0.12;
+    const tgt = want ? _a.set(hp.x + Math.cos(c.a) * 70, hp.y + 55, hp.z + Math.sin(c.a) * 70) : _a.copy(c.g.position).add(_b.set(400, 60, -200));
+    c.g.position.lerp(tgt, Math.min(1, dt * (want ? 0.35 : 0.08)));
+    // nose toward him, banked a little into its turn
+    _b.copy(hp).sub(c.g.position).setY(0);
+    c.g.rotation.set(0, Math.atan2(_b.x, _b.z), 0.12); // (props face +z)
+    if (this.rotor) this.rotor.rotation.y += dt * 38;
+    if (this.tailRotor) this.tailRotor.rotation.x += dt * 60;
+    // the beam on him by night
+    const night = this.f.isNight, b = this.beam;
+    // (fainter with the camera inside it: from in there it washed out half the picture)
+    const cam = this.story.engine.camera.position, axis = _b.copy(hp).sub(c.g.position), tt = Math.max(0, Math.min(1, _a.copy(cam).sub(c.g.position).dot(axis) / axis.lengthSq()));
+    const off = _a.copy(c.g.position).addScaledVector(axis, tt).distanceTo(cam), inside = off < 2.6 * tt + 0.5;
+    b.material.opacity += ((want && night ? (inside ? 0.012 : 0.05) : 0) - b.material.opacity) * Math.min(1, dt * 3);
+    b.visible = b.material.opacity > 0.005;
+    if (b.visible) {
+      // its apex at the helicopter, out along the line to him (the cone runs down -y from its apex)
+      const d = _b.copy(hp).sub(c.g.position), len = d.length();
+      b.position.copy(c.g.position);
+      b.scale.set(1, len, 1);
+      b.quaternion.setFromUnitVectors(_down, d.normalize());
+    }
+    const dist = c.g.position.distanceTo(this.story.engine.camera.position);
+    c.sound?.level(Math.max(0, 0.08 * (1 - dist / 260)), 1);
+    if (!want && dist > 380) { c.sound?.stop(1); c.g.removeFromParent(); this.beam.removeFromParent(); this.chopper = null; this.rotor = this.tailRotor = null; }
+  }
+
+  // ---------------------------------------------------------------- the police lines
+  cordon(want) {
+    const story = this.story;
+    if (want && !this.lines) {
+      this.lines = [];
+      // across the boulevard at the block's two ends, the pavements too
+      for (const z of [-30, -201]) for (const x of [-3.2, 1.2, 4.0, 6.8, 9.6, 13.6]) {
+        const b = prop('policeline');
+        b.position.copy(V(x, 0, z));
+        b.rotation.y = 0;
+        this.f.scene.add(b);
+        this.f.smash.add(b, { mass: 18, stuff: 'wood' });
+        this.lines.push(b);
+        story.traffic?.extra.push(b); // (the traffic stops at them)
+      }
+      const { NB, SB, SOUTH, STOP } = LANES, tr = story.traffic;
+      this.cruisers = tr ? [tr.dispatch('policecar', [[NB, SOUTH], [NB, STOP.NB], [NB, -205]], { speed: 12 }), tr.dispatch('policecar', [[SB, -8], [SB, -26]], { speed: 10 })] : [];
+      story.ui.toast('The police have cordoned off the block');
+    } else if (!want && this.lines) {
+      for (const b of this.lines) this.f.smash.remove(this.f.smash.items.find((it) => it.object === b));
+      for (const c of this.cruisers ?? []) { story.traffic?.dismiss(c); this.f.smash.remove(c.item); }
+      if (story.traffic) story.traffic.extra = story.traffic.extra.filter((o) => !this.lines.includes(o));
+      this.lines = null;
+      this.cruisers = null;
+    }
+    // their bars going
+    if (this.cruisers) for (const c of this.cruisers) {
+      c.bar ??= (() => { const out = []; c.obj.updateMatrixWorld(true); c.obj.traverse((m) => { if (m.isMesh && /light/i.test(m.material?.name ?? '') && m.getWorldPosition(_a).y > 1.3) { m.material = m.material.clone(); out.push(m); } }); return out; })();
+      const k = Math.floor(this.t * 4);
+      for (const [i, m] of c.bar.entries()) { if (!m.material.emissive) continue; m.material.emissive.setHex(i % 2 ? 0x2a50ff : 0xff2020); m.material.emissiveIntensity = (k + i) % 2 ? 2.2 : 0.2; }
+    }
+  }
+
+  // ---------------------------------------------------------------- the Air Force
+  airForce(dt, want) {
+    const story = this.story;
+    if (this.jets) {
+      const j = this.jets;
+      j.t += dt;
+      for (const [i, m] of j.planes.entries()) {
+        m.position.copy(j.from).addScaledVector(j.dir, j.t * 230 + i * -40).add(_a.set(i * 18, -i * 6, i * 12));
+        m.lookAt(_b.copy(m.position).add(j.dir));
+      }
+      const d = j.planes[0].position.distanceTo(story.engine.camera.position);
+      if (!j.boomed && d < 160) { j.boomed = true; story.audio.sonicBoom?.(0.9); story.director.shake?.(0.35, 0.5); }
+      if (j.t > 12) { for (const m of j.planes) m.removeFromParent(); j.sound?.stop?.(); this.jets = null; }
+      return;
+    }
+    if (!want || (this.jetT = (this.jetT ?? 8) - dt) > 0) return;
+    this.jetT = 35 + Math.random() * 25;
+    // a pass over the town, from the desert to the sea, 140 m up
+    const hp = story.player.position, dir = new THREE.Vector3(Math.random() - 0.5, 0, -1).normalize();
+    const from = hp.clone().addScaledVector(dir, -1400).setY(140);
+    const planes = [prop('prototype'), prop('prototype')];
+    for (const m of planes) this.f.scene.add(m);
+    this.jets = { t: 0, dir, from, planes, boomed: false, sound: story.audio.jetEngine?.() };
+    story.ui.toast('The Air Force is over Coast City');
+  }
+}

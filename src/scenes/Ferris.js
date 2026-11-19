@@ -8,6 +8,7 @@ import { prop, piece, meshes, boundsIn, hasProp } from '../props/Props.js';
 import { Smash } from '../props/Smash.js';
 import { makeCar } from '../props/Car.js';
 import { buildHalsBlock, BLOCK_PROPS } from '../city/HalsBlock.js';
+import { buildFerrisOffice } from '../city/Office.js';
 import { Lod } from '../city/Lod.js';
 
 // Ferris Aircraft, mid-morning: the airfield in the desert outside Coast City where Martin Jordan
@@ -38,7 +39,7 @@ const LOOSE = {
   tug: { kind: 'car', mass: 1600 }, forklift: { kind: 'car', mass: 2600 }, fueltruck: { kind: 'car', mass: 9000, give: 8 },
 };
 export const FERRIS_PROPS = ['phoenix', 'fairheaven', 'negotiator', 'sialia', 'fairheaven_sw', 'prototype', 'palms', 'apartment', 'stand', 'fueltruck', 'tug', 'cones', 'toolbox', 'drums', 'forklift',
-  'office1', 'office2', 'office3', 'office4', 'office5', 'office6', 'cityprops', 'busstop', 'billboard', 'booth', ...BLOCK_PROPS];
+  'office1', 'office2', 'office3', 'office4', 'office5', 'office6', 'cityprops', 'busstop', 'billboard', 'booth', 'f104', ...BLOCK_PROPS]; // (the F-104: the offices' model of it)
 // the street kit's pieces (cityprops), by part name
 export const KIT = {
   mast: /low_poly_metal_street_props_0$/, signal: /low_poly011_/, lamp: /low_poly012_/, sign: /low_poly008_/, stop: /low_poly005_/,
@@ -46,6 +47,7 @@ export const KIT = {
 };
 const PALMS = [/^Palm_tree_001/, /^Palm_tree_002/]; // the two trees in the palms model
 export const BOULEVARD = { x0: 2, x1: 10, z0: -24, z1: -440, cross: -210 }; // in the lot's frame (LOT): the road out of town
+const SOUTH_END = -404; // where the block over the crossing (city/HalsBlock.js) gives the boulevard back
 // The coastline, west of Coast City: x of the shore at a given z (metres; the sea is west of it)
 export const coastX = (z) => -6800 + 650 * Math.sin(z / 2300) + 320 * Math.sin(z / 770 + 1.3) + 140 * Math.sin(z / 260);
 const COAST_GLSL = (z) => `(-6800.0 + 650.0 * sin(${z} / 2300.0) + 320.0 * sin(${z} / 770.0 + 1.3) + 140.0 * sin(${z} / 260.0))`;
@@ -455,7 +457,9 @@ export class Ferris {
     this.physics.fixedBox({ x: -128, y: 13, z: -16 }, { x: 4.5, y: 13, z: 4.5 });
   }
 
+  // (with the city's kit loaded, the offices are a building to walk into: city/Office.js)
   buildOffice() {
+    if (this.blockOn) { this.office = buildFerrisOffice(this); return; }
     const s = this.scene, g = new THREE.Group();
     g.position.set(98, 0, 62);
     s.add(g);
@@ -504,7 +508,7 @@ export class Ferris {
     const m4 = new THREE.Matrix4();
     for (let i = 0; i < n; i++) {
       const z = 130 + i * 55;
-      if (this.blockOn && z > LOT.z - 206 && z < LOT.z - 20) { m4.makeScale(0, 0, 0); poles.setMatrixAt(i, m4); arms.setMatrixAt(i, m4); continue; } // (the block's pavement: its poles are in the alleys)
+      if (this.blockOn && z > LOT.z + SOUTH_END && z < LOT.z - 20) { m4.makeScale(0, 0, 0); poles.setMatrixAt(i, m4); arms.setMatrixAt(i, m4); continue; } // (the block's pavement: its poles are in the alleys)
       m4.makeTranslation(13, 0, z); poles.setMatrixAt(i, m4); m4.makeTranslation(13, 9.4, z); arms.setMatrixAt(i, m4); this.physics.fixedBox({ x: 13, y: 5, z }, { x: 0.15, y: 5, z: 0.15 });
     }
     poles.castShadow = true;
@@ -685,13 +689,15 @@ export class Ferris {
       m.receiveShadow = true;
       g.add(m);
     };
-    const own = this.blockOn; // the stretch from the lot to the crossing is Hal's block's (city/HalsBlock.js)
+    // the stretch from the lot to the crossing is Hal's block's (city/HalsBlock.js), and the next one
+    // south of it to z -404, the old boulevard going on from there
+    const own = this.blockOn, south = own, from = south ? SOUTH_END : B.cross - 8;
     for (const [x0, x1] of [[B.x0 - 5.5, B.x0], [B.x1, B.x1 + 5.5]]) {
       if (!own) pave(x0, x1, B.z0, B.cross + 8);
-      pave(x0, x1, B.cross - 8, B.z1);
+      pave(x0, x1, from, B.z1);
     }
     const kerbMat = new THREE.MeshStandardMaterial({ color: 0xb9b4aa, roughness: 0.85 });
-    const spans = own ? [[B.cross - 8, B.z1]] : [[B.z0, B.cross + 8], [B.cross - 8, B.z1]];
+    const spans = own ? [[from, B.z1]] : [[B.z0, B.cross + 8], [B.cross - 8, B.z1]];
     for (const x of [B.x0, B.x1]) for (const [z0, z1] of spans) {
       const k = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.15, z0 - z1), kerbMat);
       k.position.set(x, 0.075, (z0 + z1) / 2);
@@ -712,7 +718,7 @@ export class Ferris {
     // the blocks: fronts to the street, a few metres of plaza between them
     const blocks = ['office5', 'office2', 'office4', 'office1', 'office6', 'office5', 'office4', 'office2', 'office1', 'office3'];
     for (const side of [-1, 1]) {
-      let z = own ? B.cross - 9 : B.z0 - 6, i = side > 0 ? 3 : 0;
+      let z = own ? from - 1 : B.z0 - 6, i = side > 0 ? 3 : 0;
       while (z > B.z1 + 20) {
         const name = blocks[i++ % blocks.length], o = prop(name);
         const b = new THREE.Box3().setFromObject(o), w = b.max.x - b.min.x, dep = b.max.z - b.min.z;
@@ -728,7 +734,7 @@ export class Ferris {
     for (const [name, x, z, sc, r] of [['office3', -120, 190, 2.3, 0.3], ['office1', -40, 260, 2.0, -0.2], ['office3', 70, 230, 1.9, 1.2], ['office4', 150, 170, 1.7, 0.5], ['office6', -210, 120, 1.2, 0.9]]) this.smash.solid(put(prop(name), x, z, r, sc), { stuff: 'stone', mesh: true });
     // street furniture: palms in the verge, lamps at the kerb, hydrants, bins
     for (let z = B.z0 - 10, n = 0; z > B.z1 + 10; z -= 18, n++) {
-      if (Math.abs(z - B.cross) < 12 || (own && z > B.cross)) continue;
+      if (Math.abs(z - B.cross) < 12 || (own && z > from)) continue;
       for (const side of [-1, 1]) {
         const xk = side < 0 ? B.x0 - 0.9 : B.x1 + 0.9;
         if (n % 2 === 0) {
@@ -749,8 +755,10 @@ export class Ferris {
     // the crossing: signals on the corners, a sign, a car waiting on the cross street
     // (the block's kerbs are out at the parking lanes: its corners' signals stand there)
     const xw = own ? -1.0 : B.x0 - 1, xe = own ? 13.0 : B.x1 + 1;
-    for (const [x, z, yaw] of [[xw, B.cross + 7, 0], [B.x1 + 1, B.cross - 7, Math.PI]]) pole(put(piece('cityprops', KIT.mast, { root: true }), x, z, yaw, 1, x === xw && own ? 0.14 : 0), 160, 30);
-    for (const [x, z, yaw] of [[xe, B.cross + 7, -Math.PI / 2], [B.x0 - 1, B.cross - 7, Math.PI / 2]]) pole(put(piece('cityprops', KIT.signal, { root: true }), x, z, yaw, 1, x === xe && own ? 0.14 : 0), 60, 16);
+    // (and the south corners', once the block over the crossing is built)
+    const sw = south ? -1.0 : B.x0 - 1, se = south ? 13.0 : B.x1 + 1, sy = south ? 0.14 : 0;
+    for (const [x, z, yaw, y] of [[xw, B.cross + 7, 0, own ? 0.14 : 0], [se, B.cross - 7, Math.PI, sy]]) pole(put(piece('cityprops', KIT.mast, { root: true }), x, z, yaw, 1, y), 160, 30);
+    for (const [x, z, yaw, y] of [[xe, B.cross + 7, -Math.PI / 2, own ? 0.14 : 0], [sw, B.cross - 7, Math.PI / 2, sy]]) pole(put(piece('cityprops', KIT.signal, { root: true }), x, z, yaw, 1, y), 60, 16);
     this.smash.add(put(piece('cityprops', KIT.sign, { root: true }), own ? 13.4 : B.x1 + 1.4, B.cross + 8.5, 0.4, 1, 0.14), { kind: 'breaks', mass: 35, strong: 9, glass: false });
     this.smash.add(put(makeCar('negotiator', { paint: 0x6b6f72, dust: 0.25 }), 24, B.cross + 2.2, -Math.PI / 2), { kind: 'car', mass: 1300, shrink: 0.97 });
     this.smash.add(put(makeCar('fairheaven', { paint: 0x8e8a7c, dust: 0.25 }), -30, B.cross - 2.2, Math.PI / 2), { kind: 'car', mass: 1300, shrink: 0.97 });
@@ -761,6 +769,9 @@ export class Ferris {
       this.smash.solid(bb, { stuff: 'metal' });
     }
   }
+
+  // whether a point is inside a room he can walk into (the block's shops, the offices): no rain there
+  indoors(at) { return !!(this.block?.indoors(at) || this.office?.indoors(at)); }
 
   // Boxes round a placed model's parts (those whose names pass `test`), so Hal walks round its
   // fuselage and under its wings rather than through them.
@@ -1072,6 +1083,7 @@ export class Ferris {
   // Flying high: the range shown, the haze thinned and the view out to 90 km; and back.
   flightAir(on) {
     this.airspace().visible = on;
+    this.highAir = on; // (free roam's day cycle reads it: scenes/DayCycle.js)
     const s = this.scene;
     s.fog.density = on ? 0.000032 : 0.00042;
     s.userData.far = on ? 90000 : 2400;
@@ -1127,6 +1139,7 @@ export class Ferris {
     this.exhaust.update(dt, t, camera, renderer);
     if (this.beacon) this.beacon.visible = Math.sin(t * 3) > 0;
     this.block?.update(dt, t, camera);
+    this.office?.update(dt, t, camera);
     this.lod.update(dt, camera);
     for (const fn of this.updaters) fn(dt, t);
   }

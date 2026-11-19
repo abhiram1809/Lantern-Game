@@ -36,6 +36,9 @@ export const QUARTER = [V(0, 0, 44), V(0, 0, 78), V(-10, 0, 98), V(-10, 0, 140),
 export const HIDEOUT = V(-26, 0, 120); // the resistance's courtyard, west off the lane
 export const PRISON = V(0, 0, 196); // the Halls of Correction's yard
 export const CELLS = [-12, -6, 0, 6, 12].map((x) => V(x, 0, 212)); // the cells along its north wall
+// the Broken Chain, the old quarter's tavern, east of the lane across from the courtyard: its room
+// inside (x0..x1, z0..z1), the door in its west wall, the bar along the east (buildTavern)
+export const TAVERN = { z: 123, x0: -4.4, x1: 9.4, z0: 117.6, z1: 128.4, door: [121.7, 123.7], ceil: 3.5, h: 6.6 };
 // the plaza's crowd: front ranks (where the story stands its full figures) facing the statue
 export const CROWD_FRONT = Array.from({ length: 16 }, (_, i) => {
   const a = Math.PI * (0.18 + (i / 15) * 0.64) + (i % 2) * 0.02, r = 15.5 + (i % 3) * 1.4;
@@ -169,6 +172,7 @@ export class Korugar {
     this.buildBanners();
     this.buildMarket();
     this.buildQuarter();
+    this.buildTavern();
     this.buildPrison();
     this.buildPalace();
     this.buildBroadcast();
@@ -258,7 +262,9 @@ export class Korugar {
     for (let z = 58; z < 160; z += 13) for (const side of [-1, 1]) {
       const lx = z < 88 ? 0 : z < 150 ? -10 : 0;
       if (side < 0 && Math.abs(z - HIDEOUT.z) < 14) continue; // the courtyard's opening
-      add(lx + side * (12 + rnd()), z, 15, 11, 12 + rnd() * 10, 0);
+      const x = lx + side * (12 + rnd()), h = 12 + rnd() * 10; // (drawn as before, so the rest of the city comes out the same)
+      if (side > 0 && z === TAVERN.z) continue; // the Broken Chain stands here (buildTavern)
+      add(x, z, 15, 11, h, 0);
     }
     // the skyline behind it all
     for (let i = 0; i < 70; i++) {
@@ -440,6 +446,108 @@ export class Korugar {
         this.smash.add(crate, { mass: 30, stuff: 'wood', glass: false });
       }
     }
+  }
+
+  // The Broken Chain (the open world's "places like these on Korugar once it's freed"): a tavern of
+  // the old quarter, built where a tower stood. Plastered stone, its door to the lane under a board of
+  // glyphs and a lamp, two windows lit; inside a bar down the back wall with its jars and bottles, low
+  // tables with cushions round them, a hearth, lamps from the beams, and the Corps' emblem on green
+  // cloth by the bar now the Lantern is welcome. One light, on while the camera's near.
+  buildTavern() {
+    const s = this.scene, T = TAVERN, t = 0.4, g = (this.tavern = new THREE.Group());
+    s.add(g);
+    const plaster = pbrMaterial('painted_plaster_wall', { repeat: [1 / 3, 1 / 3], tint: new THREE.Color(0.7, 0.62, 0.66) });
+    const inner = pbrMaterial('painted_plaster_wall', { repeat: [1 / 2.5, 1 / 2.5], tint: new THREE.Color(0.86, 0.72, 0.6) });
+    const floor = pbrMaterial('patio_tiles', { repeat: [1 / 1.6, 1 / 1.6], tint: new THREE.Color(0.62, 0.42, 0.36) });
+    const wood = new THREE.MeshStandardMaterial({ color: 0x3e2a1e, roughness: 0.85 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x1e1612, roughness: 0.9 });
+    const glow = (c) => new THREE.MeshBasicMaterial({ color: c });
+    const box = (x0, y0, z0, x1, y1, z1, mat, solid = true) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0).translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), mat);
+      m.castShadow = m.receiveShadow = true;
+      g.add(m);
+      if (solid) this.physics.fixedBox({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: (z0 + z1) / 2 }, { x: (x1 - x0) / 2, y: (y1 - y0) / 2, z: (z1 - z0) / 2 });
+      return m;
+    };
+    const [d0, d1] = T.door, dh = 2.5;
+    // the shell: the walls (the door's gap in the west one), the roof, a parapet; inside, the linings,
+    // the floor and the ceiling's beams
+    box(T.x0 - t, 0, T.z0 - t, T.x0, T.h, d0, plaster); box(T.x0 - t, 0, d1, T.x0, T.h, T.z1 + t, plaster); box(T.x0 - t, dh, d0, T.x0, T.h, d1, plaster);
+    box(T.x1, 0, T.z0 - t, T.x1 + t, T.h, T.z1 + t, plaster);
+    box(T.x0, 0, T.z0 - t, T.x1, T.h, T.z0, plaster); box(T.x0, 0, T.z1, T.x1, T.h, T.z1 + t, plaster);
+    box(T.x0 - t, T.h, T.z0 - t, T.x1 + t, T.h + 0.3, T.z1 + t, plaster);
+    for (const [a, b, c, d] of [[T.x0 - t, T.x1 + t, T.z0 - t, T.z0 - t + 0.25], [T.x0 - t, T.x1 + t, T.z1 + t - 0.25, T.z1 + t], [T.x0 - t, T.x0 - t + 0.25, T.z0 - t, T.z1 + t], [T.x1 + t - 0.25, T.x1 + t, T.z0 - t, T.z1 + t]]) box(a, T.h + 0.3, c, b, T.h + 0.9, d, plaster, false);
+    box(T.x0 + 0.01, 0, T.z0 + 0.01, T.x1 - 0.01, T.ceil, T.z0 + 0.03, inner, false); box(T.x0 + 0.01, 0, T.z1 - 0.03, T.x1 - 0.01, T.ceil, T.z1 - 0.01, inner, false);
+    box(T.x1 - 0.03, 0, T.z0 + 0.03, T.x1 - 0.01, T.ceil, T.z1 - 0.03, inner, false);
+    box(T.x0 + 0.01, 0, T.z0 + 0.03, T.x0 + 0.03, T.ceil, d0 - 0.01, inner, false); box(T.x0 + 0.01, 0, d1 + 0.01, T.x0 + 0.03, T.ceil, T.z1 - 0.03, inner, false); box(T.x0 + 0.01, dh, d0, T.x0 + 0.03, T.ceil, d1, inner, false);
+    box(T.x0, -0.05, T.z0, T.x1, 0.015, T.z1, floor, false);
+    box(T.x0, T.ceil, T.z0, T.x1, T.ceil + 0.12, T.z1, wood, false);
+    for (let x = T.x0 + 1.4; x < T.x1 - 0.6; x += 2.2) box(x - 0.12, T.ceil - 0.22, T.z0, x + 0.12, T.ceil, T.z1, wood, false);
+    // the door: its frame, a heavy leaf standing open against the inside wall; the windows either side
+    box(T.x0 - t - 0.06, 0, d0 - 0.16, T.x0 + 0.04, dh + 0.14, d0, wood, false); box(T.x0 - t - 0.06, 0, d1, T.x0 + 0.04, dh + 0.14, d1 + 0.16, wood, false); box(T.x0 - t - 0.06, dh, d0, T.x0 + 0.04, dh + 0.14, d1, wood, false);
+    box(T.x0 + 0.05, 0.02, d1 + 0.05, T.x0 + 1.95, dh - 0.05, d1 + 0.12, wood, false);
+    // (the frame behind the lit pane, its bars in front: a frame over the pane hid the light)
+    for (const z of [T.z0 + 1.6, T.z1 - 1.6]) { box(T.x0 - t - 0.04, 1.0, z - 0.7, T.x0 - t + 0.01, 2.4, z + 0.7, wood, false); box(T.x0 - t - 0.06, 1.1, z - 0.6, T.x0 - t - 0.05, 2.3, z + 0.6, glow(0xffb060), false); for (const dz of [-0.2, 0.2]) box(T.x0 - t - 0.1, 1.1, z + dz - 0.03, T.x0 - t - 0.07, 2.3, z + dz + 0.03, dark, false); box(T.x0 - t - 0.14, 0.94, z - 0.78, T.x0 - t, 1.0, z + 0.78, wood, false); }
+    // its board over the door, in glyphs, and a lamp on a bracket
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 128;
+    const x2 = c.getContext('2d');
+    x2.fillStyle = '#2a1a12'; x2.fillRect(0, 0, 512, 128);
+    x2.strokeStyle = '#b08a4a'; x2.lineWidth = 6; x2.strokeRect(6, 6, 500, 116);
+    x2.fillStyle = '#e8c070'; x2.font = '600 54px serif'; x2.textAlign = 'center'; x2.textBaseline = 'middle';
+    x2.fillText(toGlyphs('THE BROKEN CHAIN'), 256, 66);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const board = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.8), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7 }));
+    board.position.set(T.x0 - t - 0.06, dh + 0.75, (d0 + d1) / 2);
+    board.rotation.y = -Math.PI / 2;
+    g.add(board);
+    box(T.x0 - t - 0.55, dh + 0.3, d1 + 0.5, T.x0 - t, dh + 0.36, d1 + 0.56, dark, false);
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 8), glow(0xffc070));
+    lamp.position.set(T.x0 - t - 0.5, dh + 0.1, d1 + 0.53);
+    g.add(lamp);
+    // the bar down the east wall, the shelves behind it with their jars and bottles
+    const bx = T.x1 - 1.9, za = T.z0 + 1.1, zb = T.z1 - 1.1;
+    box(bx, 0, za, bx + 0.6, 1.05, zb, wood); box(bx - 0.06, 1.05, za - 0.05, bx + 0.66, 1.1, zb + 0.05, dark, false);
+    box(T.x1 - 0.45, 0, za, T.x1 - 0.03, 0.95, zb, wood);
+    const jars = [0x8a5a3a, 0x6a3a5a, 0x3a5a4a, 0xa88a4a, 0x5a2a2a];
+    const r = ((n) => () => ((n = (n * 1664525 + 1013904223) >>> 0) / 4294967296))(4417);
+    for (const y of [1.3, 1.75, 2.2]) {
+      box(T.x1 - 0.4, y - 0.03, za, T.x1 - 0.03, y, zb, wood, false);
+      for (let z = za + 0.2; z < zb - 0.2; z += 0.16 + r() * 0.08) { const h = 0.18 + r() * 0.16, m = new THREE.Mesh(new THREE.CylinderGeometry(0.05 + r() * 0.03, 0.06 + r() * 0.03, h, 8).translate(T.x1 - 0.22, y + h / 2, z), new THREE.MeshStandardMaterial({ color: jars[Math.floor(r() * jars.length)], roughness: 0.5 })); g.add(m); }
+    }
+    for (let z = za + 0.5; z < zb - 0.2; z += 0.9) { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.18, 0.72, 12).translate(bx - 0.45, 0.36, z), wood); st.castShadow = true; g.add(st); this.physics.fixedBox({ x: bx - 0.45, y: 0.36, z }, { x: 0.18, y: 0.36, z: 0.18 }); }
+    // the Corps' emblem on green cloth by the bar
+    box(T.x1 - 0.06, 1.0, T.z1 - 0.9, T.x1 - 0.03, 2.8, T.z1 - 0.15, new THREE.MeshStandardMaterial({ color: 0x1f6b3a, roughness: 0.9 }), false);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.05, 8, 24).rotateY(Math.PI / 2).translate(T.x1 - 0.08, 2.0, T.z1 - 0.52), glow(0x9affb0));
+    g.add(ring);
+    for (const dy of [0.34, -0.34]) box(T.x1 - 0.09, 2.0 + dy - 0.04, T.z1 - 0.78, T.x1 - 0.07, 2.0 + dy + 0.04, T.z1 - 0.26, glow(0x9affb0), false);
+    // low tables with cushions round them, clear of the way in from the door
+    for (const [tx, tz] of [[T.x0 + 2.4, T.z0 + 2.2], [T.x0 + 2.4, T.z1 - 2.2], [T.x0 + 5.8, T.z0 + 2.4], [T.x0 + 5.8, T.z1 - 2.4]]) {
+      const tb = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.06, 18).translate(tx, 0.5, tz), wood);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 0.47, 10).translate(tx, 0.235, tz), wood);
+      tb.castShadow = leg.castShadow = true;
+      g.add(tb, leg);
+      this.physics.fixedBox({ x: tx, y: 0.27, z: tz }, { x: 0.55, y: 0.27, z: 0.55 });
+      for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + 0.4, cu = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.16, 0.55).translate(tx + Math.cos(a) * 1.0, 0.08, tz + Math.sin(a) * 1.0), new THREE.MeshStandardMaterial({ color: [0x6a2a2a, 0x4a3a6a, 0x6a5a2a, 0x2a4a4a][k], roughness: 0.95 })); cu.receiveShadow = true; g.add(cu); }
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.1, 10).translate(tx + 0.15, 0.58, tz - 0.1), new THREE.MeshStandardMaterial({ color: 0x8a5a3a, roughness: 0.6 }));
+      g.add(cup);
+    }
+    // the hearth in the north wall, its fire a glow
+    const hx = T.x0 + 4.2;
+    box(hx - 1.0, 0, T.z0, hx + 1.0, 1.4, T.z0 + 0.8, new THREE.MeshStandardMaterial({ color: 0x5a4a48, roughness: 0.95 }));
+    box(hx - 0.6, 0.15, T.z0 + 0.79, hx + 0.6, 0.85, T.z0 + 0.82, glow(0xff7a30), false);
+    // lamps from the beams
+    for (const [lx, lz] of [[T.x0 + 2.4, T.z0 + 2.2], [T.x0 + 5.8, T.z1 - 2.4], [bx - 0.4, (za + zb) / 2]]) {
+      const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.9, 4).translate(lx, T.ceil - 0.45, lz), dark);
+      const shade = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 8), glow(0xffb868));
+      shade.position.set(lx, T.ceil - 1.0, lz);
+      g.add(cord, shade);
+    }
+    this.tavernLight = new THREE.PointLight(0xffb070, 0, 16, 2);
+    this.tavernLight.position.set((T.x0 + T.x1) / 2, T.ceil - 0.6, (T.z0 + T.z1) / 2);
+    g.add(this.tavernLight);
+    this.updaters.push(() => { const cam = this.engine.camera.position; this.tavernLight.intensity = Math.hypot(cam.x - this.tavernLight.position.x, cam.z - this.tavernLight.position.z) < 30 ? 9 : 0; });
   }
 
   // The old quarter: a lane south from the plaza, low walls and archways over it, the resistance's

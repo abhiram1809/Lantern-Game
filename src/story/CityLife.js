@@ -11,7 +11,7 @@ import { DinerLife } from './DinerLife.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
-const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _p = new THREE.Vector3(), _e = new THREE.Vector3(), _c = new THREE.Vector3();
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _p = new THREE.Vector3(), _e = new THREE.Vector3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
 
 // Hal's block with people on it (2026-11-18; the user's notes the same day: "they are not that
 // intelligent... no one is serving them", "I want to be able to hear whispers", "Hal should not be
@@ -35,11 +35,15 @@ const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3
 
 // block-local (x across, z along the boulevard; the block's origin is LOT)
 const PAVE = 0.14, FLOOR = 0.15;
-const ground = (x, z) => (x < -0.4 || x > 12.4 ? PAVE : 0) * (z > -206 ? 1 : 0);
+const ground = (x, z) => (x < -0.4 || x > 12.4 ? PAVE : 0) * (z > -206 || (z < -215.5 && z > -404) ? 1 : 0); // (Hal's block, the cross street, the block south of it)
 // the walkers' loop: down the west pavement, over the crosswalk at the corner, up the east one (out
 // round the bus stop's shelter and the people waiting by it); the last leg, from the east pavement's
 // north end back to the west's, is the lot, and is crossed out of sight
 const LOOP = [[-3.45, -27], [-3.45, -199], [-2.6, -201.9], [-0.7, -201.9], [12.7, -201.9], [14.6, -201.9], [15.5, -199], [15.5, -131.5], [16.35, -129.5], [16.35, -112], [15.5, -110], [15.5, -27]];
+// and the block over the crossing (city/HalsBlock.js WEST2, EAST2): up its east pavement, over the
+// crosswalk at the crossing, down the west one (round the bus stop); the leg back over the boulevard at
+// its far end crossed out of sight
+const LOOP2 = [[15.5, -394], [15.5, -222], [14.6, -218.3], [12.7, -218.3], [-0.7, -218.3], [-2.6, -218.3], [-3.45, -222], [-3.45, -330.5], [-4.3, -332.5], [-4.3, -348], [-3.45, -350], [-3.45, -394]];
 
 // who's where (Rocketbox ids, tools/build-people.mjs), each with a voice and how Hal hears them named
 const STAFF = {
@@ -67,6 +71,7 @@ const STANDS = [
 ];
 const WALKERS = ['male-adult-01', 'female-adult-07', 'male-adult-04', 'female-adult-17', 'male-adult-06', 'female-party-02', 'male-adult-08',
   'business-female-03', 'male-adult-11', 'male-adult-16', 'construction-male-07', 'male-adult-20', 'male-adult-17'];
+const WALKERS2 = ['female-adult-14', 'male-adult-21', 'business-female-02', 'construction-male-01', 'business-male-03', 'medical-male-02'];
 
 // what they say when he talks to them: by voice, to Hal in his clothes (`hal`) or to Green Lantern (`gl`)
 const TALK = {
@@ -110,6 +115,11 @@ const TALKS = [
 // under their breath, as Green Lantern walks by
 // asking Hal to let them by (`excuse`; Rosie has her own)
 const EXCUSE = { townm1: 'byM1', townm2: 'byM2', townm3: 'byM3', townf1: 'byF1', townf2: 'byF2', townf3: 'byF3', citykid: 'byK', cook: 'byCook' };
+// and as the city's mood about him has it (story/Life.js's opinion): adoring, or turned against him
+const TALK_GOOD = { townm1: 'cityGoodM1', townm2: 'cityGoodM2', townm3: 'cityGoodM3', townf1: 'cityGoodF1', townf2: 'cityGoodF2', townf3: 'cityGoodF3', citykid: 'cityGoodK' };
+const TALK_BAD = { townm1: 'cityBadM1', townm2: 'cityBadM2', townm3: 'cityBadM3', townf1: 'cityBadF1', townf2: 'cityBadF2', townf3: 'cityBadF3', citykid: 'cityBadK' };
+const MURMUR_GOOD = { townm1: ['muGoodM1'], townm2: ['muGoodM2'], townm3: ['muGoodM3'], townf1: ['muGoodF1'], townf2: ['muGoodF2'], townf3: ['muGoodF3'], citykid: ['muGoodK'] };
+const MURMUR_BAD = { townm1: ['muBadM1'], townm2: ['muBadM2'], townm3: ['muBadM3'], townf1: ['muBadF1'], townf2: ['muBadF2'], townf3: ['muBadF3'], citykid: ['muBadK'] };
 const MURMUR = { townm1: ['muM1a', 'muM1b'], townm2: ['muM2a'], townm3: ['muM3a'], townf1: ['muF1a'], townf2: ['muF2a'], townf3: ['muF3a'], citykid: ['muKa'] };
 
 // a closed loop of points (block-local x, z): at(s, p, d) with s in metres along it; `hop` is the
@@ -140,7 +150,8 @@ export class CityLife {
     Object.assign(this, { story, f, block: f.block });
     this.people = [];
     this.recent = [];
-    this.loop = loop(LOOP);
+    this.loops = [loop(LOOP), loop(LOOP2)];
+    this.loop = this.loops[0];
     this.frustum = new THREE.Frustum();
     this.projM = new THREE.Matrix4();
     this.t = 0;
@@ -151,10 +162,10 @@ export class CityLife {
   }
 
   async start() {
-    const ids = [...Object.values(STAFF).map((s) => s.id), ...DINERS.map((d) => d.id), ...STANDS.map((s) => s.id), ...WALKERS];
+    const ids = [...new Set([...Object.values(STAFF).map((s) => s.id), ...DINERS.map((d) => d.id), ...STANDS.map((s) => s.id), ...WALKERS, ...WALKERS2, ...this.posts().filter((p) => p.staff).map((p) => p.staff.id)])];
     const gl = await loadPeople(ids);
     const byId = Object.fromEntries(ids.map((id, i) => [id, gl[i]]));
-    const posts = this.block.ctx.posts;
+    const posts = this.posts();
     let seed = 1;
     const make = (id) => {
       if (!byId[id]) return null;
@@ -169,6 +180,14 @@ export class CityLife {
       if (!post || !per) continue;
       this.add(per, { kind: who, tag: who, voice: s.voice, label: s.label, post, home: post.at.clone(), yaw: post.face, state: 'post', inside: true, speed: who === 'shopper' ? 0.6 : 0.95, radius: who === 'shopper' ? 1.7 : 2.4 });
     }
+    // the other shops' staff (city/Shops.js: each post brings its person, voice and lines)
+    for (const post of posts) {
+      if (!post.staff) continue;
+      const per = make(post.staff.id);
+      if (!per) continue;
+      // (seated, some: the regulars on their stools, the officer at his typewriter, the travel agent)
+      this.add(per, { kind: 'shopkeep', tag: post.who, voice: post.staff.voice, label: post.staff.label, lines: post.staff.lines, post, home: post.at.clone(), yaw: post.face, state: post.sit != null ? 'seated' : 'post', sit: post.sit, stool: post.stool, inside: true, speed: 0.7, radius: 2.2 });
+    }
     // the street: standing, waiting, talking, on the phone
     for (const s of STANDS) {
       const per = make(s.id);
@@ -179,14 +198,16 @@ export class CityLife {
       this.add(per, { kind: 'stand', tag: s.tag, voice: s.voice, label: s.label, home: at, yaw: s.yaw ?? 0, state: s.does === 'sit' ? 'seated' : 'post', does: s.does, sit: s.sit, day: s.day, radius: 1.7, partnerTag: s.partner });
     }
     for (const p of this.people) if (p.partnerTag) { p.partner = this.byTag(p.partnerTag); if (p.does === 'chat') p.yaw = Math.atan2(p.partner.home.x - p.home.x, p.partner.home.z - p.home.z); }
-    // the walkers, spread along the loop, half each way
-    const L = this.loop.length - this.loop.hop.len;
-    WALKERS.forEach((id, i) => {
-      const per = make(id);
-      if (!per) return;
-      const voice = id.includes('female') ? ['townf1', 'townf2', 'townf3'][i % 3] : ['townm1', 'townm2', 'townm3'][i % 3];
-      this.add(per, { kind: 'walker', voice, label: id.includes('female') ? 'A woman' : 'A man', state: 'walk', s: (i / WALKERS.length) * L + (i % 3) * 4, dir: i % 2 ? -1 : 1, lane: 0.22 + ((i * 7) % 5) * 0.07, speed: 1.18 + ((i * 13) % 7) * 0.045, radius: 1.9, night: i % 2 === 0 });
-    });
+    // the walkers, spread along each block's loop, half each way
+    for (const [k, list] of [WALKERS, WALKERS2].entries()) {
+      const lp = this.loops[k], L = lp.length - lp.hop.len;
+      list.forEach((id, i) => {
+        const per = make(id);
+        if (!per) return;
+        const voice = id.includes('female') ? ['townf1', 'townf2', 'townf3'][i % 3] : ['townm1', 'townm2', 'townm3'][i % 3];
+        this.add(per, { kind: 'walker', loop: lp, voice, label: id.includes('female') ? 'A woman' : 'A man', state: 'walk', s: (i / list.length) * L + (i % 3) * 4, dir: i % 2 ? -1 : 1, lane: 0.22 + ((i * 7) % 5) * 0.07, speed: 1.18 + ((i * 13) % 7) * 0.045, radius: 1.9, night: i % 2 === 0 });
+      });
+    }
     // the diner: its first customers, Rosie's service, Dot's kitchen
     this.diner = new DinerLife(this);
     for (const d of DINERS) {
@@ -206,6 +227,8 @@ export class CityLife {
   }
 
   byTag(tag) { return this.people.find((p) => p.tag === tag); }
+  // everyone's posts: the block's (its shops' staff, the regulars) and the Ferris offices' receptionist
+  posts() { return [...this.block.ctx.posts, ...(this.f.office?.posts ?? [])]; }
 
   add(per, opts) {
     const { f, story } = this, rig = per.rig;
@@ -217,7 +240,7 @@ export class CityLife {
     const p = { per, rig, anim, loco, head: V(0, 0, 0), t: Math.random() * 4, offset: 0, ...opts };
     p.pos = rig.root.position;
     p.lane0 = p.lane;
-    if (p.state === 'walk') { const l = V(0, 0, 0); this.loop.at(p.s, l, _d); p.pos.copy(l).add(LOT); p.pos.y = ground(l.x, l.z); p.yaw = Math.atan2(_d.x * p.dir, _d.z * p.dir); }
+    if (p.state === 'walk') { const l = V(0, 0, 0); (p.loop ?? this.loop).at(p.s, l, _d); p.pos.copy(l).add(LOT); p.pos.y = ground(l.x, l.z); p.yaw = Math.atan2(_d.x * p.dir, _d.z * p.dir); }
     else p.pos.copy(p.home);
     rig.root.rotation.y = p.yaw ?? 0;
     if (p.state === 'seated') this.seatPose(p);
@@ -226,6 +249,10 @@ export class CityLife {
     // a body to bump into (kinematic, where they are), which the camera looks through
     const rb = f.physics.world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(p.pos.x, p.pos.y - 50, p.pos.z));
     const col = f.physics.world.createCollider(RAPIER.ColliderDesc.capsule(0.55, 0.28).setTranslation(0, 0.86, 0), rb);
+    // in no collision pairs at all (an officer walking through a parked car to a suspect shoved it onto
+    // the pavement and felled a lamp post): Hal's controller still finds it (its queries don't filter by
+    // group), the ring's blows find the actors as targets
+    col.setCollisionGroups(0x00020000);
     story.player.camIgnore.add(col.handle);
     (this.capsules ??= new Set()).add(col.handle);
     p.rb = rb;
@@ -341,7 +368,10 @@ export class CityLife {
 
   // ---------------------------------------------------------------- talking to them
   pick(voice) {
-    const pool = TALK[voice]?.[this.story.civilian ? 'hal' : 'gl'] ?? TALK.townm1.hal;
+    let pool = TALK[voice]?.[this.story.civilian ? 'hal' : 'gl'] ?? TALK.townm1.hal;
+    const o = this.story.life?.opinion ?? 35;
+    if (!this.story.civilian && o < -10 && TALK_BAD[voice]) pool = [TALK_BAD[voice]];
+    else if (!this.story.civilian && o > 60 && TALK_GOOD[voice]) pool = [...pool, TALK_GOOD[voice], TALK_GOOD[voice]];
     const fresh = pool.filter((k) => !this.recent.includes(k));
     const key = (fresh.length ? fresh : pool)[Math.floor(Math.random() * (fresh.length || pool.length))];
     this.recent.push(key);
@@ -378,12 +408,13 @@ export class CityLife {
     if (p.state === 'flee' || p.state === 'cower' || p.talking) return; // (E runs this with story.busy already set)
     if (p.kind === 'rosie' && this.diner) { this.diner.talkTo(); return; }
     const { story } = this, was = p.state;
+    if (!story.civilian && this.t - (p.metGL ?? -999) > 600) { p.metGL = this.t; story.life?.opine(0.4, 'Green Lantern stopping to talk'); }
     if (p.state === 'walk' || p.state === 'post') p.state = 'talk';
     p.paused = true;
     p.loco.speed = 0;
     p.per.smile = story.civilian ? 0.25 : 0.1;
     if (Math.random() < 0.5) p.anim.gesture('nod', 0.8, 0.3);
-    await this.say(p, this.pick(p.voice));
+    await this.say(p, p.lines ? p.lines[(p.lineN = ((p.lineN ?? -1) + 1)) % p.lines.length] : this.pick(p.voice));
     p.per.smile = 0;
     await wait(0.6);
     this.look(p, null);
@@ -470,7 +501,8 @@ export class CityLife {
       if (!p.active || p.talking || p.kind === 'rosie' || p.kind === 'cook' || !MURMUR[p.voice] || this.t - (p.muT ?? -99) < 45) continue;
       if (Math.hypot(p.pos.x - hp.x, p.pos.z - hp.z) > 3.2 || Math.random() > 0.3) continue;
       p.muT = this.t;
-      const keys = MURMUR[p.voice];
+      const o = story.life?.opinion ?? 35;
+      const keys = (o < -10 ? MURMUR_BAD : o > 50 ? MURMUR_GOOD : null)?.[p.voice] ?? MURMUR[p.voice];
       this.playTalk({ people: [p], last: 0 }, [[0, keys[Math.floor(Math.random() * keys.length)]]], false);
       return;
     }
@@ -508,8 +540,9 @@ export class CityLife {
     const hp = this.story.player.position;
     let called = false;
     this.stopTalk();
+    if (this.people.some((p) => p.active && p.pos.distanceTo(hp) < 30)) this.story.life?.opine(-0.6, 'people frightened');
     for (const p of this.people) {
-      if (!p.active || p.pos.distanceTo(hp) > 30 || p.state === 'flee' || p.state === 'cower') continue;
+      if (!p.active || p.actor || p.pos.distanceTo(hp) > 30 || p.state === 'flee' || p.state === 'cower') continue;
       p.prev = p.state;
       if (p.inside) { p.state = 'cower'; p.t = 4 + Math.random() * 2; if (p.prev !== 'seated') p.anim.play(still(POSES.kneel, 0.5), 0.4); continue; }
       p.state = 'flee';
@@ -540,9 +573,13 @@ export class CityLife {
     this.block.openers.length = 0;
     this.block.staff.length = 0;
     for (const p of this.people) {
-      // who's out: by night half the walkers and the bus stop's people go home (not while they're busy)
-      const out = p.state === 'route' || p.kind === 'diner' || !night || (p.kind === 'walker' ? p.night : !p.day);
+      // who's out: by night half the walkers and the bus stop's people go home (not while they're busy),
+      // and come out again in the morning; either only out of sight (the clock runs: at dusk they
+      // vanished in front of him)
+      const goes = p.state === 'route' || p.kind === 'diner' || !night || (p.kind === 'walker' ? p.night : !p.day);
       const d = Math.hypot(p.pos.x - hp.x, p.pos.z - hp.z), dc = p.pos.distanceTo(cam.position);
+      if (p.out === undefined || (goes !== p.out && !(dc < 70 && this.frustum.containsPoint(_s.copy(p.pos).setY(p.pos.y + 1))))) p.out = goes;
+      const out = p.out;
       const active = out && near && dc < (p.inside ? 45 : 150);
       if (active !== p.active) {
         p.active = active;
@@ -588,14 +625,14 @@ export class CityLife {
       if (want != null) r.rotation.y += wrap(want - r.rotation.y) * Math.min(1, dt * 5);
       p.loco.speed = speed;
       p.loco.direction = 1;
-      if (p.it) p.it.enabled = active && !p.talking && p.state !== 'flee' && p.state !== 'cower' && !player.flying && (p.kind !== 'diner' || p.state === 'seated');
+      if (p.it) p.it.enabled = !p.mute && active && !p.talking && p.state !== 'flee' && p.state !== 'cower' && !player.flying && (p.kind !== 'diner' || p.state === 'seated');
       if (!active) { p.rb.setNextKinematicTranslation({ x: p.pos.x, y: -50, z: p.pos.z }); continue; }
       p.anim.update(dt);
       p.per.update(dt);
       eyesOf(p.rig, p.head);
       const cast = dc < 40;
       if (cast !== p.cast) { p.cast = cast; for (const m of p.rig.meshes) m.castShadow = cast; }
-      p.rb.setNextKinematicTranslation({ x: p.pos.x, y: p.pos.y, z: p.pos.z });
+      p.rb.setNextKinematicTranslation({ x: p.pos.x, y: p.ghost ? -50 : p.pos.y, z: p.pos.z }); // (`ghost`: no body, someone sat inside a car)
       if (p.state === 'route' || p.kind === 'diner') this.block.openers.push(p.pos);
       if (p.state === 'route' && p.kind === 'rosie') this.block.staff.push(p.pos);
     }
@@ -624,7 +661,7 @@ export class CityLife {
     if (l < 0.06) { p.pos.x = tgt.x; p.pos.z = tgt.z; p.route.shift(); return { speed: p.routeSpeed * 0.5, want: null }; }
     // Hal in their way: they wait for him (their capsule walked into his left him stuck), and after a
     // moment ask him to let them by
-    if (this.inWay(p, _a.normalize(), l)) {
+    if (!p.barge && this.inWay(p, _a.normalize(), l)) {
       if ((p.waitT = (p.waitT ?? 0) + dt) > 1.2 && this.t - (p.excused ?? -99) > 8) { p.excused = this.t; this.excuse(p); }
       return { speed: 0, want: Math.atan2(_a.x, _a.z) };
     }
@@ -652,7 +689,7 @@ export class CityLife {
 
   // along the loop, keeping right, round Hal, behind slower people; at the lot end, the hop
   walk(p, dt, d, flyingOver) {
-    const { loop } = this, player = this.story.player, hp = player.position, cam = this.story.director.camera ?? this.story.engine.camera;
+    const loop = p.loop ?? this.loop, player = this.story.player, hp = player.position, cam = this.story.director.camera ?? this.story.engine.camera;
     if (flyingOver && d < 16 && hp.y > p.pos.y + 3) {
       if (!p.up) {
         p.up = true; p.upT = 2.5 + Math.random() * 2;
@@ -693,7 +730,7 @@ export class CityLife {
       speed *= along < 0.9 ? 0.25 : 0.6;
     }
     for (const o of this.people) {
-      if (o === p || o.state !== 'walk' || o.dir !== p.dir || !o.active) continue;
+      if (o === p || o.state !== 'walk' || o.dir !== p.dir || !o.active || (o.loop ?? this.loop) !== loop) continue;
       const ahead = loop.wrap((o.s - p.s) * p.dir);
       if (ahead > 0 && ahead < 1.6 && Math.abs(o.offset - p.offset) < 0.6) speed = Math.min(speed, o.speed * (ahead < 0.9 ? 0.6 : 1));
     }
@@ -712,8 +749,9 @@ export class CityLife {
   // back onto the loop at the nearest point (after running, the hop, or coming out of the diner)
   rejoin(p) {
     let best = p.s ?? 0, bd = Infinity;
-    for (let s = 0; s < this.loop.length - this.loop.hop.len; s += 1) {
-      this.loop.at(s, _p, _d);
+    const lp = p.loop ?? this.loop;
+    for (let s = 0; s < lp.length - lp.hop.len; s += 1) {
+      lp.at(s, _p, _d);
       const dd = (_p.x + LOT.x - p.pos.x) ** 2 + (_p.z + LOT.z - p.pos.z) ** 2;
       if (dd < bd) { bd = dd; best = s; }
     }
@@ -770,9 +808,22 @@ export class CityLife {
   // the store's bell: Ray comes to the register and answers
   bell() {
     const ray = this.people.find((p) => p.kind === 'clerk');
-    if (!ray || ray.talking) return;
+    if (!ray || ray.talking) return null;
     ray.goal = ray.home.clone();
-    this.say(ray, this.story.civilian ? 'clerkBell' : 'clerkGBell');
+    return this.say(ray, this.story.civilian ? 'clerkBell' : 'clerkGBell');
+  }
+  // Ray says something at the register (null if he isn't about)
+  clerkSay(key) { const ray = this.people.find((p) => p.kind === 'clerk'); return ray && !ray.talking ? this.say(ray, key) : null; }
+
+  // someone gone for good (story/Emergencies.js's people, when their scene is cleared)
+  remove(p) {
+    p.rig.root.removeFromParent();
+    this.capsules.delete(p.rb.collider(0)?.handle);
+    this.f.physics.world.removeRigidBody(p.rb);
+    const i = this.f.interactables.indexOf(p.it);
+    if (i >= 0) this.f.interactables.splice(i, 1);
+    this.people = this.people.filter((q) => q !== p);
+    this.talks = this.talks.filter((g) => !g.people.includes(p));
   }
 
   dispose() {

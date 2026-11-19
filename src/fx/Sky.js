@@ -9,7 +9,7 @@ export const NOISE_GLSL = /* glsl */ `
   float fbm(vec2 p) { float s = 0.0, a = 0.5; for (int i = 0; i < 6; i++) { s += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; } return s; }
 `;
 
-const PRESETS = {
+export const PRESETS = {
   storm: { top: 0x05070c, horizon: 0x1a2130, bottom: 0x040506, sun: 0x9fb4d8, sunDir: [0.4, 0.5, -0.8], sunSize: 0.0004, glow: 0.25, cloud: 0.75, cloudColor: 0x0b0e14, cloudLit: 0x35405a, stars: 0.0 },
   night: { top: 0x04070d, horizon: 0x1b2433, bottom: 0x05070a, sun: 0xdfe8ff, sunDir: [-0.25, 0.55, -0.8], sunSize: 0.0009, glow: 0.6, cloud: 0.58, cloudColor: 0x0c1018, cloudLit: 0x6d7a94, stars: 1.0 },
   // a clear morning after the storm (the apartment), and the desert at mid-morning (Ferris Aircraft)

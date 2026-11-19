@@ -56,7 +56,9 @@ export const ROUTES = {
 };
 
 export class StreetLife {
-  constructor(story, kor, { era = 'sinestro', walkers = { avenue: 5, market: 3 }, guards = [] } = {}) {
+  // `posts`: people who keep to a place of their own (the tavern's keeper and his regulars, the market's
+  // vendors), each with their own lines (`lines`, in turn) and how Hal hears them named
+  constructor(story, kor, { era = 'sinestro', walkers = { avenue: 5, market: 3 }, guards = [], posts = [] } = {}) {
     Object.assign(this, { story, kor, era });
     this.people = [];
     this.recent = [];
@@ -72,6 +74,12 @@ export class StreetLife {
       }
     }
     for (const g of guards) this.add(createKorugarian(ch.abin, { seed: 1500 + seed++ * 5, guard: true }), 'guard', { post: g.at.clone(), yaw: g.yaw });
+    for (const q of posts) {
+      const woman = q.kind === 'woman' && ch.katma;
+      const rig = woman ? createKatma(ch.katma, { citizen: true, seed: 1700 + seed * 7 }) : createKorugarian(ch.abin, { seed: 1800 + seed * 11 });
+      seed++;
+      this.add(rig, woman ? 'woman' : 'man', { post: q.at.clone(), yaw: q.yaw, lines: q.lines, tag: q.tag, label: q.label });
+    }
     this.watch = { onCast: () => this.scare() };
     story.powers.watchers.add(this.watch);
     kor.updaters.push((dt) => this.update(dt));
@@ -93,7 +101,7 @@ export class StreetLife {
     p.pos = rig.root.position;
     if (p.post) { p.pos.copy(p.post); rig.root.rotation.y = p.yaw; }
     else { p.path.at(p.s, p.pos, _d); p.yaw = Math.atan2(_d.x * p.dir, _d.z * p.dir); }
-    p.it = kor.interact({ position: p.pos, radius: 1.9, look: p.head, label: 'Talk', action: () => this.talk(p) });
+    p.it = kor.interact({ position: p.pos, radius: 1.9, look: p.head, label: p.label ? `Talk · ${p.label}` : 'Talk', action: () => this.talk(p) });
     this.people.push(p);
     return p;
   }
@@ -111,7 +119,7 @@ export class StreetLife {
   async talk(p) {
     const { story } = this, player = story.player;
     if (p.state === 'flee' || p.state === 'cower') return;
-    const [line, mutter] = this.pick(p.kind);
+    const [line, mutter] = p.lines ? [p.lines[(p.lineN = ((p.lineN ?? -1) + 1)) % p.lines.length], null] : this.pick(p.kind);
     p.state = 'talk';
     p.loco.speed = 0;
     p.anim.lookAt(story.headOf(player.rig), 0.8);

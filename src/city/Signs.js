@@ -25,10 +25,16 @@ export class SignAtlas {
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = 8;
   }
+  // whether a sign of this size still goes in (where `add` would put it)
+  fits(w, h) {
+    w = Math.ceil(w); h = Math.ceil(h);
+    return (this.x + w > this.size ? this.y + this.row + 2 : this.y) + h <= this.size;
+  }
   add(w, h, draw) {
     w = Math.ceil(w); h = Math.ceil(h);
     if (this.x + w > this.size) { this.x = 0; this.y += this.row + 2; this.row = 0; }
     const x = this.x, y = this.y;
+    if (y + h > this.size) console.warn('sign atlas full', w, h);
     this.x += w + 2;
     this.row = Math.max(this.row, h);
     const g = this.g;

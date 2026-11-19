@@ -555,7 +555,7 @@ and reference videos. The built outputs in `public/` are what the game loads.
 | `assets/props/*.glb` | **Downloaded props** (2026-11-10), CC BY 4.0 Sketchfab models from Objaverse, credited in `CREDITS.md`: Hal's car (`phoenix`), four period cars for the lots, the prototype (an F22), the phone, palms, Hal's apartment block, the apron's access stand, tug, fuel truck, cones, tool chest, drums, forklift; Coast City's six office blocks (`office1`–`6`, one artist), the street kit (`cityprops`: traffic lights, lamps, hydrants, bins, a dumpster, signs), a bus shelter, a billboard; the gate's guard booth; the kitchenette's fridge and coffee maker; the dream's F-104; Part Four's building site (the excavator, the girder kit, a tower crane, chain-link
 fence, a container, barriers, a mixer, pipes, bricks, a porta-potty) and Ysmault (a butte, obelisks,
 a chain, shackles, a rock pack). `apartment.glb`'s textures were re-encoded as JPEG to keep it under 25 MB. |
-| `assets/people/*.glb` | **Coast City's people** (2026-11-18): 28 Microsoft Rocketbox avatars (MIT, `LICENSE-Rocketbox.md` beside them), the web-tier GLBs of the Hugging Face copy, built by `npm run people`. |
+| `assets/people/*.glb` | **Coast City's people** (2026-11-18, 2026-11-19): 60 Microsoft Rocketbox avatars (MIT, `LICENSE-Rocketbox.md` beside them), the web-tier GLBs of the Hugging Face copy, built by `npm run people`. |
 | `public/textures/pbr/` | **Surface textures** (CC0, Poly Haven, 1K WebP): corrugated iron (the hangars), concrete (the apron, lots, pavements), asphalt (roads, runway), gravelly sand (the desert), white plaster (the tower and office). `pbrMaterial(id, { repeat, tint, map, detailRepeat })` in `fx/Textures.js`. |
 
 Model build settings (`MODELS` in `tools/build-assets.mjs`):
@@ -1151,10 +1151,135 @@ now, the jaw on the voice. Movement is one primitive: `go(p, worldPoints, { spee
   the kids point, someone calls out (`cityUp1-3`); a construct cast near them (`powers.watchers`): the
   street runs, then crouches, then walks back to where it was (`return`, `settle`); inside they crouch
   where they are.
-- **By night** (`ferris.isNight`) half the walkers and the bus stop's people and the friends are gone.
+- **By night** (`ferris.isNight`) half the walkers and the bus stop's people and the friends are gone,
+  going home and coming out only where the camera can't see them (`p.out`: the clock runs now).
   **Cost**: anyone beyond 150 m of the camera (45 m inside) isn't drawn or animated; shadows within 40 m.
   Measured on the west pavement: 22 out, 91 draw calls and 276k triangles of the scene's 1,154 and
   3.66 M, 0.64 ms a frame for their updates.
+- **Their bodies are in no collision pairs** (`setCollisionGroups(0x00020000)`): Hal's controller still
+  finds them (its queries don't filter by group) and the ring finds the emergencies' actors as targets,
+  but a person walking through a parked car doesn't shove it (an officer did, and half the street went).
+
+**Free roam's open world on Earth** (2026-11-19, the user's "finish everything I told you": the plan
+agreed on 2026-11-18, see *Working with this user*). In the Ferris scene, free roam only:
+- **The day** (`scenes/DayCycle.js`, `Roam.updateDay`): a clock at GTA's pace (a minute every 2 s, a day
+  in 48 min) running wherever he is (off Earth the clock's place shows the sector); the sun on an arc
+  (east +x, over the south -z, west), the moon after it, the light handed from one to the other at the
+  horizon where both are faded out; ten keyframes of the story's own presets (Sky.js `PRESETS`, exported;
+  Ferris's `day`/`dusk`/`night`/`dawn` values) blended: sky, sun, hemisphere, fog, exposure, the image
+  light (`environmentIntensity`, 0.4 by day to 0.1 at night: at 0.4 the street at 2 AM was lit like an
+  overcast noon), the town's lamps and windows (`block.setNight(k)`, the glass's `cityU` sky and
+  daylight), `f.isNight`. **Weather** over it (`WEATHER`): clear most days, the marine layer some
+  mornings (`haze`, fog ×11), overcast, now and then rain (streaks in a box round the camera, off indoors:
+  `block.indoors`; the asphalt and concrete materials darker and glossier, roughness floored at 0.42 or
+  the kerbs went white; its hiss), crickets at night, birds of a morning. `LifeSave` (engine/Save.js, its
+  own store `gl_life_v1`) keeps the hour, day and weather. The night kit's lights are compiled in at the
+  start (`renderer.compile` with the lamps on): the first dusk otherwise recompiled every material. Sleep
+  in the flat sets the hour (7:06 AM or 7:39 PM).
+- **His life** (`story/Life.js`, the panel under the clock `#life`, `ui.life`): **money** (starts $38.50;
+  Ferris pays $120 a shift, `Roam.offerShift` through Carol as Hal, 7 AM to 1 PM, once a day, the clock to
+  4 PM, pro rata if late; the rent $75 a week to Sal at the notice by the flat's door, $5 a day late, the
+  lock changed after five; Rosie's coffee 50¢ and the melt and pie $5.25, on a tab to $15 if he's short,
+  Green Lantern's on the house; Ray's soda, candy bar and scratchers, which sometimes win); **XP** (60 a
+  chapter played in any part, backfilled the first time; Kilowog's round 40, a Qward wave 30 + 10n, a day
+  at Ferris 15, an emergency 60 to 70), a level each 100 + 50(n-1), a point each; **the ring's six stats**
+  (K, `Roam.ringStats`, `STATS`, ten each) into `powers.mods` (cost, damage, drain, parry window, aim
+  assist), `maxHealth` and `healBoost` (endurance), `trickle` (willpower), `player.flyScale` (flight);
+  **public opinion** (-100 to 100, starts +35; `opine`: the ring breaking city property in town -1.5, a
+  car hit -1, burning -2, blown up -4, through `smash.onEvent`, not collisions; people frightened -0.6;
+  talking to people +0.4; emergencies +5 to +6, -3 ignored), shown as Green Lantern with its word
+  (`mood`: Beloved to Hunted), and what people say and mutter to him follows it (`TALK_GOOD`, `TALK_BAD`,
+  `MURMUR_GOOD`, `MURMUR_BAD`).
+- **Traffic** (`city/Traffic.js`): 16 of Smash's cars driven kinematically on lanes (northbound x 4,
+  southbound x 8, the cross street's eastbound z -207.8 and westbound -212.2, keeping right), through the
+  crossing's light cycle (`PHASES`, no visible lamps: the signal props are one mesh) or turning (cubic
+  curves), up the block into a bay in Hal's lot or out of its mouth, appearing and leaving only out of
+  sight; slowing for bends, following at a gap, stopping for the lights, Hal, his car, people and
+  `extra` things in the road (a wreck, the police; `holdR` holds a stretch for those coming, not those in
+  it); horns, a whoosh going by, headlamps and tails at night. Hit by anything, a car is physics's
+  (`release`), towed when unseen 45 s on and replaced (`tow`). In the LOD and the camera's ignore list.
+  `dispatch(model, pts)` sends a car in from as near as it can start unseen (the police, the ambulance).
+  Two cars Part Three left at the lights stood in the cross street's lanes on the wrong side: moved to its
+  kerbs.
+- **Emergencies** (`story/Emergencies.js`): every 2.2 to 4.5 game hours one of a hold-up at Coast Liquor
+  (a revolver on Ray, his hands up; as Green Lantern comes in he turns, aims 0.7 s, fires twice, runs),
+  a mugging in the west alley (one squares up: a wind-up, a lunge, a punch; one runs), a crash at the
+  crossing (traffic held off, the wreck set once it's clear and unseen, steam, the driver trapped: E tears
+  the door off; it burns at 75 s), a fire in the flats over Lucky Dragon (flames out of four windows,
+  smoke off the roof, a woman waving on the roof: fly up, E carries her down; the fire crew after, the
+  fire dying; at 100 s they get her). The ring's alert, a marker. Actors are CityLife people (`actor`,
+  `mute`, `barge`: they don't wait for Hal, `ghost`: no body while sat in a car) with ring targets;
+  downed by blows. After: the police (`policecar`, its roof bar flashing, two officers, by gaps in the
+  parked cars and in by the door, cuffing) or the ambulance and a paramedic. The scene's cleared when
+  unseen. People: Rocketbox `police-*`, `medical-*`, `fire-*` and three men added to `build-people`.
+  Props: `policecar`, `ambulance` (Daniel Zhabotinsky, the town cars' artist), `revolver`, `policeline`,
+  `helicopter` (CC BY, credited).
+- **Pressure** (`story/Pressure.js`; the user's "cordons, helicopters, booing, the Air Force at the
+  lowest"): as Green Lantern in town, opinion under -30 brings a news helicopter circling him at 55 m
+  (its rotors on hubs, a drawn cone of a searchlight at night, fainter with the camera inside it); under
+  -50 police lines across the block's two ends (traffic stops at them) with a cruiser behind each, bars
+  going; under -80 a pair of jets low over the town every 35 to 60 s, a boom. The booing is the mood
+  pools' murmurs. `Smash.remove(item)` takes a prop out of everything (the items, the physics step's list,
+  the world, its fire).
+- **The other shops** (`city/Shops.js`, `shopRoom`, `SHOPS`): the eighteen besides Rosie's and Coast
+  Liquor are walk-in now (`interior: '<trade>'` on their specs: Suds & Duds, Ortega's barber, Lucky
+  Dragon, Pacific Pawn, Mendoza's, the Savings & Loan, Sunset Pharmacy, Garcia Auto Parts, Sunny's Donuts,
+  Rialto Records, Checks Cashed, Flores Elena, Café Marisol, Panadería La Estrella, Pacific Hardware, the
+  Clínica, Phở Saigon, Coast Cellular). Each: the shell, its floor and walls, the shop's part 10.5 m deep
+  at most (a wall across with the back room's door: deeper was a hall of empty floor), a counter on the
+  far side from the door with stocked shelving behind it, the trade's fittings (tables and chairs with
+  napkins and ketchup, washers, barber chairs and mirrors, glass cases, gondolas, record bins, flower
+  stands, the tellers' glass, waiting chairs, a phone table), the block's props (a cooler, the espresso
+  machine, an ATM, planters, a vending machine), posters, its board over the back wall, ceiling tubes.
+  Staff: a Rocketbox person per shop at a post (CityLife makes any post's `staff`, with `lines` of their
+  own); E at the counter (`buy` spots, `Roam.shopBuy`): the trade's items, paid (food heals a little, the
+  clinic all of it, the laundromat and the barber take the time), thanks by voice, Green Lantern told
+  he's welcome. **One shared lamp** for the eighteen (`ctx.shopLights`, HalsBlock's `shopLamp`, moved to
+  the room the camera's in or nearest within 18 m): each its own point light would have cost every frame.
+  A fitting may place its own staff (`room.post`), the buy spot (`room.buy`) and **regulars**
+  (`regular()`: a post of anyone else, standing on a beat or sitting, `sit`, on a stool or a chair); a
+  trade may keep its own counter (`ownCounter`), go without the stocked back shelving (`back: false`),
+  keep its whole depth (`deep`), skip the generic posters (`posters`). The shops count as indoors for
+  the rain (`block.indoors` checks `ctx.shopLights` too: it knew only the diner and the store).
+- **The block over the crossing** (2026-11-19: "the police station, a hospital and a bar"), built by the
+  same `buildHalsBlock` into the same ctx (one batch, one set of materials, one lamp, the same doors and
+  spots; its own seeded random, `rndS`, so Hal's block comes out exactly as before: the refactor was
+  checked against a fingerprint of the block's geometry). `WEST2`, `EAST2` from z -221 to -396: the **Blue
+  Marlin** on the corner (brick; the bar down its far wall with a foot rail and taps, a smoked mirror and
+  three shelves of bottles, stools, a pool table under its lamp, the jukebox, a dartboard, beer signs; Gus,
+  two regulars on stools; a beer, a whiskey), the **14th Precinct** (deco pilasters, blue lamps by the
+  door; inside the lobby's benches and boards, the sergeant's high desk with the flags behind it, the bull
+  pen's four desks with typewriters, phones and lamps, filing cabinets, the coffee, the holding cell's bars;
+  the sergeant and an officer at his typewriter; its cruisers at the red kerb out front), travel agent,
+  thrift shop, the **Coronado** (four storeys: the cleaner's with its garment rail, bail bonds), a
+  bookshop, the **Palms** (its marquee with this week's pictures and bulbs, a blade sign; the lobby's
+  concession counter, popcorn machine, candy case, carpet and brass posts, posters, the two theatres'
+  doors; a ticket takes two hours), Tony's Pizza (a brick oven); east, Starlight TV (sets on with their
+  screens lit, three in the window facing the street), Belle's salon (hood dryers), **St. Mary's** (four
+  storeys, its name lit on the roof, the emergency room's canopy over the pavement on two columns, the
+  ambulance at its red kerb; inside the triage desk, rows of chairs, the TV, the water cooler, a gurney,
+  the doors through to treatment; the triage nurse, the doctor on his rounds; $30 heals), the Iron Beach
+  gym (a ring, heavy bags, a bench, dumbbells, mirrors; a workout takes an hour and heals), Del Mar Court,
+  the Ocean Market (produce down the wall, gondolas, coolers). Its street (`STREETS.south`, the same
+  `street()` as Hal's by a layout: the corner along the cross street, the red kerbs and the zones kept for
+  the police and the ambulance, the stop bar and crosswalk at the crossing, the kerbs' end at the old
+  boulevard, `endKerb`) and alleys (`ALLEYS`). Ferris's `buildCity` gives it the stretch to `SOUTH_END`
+  (-404) and moves the crossing's south signals out to its kerbs; the stop lines are off the crosswalks now
+  (`STOP` in `Traffic.js`: SB -196.6, NB -223.4, EB -6.5, WB 18.5). People: its own walkers' loop (`LOOP2`,
+  `WALKERS2`, each walker has `p.loop`), the shops' staff and regulars (seated posts), 22 more Rocketbox
+  people (`build-people.mjs`; `female-adult-16` failed to build and was dropped). Signs: the atlas grows
+  pages (`signs.more`, `SignAtlas.fits`: two blocks' signs overflowed one, see Gotchas).
+- **The Ferris offices** (`city/Office.js`, `Ferris.buildOffice` with the kit loaded): a two-storey
+  building where the box stood, facing the staff lot, FERRIS across its north end; the lobby (reception
+  desk and the receptionist, a CityLife post added by `CityLife.posts()`, the company's board, models of
+  the prototype and an F-104 under glass, the test pilots' wall, Martin Jordan's portrait a `look` spot
+  with Hal's thought, a sofa and magazines), the offices beyond staff only. Its doors through the block's
+  `swingDoors` (exported from `HalsBlock.js`, with `SOLID`); `Ferris.indoors(at)` is the block's or the
+  offices' (the rain asks it).
+- **No air** (`Roam.updateAir`): out of the uniform on Oa, Ysmault or Qward (Korugar has air) a breath
+  held, then the drain growing (gone in about 7.5 s), the grade's `uChoke` (drained, a closing tunnel,
+  swimming), his heart, hands at his throat, legs going (`player.hamper`); T forms the uniform; down, the
+  ring forms it on him at the last ("SUFFOCATED").
 
 **Korugar's streets** (`story/KorugarLife.js`, `StreetLife(story, kor, { era, walkers, guards })`):
 walkers on loops (`ROUTES`: the avenue, the market, the plaza at r 31), guards at posts; each a full
@@ -1164,7 +1289,15 @@ last four heard); under Sinestro the ring then decodes what they mutter after. R
 Sinestro they back off from him with their eyes down; they look up at him flying low; a construct
 cast near them (`powers.watchers`) sends everyone within 30 m running, then crouching. Part Five's
 `patrol` adds one (`era: 'sinestro'`, 4 on the avenue, 3 in the market, two guards); free roam's
-Korugar another (`era: 'after'`).
+Korugar another (`era: 'after'`), with `posts` (people at a place of their own, each with their own
+`lines` in turn and a `label`): **Korugar's places once it's freed** (2026-11-19). The **Broken Chain**
+(`Korugar.buildTavern`, `TAVERN`), a tavern built where an old-quarter tower stood across the lane from
+the courtyard (the tower skipped after its random numbers are drawn, so the city comes out the same):
+plastered walls, its door open to the lane under a board of glyphs and a lamp, two lit windows; inside a
+bar down the back wall with shelves of jars, stools, low tables with cushions, a hearth, lamps from the
+beams, the Corps' emblem on green cloth; one light on near it. The keeper and two regulars; "Have
+something" gives tea or stew. At the market, a fruit seller, a baker and a carver behind three stalls,
+"Take something" at each. Nothing is paid for (`Roam.korugarRoam`'s `give`).
 
 ### Props (`src/props/`, `tools/build-props.mjs`)
 
@@ -2097,6 +2230,38 @@ The checks that have worked:
 
 ## Gotchas (learned the hard way)
 
+- **A sign atlas fills up quietly.** With the second block, every sign drawn after the 2048 atlas was
+  full landed off its canvas: the shops' back-wall boards came out as black panels. `SignAtlas.add`
+  warns now, and `label()` starts a new page with its own material when one won't fit (`signs.more`).
+- **Refactor a builder against a fingerprint.** Turning `buildHalsBlock` into a two-block builder, the
+  proof that Hal's block was untouched was a hash in the page: per merged mesh, a weighted sum of every
+  seventh vertex, the triangle count, and the counts of Smash items, solids and spots, taken before and
+  after (with the new block switched off): identical. A new block drawing on the old one's seeded random
+  would have moved its parked cars; each block has its own.
+- **A fitting hung on something optional floats when that's left out.** The eateries' menu photos are
+  mounted on the back shelving's front; Tony's has an oven there instead, and the photos hung in the air.
+- **A frame boxed over a lit pane hides it.** The tavern's windows were dark wood from outside: the frame
+  box stood in front of the glow. Frame behind, light in front, bars before that.
+- **A prop's origin isn't always its middle** (the prototype's): a scale model put "on the plinth" by its
+  origin sat a metre off it. Place small copies by their bounds.
+
+- **A body removed from the world but left in `physics.dynamics` panics Rapier on the next step**, and
+  every call after reports "recursive use of an object" (the cordon's cruisers). `Smash.remove`.
+- **Never make a physics body where another already is.** A police car added at its parking spot in
+  the lane a traffic car was passing through: the solver threw the two apart and flipped cars onto the
+  pavement and felled a lamp post. Cars sent somewhere are driven in from out of sight
+  (`Traffic.dispatch`), and a scene placed in the road waits until the spot's clear.
+- **A kinematic body walking through a dynamic one shoves it** whatever its mass: an officer walking
+  to a suspect through a parked car pushed the car up onto the pavement. People's capsules are in no
+  collision pairs, and routes cross the parking lane at gaps.
+- **A test loop of `engine.advance` never yields to the network**: `loadProps` and `loadPeople` never
+  finished inside one, and the emergency never started. Yield a macrotask (`setTimeout`) each step.
+- **A drop rule matches parents too**: `/Bullet/` dropped the revolver's whole tree (its root node is
+  "Gun_and_Bullets"). Anchor it (`/^Bullet/`) and print the node tree first.
+- **Holding a stretch of road must not hold the cars already in it**, or it never clears (`holdR`).
+- **A light Ferris's presets never touched was the night's brightness**: `environmentIntensity` (0.4)
+  lit the street at 2 AM like an overcast noon. The day cycle sets it with the rest.
+
 - **An interaction's action runs with `story.busy` already set** (`updateInteractions` sets it, then
   calls the action). Free roam's sit, restroom, flat door, sleep and talking to people each began
   `if (this.busy) return`, so E did nothing at all on them (the user: "I can't press E... I can't even
@@ -2566,6 +2731,29 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-19, the block over the crossing, Korugar's tavern, the Ferris offices) on 5180, muted,
+  fixed-step and scripted keys from `#world`: Hal's block's fingerprint unchanged through the refactor;
+  the new block from the crossing, down both pavements, from above and at dusk (captures); all fourteen
+  new interiors inside (the bar, precinct, ER, the Palms' lobby, travel, thrift, cleaner's, bail bonds,
+  books, pizza, TV, salon, gym, market); Hal walked in through six of their doors (on the floor, the door
+  open); the 19 new staff and regulars in place (seated ones seated); a beer bought from Gus ($1.25 off);
+  the new walkers moving on their loop; traffic for two minutes with the moved stop lines (flowing,
+  crossing both ways); Korugar by the travel menu: walked into the Broken Chain, captures inside and out,
+  the stew taken (no hang); the Ferris offices walked into from the staff lot (indoors, the door open,
+  the receptionist there), captures inside and out; 30 game seconds with 71 people and 18 cars and no
+  console errors; every new line rendered (1,028 clips); a clean build.
+
+- (2026-11-19, the open world's systems) on 5180, muted, voices off, fixed-step with scripted keys from
+  `#world`: the street at six times of day and in four weathers (captures); the clock off Earth; K's
+  screen spending points (power, endurance, flight into the ring's numbers); a patty melt paid at Rosie's
+  ($38.50 to $33.25), a scratcher at Ray's, a shift through Carol (9 AM to 4 PM, $104), the rent two days
+  late ($85) at the notice; opinion falling for a hit, burning and blown-up car (35 to 28); traffic over
+  minutes (lanes, turns, the lights, the lot, night lamps, a car released by a blow); each emergency to
+  its end (the robber's two shots, down, the cruiser driven in, cuffed; the mugging's punches, the
+  police up the alley; the crash set when clear, the door torn off, the driver out, the ambulance);
+  suffocation on Ysmault and Oa both ways (saved by T; down and "SUFFOCATED", up in the suit); five game
+  hours of everything with no console errors; a clean build.
+
 - (2026-11-18, the diner and the store made playable) on 5180, muted, voices off, fixed-step with held
   keys from `#world`: walking in and out of both doors and round both rooms by waypoints, every frame at
   full speed (the floor's stalls all caught by the retry); capsule maps of both rooms (the store's door
@@ -2886,6 +3074,16 @@ Verified by playing in the browser:
 
 Not verified:
 
+- The new block, Korugar's tavern and the offices by hand, by ear, at full frame rate (the second block
+  adds about as much again as Hal's: two more pages of signs, 22 more people, 14 more rooms); talking to
+  each new person (only Gus bought from; the lines exist and are rendered, not heard); the cinema's ticket
+  and the gym's workout (the time-skip path is the laundromat's, tested before); the emergencies after the
+  stop lines moved (the crash's hold and the police's routes use the lane points, not the stops, but
+  weren't replayed); people crossing the new crosswalk with traffic stopping for them; the
+  Coronado's fire escape and the south alleys walked; the bulb-outs at -404 seen close; Korugar's
+  vendors bought from (only the tavern's keeper); the offices' receptionist talked to and Martin's
+  photograph looked at.
+
 - The shops by hand at the real frame rate (every walk since the fixes was stepped by script with held
   keys); someone standing still in Hal's way (seated, or holding at a spot) doesn't step aside: he walks
   round them; the counter's gate seen with Rosie through it at full speed.
@@ -3039,24 +3237,16 @@ Not verified:
 - The Thunderers don't speak; they have no hurt or death animation beyond a kneel and the dissolve (the
   winged one droops its wings); the flail's chain is rigid (it swings, it doesn't bend); the archer
   doesn't reach for a new arrow from his quiver.
-- Hal's block (2026-11-18), what's left: two shops and Hal's flat can be walked into; the other
-  fifteen shops and the flats over them can't yet (their glass is the room shader), and nobody works
-  in them; the diner's corner is square (streamline diners round it), every
-  shop's interior is the same shelves (a barber's chairs, the diner's booths and counter, the laundromat's
-  machines), the alleys are bare (back doors, crates, graffiti, a van), no interiors to walk into, the
-  rest of the boulevard beyond the crossing is still the old office blocks, no time cycle (`night()` is a
-  preset), no traffic yet. Its people (`CityLife`): nobody goes in or out of a door, the diners never
-  leave, no one buys anything (money isn't built), the walkers' loop is one route (no crossing mid-block
-  or turning into the cross street), people don't react to cars, to Hal changing in view, or to
-  emergencies (none yet); the man on his phone isn't at the payphone (its handset is part of its one
-  mesh); a Rocketbox face is 8k triangles, the scans' 90k (fine at talking distance, plainer in a
-  close-up cutscene). The diner: nobody pays at a register (money on the table), Hal's food isn't paid
-  for (money isn't built), people in a route don't steer round each other, the kitchen has one cook and
-  no dishwasher, the store's clerk has no work beyond his register and the bell, the other shops have no
-  staff. Overheard talk is a few scripts per group; walkers on their own only murmur at Green Lantern.
-- Free roam's Coast City has people only on Hal's block, no traffic (only the parked cars), and
-  the lake stays at night while the valley is day: the open world agreed on 2026-11-18 (see *Working
-  with this user*) is the plan for all of it. The fallen statue's head is the scan's bald head (his
+- Coast City, what's left (2026-11-19): two blocks of the agreed 1.5 km core (downtown's glass, the
+  waterfront, the pier and beach aren't built; beyond them the old office blocks and the skyline); the
+  flats over the shops can't be walked into (their glass is the room shader); the shops' rooms are big
+  and plain beside the diner (a counter, one trade's fittings, a board); the diner's corner is square;
+  the alleys are bare; Carol stays in Hangar Two (not at her desk in the offices). Its people: walkers
+  keep to their block's loop (none cross mid-block or turn into the cross street), people in a route
+  don't steer round each other, they don't react to cars or to emergencies; the man on his phone isn't
+  at the payphone; a Rocketbox face is 8k triangles, the scans' 90k. Overheard talk is a few scripts
+  per group. Korugar's places: one tavern and three stalls; nobody there has a job beyond their spot.
+- The lake stays at night while the valley is day. The fallen statue's head is the scan's bald head (his
   painted hair is in the live figure's shader, not the stone's).
 
 - Free roam's Part Seven marker is a placeholder card at Carol until Part Seven is written.
@@ -3157,7 +3347,8 @@ src/scenes/                 Bedroom (+ hallway, kitchenette, buildJet; night or 
                             Site (Part Four: downtown at night, the building site), Ysmault (the prison world),
                             Korugar (Part Five: Sinestro's capital, by day or night) + KorugarSigns (its screens, tickers,
                             neon, traffic) + Statue (his statue baked in stone, its fall),
-                            Qward (Part Six: the antimatter world, the Weaponers' forge)
+                            Qward (Part Six: the antimatter world, the Weaponers' forge), DayCycle (free roam's
+                            clock, sun, moon, weather and rain)
 src/props/                  Props (downloaded models: load, clone, helpers), Car (makeCar: paint, wheels,
                             the driver's door, seat / pedals / rim / tail points), Smash (every prop
                             touchable: solid, loose, breakable, cars that dent, burn and go up)
@@ -3171,12 +3362,15 @@ src/vehicles/               Drive (the car driven: raycast wheels, views), Jet (
 src/fx/                     Sky, Particles + Fire, Water, Trees, GreenLight, Cloth, Textures, Rift
                             (pocket dimension), EarthMap (continent outlines, city-light density)
 src/city/                   Coast City's kit: Kit (materials, the glass with rooms behind it, Batch), Building (the
-                            generator), Signs (lettering, neon, the mural), HalsBlock (the first block), Lod
-                            (drawing by distance, merged props, cars' merged copies), Interiors (the diner,
-                            the corner store)
+                            generator), Signs (lettering, neon, the mural, the atlas), HalsBlock (Hal's block and the
+                            one over the crossing, their streets, doors), Lod (drawing by distance, merged props,
+                            cars' merged copies), Interiors (the diner, the corner store), Shops (every other shop's
+                            fittings, staff and wares: the bar, the precinct, the ER...), Traffic (the cars),
+                            Office (the Ferris offices)
 src/story/                  Story (Part One + shared plumbing, the lantern), Corps (Part Two, travel), KorugarLife (Korugar's street life),
-                            CityLife (Hal's block's people: walkers, talk, whispers, who sees him), DinerLife (Rosie's
-                            service, Dot's kitchen, the customers, Hal's order),
+                            CityLife (the blocks' people: walkers, talk, whispers, who sees him), DinerLife (Rosie's
+                            service, Dot's kitchen, the customers, Hal's order), Life (money, XP, the ring's stats,
+                            opinion), Emergencies (the city's), Pressure (when opinion's low),
                             Coast (Part Three), Prisoner (Part Four), Probation (Part Five), Exile (Part Six), Roam (free roam after it),
                             Voyage (flights between worlds),
                             lines (all dialogue)
@@ -3196,6 +3390,33 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-19: the block over the crossing (police, hospital, bar), the other shops, Korugar's tavern, the Ferris offices
+- The user's "no finish everything i told you": the agreed interiors ("the Ferris offices, the police
+  station, a hospital and a bar"; "places like these on Korugar once it's freed") and more of the core.
+- `city/HalsBlock.js` (two blocks: `WEST2`, `EAST2`, `STREETS`, `ALLEYS`, `street`/`alleys` by layout,
+  `marquee`, `blade` by text, the precinct's lamps, St. Mary's sign and canopy, `swingDoors` and `SOLID`
+  exported, the atlas's pages), `city/Shops.js` (fourteen trades and their fittings, `regular`, `picture`,
+  `room.post`/`buy`, `ownCounter`/`back`/`deep`/`posters`), `city/Building.js` (`label` fits an atlas or
+  turns a page), `city/Signs.js` (`fits`), `city/Office.js` (new), `scenes/Ferris.js` (`buildOffice`,
+  `indoors`, `buildCity` steps aside to -404, the south signals), `scenes/DayCycle.js` (`f.indoors`, the
+  offices' signs), `city/Traffic.js` (`STOP`), `story/CityLife.js` (`LOOP2`, `WALKERS2`, `p.loop`, seated
+  posts, `posts()`), `scenes/Korugar.js` (`TAVERN`, `buildTavern`), `story/KorugarLife.js` (`posts`),
+  `story/Roam.js` (`TAKES`, new purchases, `look` spots, `korugarRoam`'s places), 22 Rocketbox people
+  (`build-people.mjs`), 80 lines (`lines.js`, rendered), `README.md`.
+- Verified: see Status (2026-11-19, the block over the crossing...). Not verified: by hand, by ear.
+
+### 2026-11-19: the open world's systems: the day, money and XP, opinion, traffic, emergencies, no air
+- The user: "no finish everything i told you" (the open world agreed on 2026-11-18), after the commit.
+- `scenes/DayCycle.js` (new), `Roam.updateDay`, `engine/Save.js` `LifeSave`, Sky.js `PRESETS` exported,
+  `HalsBlock` `indoors`, `Ferris.flightAir` `highAir`, CityLife `p.out`; `story/Life.js` (new), `#life`
+  (`index.html`, `UI.life`, `style.css`), RingPowers `mods`/`healBoost`/`trickle`, Player `flyScale` and
+  `hamper`, `Roam.ringStats` (K), `offerShift`, `buyAtStore`, `payRent`, the rent notice and lock,
+  DinerLife prices and the tab; opinion through `Smash.onEvent`, CityLife's mood pools; `city/Traffic.js`
+  (new), `Audio.horn`; `story/Emergencies.js` (new), CityLife `remove`, `actor`/`mute`/`barge`/`ghost`,
+  collision groups; `Roam.updateAir`, the grade's `uChoke`; five props and nine people added; 129 lines
+  rendered (901 in all).
+- Verified: see Status (2026-11-19). Not verified: by hand, by ear, frame rate with traffic.
 
 ### 2026-11-18: the diner's flickering corner
 - The user, after the fixes below ("All good"): one corner by the door kept flickering. The red dado on

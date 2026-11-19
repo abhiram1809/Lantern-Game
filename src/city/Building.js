@@ -295,8 +295,10 @@ function sign(ctx, F, s, o, u0, u1, top) {
 // Lettering on a wall: a board (or lightbox) standing off it with the sign on its face, or just the
 // letters painted on. u0..u1 along the wall, from y0 up `h`.
 export function label(ctx, F, a0, a1, y0, h, sg, out = 0) {
-  const y1 = y0 + h, lit = sg.style === 'lightbox' || sg.style === 'neon', atlas = lit ? ctx.signs.lit : ctx.signs.painted;
-  const px = 160; // texels per metre
+  const y1 = y0 + h, lit = sg.style === 'lightbox' || sg.style === 'neon';
+  let atlas = lit ? ctx.signs.lit : ctx.signs.painted;
+  const px = Math.min(160, (atlas.size - 4) / (a1 - a0)); // texels per metre (fewer for a sign wider than the atlas: the hospital's on its roof)
+  if (!atlas.fits((a1 - a0) * px, h * px) && ctx.signs.more) atlas = ctx.signs.more(lit); // (full: a page of its own, and its material)
   const r = atlas.add((a1 - a0) * px, h * px, (g, w, hh) => drawSign(g, w, hh, sg));
   const depth = sg.style === 'letters' ? 0.005 : 0.08;
   if (sg.style !== 'letters') ctx.batch.add('paint', box(a0 - 0.03, y0 - 0.03, out, a1 + 0.03, y1 + 0.03, out + depth), F, sg.edge ?? 0x2a2420);
@@ -304,7 +306,7 @@ export function label(ctx, F, a0, a1, y0, h, sg, out = 0) {
   face.translate((a0 + a1) / 2, (y0 + y1) / 2, out + depth + 0.003);
   const uv = face.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, r.u0 + uv.getX(i) * (r.u1 - r.u0), r.v0 + uv.getY(i) * (r.v1 - r.v0));
-  ctx.batch.add(lit ? 'signLit' : 'sign', face, F, 0xffffff);
+  ctx.batch.add(atlas.key ?? (lit ? 'signLit' : 'sign'), face, F, 0xffffff);
 }
 
 // a canvas awning: sloping out from the wall over the glass, its valance, its sides, the frame's front pipe
@@ -453,7 +455,7 @@ export function building(ctx, s) {
       solid(da, 0, -t, db, 0.15, 0.02); // the threshold, level with the floor (without it a 15 cm trench across the doorway caught his feet)
       // the side walls' shop windows the room reaches (its linings stop at them): spans of the room's z
       const sideOpen = (shops, reach) => (reach ? (shops ?? []).map((sh) => [-t - sh.x0, -t - sh.x1]) : []);
-      ctx.inside.push({ M, kind: o.interior, x0: a + (a === 0 ? t : 0.12), x1: b - (b === s.w ? t : 0.12), z0: -t, z1: -s.d + t, ceil,
+      ctx.inside.push({ M, kind: o.interior, name: o.sign?.text, door: [da, db], x0: a + (a === 0 ? t : 0.12), x1: b - (b === s.w ? t : 0.12), z0: -t, z1: -s.d + t, ceil,
         openR: sideOpen(s.shopsR, b === s.w), openL: sideOpen(s.shopsL?.map((sh) => ({ x0: s.d - t - sh.x1, x1: s.d - t - sh.x0 })), a === 0) });
       x = b;
     }

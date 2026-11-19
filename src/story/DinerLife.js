@@ -4,6 +4,8 @@ import { wait, tween, ease } from '../engine/Time.js';
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const FLOOR = 0.15, TABLE = FLOOR + 0.645, COUNTER = 1.05, SHELF = 1.39; // (the booth's table top, measured on the model)
 const HURRY = 1.35; // Rosie's pace on Hal's order (1.05 for the others)
+// what Hal pays (the menu boards' prices; Green Lantern doesn't), and how far she'll let his tab run
+const PRICE = { coffee: 0.5, 'melt+pie': 5.25 }, TAB_MAX = 15;
 const _a = new THREE.Vector3(), _m = new THREE.Matrix4();
 const rnd = (a, b) => a + Math.random() * (b - a);
 
@@ -213,7 +215,16 @@ export class DinerLife {
       const civ = story.civilian;
       if (i >= 0) await story.say(civ ? ['halOrd1', 'halOrd2', 'halOrd3'][i] : ['glOrd1', 'glOrd2', 'glOrd3'][i], { skip: false });
       food = i === 0 ? 'coffee' : i === 1 ? (civ ? 'melt+pie' : 'melt') : null;
-      await life.say(rosie, i === 1 ? (civ ? 'rosieOk2' : 'rosieOkG2') : i === 0 ? 'rosieOk1' : 'rosieOk3');
+      // what it costs him (Green Lantern eats on the house): paid, or on his tab, or not till he settles it
+      const L = story.life, cost = civ && food ? PRICE[food] : 0;
+      let paid = 'free';
+      if (cost && L) {
+        if (L.d.tab > 0 && L.d.money >= cost + L.d.tab) { L.spend(L.d.tab, null); L.d.tab = 0; paid = 'squared'; }
+        if (L.spend(cost, food === 'coffee' ? 'coffee at Rosie’s' : 'the patty melt and the pie')) paid = paid === 'squared' ? 'squared' : 'paid';
+        else if (L.d.tab + cost <= TAB_MAX) { L.d.tab += cost; L.save(); L.hud(); paid = 'tab'; }
+        else { paid = 'no'; food = 'coffee'; } // (on the house)
+      }
+      await life.say(rosie, paid === 'tab' ? 'rosieTab' : paid === 'no' ? 'rosieTabFull' : paid === 'squared' ? 'rosieTabPaid' : i === 1 ? (civ ? 'rosieOk2' : 'rosieOkG2') : i === 0 ? 'rosieOk1' : 'rosieOk3');
       if (i === 1) life.murmur(this.cook, 'cookHeard');
     } else {
       food = ORDER[c.p.voice]?.food ?? 'melt';

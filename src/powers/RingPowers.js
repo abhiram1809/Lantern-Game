@@ -36,6 +36,9 @@ export class RingPowers {
     Object.assign(this, { engine, input, audio, voice, hud, player, director });
     this.charge = 100;
     this.health = this.maxHealth = 100;
+    // what the ring's stats do (story/Life.js, free roam's levels): costs, damage, the drain in flight,
+    // the parry's window (s added), the aim assist's reach
+    this.mods = { cost: 1, damage: 1, drain: 1, parry: 0, aim: 1 };
     this.unlocked = new Set();
     this.enabled = { hud: false, constructs: false, flight: false };
     this.suited = false;
@@ -329,7 +332,7 @@ export class RingPowers {
       const dist = _b.length();
       if (dist < 0.5 || tg.position.distanceTo(this.aim.from) > range + tg.radius) continue;
       const ang = Math.acos(clamp(_b.dot(dir) / dist, -1, 1));
-      const lim = Math.max(0.055, Math.atan((tg.radius * 1.6) / dist));
+      const lim = Math.max(0.055, Math.atan((tg.radius * 1.6) / dist)) * this.mods.aim;
       if (ang > lim || ang >= bestA) continue;
       const hit = this.physics.world.castRay(new RAPIER.Ray(origin, _b.divideScalar(dist)), dist, true, undefined, undefined, this.player.collider, undefined, this.aimFilter);
       if (hit && hit.collider !== tg.collider && hit.timeOfImpact < dist - tg.radius - 0.2) continue;
@@ -350,7 +353,7 @@ export class RingPowers {
   // `kind` says what landed ('hook', 'gatling', 'sword', 'hammer', 'blast', 'spike'): opponents guard
   // against some and not others.
   dealDamage(target, amount, point, dir, kind = 'hit') {
-    const dealt = target.hit(Math.round(amount), point, dir, kind);
+    const dealt = target.hit(Math.round(amount * this.mods.damage), point, dir, kind);
     if (dealt > 0) {
       this.audio.hitTick();
       _e.copy(point).project(this.engine.camera);
@@ -471,6 +474,7 @@ export class RingPowers {
   }
 
   spend(n) {
+    n *= this.mods.cost;
     if (this.charge < n) return false;
     this.charge -= n;
     if (this.charge < 20 && this.charge + n >= 20) this.say(LINES.ringBelow20.text);
@@ -709,7 +713,7 @@ export class RingPowers {
     if (!p.flying) { this.wind?.set(0); return; }
     this.wind ??= this.audio.airflow();
     this.wind.set(smooth(0, 20, speed));
-    this.charge = Math.max(0, this.charge - dt * (0.12 + (p.boosting ? 0.35 : 0)));
+    this.charge = Math.max(0, this.charge - dt * (0.12 + (p.boosting ? 0.35 : 0)) * this.mods.drain);
     if (this.charge <= 0) { p.stopFlying(true); this.say(LINES.ringDepleted.text); }
     // light trailing off the ring fist and the boots
     if (speed > 3 && dt > 0) {
@@ -734,7 +738,8 @@ export class RingPowers {
       const c = h.position;
       if (Math.hypot(p.x - c.x, p.z - c.z) < h.radius && p.y < c.y + (h.height ?? 1.3) && p.y > c.y - 0.8) this.damage(h.dps * dt, null, 'fire');
     }
-    if (this.lastHurt > this.healDelay && this.health < this.maxHealth && !this.dead) this.health = Math.min(this.maxHealth, this.health + this.healRate * dt);
+    if (this.lastHurt > this.healDelay && this.health < this.maxHealth && !this.dead) this.health = Math.min(this.maxHealth, this.health + this.healRate * (this.healBoost ?? 1) * dt);
+    if (this.trickle && this.lastHurt > 8 && this.charge < 100 && this.enabled.hud) this.setCharge(this.charge + this.trickle * dt); // (willpower, out of a fight)
     this.hud.setHealth(this.health, this.maxHealth, real);
   }
 
@@ -1201,7 +1206,7 @@ class HeldShield {
 
   blocks(from) { return !this.ending && this.form > 0.5 && _c.subVectors(from, this.center).normalize().dot(this.normal) > 0.15; }
   // just raised (see PARRY), or still ringing from a parry a moment ago
-  fresh() { return (this.parryOk && this.t < PARRY) || this.t < this.parryUntil; }
+  fresh() { return (this.parryOk && this.t < PARRY + this.P.mods.parry) || this.t < this.parryUntil; }
 
   ripple(at) {
     this.hit = 1;

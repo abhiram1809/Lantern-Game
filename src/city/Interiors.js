@@ -10,10 +10,10 @@ import { box } from './Building.js';
 import { goodsTexture } from './Signs.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const FLOOR = 0.15; // a shop's floor: the pavement's height, a step up from the road
+export const FLOOR = 0.15; // a shop's floor: the pavement's height, a step up from the road
 
 // everything below in the building's frame M; `at(x, y, z)` into the block's
-function kit(ctx, M) {
+export function kit(ctx, M) {
   const add = (key, g, color) => ctx.batch.add(key, g, M, color);
   const at = (x, y, z) => V(x, y, z).applyMatrix4(M);
   const yawOf = new THREE.Euler().setFromRotationMatrix(M).y;
@@ -33,7 +33,7 @@ function kit(ctx, M) {
 }
 
 // the room's shell inside the building's: the floor up to the pavement, walls lined, the ceiling
-function shell(ctx, M, { x0, x1, z0, z1, ceil, floorKey = 'checker', floorColor = 0xffffff, wall = 0xefe8d8, dado = null, dadoH = 1.1, ceilColor = 0xf2f0ea, openL = [], openR = [] }) {
+export function shell(ctx, M, { x0, x1, z0, z1, ceil, floorKey = 'checker', floorColor = 0xffffff, wall = 0xefe8d8, dado = null, dadoH = 1.1, ceilColor = 0xf2f0ea, openL = [], openR = [] }) {
   const { add } = kit(ctx, M);
   add(floorKey, box(x0, 0, z1, x1, FLOOR, z0), floorColor);
   add('paint', box(x0, ceil, z1, x1, ceil + 0.06, z0), ceilColor);
@@ -93,6 +93,8 @@ function light(ctx, M, x, y, z, { color = 0xffe2b8, power = 14, reach = 13 } = {
 // Rosie's: booths down both windows, the jukebox, a counter of chrome stools, the back bar (the coffee
 // machine, the warmers and their pots, the pie case), the menu boards, the pass to the kitchen and its
 // order wheel, the restrooms, pendant lamps over the counter
+export { shopRoom } from './Shops.js';
+
 export function diner(ctx, M, r) {
   const { add, put, yawOf, solid } = kit(ctx, M);
   const { x0, x1, z0, z1 } = r, ceil = 3.5;
@@ -331,7 +333,7 @@ export function market(ctx, M, r) {
 
 // a double-sided gondola along z: its base and back panel, four shelves a side with price strips, the
 // goods on them, an end cap facing the front
-function gondola(ctx, M, x, za, zb) {
+export function gondola(ctx, M, x, za, zb) {
   const { add, solid } = kit(ctx, M), goods = ctx.goods, h = 1.55;
   solid(x - 0.48, FLOOR, zb, x + 0.48, FLOOR + h + 0.05, za);
   add('metal', box(x - 0.48, FLOOR, zb, x + 0.48, FLOOR + 0.12, za), 0xe4e4e0);
@@ -345,7 +347,7 @@ function gondola(ctx, M, x, za, zb) {
 }
 
 // goods along a shelf in x (facing +z), or in z (facing +x or -x): their boxes, sizes and labels
-function shelfRow(a, b, y, z, wMin, hMax, gap, M, small = false, d = 0.2) {
+export function shelfRow(a, b, y, z, wMin, hMax, gap, M, small = false, d = 0.2) {
   const out = [];
   for (let u = a; u < b;) {
     const w = wMin + Math.random() * wMin * 1.6, h = (small ? 0.12 : hMax * 0.5) + Math.random() * hMax * 0.5;
@@ -355,7 +357,7 @@ function shelfRow(a, b, y, z, wMin, hMax, gap, M, small = false, d = 0.2) {
   }
   return out;
 }
-function shelfRowZ(za, zb, y, x, s, M) {
+export function shelfRowZ(za, zb, y, x, s, M) {
   const out = [];
   for (let z = za; z > zb;) {
     const w = 0.08 + Math.random() * 0.16, h = 0.12 + Math.random() * 0.22, can = Math.random() < 0.3;

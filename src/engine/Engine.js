@@ -21,6 +21,7 @@ const GradeShader = {
     uFlashColor: { value: new THREE.Color(0.55, 1.6, 0.75) },
     uFocus: { value: 0 },
     uHurt: { value: 0 },
+    uChoke: { value: 0 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
@@ -28,7 +29,7 @@ const GradeShader = {
   `,
   fragmentShader: /* glsl */ `
     uniform sampler2D tDiffuse;
-    uniform float uTime, uDream, uVignette, uGrain, uAberration, uFlash, uFocus, uHurt;
+    uniform float uTime, uDream, uVignette, uGrain, uAberration, uFlash, uFocus, uHurt, uChoke;
     uniform vec3 uTint, uFlashColor;
     varying vec2 vUv;
     float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -36,6 +37,7 @@ const GradeShader = {
       vec2 uv = vUv;
       vec2 c = uv - 0.5;
       uv += uDream * 0.0045 * vec2(sin(uv.y * 18.0 + uTime * 1.7), cos(uv.x * 15.0 + uTime * 1.3));
+      uv += uChoke * 0.005 * vec2(sin(uv.y * 7.0 + uTime * 2.3), cos(uv.x * 6.0 + uTime * 1.9)); // (swimming)
       float ab = (uAberration + uDream * 0.008) * dot(c, c) * 4.0;
       vec3 col = vec3(texture2D(tDiffuse, uv + c * ab).r, texture2D(tDiffuse, uv).g, texture2D(tDiffuse, uv - c * ab).b);
       // Dream: soft bloom-ish lift, warm sepia, crushed edges.
@@ -49,6 +51,9 @@ const GradeShader = {
       col *= mix(1.0, v, clamp(uVignette + uDream * 0.5 + uFocus * 0.4, 0.0, 1.0));
       // Damage: red pulled in from the screen edges.
       col = mix(col, vec3(0.5, 0.02, 0.01), uHurt * smoothstep(0.25, 0.75, length(c)) * 0.85);
+      // Choking (no air out of the suit): the colour drained cold, the edges closing in to a tunnel
+      col = mix(col, vec3(l * 0.78, l * 0.84, l * 0.95), uChoke * 0.85);
+      col *= mix(1.0, smoothstep(0.78 - uChoke * 0.5, 0.06, length(c)), clamp(uChoke * 1.2, 0.0, 1.0));
       col += (hash(uv * 911.0 + fract(uTime)) - 0.5) * (uGrain + uDream * 0.07) * (0.35 + l);
       col = mix(col, uFlashColor, clamp(uFlash, 0.0, 1.0));
       gl_FragColor = vec4(max(col, 0.0), 1.0);

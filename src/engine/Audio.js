@@ -269,6 +269,10 @@ export class AudioBank {
     this.burst({ buffer: this.brownBuf, from: 900, to: 90, attack: 0.08, peak: 0.9 * strength, dur: 4.5, wet: 0.6, rate: 0.6 });
     this.burst({ buffer: this.brownBuf, from: 300, to: 60, attack: 0.6, peak: 0.6 * strength, dur: 5, wet: 0.5, rate: 0.5, delay: 0.5 });
   }
+  // A car's horn down the street: two reedy notes a third apart, a short blast or two
+  horn(twice = Math.random() < 0.4) {
+    for (const d of twice ? [0, 0.42] : [0]) for (const f of [349, 440]) this.tone({ type: 'sawtooth', freq: f, to: f * 0.995, attack: 0.02, peak: 0.022, dur: twice ? 0.28 : 0.55, wet: 0.25, delay: d });
+  }
   heartbeat() {
     this.tone({ freq: 62, to: 40, peak: 0.55, dur: 0.18, wet: 0.1 });
     this.tone({ freq: 55, to: 38, peak: 0.4, dur: 0.2, wet: 0.1, delay: 0.24 });

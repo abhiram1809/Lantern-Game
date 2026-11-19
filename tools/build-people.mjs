@@ -30,6 +30,19 @@ export const PEOPLE = {
   'male-adult-16': 'passer-by', 'male-adult-17': 'passer-by', 'male-adult-20': 'passer-by',
   'business-male-02': 'passer-by (suit)', 'business-female-03': 'passer-by (suit)', 'delivery-male-01': 'passer-by (delivery)',
   'construction-male-07': 'passer-by (roadworks)', 'male-child-01': 'a boy', 'female-child-01': 'a girl',
+  // the city's emergencies (story/Emergencies.js): who causes them, and who comes after Green Lantern
+  'male-adult-03': 'a robber, a thug', 'male-adult-09': 'a thug', 'male-adult-18': 'a thug',
+  'police-male-01': 'a police officer', 'police-male-03': 'a police officer', 'police-female-01': 'a police officer',
+  'fire-male-02': 'a firefighter', 'fire-male-05': 'a firefighter', 'medical-female-01': 'a paramedic',
+  // the block south of the crossing (city/Shops.js): the station's sergeant and an officer at his desk,
+  // the hospital's nurse and doctor, the bar's barman and two regulars, the shops' keepers, passers-by
+  'police-male-02': 'the desk sergeant', 'medical-female-02': 'the ER\'s triage nurse', 'medical-male-01': 'a doctor',
+  'medical-male-02': 'an orderly', 'male-adult-05': 'the barman', 'male-adult-15': 'a regular at the bar', 'female-adult-09': 'a regular at the bar',
+  'female-adult-03': 'the cinema\'s usher', 'male-adult-07': 'Tony, the pizzaiolo', 'female-adult-04': 'the travel agent',
+  'female-adult-06': 'the thrift shop\'s volunteer', 'male-adult-10': 'the bookseller', 'business-male-01': 'the TV salesman',
+  'female-adult-10': 'the dry cleaner', 'business-female-01': 'the bail bondswoman', 'female-adult-11': 'Belle, the hairdresser',
+  'female-adult-12': 'the market\'s cashier', 'male-adult-19': 'the gym\'s trainer', 'female-adult-14': 'passer-by', 'male-adult-21': 'passer-by',
+  'business-female-02': 'passer-by (suit)', 'business-male-03': 'passer-by (suit)', 'construction-male-01': 'passer-by (work clothes)',
 };
 
 const STAFF = ['female-adult-02', 'chef-female-01', 'male-adult-14'];
