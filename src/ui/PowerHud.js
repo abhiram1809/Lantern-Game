@@ -15,6 +15,7 @@ export const ICONS = {
   axe: g('<path d="M16 41L31 8"/><path d="M27.5 12.5c5.5-5 13.5-3.5 15 3.2c1.2 5.4-3 10.3-9.4 10.8z"/>'),
   wall: g('<rect x="5.5" y="11" width="37" height="26" rx="2"/><path d="M5.5 19.7h37M5.5 28.3h37M17 11v8.7M31 11v8.7M11 19.7v8.6M24 19.7v8.6M37 19.7v8.6M17 28.3V37M31 28.3V37"/>'),
   shield: g('<path d="M24 5.5c5 2.2 10 3.2 15.5 3.2v12.5c0 10.5-7 16.6-15.5 21.3C15.5 37.8 8.5 31.7 8.5 21.2V8.7C14 8.7 19 7.7 24 5.5z"/><circle cx="24" cy="21" r="5"/><path d="M15 16.5h18M15 25.5h18"/>'),
+  bubble: g('<circle cx="24" cy="24" r="17"/><path d="M13.5 15.5a14 14 0 0 1 9-5.5"/><circle cx="24" cy="19" r="3.2"/><path d="M24 22.5v7.5M19.5 25.5h9M24 30l-3.6 5.5M24 30l3.6 5.5"/>'),
   lock: g('<rect x="14.5" y="22" width="19" height="15" rx="2.6"/><path d="M18.5 22v-5a5.5 5.5 0 0 1 11 0v5"/><path d="M24 28v3"/>'),
 };
 const CROSS = '<svg viewBox="0 0 40 40"><path d="M20 3l14.7 8.5v17L20 37 5.3 28.5v-17z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M17 12h6v5h5v6h-5v5h-6v-5h-5v-6h5z" fill="currentColor"/></svg>';

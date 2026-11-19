@@ -21,6 +21,7 @@ import { Emergencies } from './Emergencies.js';
 import { Pressure } from './Pressure.js';
 import { WORK } from './Work.js';
 import { ALBUM } from './Album.js';
+import { TRAP } from './Trap.js';
 import { Phone } from '../ui/Phone.js';
 import { CityMap } from '../ui/CityMap.js';
 import { buildPhone } from './Coast.js';
@@ -252,10 +253,13 @@ export class Roam extends Exile {
     this.life = new Life(this);
     this.life.apply();
     this.cityMap = new CityMap(this); // (the radar and the whole map: ui/CityMap.js)
+    // the bubble trap, the ring's new construct (powers/RingPowers.js BubbleTrap)
+    if (!this.powers.unlocked.has('bubble')) { this.learn('bubble', false); this.bubbleNew = true; }
     await this.enterPlace('ferris');
     ui.fade(0, 1.0);
     this.roaming = true;
     this.giveControl(this.roamObjective());
+    if (this.bubbleNew) { this.bubbleNew = false; wait(2.5).then(() => ui.toast('New construct · the Bubble: 4 for the wheel (Utility). It holds a person or a car; a criminal till the police come.')); }
     this.roamKeys();
     this.hud.tutorial({ kicker: 'Free roam', title: 'The universe is open', n: 1, of: 1, html: '<b>E</b> flying high: the star chart (Oa, Korugar, Ysmault, Qward) &nbsp; <b>M</b> travel by name &nbsp; <b>T</b> Hal Jordan / Green Lantern &nbsp; <b>L</b> the lantern, to recharge &nbsp; Hal’s car is in his space by the hangars' });
     wait(14).then(() => this.hud.tutorial(null));
@@ -580,6 +584,10 @@ export class Roam extends Exile {
     this.addCarSpot(f);
     this.addWorkSpots(f); // (the time clock in Hangar Two, the prototype's test cards: story/Work.js)
     this.blockRoam(f);
+    // what the bubble can hold here (story/Trap.js), and an emergency in progress found again: its
+    // marker, its actors as the ring's targets (attach cleared them)
+    powers.trappable = (...args) => this.trappable(...args); // (body, point, and the aim's origin and direction)
+    this.emergencies?.rebind();
     // high over the valley: the whole test range under him, the coast and the sea out to the horizon
     // (Part Five's airspace), and back to the valley's haze coming down
     this.roamTick = () => {
@@ -1387,4 +1395,4 @@ export class Roam extends Exile {
 // Kilowog's range from Part Two: another round when asked (the drill, his lines, the drones' waves).
 for (const name of ['wave', 'kwSay', 'kwBark', 'kwPoint', 'addDrillStart']) Roam.prototype[name] ??= Corps.prototype[name];
 // Hal's job at Ferris: clocking in and out, the test cards (story/Work.js)
-Object.assign(Roam.prototype, WORK, ALBUM); // (and the pictures on his phone: story/Album.js)
+Object.assign(Roam.prototype, WORK, ALBUM, TRAP); // (and the pictures on his phone: story/Album.js; the bubble's catches: story/Trap.js)

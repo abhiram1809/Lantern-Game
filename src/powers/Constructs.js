@@ -11,6 +11,7 @@ export const CONSTRUCTS = [
   { id: 'staff', name: 'Staff', kind: 'attack', cost: 3, perSwing: 0.7, damage: 18, range: [0, 5], desc: 'A quarterstaff of light, in both hands. Wide sweeps that knock people back without cutting them: for a crowd. Click in rhythm for the combo.' },
   { id: 'hammer', name: 'Hammer', kind: 'attack', cost: 12, damage: 110, range: [4.5, 16], desc: 'A sledgehammer brought down where you aim. Breaks what it lands on. Reaches 16 m.' },
   { id: 'axe', name: 'Axe', kind: 'utility', desc: 'Cut through debris and wreckage.' },
+  { id: 'bubble', name: 'Bubble', kind: 'utility', cost: 10, range: [3, 40], life: 15, desc: 'A sphere of light round whoever or whatever you aim at, a person or a car: they can’t get out and nothing gets in. A criminal stays in it till the police come for him; anyone else for 15 s.' },
   { id: 'wall', name: 'Wall', kind: 'defense', cost: 10, range: [2.5, 20], life: 20, desc: 'A barrier raised where you aim. Holds for 20 s.' },
   { id: 'shield', name: 'Shield', kind: 'defense', cost: 2, drain: 3, desc: 'Held in front of you while the button is down.' },
 ];
@@ -249,6 +250,9 @@ export function handGeometry() {
 // to the pommel at y -2.25 (HAMMER.pommel), the emblem on the head's +Z side (the construct shader
 // draws it there, centred at y 0.12, so the head is centred on that). About 2.4 m long at scale 1.
 export const HAMMER = { pommel: -2.3, centre: 0.12, face: 0.66 };
+// the bubble trap's sphere (a unit sphere, scaled to what it holds)
+export function bubbleGeometry() { return new THREE.SphereGeometry(1, 48, 32); }
+
 export function hammerGeometry() {
   const c = HAMMER.centre, parts = [box(1.06, 0.68, 0.68, 0, c, 0, 0.08)];
   for (const sx of [-1, 1]) {

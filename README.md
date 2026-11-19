@@ -254,7 +254,9 @@ where you aim, stands 20 s), **Gatling** (attack, learned from Kilowog: hold to 
 45 m) and **Sword** (attack, learned from Sinestro: cuts in a three-cut combo, and lunges at a
 target you aim at) and **Hammer** (attack, learned in Part Four: brought down on where you aim,
 the hardest blow the ring has, 16 m) and **Staff** (attack, learned from Sinestro on Korugar: a
-quarterstaff of light in both hands, wide sweeps that knock people back without cutting them).
+quarterstaff of light in both hands, wide sweeps that knock people back without cutting them) and
+**Bubble** (utility, free roam: a sphere of light round a person or a car you aim at; nothing gets in
+and they can't get out; a criminal stays in it until the police arrive and take him, anyone else 15 s).
 The axe is on the wheel but locked for later. Every construct is
 physical: the fist throws debris and drones, the shield deflects debris and bolts, and walls
 block debris, bolts and Hal.

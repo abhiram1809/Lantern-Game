@@ -597,7 +597,7 @@ export class CityLife {
     this.stopTalk();
     if (this.people.some((p) => p.active && p.pos.distanceTo(hp) < 30)) this.story.life?.opine(-0.6, 'people frightened');
     for (const p of this.people) {
-      if (!p.active || p.actor || p.pos.distanceTo(hp) > 30 || p.state === 'flee' || p.state === 'cower') continue;
+      if (!p.active || p.actor || p.trapped || p.pos.distanceTo(hp) > 30 || p.state === 'flee' || p.state === 'cower') continue;
       p.prev = p.state;
       if (p.inside) { p.state = 'cower'; p.t = 4 + Math.random() * 2; if (p.prev !== 'seated') p.anim.play(still(POSES.kneel, 0.5), 0.4); continue; }
       p.state = 'flee';
@@ -647,7 +647,8 @@ export class CityLife {
       if (!active && p.state !== 'route') continue;
       const r = p.rig.root;
       let speed = 0, want = null;
-      if (p.state === 'walk') ({ speed, want } = this.walk(p, dt, d, flyingOver));
+      if (p.trapped) { speed = 0; want = null; } // (in the ring's bubble: held where they are, story/Trap.js)
+      else if (p.state === 'walk') ({ speed, want } = this.walk(p, dt, d, flyingOver));
       else if (p.state === 'roam') ({ speed, want } = this.roam(p, dt, d, flyingOver));
       else if (p.state === 'post') ({ speed, want } = this.post(p, dt, d, flyingOver));
       else if (p.state === 'hold') want = p.faceTo ?? p.yaw;

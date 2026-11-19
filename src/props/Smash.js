@@ -148,7 +148,7 @@ export class Smash {
   }
 
   blow(item, strength, at, dir, kind = 'blow') {
-    if (!item || strength <= 0) return false;
+    if (!item || strength <= 0 || item.shielded) return false; // (`shielded`: in the ring's bubble)
     item.lastHit = this.clock;
     item.lastKind = kind; // (what did it, for `onEvent`: the ring's blows, or a collision's 'bump')
     const fx = this.fx, gun = kind === 'gatling';
@@ -190,7 +190,7 @@ export class Smash {
   }
 
   bump(item, other, force) {
-    if (item.kind === 'solid' || this.clock - (item.lastBump ?? -9) < 0.25 || this.clock < 0.5) return;
+    if (item.kind === 'solid' || item.shielded || this.clock - (item.lastBump ?? -9) < 0.25 || this.clock < 0.5) return;
     const world = this.physics.world, oc = world.getCollider(other);
     const dv = (force * world.timestep) / Math.max(1, item.mass); // (the change of speed it took)
     // (the ground takes less out of it: a car dropping back onto its wheels isn't a crash)
@@ -210,7 +210,7 @@ export class Smash {
   // `burst` does the throwing).
   blast(center, radius, strength, except = null) {
     for (const it of this.items) {
-      if (it === except || it.kind === 'solid') continue;
+      if (it === except || it.kind === 'solid' || it.shielded) continue;
       const p = this.nearest(it, center, V(0, 0, 0)), d = p.distanceTo(center);
       if (d > radius) continue;
       const k = 1 - d / radius;

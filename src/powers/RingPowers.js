@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RAPIER } from '../engine/Physics.js';
 import { damp, clamp } from '../engine/Time.js';
 import { Particles } from '../fx/Particles.js';
-import { CONSTRUCTS, constructInfo, constructMesh, ghostMesh, fistGeometry, mirrorX, shieldGeometry, wallGeometry, gatlingGeometry, swordGeometry, staffGeometry, hammerGeometry, HAMMER, Blade, WALL, createBeam, surfaceSamples } from './Constructs.js';
+import { CONSTRUCTS, constructInfo, constructMesh, ghostMesh, fistGeometry, mirrorX, shieldGeometry, wallGeometry, gatlingGeometry, swordGeometry, staffGeometry, hammerGeometry, bubbleGeometry, HAMMER, Blade, WALL, createBeam, surfaceSamples } from './Constructs.js';
 import { glowTexture } from '../fx/Textures.js';
 import { LINES } from '../story/lines.js';
 
@@ -62,7 +62,7 @@ export class RingPowers {
     this.freeze = false; // another ring interface (the star chart) has stopped time
     this.gatling = null;
     this.onImpact = this.onSelect = this.onDeath = null;
-    this.geo = { fist: fistGeometry(), shield: shieldGeometry(), wall: wallGeometry(), hammer: hammerGeometry() };
+    this.geo = { fist: fistGeometry(), shield: shieldGeometry(), wall: wallGeometry(), hammer: hammerGeometry(), bubble: bubbleGeometry() };
     this.geo.fistL = mirrorX(this.geo.fist);
     this.samples = Object.fromEntries(Object.entries(this.geo).map(([k, g]) => [k, surfaceSamples(g, 240)]));
     this.geo.gatling = gatlingGeometry();
@@ -78,6 +78,7 @@ export class RingPowers {
       shield: ghostMesh(this.geo.shield, { uPattern: 1, uScale: 0.13, uEmblem: 1 }),
       wall: ghostMesh(this.geo.wall, { uPattern: 2, uScale: 0.34 }),
       hammer: ghostMesh(this.geo.hammer, { uPattern: 1, uScale: 0.12, uEmblem: 1 }),
+      bubble: ghostMesh(this.geo.bubble, { uPattern: 1, uScale: 0.22 }),
     };
     const pathGeo = new THREE.BufferGeometry().setFromPoints(Array.from({ length: ARC }, () => new THREE.Vector3())); // (the hook's arc)
     this.path = new THREE.Line(pathGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(0.5, 1.7, 1.2), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
@@ -319,6 +320,13 @@ export class RingPowers {
       a.point.y = a.base = lo;
       a.dist = hd;
       a.valid &&= lo > WATER + 0.02 && hiG - lo < 1.4;
+    } else if (info.id === 'bubble') {
+      // what it would hold: whoever or whatever is under the aim (`trappable`, the story's: its people
+      // and cars), or nothing
+      a.trap = this.trappable?.(a.body, a.point, origin, dir) ?? null;
+      if (a.trap?.trapped) a.trap = null;
+      if (a.trap) { a.trap.center(a.point); a.dist = a.point.distanceTo(a.from); }
+      a.valid &&= !!a.trap && a.dist <= rMax + 2;
     }
   }
 
@@ -414,11 +422,15 @@ export class RingPowers {
       g.visible = true;
       g.position.copy(a.point);
       g.rotation.set(0, a.yaw, 0);
+    } else if (id === 'bubble') {
+      g.visible = !!a.trap;
+      if (a.trap) { g.position.copy(a.point); g.scale.setScalar(a.trap.radius); }
     } else if (id === 'shield' && !this.shield) {
       g.visible = true;
       this.shieldPose(g.position, g.quaternion);
     }
-    const label = id === 'shield' ? '' : `${a.dist.toFixed(1)} m${a.valid ? '' : this.charge < constructInfo(id).cost ? '  · low charge' : '  · no footing'}`;
+    const why = this.charge < constructInfo(id).cost ? '  · low charge' : id === 'bubble' ? '  · nothing to hold' : '  · no footing';
+    const label = id === 'shield' ? '' : `${id === 'bubble' && a.trap ? `${a.trap.name} · ` : ''}${a.dist.toFixed(1)} m${a.valid ? '' : why}`;
     this.hud.setReticle({ valid: a.valid, label });
   }
 
@@ -471,6 +483,19 @@ export class RingPowers {
     this.spend(info.cost);
     if (id === 'hammer') this.smash();
     else if (id === 'wall') this.raiseWall();
+    else if (id === 'bubble') this.trapIt();
+  }
+
+  // the bubble round what's under the aim (four at most: the oldest lets go)
+  trapIt() {
+    const a = this.aim, ent = a.trap;
+    if (!ent) return;
+    this.castArm(ent.center(_a).clone(), 0.6);
+    this.cooldown = 0.6;
+    const live = this.live.filter((c) => c instanceof BubbleTrap && !c.ending);
+    if (live.length >= 4) live[0].expire();
+    this.live.push(new BubbleTrap(this, ent));
+    this.cast('bubble', { at: a.point.clone(), ent });
   }
 
   spend(n) {
@@ -1288,6 +1313,65 @@ class WallConstruct {
     this.mesh.removeFromParent();
     const i = this.P.walls.indexOf(this);
     if (i >= 0) this.P.walls.splice(i, 1);
+  }
+}
+
+// A sphere of light round someone or something (the user, 2026-11-19: "a bubble trap. It traps any
+// entity in a bubble. It can be a car, it can be an NPC... It also acts as a shield for them... they
+// cannot escape out of"). `ent` is what the story found under the aim (Roam.trappable): `center(out)`,
+// `radius`, `name`, `hold(on)` (stopped where it is, and nothing hurts it), `criminal` (held until the
+// police come: `free()` says when), `gone()`. A kinematic ball, so Hal and loose things meet it.
+class BubbleTrap {
+  constructor(P, ent) {
+    this.P = P;
+    this.ent = ent;
+    this.r = ent.radius;
+    this.mesh = constructMesh(P.geo.bubble, { uPattern: 1, uScale: 0.34, uOpacity: 0.42, outline: 0.018 }); // (thin: who's in it shows through)
+    this.mesh.userData.set('uForm', 0);
+    this.mesh.scale.setScalar(this.r);
+    ent.center(this.mesh.position);
+    P.scene.add(this.mesh);
+    this.rb = null; // (its ball made once Hal's outside it: cast on someone at arm's length, it had him in it too)
+    this.t = 0;
+    this.life = ent.criminal ? Infinity : constructInfo('bubble').life;
+    this.ending = false;
+    ent.trapped = this;
+    ent.hold(true);
+    P.audio.shieldUp?.();
+  }
+
+  expire() { if (!this.ending) { this.ending = true; this.endT = 0; this.P.audio.dissolve(); } }
+
+  update(dt, time) {
+    const set = this.mesh.userData.set, m = this.mesh;
+    this.t += dt;
+    set('uTime', time);
+    this.ent.center(m.position);
+    if (!this.rb && !this.ending && this.P.player.position.distanceTo(m.position) > this.r + 0.7) {
+      const w = this.P.physics.world;
+      this.rb = w.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(m.position.x, m.position.y, m.position.z));
+      this.col = w.createCollider(RAPIER.ColliderDesc.ball(this.r), this.rb);
+      this.P.player.camIgnore?.add(this.col.handle);
+    }
+    this.rb?.setNextKinematicTranslation({ x: m.position.x, y: m.position.y, z: m.position.z });
+    if (!this.ending) {
+      set('uForm', Math.min(1, this.t / 0.35));
+      m.scale.setScalar(this.r * (1 + Math.sin(time * 3.1) * 0.012));
+      if (this.t < 0.35) this.P.formSparks('bubble', m, 10);
+      if (this.t > this.life || this.ent.free?.() || this.ent.gone?.()) this.expire();
+    } else {
+      this.endT += dt;
+      const k = Math.min(1, this.endT / 0.5);
+      set('uForm', 1 - k);
+      m.scale.setScalar(this.r * (1 + 0.15 * k));
+      if (k >= 1) this.done = true;
+    }
+  }
+
+  dispose() {
+    if (this.rb) { this.P.physics.world.removeRigidBody(this.rb); this.P.player.camIgnore?.delete(this.col.handle); }
+    this.mesh.removeFromParent();
+    if (this.ent.trapped === this) { this.ent.trapped = null; this.ent.hold(false); }
   }
 }
 

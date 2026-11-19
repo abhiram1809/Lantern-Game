@@ -472,7 +472,7 @@ pre-rendered clips (`public/voices/`, Kokoro-82M from Hugging Face, see *Voices*
   deploys. Double-tap Space flies. `L` stores or summons the lantern (pocket dimension). `E` high in
   flight enters hyperspace (they asked for E). Fist, shield and wall are the starter constructs;
   the gatling (Kilowog) and the sword (Sinestro) are learned on Oa, the hammer against the excavator in
-  Part Four; staff and axe stay locked for later parts. The fist is a **hook** (their call,
+  Part Four, the staff on Korugar, the bubble trap in free roam; the axe stays locked for later. The fist is a **hook** (their call,
   2026-11-11): a big sideways area blow, not a straight cross, 13% of the charge each, a right then a
   left as a two-hit combo. The **guard** is held on right click or `F` whatever is armed (added for
   blocking in fights; a left click behind it drops it and strikes).
@@ -1868,6 +1868,16 @@ binds them to a scene (the crash site); `powers.update(dt, real)` runs right aft
     3% to form, 0.8% a cut, 24 / 24 / 38 damage. `cutting` is true in a cut's hitting window
     (Sinestro's blade is parried then). The blade mesh and its short light trail are `Blade` in
     `Constructs.js`, shared with Sinestro.
+  - Bubble (`BubbleTrap`, `bubbleGeometry`, free roam's; the user, 2026-11-19: "a bubble trap... any
+    entity... a shield for them... they cannot escape"): a thin hex sphere round whoever or whatever is
+    nearest the line of aim (`powers.trappable`, the story's: `story/Trap.js`, people and Smash's cars;
+    its rays don't stop on people, so it's the line, not the ray's end), 10%, up to four at once.
+    What's in it is held (people stop where they are with their hands up, `p.trapped`; a driven car
+    stops in its lane, `c.trapped`; a loose one goes kinematic) and shielded (`item.shielded`: Smash's
+    `blow`, `bump` and `blast` pass it by; `Emergencies.hit` too). A criminal in an emergency is as good
+    as down (`Emergencies.down(p, { kneel: false })`: the police are called) and the bubble lets him go
+    as the officers reach him (`a.cops`), who cuff him; anyone else after 15 s. Its kinematic ball is
+    made once Hal's outside it. Unlocked on entering free roam (a toast says so).
   - Hammer (`HammerStrike`, `hammerGeometry`, Part Four): forms raised over the aim point and comes
     down about its pommel in 0.2 s, across Hal's view (its pommel to the right of the point, so from
     behind him it's a mallet seen side-on), landing square: 110 damage, a 3.6 m splash, a hard shove
@@ -2428,6 +2438,14 @@ The checks that have worked:
 
 ## Gotchas (learned the hard way)
 
+- **Entering a place clears the ring's targets and the HUD's marker** (`powers.attach` → `detach`;
+  `enterPlace` sets `markerTarget` null). An emergency already going when Hal travelled into Coast City
+  lost both: no marker to follow, and the constructs went through the mugger (the user's report).
+  `Emergencies.rebind()` from `ferrisRoam` puts them back. Anything that registers targets once has to
+  re-register after a place is entered.
+- **A hook that forwards arguments must forward all of them.** `powers.trappable = (body, point) =>
+  this.trappable(body, point)` dropped the aim's origin and direction the picker needed: the bubble found
+  nothing, every time, while calling the picker by hand worked. `(...args) =>`.
 - **A geometry whose arrays are freed after upload can't be measured again.** The streamed blocks let
   their vertex arrays go once on the GPU (`freeArray`), and `Box3.setFromObject` (the warm-up's distances)
   then computed a box no one had and read a null array: going back from Coast City to the field threw, and
@@ -2985,6 +3003,13 @@ The checks that have worked:
 ## Status
 
 Verified by playing in the browser:
+
+- (2026-11-19, the bubble and the emergencies after travel) on 5180, muted, fixed-step, real mouse
+  events: a mugging started, then the trip to Coast City: its marker and both muggers' targets back; a
+  hook on one (45 to 0, down); the bubble on the other (found, criminal, 10%, held, downed), the cruiser
+  20 s on, the bubble gone as its officers got out, cuffed (captures: the bubble in the alley, the
+  officer with him); the bubble on a parked car (held, kinematic, a hook-strength blow ignored, health
+  100; capture). Not: a bubble on a driven car or a passer-by run to its 15 s; the wheel's new slot seen.
 
 - (2026-11-19, switching places) on 5180, muted, fixed-step: Ferris to Coast City and back by `goTo`
   (back threw before: the stack, `computeBoundingBox` on a freed array), then the lake and back; each with
@@ -3741,6 +3766,16 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-19: the bubble trap, and emergencies that survive a trip
+- The user: after teleporting to Coast City a mugging had no alert to follow and the constructs didn't
+  hurt the mugger; and a new construct, a bubble that traps anyone or anything, shields them and holds a
+  criminal till the police arrive and take him.
+- `Emergencies.rebind` (from `ferrisRoam`), `down`'s `kneel`, `a.cops`, `hit` guarded; the bubble:
+  `Constructs.js` (entry, `bubbleGeometry`), `PowerHud.js` (its icon), `RingPowers.js` (aim, ghost,
+  `trapIt`, `BubbleTrap`), `story/Trap.js` (new: what it holds), `CityLife.js` and `Traffic.js` (held
+  people and cars), `Smash.js` (`shielded`), `Roam.js` (unlock, the hook).
+- Verified: see Status (2026-11-19, the bubble and the emergencies after travel).
 
 ### 2026-11-19: switching places without the black
 - The user: switching between Ferris and Coast City was black, back to Ferris for 30 s ("I think like it

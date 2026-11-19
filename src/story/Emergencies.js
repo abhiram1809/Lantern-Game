@@ -132,10 +132,21 @@ export class Emergencies {
     if (p.gun) p.gun.removeFromParent();
     cl.remove(p);
   }
+  // Back in the valley after a trip: entering a place binds the ring to it again (RingPowers.attach,
+  // which clears its targets) and clears the HUD's marker. The emergency's actors are targets again and
+  // its marker is back (the user: the mugging was there, but no alert to follow, and the ring's
+  // constructs went through the mugger). (Roam.ferrisRoam)
+  rebind() {
+    const a = this.active, powers = this.story.powers;
+    if (!a || a.over) return;
+    for (const p of a.actors) if (p.tg?.alive && !powers.targets.has(p.tg)) powers.addTarget(p.tg);
+    powers.markerTarget = { pos: a.where.clone().setY(a.where.y + 2.2), label: a.label };
+  }
+
   // struck by the ring: they reel, and enough of it puts them down
   hit(p, amount, dir, kind) {
     const tg = p.tg;
-    if (!tg?.alive) return 0;
+    if (!tg?.alive || p.trapped) return 0; // (`trapped`: in the ring's bubble, nothing gets in)
     const dealt = Math.min(tg.health, amount);
     tg.health -= dealt;
     p.tell = 0;
@@ -145,7 +156,8 @@ export class Emergencies {
     if (tg.health <= 0) this.down(p);
     return dealt;
   }
-  down(p) {
+  // (`kneel`: false for one held in the ring's bubble: he stands in it with his hands up till they come)
+  down(p, { kneel = true } = {}) {
     p.tg.alive = false;
     p.downed = true;
     p.state = 'hold';
@@ -154,7 +166,7 @@ export class Emergencies {
     p.anim.reach('L', null);
     this.cl.look(p, null);
     if (p.gun) { const g = p.gun; g.removeFromParent(); g.position.copy(p.pos).add(V(0.5, 0.02, 0.3)); g.rotation.set(Math.PI / 2, 0, rnd(0, 6)); this.f.scene.add(g); this.active?.props.push(g); p.gun = null; }
-    p.anim.play(still(makePose({ ...POSES.kneel }), 0.5), 0.35);
+    if (kneel) p.anim.play(still(makePose({ ...POSES.kneel }), 0.5), 0.35);
     p.onDown?.(p);
   }
   // hands behind the back (an officer has him)
@@ -232,6 +244,7 @@ export class Emergencies {
     a.tickOff = onFrame(() => { k += 1 / 30; for (const [i, m] of bar.entries()) { const on = Math.floor(k * 4 + i) % 2 === 0; m.material.emissive.setHex(i % 2 ? 0x2a50ff : 0xff2020); m.material.emissiveIntensity = on ? 2.2 : 0.2; } });
     const side = (s) => V(Math.cos(yaw) * s * 1.6 - Math.sin(yaw) * s * 0.8, 0, -Math.sin(yaw) * s * 1.6 - Math.cos(yaw) * s * 0.8).add(park);
     const cops = [this.actor('copA', side(1), yaw, { voice: 'tech', label: 'A police officer' }), this.actor('copB', side(-1), yaw, { voice: 'townf1', label: 'A police officer' })];
+    a.cops = [...(a.cops ?? []), ...cops]; // (a bubble round a suspect lets go as they reach him: Roam.trappable)
     await wait(0.6);
     this.cl.murmur(cops[0], 'copArrive');
     for (const [i, s] of suspects.entries()) {

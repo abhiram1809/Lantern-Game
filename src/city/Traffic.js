@@ -309,6 +309,7 @@ export class Traffic {
       if (c.state === 'pool' || c.state === 'free' || c.state === 'held') continue;
       // hit: the ring's or anything's blow (Smash sets lastHit), or caught burning
       if (c.item.lastHit != null && c.item.lastHit !== c.hitSeen) { c.hitSeen = c.item.lastHit; if (c.state === 'drive' || c.item.hurt) { this.release(c); continue; } }
+      if (c.trapped) { c.v = 0; this.lamps(c, lit, true); continue; } // (held in the ring's bubble: story/Trap.js)
       if (c.state === 'parked') {
         // gone when nobody's looking (the space free again for the next)
         if ((c.parkedT = (c.parkedT ?? 0) + dt) > 20 && this.unseen(c.obj.position.x, c.obj.position.z, 120)) this.retire(c);
