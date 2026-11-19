@@ -47,17 +47,17 @@ export const PROPS = [
     title: '.38 Snub Nose Revolver', author: 'Ashe52', uid: 'ec633e69247e4ab29c8a38783027e8fb' },
   { name: 'policeline', src: 'assets/props/policeline.glb', forward: '+z', height: 0.95, tex: 512,
     title: 'Police Crowd Barrier', author: 'zurovsky7', uid: '8d112420532b48b8b5a11a4b8f33106f' },
-  { name: 'helicopter', src: 'assets/props/helicopter.glb', forward: '+x', length: 10.7, tex: 1024,
+  { name: 'helicopter', tris: 20000, error: 0.005, src: 'assets/props/helicopter.glb', forward: '+x', length: 10.7, tex: 1024,
     title: 'Helicopter', author: 'surveytown', uid: '5052016c9a3b4f3c82c206974aba3fbf' },
   // Ferris Aircraft's prototype on the apron
   // (it lies 39 degrees off its axis in the file: the yaw from the main gear to the nose wheel)
   { name: 'prototype', src: 'assets/props/f22.glb', forward: Math.atan2(4.19, 5.21), length: 18.9, tex: 2048,
     title: 'F22', author: 'manilov.ap', uid: '01b4128f65094d899e10c659e60f0858' },
   // Hal's phone (the maker's logo removed; the game draws its own screen)
-  { name: 'phone', src: 'assets/props/phone.glb', forward: '-z', height: 0.1608, origin: 'centre', drop: /Apple[ _]?Logo/i,
+  { name: 'phone', tris: 7000, error: 0.005, src: 'assets/props/phone.glb', forward: '-z', height: 0.1608, origin: 'centre', drop: /Apple[ _]?Logo/i,
     title: 'Apple iPhone 13 Pro Max', author: 'DatSketch', uid: '4328dea00e47497dbeac73c556121bc9' },
   // the lot behind Hal's building
-  { name: 'palms', src: 'assets/props/palms.glb', forward: '+z', height: 10.5,
+  { name: 'palms', tris: 14000, error: 0.006, src: 'assets/props/palms.glb', forward: '+z', height: 10.5,
     title: 'Palm Trees', author: 'ElectroNick', uid: '20f8a8d5054b4191afb7cf3270dbd586' },
   // Hal's building, behind the lot
   { name: 'apartment', src: 'assets/props/apartment.glb', forward: '+z', height: 11.2, tex: 512,
@@ -72,12 +72,12 @@ export const PROPS = [
     title: 'Street and City Props Dumpster Traffic Light', author: 'Spookyghostboo', uid: '27a6775c51e44bfda8e1ac8725eb3e9e' },
   { name: 'busstop', src: 'assets/props/busstop.glb', forward: '+z', height: 2.6,
     title: 'Bus Stop - low', author: 'Milionna', uid: '977fe8fc309548299cbc537f382e1a03' },
-  { name: 'billboard', src: 'assets/props/billboard.glb', forward: '+z', scale: 1, tex: 512, simplify: 0.3,
+  { name: 'billboard', tris: 6000, error: 0.01, src: 'assets/props/billboard.glb', forward: '+z', scale: 1, tex: 512,
     title: 'Billboard00 - Street Kitbash Collection', author: 'experiment_studio', uid: 'b66e0cf58c8d4f86bc2acd24c61c2d0b' },
   // Hal's kitchenette
   { name: 'fridge', src: 'assets/props/fridge.glb', forward: '+z', height: 1.52, opaque: true,
     title: 'Old Fridge', author: 'sergeilihandristov', uid: '6b2862c241754f5d81690e8664e41091' },
-  { name: 'coffee', src: 'assets/props/coffee.glb', forward: '+z', height: 0.36, tex: 512,
+  { name: 'coffee', tris: 5000, error: 0.01, src: 'assets/props/coffee.glb', forward: '+z', height: 0.36, tex: 512,
     title: 'Coffee Maker', author: 'Ryan_Nein', uid: '383923d4412f4b66937d9c1779a9a0a2' },
   // the jet Martin Jordan flew, in the dream
   { name: 'f104', src: 'assets/props/f104.glb', forward: '+z', length: 16.7, tex: 512,
@@ -89,7 +89,7 @@ export const PROPS = [
     title: 'Hangar | Midpoly | Access stand', author: 'sauti', uid: '46b3d3077d304c5695ef4ceef7685970' },
   { name: 'fueltruck', src: 'assets/props/fueltruck.glb', forward: '-z', length: 8.4,
     title: 'Airport Fuel Truck', author: 'Nguyentuannghia 64', uid: '15a96ac34ece464480a9b8620dc3a3d3' },
-  { name: 'tug', src: 'assets/props/tug.glb', forward: '+x', length: 3.3, simplify: 0.2,
+  { name: 'tug', tris: 9000, error: 0.01, src: 'assets/props/tug.glb', forward: '+x', length: 3.3,
     title: 'Airport Tug', author: 'flightmaster177', uid: '388e668f8143432fb82c1268e1f9ab81' },
   { name: 'cones', src: 'assets/props/cones.glb', forward: '+z', scale: 1,
     title: 'Traffic Cones', author: 'NotAnotherApocalypticCo.', uid: 'e03b1d2dfdc0416bb8324d15573ea60c' },
@@ -111,7 +111,7 @@ export const PROPS = [
     title: 'Graveyard Entrance', author: 'Reydara', uid: 'e0aa0d480159465fa26795c26546a3b6' },
   { name: 'ironfence', src: 'assets/props/ironfence.glb', forward: '+z', scale: 1, tex: 512,
     title: 'CC0 - Iron Fence', author: 'plaggy', uid: '9c5ad29c104c48e69a1227927655d489' },
-  { name: 'cypress', src: 'assets/props/cypress.glb', forward: '+z', height: 6.5, tex: 512,
+  { name: 'cypress', tris: 9000, error: 0.01, src: 'assets/props/cypress.glb', forward: '+z', height: 6.5, tex: 512,
     title: 'Cypress tree', author: 'ElectroNick', uid: '249d8cb553a8469e9d645713f8e96ed1' },
   { name: 'bench', src: 'assets/props/bench.glb', forward: '+z', scale: 1, tex: 512,
     title: 'Granite Bench', author: 'YouniqueĪdeaStudio', uid: '424c3679dcdd44d380da36a82f5dc382' },
@@ -154,25 +154,25 @@ export const PROPS = [
   // Coast City's street and its buildings' details (src/city)
   { name: 'ac_units', src: 'assets/props/ac_units.glb', forward: '+z', scale: 0.0257, drop: /_AC1_/, tex: 512,
     title: 'AC Units', author: 'caboose3d', uid: '45891324537a48a4804c3500415d7fb1' },
-  { name: 'ac_window', src: 'assets/props/ac_window.glb', forward: '+z', scale: 1, tex: 512,
+  { name: 'ac_window', tris: 900, error: 0.02, src: 'assets/props/ac_window.glb', forward: '+z', scale: 1, tex: 512,
     title: 'Window AC Unit-Freepoly.org', author: 'blackrray', uid: 'ef88c605671549fcb5c1d10a8a68460a' },
-  { name: 'newsbox', src: 'assets/props/newsbox.glb', forward: '+z', height: 1.11, simplify: 0.12, tex: 512,
+  { name: 'newsbox', tris: 2000, error: 0.02, src: 'assets/props/newsbox.glb', forward: '+z', height: 1.11, tex: 512,
     title: 'Day 026: News Paper Box', author: 'uttamg911', uid: 'ba846281a00547d19c7daf6ce8949ffc' },
-  { name: 'meter', src: 'assets/props/meter.glb', forward: '+z', height: 1.5, simplify: 0.25, tex: 512,
+  { name: 'meter', tris: 1200, error: 0.02, src: 'assets/props/meter.glb', forward: '+z', height: 1.5, tex: 512,
     title: 'Parking Meter', author: 'ArcherSterling', uid: 'a1932b57521c4aa1b0148d1e6ad6b7aa' },
   { name: 'mailbox', src: 'assets/props/mailbox.glb', forward: '+z', height: 1.25, tex: 512,
     title: 'US Mailbox', author: 'yrdoes', uid: '3376b03ebf1d45ea99fbb6ff350489da' },
   { name: 'payphone', src: 'assets/props/payphone.glb', forward: '+z', height: 0.55, tex: 512,
     title: 'Payphone', author: 'n.tendetnik', uid: 'f5ba356c10624413ac881513175adbfd' },
-  { name: 'vending', src: 'assets/props/vending.glb', forward: '+z', height: 1.83, tex: 512,
+  { name: 'vending', tris: 2500, error: 0.01, src: 'assets/props/vending.glb', forward: '+z', height: 1.83, tex: 512,
     title: 'Early 90s Vending Machine', author: 'gregthorburn', uid: '94c002a46f7f4ac498b294e69e4e62cf' },
   { name: 'dish', src: 'assets/props/dish.glb', forward: '+z', height: 0.85, tex: 512,
     title: 'Rusty House Satellite Dish', author: 'TomasKiniulis', uid: '929f056abe02416da19d7b1aa805d235' },
-  { name: 'neon_palm', src: 'assets/props/neon_palm.glb', pitch: -Math.PI / 2, forward: '-z', height: 1.1, tex: 512,
+  { name: 'neon_palm', tris: 3500, error: 0.008, src: 'assets/props/neon_palm.glb', pitch: -Math.PI / 2, forward: '-z', height: 1.1, tex: 512,
     title: 'Neon Palm Tree Sign', author: 'kirkieb2', uid: 'f8366d37c75b4a92b784ffbb72f3900a' },
   { name: 'neon_oil', src: 'assets/props/neon_oil.glb', forward: '+z', height: 0.5, origin: 'centre', tex: 512,
     title: 'Wilstone Oil Neon', author: 'skudgee', uid: 'c5827592d8e9416d8821e9bebf10f17f' },
-  { name: 'fireescape', src: 'assets/props/fireescape.glb', forward: '+z', scale: 0.01, tex: 1024,
+  { name: 'fireescape', tris: 9000, error: 0.005, src: 'assets/props/fireescape.glb', forward: '+z', scale: 0.01, tex: 1024,
     title: 'Fire Escape', author: 'KnightFallows', uid: '8b33ab96b91a45b1bdaa81b3effd7970' },
   { name: 'elecboxes', src: 'assets/props/elecboxes.glb', forward: '+x', scale: 1, tex: 512,
     title: 'Electrical Boxes', author: 'outlier_spa', uid: 'e5a058d5210448e5b2640cdb3fbcb163' },
@@ -180,15 +180,15 @@ export const PROPS = [
     title: 'Electrical box - FREE', author: 'Mathieu.Godard', uid: '383a234d6d80421fbe67080048cbbc70' },
   { name: 'wheelie', src: 'assets/props/wheelie.glb', forward: '+z', height: 1.07, tex: 512,
     title: 'Trash Can', author: 'longtail', uid: 'f61aeec14ff441abb0f6add5485a2e90' },
-  { name: 'parkbench', src: 'assets/props/parkbench.glb', forward: '+z', scale: 0.15, tex: 512,
+  { name: 'parkbench', tris: 2500, error: 0.01, src: 'assets/props/parkbench.glb', forward: '+z', scale: 0.15, tex: 512,
     title: 'Bench', author: 'sparkb', uid: '07fb4d364c0c4555a14c86e915542378' },
-  { name: 'propane', src: 'assets/props/propane.glb', forward: '+z', scale: 0.027, drop: /CRTank|^Leg\d|pCube[5-8]_Metal|pCylinder[78]_Metal/, tex: 512,
+  { name: 'propane', tris: 2500, error: 0.01, src: 'assets/props/propane.glb', forward: '+z', scale: 0.027, drop: /CRTank|^Leg\d|pCube[5-8]_Metal|pCylinder[78]_Metal/, tex: 512,
     title: 'Propane Tanks', author: 'caboose3d', uid: 'c2fe560433dd408691b8ec5ab2695d51' },
-  { name: 'powerpole', src: 'assets/props/powerpole.glb', forward: '+z', height: 9.5, tex: 512, // (simplified, its wires went)
+  { name: 'powerpole', tris: 9000, error: 0.004, src: 'assets/props/powerpole.glb', forward: '+z', height: 9.5, tex: 512, // (simplified, its wires went)
     title: 'Electricity Pole', author: 'Helindu', uid: '7cb81ca1f1f045889cf5917b9ead7817' },
   { name: 'planter', src: 'assets/props/planter.glb', forward: '+z', height: 0.8, tex: 512,
     title: 'Potted Plant, Mediterranean flowering, low poly', author: 'dudecon', uid: 'b8950690664342a497154a8ad2787566' },
-  { name: 'barberpole', src: 'assets/props/barberpole.glb', forward: '+z', height: 0.75, tex: 512,
+  { name: 'barberpole', tris: 1500, error: 0.01, src: 'assets/props/barberpole.glb', forward: '+z', height: 0.75, tex: 512,
     title: 'Barbers Pole', author: 'HPrendering', uid: 'e5eb506d8d5c4cd5a775028a4a3e1d58' },
   { name: 'cart', src: 'assets/props/cart.glb', forward: '+z', height: 1.0, tex: 512,
     title: 'Shopping Cart', author: 'adrianxy', uid: 'b96f896453b240ae804d0399f1faf027' },
@@ -199,21 +199,21 @@ export const PROPS = [
     title: 'Diner Stool', author: 'MickChambers', uid: '861c5e689ac2483f8083003d2dc64b16' },
   { name: 'jukebox', src: 'assets/props/jukebox.glb', forward: '+z', height: 1.55, tex: 1024,
     title: 'Jukebox', author: 'I_Live', uid: '127cd1a00ca143af9db9cf4e58ddd956' },
-  { name: 'espresso', src: 'assets/props/espresso.glb', forward: '+z', height: 0.55, tex: 512,
+  { name: 'espresso', tris: 4000, error: 0.01, src: 'assets/props/espresso.glb', forward: '+z', height: 0.55, tex: 512,
     title: 'Commercial Coffee Machine', author: 'mreslan', uid: 'bab05bc7805d4b0dbc2cdcbb48441956' },
   { name: 'napkins', src: 'assets/props/napkins.glb', forward: '+z', height: 0.16, tex: 256,
     title: 'Diner Napkin Dispenser', author: 'MickChambers', uid: '1ecc2a062c8b47b791480efb697e4d12' },
   { name: 'ketchup', src: 'assets/props/ketchup.glb', forward: '+z', height: 0.2, tex: 256,
     title: 'Condiment Bottle', author: 'legobus5', uid: 'f1b71bc8830d4774a224a3cb472313d0' },
-  { name: 'wallshelf', src: 'assets/props/wallshelf.glb', forward: '+z', height: 2.0, tex: 1024,
+  { name: 'wallshelf', tris: 3000, error: 0.01, src: 'assets/props/wallshelf.glb', forward: '+z', height: 2.0, tex: 1024,
     title: 'Store Wall Shelving', author: 'jimbogies', uid: '4aeb9d62cde942a9804172af11321d2c' },
   { name: 'cooler', src: 'assets/props/cooler.glb', forward: '+z', height: 1.95, tex: 512,
     title: 'Low Poly Gas Station Fridge', author: 'LB_Models', uid: 'f146f66f8bc84829895e05de6895f0dc' },
-  { name: 'atm', src: 'assets/props/atm.glb', forward: '+z', height: 1.6, tex: 1024,
+  { name: 'atm', tris: 1800, error: 0.01, src: 'assets/props/atm.glb', forward: '+z', height: 1.6, tex: 1024,
     title: 'ATM Machine', author: 'oscarherry3d', uid: '22ca75eb5e0d4ee0a02c5b5100a55006' },
   { name: 'magrack', src: 'assets/props/magrack.glb', forward: '+z', height: 1.15, tex: 1024,
     title: 'Magazine Rack Full of Geo Articles', author: 'Brendan_489', uid: '53f55fbd5c0b4c1cbc219bb717b6819e' },
-  { name: 'oldregister', src: 'assets/props/oldregister.glb', forward: '+z', height: 0.42, tex: 1024,
+  { name: 'oldregister', tris: 1500, error: 0.015, src: 'assets/props/oldregister.glb', forward: '+z', height: 0.42, tex: 1024,
     title: 'Old Cash Register_PBR', author: 'Li.Wenzhao', uid: 'cfdc8b3756fa4bb4b7c26d8ac92fd1bc' },
 ];
 
@@ -247,7 +247,11 @@ for (const p of PROPS) {
   if (p.origin !== 'keep') top.setTranslation([-c[0], p.origin === 'centre' ? -c[1] : -b.min[1], -c[2]]);
   b = getBounds(scene);
   const tex = p.tex ?? 1024;
-  if (p.simplify) await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio: p.simplify, error: 0.002 }));
+  // simplified to a share (`simplify`) or to about `tris` triangles, within `error` (of each part's size:
+  // the default 0.002 kept a newspaper box at 42,000 triangles, a parking meter at 8,700)
+  const triCount = () => doc.getRoot().listMeshes().reduce((n, m) => n + m.listPrimitives().reduce((k, q) => k + (q.getIndices()?.getCount() ?? q.getAttribute('POSITION').getCount()) / 3, 0), 0);
+  const ratio = p.tris ? Math.min(1, p.tris / triCount()) : p.simplify;
+  if (ratio && ratio < 1) await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio, error: p.error ?? 0.002 }));
   await doc.transform(
     metalRough(),
     dedup(),
@@ -259,7 +263,7 @@ for (const p of PROPS) {
 }
 
 // the credits, from the same list
-const lines = PROPS.map((p) => `- **${p.title}** by ${p.author}, [sketchfab.com/3d-models/${p.uid}](https://sketchfab.com/3d-models/${p.uid}), licensed [${BY}](https://creativecommons.org/licenses/by/4.0/). Used as \`${p.name}\`; reoriented, rescaled, textures recompressed${p.drop ? ', parts removed' : ''}${p.simplify ? ', simplified' : ''}${p.opaque ? ', materials made opaque' : ''}.`);
+const lines = PROPS.map((p) => `- **${p.title}** by ${p.author}, [sketchfab.com/3d-models/${p.uid}](https://sketchfab.com/3d-models/${p.uid}), licensed [${BY}](https://creativecommons.org/licenses/by/4.0/). Used as \`${p.name}\`; reoriented, rescaled, textures recompressed${p.drop ? ', parts removed' : ''}${p.simplify || p.tris ? ', simplified' : ''}${p.opaque ? ', materials made opaque' : ''}.`);
 await writeFile('CREDITS.md', `# Credits
 
 The game's code is MIT (see \`LICENSE\`). These third-party 3D models are not: each keeps its own

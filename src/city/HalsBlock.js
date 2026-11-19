@@ -10,6 +10,7 @@
 // before, a parking lane each side (kerbs at x -0.4 and 12.4), pavements 5.5 m to the fronts at x
 // -5.9 and 17.9, from z -24 (the lot) to the cross street at z -210.
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { prop, piece } from '../props/Props.js';
 import { makeCar } from '../props/Car.js';
 import { RAPIER } from '../engine/Physics.js';
@@ -17,16 +18,18 @@ import { pbrMaterial, glowTexture } from '../fx/Textures.js';
 import { Batch, cityMaterials, cityU } from './Kit.js';
 import { building, box, decal, label } from './Building.js';
 import { flatten } from './Lod.js';
+import { runSteps } from '../engine/Slice.js';
 import { diner, market, shopRoom, stockShelves, kit } from './Interiors.js';
 import { SignAtlas, neonTexture, muralTexture, ghostTexture } from './Signs.js';
 
 // How far the block's things are drawn (city/Lod.js): the walls, roofs, glass and signs from anywhere
 // (from the air they're the town), the trim and the street's small things only near
-export const DRAW = { detail: 300, street: 260, small: 160, far: Infinity };
+export const DRAW = { detail: 220, street: 200, small: 90, far: Infinity }; // (from the street the block's 380 m long: at 160 m a parking meter is a few pixels)
 const FAR_KEYS = new Set(['stucco', 'pbrick', 'brick', 'roofing', 'roofTile', 'glass', 'sign', 'signLit', 'pavement', 'roadpaint']);
 const STREET = new Set(['car', 'palm', 'lamp', 'busstop', 'dumpster']);
 const ROOM = new Set(['interior', 'booth', 'stool', 'jukebox', 'espresso', 'cooler', 'wallshelf', 'atm', 'magrack', 'oldregister']); // inside: seen through the glass
 const KEEP_PARTS = new Set(['vending', 'busstop']); // (their glass shatters pane by pane)
+const STILL = new Set(['palm', 'decal', 'booth', 'stool', 'cooler', 'wallshelf', 'atm']); // (fixed for good: drawn instanced)
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const _q = new THREE.Quaternion(), _Y = new THREE.Vector3(0, 1, 0), _c = new THREE.Vector3(), _h = new THREE.Vector3(), _o = new THREE.Vector3(), _w = new THREE.Vector3(), _v2 = new THREE.Vector3(), _in = new THREE.Vector3();
@@ -164,7 +167,10 @@ const ALLEYS = {
   south: { z: [-223, -396], poles: -233, bins: [-236, -290, -330, -372], dumpsters: [-262, -350], escape: -317 },
 };
 
-export function buildHalsBlock(f, origin, lod = null, drawn = new Set()) {
+export function buildHalsBlock(f, origin, lod = null, drawn = new Set()) { return runSteps(blockSteps(f, origin, lod, drawn)); }
+
+// the same, a step at a time (each `yield` somewhere it may stop for the browser: engine/Slice.js)
+export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
   const scene = f.scene, physics = f.physics, smash = f.smash, B = BLOCK;
   const g = new THREE.Group();
   g.name = 'halsBlock';
@@ -193,48 +199,57 @@ export function buildHalsBlock(f, origin, lod = null, drawn = new Set()) {
     doors: [], inside: [], spots: [], posts: [], roomLights: [], rooms: [], labels: [], goods: [] };
   const built = [];
   // ------------------------------------------------------------------ the buildings
-  const raise = (west, east) => {
-    for (const spec of west) built.push({ spec, b: building(ctx, { ...spec, at: V(B.frontW, 0, spec.z), yaw: Math.PI / 2 }), side: -1 });
-    for (const spec of east) built.push({ spec, b: building(ctx, { ...spec, at: V(B.frontE, 0, spec.z), yaw: -Math.PI / 2 }), side: 1 });
-  };
-  raise(WEST, EAST);
-  ctx.rnd = rndS;
-  raise(WEST2, EAST2); // the block over the crossing
+  for (const [west, east, r] of [[WEST, EAST, rnd], [WEST2, EAST2, rndS]]) { // (and the block over the crossing)
+    ctx.rnd = r;
+    for (const spec of west) { built.push({ spec, b: building(ctx, { ...spec, at: V(B.frontW, 0, spec.z), yaw: Math.PI / 2 }), side: -1 }); yield; }
+    for (const spec of east) { built.push({ spec, b: building(ctx, { ...spec, at: V(B.frontE, 0, spec.z), yaw: -Math.PI / 2 }), side: 1 }); yield; }
+  }
   ctx.rnd = rnd;
   for (const { spec, b, side } of built) dress(ctx, spec, b, side, g);
   // the rooms you can walk into (Interiors.js), their lettering
-  for (const r of ctx.inside) (r.kind === 'diner' ? diner : r.kind === 'market' ? market : shopRoom)(ctx, r.M, r);
+  for (const r of ctx.inside) { (r.kind === 'diner' ? diner : r.kind === 'market' ? market : shopRoom)(ctx, r.M, r); yield; }
   for (const l of ctx.labels) label(ctx, l.M.clone().multiply(new THREE.Matrix4().makeTranslation(0, 0, l.z)), l.u0, l.u1, l.y0, l.h, l.sign);
   for (const sp of ctx.spots) for (const k of ['at', 'approach', 'look']) sp[k]?.add(origin); // (the story's interactions are in the world)
   for (const p of ctx.posts) { p.at.add(origin); for (const b of p.beat ?? []) b.add(origin); } // (and where its people stand)
   // ------------------------------------------------------------------ the street
+  yield;
   street(ctx, g, STREETS.hals);
   alleys(ctx, g, ALLEYS.hals);
+  yield;
   ctx.rnd = rndS;
   street(ctx, g, STREETS.south);
   alleys(ctx, g, ALLEYS.south);
   ctx.rnd = rnd;
-  const city = ctx.batch.build(mats);
+  yield;
+  const city = yield* ctx.batch.buildSteps(mats);
   g.add(city);
   // the props the buildings and the street placed: into the block, and touchable
-  for (const { o, kind } of ctx.objects) {
+  for (const [i, { o, kind }] of ctx.objects.entries()) {
     g.add(o);
     o.traverse((m) => { if (m.isMesh) { m.castShadow = kind !== 'decal'; m.receiveShadow = true; } });
     if (!KEEP_PARTS.has(kind)) flatten(o); // one mesh per material (a pole's 19 parts, a condenser's 12)
     const solid = SOLID[kind];
     if (solid) smash.add(o, solid);
+    if (i % 16 === 15) yield;
   }
+  yield;
   for (const car of ctx.cars ?? []) smash.add(car, { kind: 'car', mass: 1300, shrink: 0.97 });
-  // the other shops' shared lamp: always there (adding a light mid-play recompiles every material)
-  const shopLamp = new THREE.PointLight(0xfff0dc, 0, 14, 2);
+  // the other shops' shared lamp: a source in the scene's pool (city/Lamps.js), moved to the shop the
+  // camera's in or nearest
+  const shopLamp = new THREE.Object3D();
   g.add(shopLamp);
+  const shopSrc = f.lamps?.add(shopLamp, { color: 0xfff0dc, power: 0, reach: 14 });
   // the shops' goods, their doors, the lights in the rooms (on when the camera's near: no recompiles)
   const goods = stockShelves(ctx, g);
-  for (const d of ctx.doors) g.add(d.pivot);
-  for (const r of ctx.roomLights) g.add(r.light);
+  for (const d of ctx.doors) { flatten(d.pivot); d.pivot.traverse((m) => { if (m.isMesh) m.castShadow = false; }); g.add(d.pivot); } // (a door was a dozen boxes: a draw call each)
+  // the diner's and the store's lights, sources in the pool (their PointLights only say where)
+  for (const r of ctx.roomLights) { const mk = new THREE.Object3D(); mk.position.copy(r.light.position); g.add(mk); r.src = f.lamps?.add(mk, { color: r.light.color, power: 0, reach: r.light.distance }); }
   // colliders: each building's mass, its parapets, a hip roof as its hull
-  for (const s of ctx.solids) {
+  const solidStandIns = [];
+  for (const [i, s] of ctx.solids.entries()) {
+    if (i % 64 === 63) yield;
     const d = new THREE.Object3D();
+    solidStandIns.push(d);
     d.position.copy(s.c).add(origin);
     d.quaternion.copy(s.q);
     scene.add(d);
@@ -250,7 +265,7 @@ export function buildHalsBlock(f, origin, lod = null, drawn = new Set()) {
     if (desc) physics.fixedCollider(desc);
   }
   // ------------------------------------------------------------------ night
-  const night = nightKit(ctx, g, mats);
+  const night = nightKit(ctx, g, mats, f.lamps);
   // ------------------------------------------------------------------ drawn by distance
   if (lod) {
     g.updateMatrixWorld(true);
@@ -259,17 +274,59 @@ export function buildHalsBlock(f, origin, lod = null, drawn = new Set()) {
       m.geometry.computeBoundingBox();
       lod.add(m, DRAW.detail, { box: m.geometry.boundingBox.clone().applyMatrix4(m.matrixWorld) });
     }
+    // The props that never move (the palms, the shops' fixed furniture, the poles, signs and neon on the
+    // walls) drawn instanced: one mesh for each of their shapes and materials in each cell, all the
+    // copies at once (a draw call each was most of what was left); their colliders and Smash's items
+    // stay where they are, without meshes.
+    const inst = new Map(), inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), _ic = V(0, 0, 0);
     for (const { o, kind } of ctx.objects) {
       const r = new THREE.Box3().setFromObject(o).getSize(V(0, 0, 0)).length() / 2;
-      const dist = kind === 'wallshelf' || kind === 'cooler' ? 80 : ROOM.has(kind) ? 120 : kind === 'small' ? 40 : STREET.has(kind) ? DRAW.street : kind === 'decal' && r > 2 ? DRAW.detail : DRAW.small;
-      lod.add(o, dist, { moves: true, shadow: STREET.has(kind) || r > 2 ? 160 : ROOM.has(kind) ? 40 : 80 });
+      const dist = kind === 'wallshelf' || kind === 'cooler' ? 45 : ROOM.has(kind) ? 50 : kind === 'small' ? 35 : STREET.has(kind) ? DRAW.street : kind === 'decal' && r > 2 ? DRAW.detail : DRAW.small;
+      // (shadows only near: the shadow map draws every caster again, and was half the frame)
+      // (none from what's small or indoors: the sun hardly reaches it, and each was a draw call more)
+      const shadow = STREET.has(kind) || r > 2 ? 70 : ROOM.has(kind) || kind === 'small' || kind === 'wallshelf' || kind === 'cooler' ? 0 : kind === 'plant' ? 15 : 35;
       drawn.add(o);
+      if (STILL.has(kind)) {
+        o.updateMatrixWorld(true);
+        const parts = [];
+        o.traverseVisible((m) => { if (m.isMesh && !m.isSkinnedMesh && !m.isInstancedMesh && !Array.isArray(m.material)) parts.push(m); });
+        for (const m of parts) {
+          const M = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+          _ic.setFromMatrixPosition(M);
+          const key = `${m.geometry.uuid}|${m.material.uuid}|${Math.floor(_ic.x / 80)},${Math.floor(_ic.z / 80)}|${dist}|${shadow}`;
+          const e = inst.get(key) ?? inst.set(key, { geo: m.geometry, mat: m.material, list: [], dist, shadow, cast: m.castShadow }).get(key);
+          e.list.push(M);
+          m.removeFromParent();
+        }
+        continue;
+      }
+      lod.add(o, dist, { moves: true, shadow });
     }
-    for (const car of ctx.cars ?? []) { lod.addCar(car, DRAW.street, smash.items.find((i) => i.object === car)); drawn.add(car); }
-    for (const m of goods) lod.add(m, 80, { box: new THREE.Box3().setFromObject(m) });
-    for (const d of ctx.doors) lod.add(d.pivot, 160);
+    for (const e of inst.values()) {
+      const im = new THREE.InstancedMesh(e.geo, e.mat, e.list.length);
+      e.list.forEach((M, i) => im.setMatrixAt(i, M));
+      im.computeBoundingSphere();
+      im.computeBoundingBox();
+      im.castShadow = e.cast;
+      im.receiveShadow = true;
+      g.add(im);
+      im.updateMatrixWorld(true);
+      lod.add(im, e.dist, { box: im.boundingBox.clone().applyMatrix4(im.matrixWorld), shadow: e.shadow });
+    }
+    // (a parked car its own 54 parts only within 4 m: its merged copy is made again when it's dented or
+    // a pane goes, and it doesn't move; traffic keeps its spinning wheels to 15 m)
+    for (const car of ctx.cars ?? []) { lod.addCar(car, DRAW.street, smash.items.find((i) => i.object === car), { near: 4 }); drawn.add(car); }
+    for (const m of goods) { m.castShadow = false; lod.add(m, 50, { box: new THREE.Box3().setFromObject(m), shadow: 0 }); } // (shelves of goods cast no shadow worth drawing)
+    for (const d of ctx.doors) lod.add(d.pivot, 60);
     lod.add(night.group, DRAW.detail, { box: new THREE.Box3().setFromObject(night.group) });
   }
+  // what never moves keeps the matrices it has (three.js works out every object's every frame: 22,000
+  // of them cost 4 ms): the buildings' cells, the night's planes, the instanced props, the colliders' stand-ins
+  const still = (o) => { o.updateMatrixWorld(true); o.traverse((c) => { c.matrixAutoUpdate = false; }); o.matrixWorldAutoUpdate = false; };
+  still(city);
+  still(night.group);
+  for (const c of g.children) if (c.isInstancedMesh) still(c);
+  for (const d of solidStandIns) still(d);
   return {
     group: g, ctx, mats,
     setNight(k) {
@@ -291,7 +348,7 @@ export function buildHalsBlock(f, origin, lod = null, drawn = new Set()) {
     update(dt, t, camera) {
       cityU.uTime.value = t;
       swingDoors(ctx.doors, g.position, dt, this);
-      if (camera) for (const r of ctx.roomLights) r.light.intensity = r.light.position.distanceToSquared(_c.copy(camera.position).sub(g.position)) < 4900 ? r.power : 0;
+      if (camera) for (const r of ctx.roomLights) if (r.src) r.src.power = r.light.position.distanceToSquared(_c.copy(camera.position).sub(g.position)) < 4900 ? r.power : 0;
       // the other shops' one lamp (city/Shops.js), in whichever the camera's in or nearest to (inside 18 m)
       if (camera && ctx.shopLights?.length) {
         _c.copy(camera.position).sub(g.position);
@@ -301,7 +358,7 @@ export function buildHalsBlock(f, origin, lod = null, drawn = new Set()) {
           const dd = Math.hypot(Math.max(L.x0 - _in.x, 0, _in.x - L.x1), Math.max(_in.z - L.z0, 0, L.z1 - _in.z));
           if (dd < bd) { bd = dd; best = L; }
         }
-        shopLamp.intensity = best ? 3.6 * Math.min(1, 1.6 - bd / 11) : 0;
+        if (shopSrc) shopSrc.power = best ? 3.6 * Math.min(1, 1.6 - bd / 11) : 0;
         if (best) shopLamp.position.copy(best.pos ??= best.at.clone().applyMatrix4(best.M));
       }
     },
@@ -619,7 +676,7 @@ function alleys(ctx, g, L) {
 // ---------------------------------------------------------------------------------- night
 // The lamps' pools of light on the pavements, a few real lights, the light from the shop windows
 // across the pavement, the window neon; all faded in with `set(k)`
-function nightKit(ctx, block, mats) {
+function nightKit(ctx, block, mats, lamps) {
   // (two groups: the outer one drawn by distance, the inner one only at night: by day the pools and
   // halos are at nothing, and still cost a draw call each)
   const group = new THREE.Group(), g = new THREE.Group();
@@ -632,25 +689,23 @@ function nightKit(ctx, block, mats) {
   const halo = new THREE.SpriteMaterial({ map: glow, color: new THREE.Color(1.6, 1.15, 0.7), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
   const lights = [];
   let n = 0;
+  // (the pools and the shops' spill each one mesh: a plane each was 52 draw calls at night)
+  const pools = [], spills = [];
   for (const l of ctx.lamps) {
     if (!l.street) continue;
-    const p = new THREE.Mesh(new THREE.PlaneGeometry(10, 10).rotateX(-Math.PI / 2), pool);
-    p.position.set(l.at.x, BLOCK.pave + 0.01, l.at.z);
-    g.add(p);
+    pools.push(new THREE.PlaneGeometry(10, 10).rotateX(-Math.PI / 2).translate(l.at.x, BLOCK.pave + 0.01, l.at.z));
     const sp = new THREE.Sprite(halo);
     sp.position.copy(l.at);
     sp.scale.setScalar(0.9);
     g.add(sp);
-    if (n++ % 3 === 0) { const pl = new THREE.PointLight(0xffc98a, 0, 20, 2); pl.position.copy(l.at).add(V(0, -0.6, 0)); g.add(pl); lights.push(pl); }
+    // a real light under every third, in the scene's pool (city/Lamps.js): the nearest are lit
+    if (n++ % 3 === 0 && lamps) { const mk = new THREE.Object3D(); mk.position.copy(l.at).add(V(0, -0.6, 0)); group.add(mk); lights.push(lamps.add(mk, { color: 0xffc98a, power: 0, reach: 20 })); }
   }
   for (const s of ctx.shops) {
-    const w = s.u1 - s.u0, p = new THREE.Mesh(new THREE.PlaneGeometry(w + 1, 4.5).rotateX(-Math.PI / 2), spill);
-    const c = V((s.u0 + s.u1) / 2, 0, 2.2).applyMatrix4(s.F);
-    p.position.set(c.x, BLOCK.pave + 0.012, c.z);
-    const N = V(0, 0, 1).transformDirection(s.F);
-    p.rotation.y = Math.atan2(N.x, N.z);
-    g.add(p);
+    const w = s.u1 - s.u0, c = V((s.u0 + s.u1) / 2, 0, 2.2).applyMatrix4(s.F), N = V(0, 0, 1).transformDirection(s.F);
+    spills.push(new THREE.PlaneGeometry(w + 1, 4.5).rotateX(-Math.PI / 2).rotateY(Math.atan2(N.x, N.z)).translate(c.x, BLOCK.pave + 0.012, c.z));
   }
+  for (const [list, mat] of [[pools, pool], [spills, spill]]) if (list.length) g.add(new THREE.Mesh(mergeGeometries(list, false), mat));
   const neonMats = [];
   for (const nn of ctx.neon) {
     const m = new THREE.MeshBasicMaterial({ map: neonTexture(nn.text, nn.color ?? '#ff3b3b', '#3bb8ff'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color(0.5, 0.5, 0.5) });
@@ -673,7 +728,7 @@ function nightKit(ctx, block, mats) {
     set(k) {
       g.visible = k > 0.01;
       pool.opacity = k; spill.opacity = k * 0.8; halo.opacity = k;
-      for (const l of lights) l.intensity = k * 26;
+      for (const l of lights) l.power = k * 26;
       for (const m of neonMats) m.color.setScalar(0.35 + k * 0.9);
       for (const m of tubes) m.emissiveIntensity = 0.4 + k * 1.6;
     },

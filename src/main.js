@@ -6,18 +6,29 @@ import { Voice } from './engine/Voice.js';
 import { initPhysics } from './engine/Physics.js';
 import { tick } from './engine/Time.js';
 import { UI } from './ui/UI.js';
-import { loadCharacters } from './characters/Characters.js';
+import { loadCharacters, PART_SCANS } from './characters/Characters.js';
 import { Story, chapterMenu } from './story/Story.js';
-import { Corps } from './story/Corps.js';
-import { Coast } from './story/Coast.js';
-import { Prisoner } from './story/Prisoner.js';
-import { Probation } from './story/Probation.js';
-import { Roam } from './story/Roam.js';
 import { Save, CorpsSave, CoastSave, PrisonerSave, ProbationSave, ExileSave, PARTS, partOf, takeResume, latestCheckpoint } from './engine/Save.js';
 
 const POSTERS = ['airforce', 'jets', 'testpilot', 'flightseat', 'sidewall', 'squadron', 'whitejet'];
+// each part's code, loaded when it's chosen (Part Six's brings the whole valley and its town with it)
+const PART_CODE = {
+  corps: () => import('./story/Corps.js').then((m) => m.Corps),
+  coast: () => import('./story/Coast.js').then((m) => m.Coast),
+  prisoner: () => import('./story/Prisoner.js').then((m) => m.Prisoner),
+  probation: () => import('./story/Probation.js').then((m) => m.Probation),
+  exile: () => import('./story/Roam.js').then((m) => m.Roam),
+};
+
+// (dev only: every main-thread stall over 50 ms, for finding what freezes the page while it loads)
+if (import.meta.env.DEV && typeof PerformanceObserver !== 'undefined' && PerformanceObserver.supportedEntryTypes?.includes('longtask')) {
+  window.__longtasks = [];
+  new PerformanceObserver((list) => window.__longtasks.push(...list.getEntries().map((e) => ({ at: Math.round(e.startTime), ms: Math.round(e.duration) })))).observe({ type: 'longtask', buffered: true });
+}
 
 async function boot() {
+  // the assets kept in the browser between visits (public/sw.js)
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   const engine = new Engine(document.getElementById('app'));
   const input = new Input(engine.renderer.domElement);
   const audio = new AudioBank();
@@ -28,11 +39,12 @@ async function boot() {
   const manager = new THREE.LoadingManager();
   manager.onProgress = (_url, loaded, total) => ui.loading(loaded / total);
   const texLoader = new THREE.TextureLoader(manager);
+  const mark = (name, p) => (import.meta.env.DEV ? Promise.resolve(p).then((v) => ((window.__boot ??= {})[name] = Math.round(performance.now()), v)) : p);
   const [characters, posterTex] = await Promise.all([
-    loadCharacters(manager),
-    Promise.all(POSTERS.map((n) => texLoader.loadAsync(`/textures/posters/${n}.jpg`))),
-    initPhysics(),
-    document.fonts?.ready,
+    mark('characters', loadCharacters(manager)),
+    mark('posters', Promise.all(POSTERS.map((n) => texLoader.loadAsync(`/textures/posters/${n}.jpg`)))),
+    mark('physics', initPhysics()),
+    mark('fonts', document.fonts?.ready),
   ]);
   const posters = Object.fromEntries(POSTERS.map((n, i) => {
     posterTex[i].colorSpace = THREE.SRGBColorSpace;
@@ -60,10 +72,14 @@ async function boot() {
     input.endFrame();
   });
   ui.loaded();
+  // while the title's up, the part played last fetched: its code and its scans (Continue is then quick)
+  const guess = (location.hash.length > 1 && partOf(location.hash.slice(1))) || latestCheckpoint()?.part;
+  if (guess) { PART_CODE[guess]?.().catch(() => {}); characters.more(PART_SCANS[guess] ?? []); }
 
   const { part, id } = await titleFlow(ui);
   audio.init();
-  story = new ({ corps: Corps, coast: Coast, prisoner: Prisoner, probation: Probation, exile: Roam }[part] ?? Story)({ engine, ui, input, audio, voice, assets: { characters, posters } });
+  const [Part] = await Promise.all([PART_CODE[part]?.() ?? Story, characters.more(PART_SCANS[part] ?? [])]);
+  story = new Part({ engine, ui, input, audio, voice, assets: { characters, posters } });
   try {
     await story.run(id);
   } catch (err) {

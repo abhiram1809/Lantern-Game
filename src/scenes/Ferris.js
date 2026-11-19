@@ -7,8 +7,10 @@ import { noiseTexture, pbrMaterial } from '../fx/Textures.js';
 import { prop, piece, meshes, boundsIn, hasProp } from '../props/Props.js';
 import { Smash } from '../props/Smash.js';
 import { makeCar } from '../props/Car.js';
-import { buildHalsBlock, BLOCK_PROPS } from '../city/HalsBlock.js';
+import { blockSteps, BLOCK_PROPS } from '../city/HalsBlock.js';
+import { sliced, runSteps } from '../engine/Slice.js';
 import { buildFerrisOffice } from '../city/Office.js';
+import { LampPool } from '../city/Lamps.js';
 import { Lod } from '../city/Lod.js';
 
 // Ferris Aircraft, mid-morning: the airfield in the desert outside Coast City where Martin Jordan
@@ -96,7 +98,11 @@ export class Ferris {
     this.updaters = [];
   }
 
-  build() {
+  build() { runSteps(this.steps()); return this; }
+  // built a stage at a time, the browser let in between (in one frame it held the page 1.7 s)
+  async buildAsync() { await sliced(this.steps()); return this; }
+
+  *steps() {
     const s = this.scene;
     s.fog = new THREE.FogExp2(0xd5dde2, 0.00042);
     s.environment = this.engine.envMap;
@@ -107,15 +113,20 @@ export class Ferris {
     this.sky = createSky('desert', 1500);
     s.add(this.sky);
     this.smash = new Smash(this.physics, s); // (everything placed here can be touched: props/Smash.js)
+    this.lamps = new LampPool(s, 4); // (its point lights, pooled: city/Lamps.js)
     this.blockOn = hasProp('ac_units'); // Hal's block is built (city/HalsBlock.js): what stood on its stretch steps aside
     this.buildLight();
     this.buildGround();
+    yield;
     this.buildRunway();
     this.buildHangars();
+    yield;
     this.buildTower();
     this.buildOffice();
+    yield;
     this.buildRoad();
     this.buildMesas();
+    yield;
     this.jet = prop('prototype');
     this.jet.position.copy(JET_SPOT);
     this.jet.rotation.y = Math.PI / 2;
@@ -123,15 +134,18 @@ export class Ferris {
     this.jetBodies = this.solid(this.jet, JET_PARTS);
     this.buildApronProps();
     this.buildStaffLot();
+    yield;
     this.buildApartmentLot();
+    yield;
     // Hal's block (src/city): the boulevard from his lot to the crossing, built to the open world's
     // standard; buildCity leaves that stretch to it
     this.buildCity();
+    yield;
     // things far from the camera aren't drawn (city/Lod.js): the block's own tiers, and everything else
     // Smash holds by its size (a bin from 160 m, a car from 260, a shed from 600; buildings always)
     this.lod = new Lod();
     const drawn = new Set();
-    if (this.blockOn) this.block = buildHalsBlock(this, LOT, this.lod, drawn);
+    if (this.blockOn) this.block = yield* blockSteps(this, LOT, this.lod, drawn);
     // Hal's car: sun-faded maroon, the driver's door in primer
     this.car = makeCar('phoenix', { paint: 0x5a1d19, primer: true, dust: 0.7 });
     this.car.position.copy(CAR_SPOT);
@@ -142,14 +156,13 @@ export class Ferris {
     s.add(this.exhaust.points);
     for (const it of this.smash.items) {
       if (drawn.has(it.object) || !it.object.children.length && !it.object.isMesh) continue;
-      if (it.kind === 'car') { this.lod.addCar(it.object, 260, it); continue; } // (merged beyond 15 m)
+      if (it.kind === 'car') { this.lod.addCar(it.object, 260, it, { near: 4 }); continue; } // (parked: merged beyond 4 m)
       const r = it.radius ?? 1;
-      this.lod.add(it.object, r < 1.2 ? 160 : r < 4 ? 260 : r < 12 ? 600 : Infinity, { moves: it.kind !== 'solid' });
+      this.lod.add(it.object, r < 1.2 ? 90 : r < 4 ? 200 : r < 12 ? 600 : Infinity, { moves: it.kind !== 'solid', shadow: r < 1.2 ? 35 : r < 4 ? 70 : r < 12 ? 150 : Infinity });
     }
     // the prototypes: the one on the apron (it flies: measured where it is), the airframe in Hangar Two
     const onApron = (o) => { for (let a = o; a; a = a.parent) if (a === this.jet) return true; return false; };
     s.traverse((o) => { if (o.name === 'prototype') this.lod.add(o, onApron(o) ? 1800 : 300, { moves: true }); });
-    return this;
   }
 
   // ------------------------------------------------------------------------------------- light
@@ -389,9 +402,10 @@ export class Ferris {
         for (const m of meshes(shell, (n) => /Cabin_Glass/.test(n))) m.visible = false;
         gx.add(shell);
         for (const x of [-14, 0, 14]) {
-          const lamp = new THREE.PointLight(0xfff0d8, 30, 26, 2);
+          const lamp = new THREE.Object3D();
           lamp.position.set(x, h - 2, d / 2);
           gx.add(lamp);
+          this.lamps.add(lamp, { color: 0xfff0d8, power: 30, reach: 26 });
           add(new THREE.BoxGeometry(1.4, 0.15, 0.6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.1, 1.9) }), x, h - 1.2, d / 2);
         }
         // tool chests, drums, the forklift, a work stand at the cockpit
@@ -1140,6 +1154,7 @@ export class Ferris {
     if (this.beacon) this.beacon.visible = Math.sin(t * 3) > 0;
     this.block?.update(dt, t, camera);
     this.office?.update(dt, t, camera);
+    this.lamps.update(dt, camera);
     this.lod.update(dt, camera);
     for (const fn of this.updaters) fn(dt, t);
   }

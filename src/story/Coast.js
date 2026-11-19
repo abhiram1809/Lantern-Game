@@ -398,6 +398,14 @@ export class Coast extends Story {
     this.bedroom = null;
     return (this.ferrisScene = new Ferris(this).build());
   }
+  // the same, built in slices with the page free between them (free roam: engine/Slice.js)
+  async setupFerrisAsync() {
+    if (this.ferrisScene) return this.ferrisScene;
+    this.bedroom?.dispose();
+    this.bedroom = null;
+    const f = await new Ferris(this).buildAsync();
+    return (this.ferrisScene ??= f);
+  }
 
   enterFerris(at, yaw) {
     const { player, audio } = this, f = this.ferrisScene;

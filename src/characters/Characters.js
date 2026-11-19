@@ -4,31 +4,37 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { Rig } from './Rig.js';
 import { MocapSource } from './Mocap.js';
 
+// The scans. Hal's two and Abin Sur's (and the mocap) at boot, which every part needs; the others with
+// the part that needs them (`more`), after the title: decoding all nine scans' textures at once was what
+// froze the page behind the loading screen, and a part without Kilowog shouldn't hold his 48 MB.
+const SCANS = { kilowog: 'kilowog', carol: 'carol', hammond: 'hammond', atrocitus: 'atrocitus', katma: 'katma', korCrowd: 'kor_crowd' };
+export const PART_SCANS = {
+  awakening: [], corps: ['kilowog'], coast: ['carol', 'hammond'], prisoner: ['carol', 'hammond', 'atrocitus', 'kilowog'],
+  probation: ['carol', 'katma', 'korCrowd', 'kilowog'], exile: ['carol', 'katma', 'korCrowd', 'kilowog', 'atrocitus'],
+};
 export async function loadCharacters(manager) {
   const loader = new GLTFLoader(manager);
-  const [casual, lantern, abin, xbot, kilowog, carol, hammond, atrocitus, katma, korCrowd] = await Promise.all([
+  const [casual, lantern, abin, xbot] = await Promise.all([
     loader.loadAsync('/models/hal_casual.glb'),
     loader.loadAsync('/models/hal_lantern.glb'),
     loader.loadAsync('/models/abin_sur.glb'),
     loader.loadAsync('/anims/xbot.glb'),
-    loader.loadAsync('/models/kilowog.glb').catch(() => null), // Part Two; optional until built
-    loader.loadAsync('/models/carol.glb').catch(() => null), // Part Three
-    loader.loadAsync('/models/hammond.glb').catch(() => null), // Part Three's end
-    loader.loadAsync('/models/atrocitus.glb').catch(() => null), // Part Four
-    loader.loadAsync('/models/katma.glb').catch(() => null), // Part Five
-    loader.loadAsync('/models/kor_crowd.glb').catch(() => null), // Part Five's crowd
   ]);
-  for (const g of [casual, lantern, abin, kilowog, carol, hammond, atrocitus, katma]) {
-    if (!g) continue;
-    g.scene.traverse((o) => {
-      if (!o.isSkinnedMesh) return;
-      const m = o.material;
-      // Tripo packs occlusion into the red channel of the ORM texture.
-      if (m.metalnessMap) { m.aoMap = m.metalnessMap; m.aoMapIntensity = 0.85; }
-      m.envMapIntensity = 0.6;
-    });
-  }
-  return { casual, lantern, abin, kilowog, carol, hammond, atrocitus, katma, korCrowd, mocap: new MocapSource(xbot) };
+  for (const g of [casual, lantern, abin]) prepScan(g);
+  const out = { casual, lantern, abin, kilowog: null, carol: null, hammond: null, atrocitus: null, katma: null, korCrowd: null, mocap: new MocapSource(xbot) };
+  const pending = {};
+  // the given scans loaded (once each; one that's missing stays null: Kilowog is optional)
+  out.more = (names = []) => Promise.all(names.map((n) => (pending[n] ??= new GLTFLoader().loadAsync(`/models/${SCANS[n]}.glb`).then((g) => { if (n !== 'korCrowd') prepScan(g); out[n] = g; }).catch(() => { out[n] = null; })))).then(() => out);
+  return out;
+}
+// Tripo packs occlusion into the red channel of the ORM texture
+function prepScan(g) {
+  g.scene.traverse((o) => {
+    if (!o.isSkinnedMesh) return;
+    const m = o.material;
+    if (m.metalnessMap) { m.aoMap = m.metalnessMap; m.aoMapIntensity = 0.85; }
+    m.envMapIntensity = 0.6;
+  });
 }
 
 // The mouth of each scan for speech (the scans have no face bones): the lips' seam, the bottom of

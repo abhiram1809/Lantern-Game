@@ -609,6 +609,11 @@ tools/                      asset pipeline (build-assets, autorig, build-props, 
   the body-following blanket.
 - Credits: locomotion clips are Mixamo animations shipped with the three.js examples (`Xbot.glb`);
   Mixamo's terms allow use in projects but not redistribution of the raw animation files.
+- Loading: each part's code and characters load when that part is chosen (the one you're likely to
+  play is fetched while the title shows), and the models, textures, voices and animations are kept in
+  the browser's cache by a service worker (`public/sw.js`), so later visits load them from disk. A hard
+  refresh (Cmd+Shift+R) skips the cache. The resolution drops a little when the frame rate does, and
+  comes back when it recovers; `localStorage.gl_res = '1'` (or `'1.5'`) in the console fixes it.
 - `window.__game` exposes the engine/story for debugging; `__game.shot(name, seconds)` steps the game
   and saves a canvas capture through the dev server (set `SHOT_DIR` to choose the folder).
 

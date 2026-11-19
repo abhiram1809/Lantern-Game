@@ -64,7 +64,13 @@ const GradeShader = {
 export class Engine {
   constructor(container) {
     const renderer = (this.renderer = new THREE.WebGLRenderer({ powerPreference: 'high-performance' }));
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    // the resolution adapts to the frame rate (`adapt`); `gl_res` in localStorage fixes it
+    this.maxRatio = Math.min(window.devicePixelRatio, 1.5);
+    this.fixedRatio = Number(globalThis.localStorage?.gl_res) || 0;
+    this.ratio = this.fixedRatio || this.maxRatio;
+    this.frameAvg = 1 / 60;
+    this.slowT = this.fastT = 0;
+    renderer.setPixelRatio(this.ratio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -126,6 +132,9 @@ export class Engine {
     this.update = update;
     this.renderer.setAnimationLoop((timestamp) => {
       this.timer.update(timestamp);
+      const raw = this.lastStamp == null ? 0 : (timestamp - this.lastStamp) / 1000;
+      this.lastStamp = timestamp;
+      if (!this.paused && raw > 0 && raw < 0.25 && !document.hidden) this.adapt(raw);
       // the timer can report a negative delta when its clock and the frame timestamps disagree
       // (around visibility changes); a negative step poisons damping and flight maths with NaN
       const dt = Math.max(0, Math.min(this.timer.getDelta(), 1 / 20));
@@ -134,13 +143,38 @@ export class Engine {
     });
   }
 
+  // Dynamic resolution, as games do it: a second and a half of frames slower than 45 a second steps the
+  // pixel ratio down an eighth (to 0.6 of the screen's at the least), four seconds faster than 70 steps
+  // it back up. (A big Retina window drew 4 million pixels with 4x multisampling and bloom.)
+  adapt(raw) {
+    if (this.fixedRatio) return;
+    this.frameAvg += (raw - this.frameAvg) * 0.08;
+    if (this.frameAvg > 1 / 45) { this.slowT += raw; this.fastT = 0; }
+    else if (this.frameAvg < 1 / 70) { this.fastT += raw; this.slowT = 0; }
+    else this.slowT = this.fastT = 0;
+    const min = Math.max(0.75, this.maxRatio * 0.6);
+    let next = this.ratio;
+    if (this.slowT > 1.5) next = Math.max(min, this.ratio - 0.125);
+    else if (this.fastT > 4) next = Math.min(this.maxRatio, this.ratio + 0.125);
+    if (next === this.ratio) return;
+    this.ratio = next;
+    this.slowT = this.fastT = 0;
+    this.frameAvg = 1 / 60;
+    this.renderer.setPixelRatio(next);
+    this.composer.setPixelRatio(next);
+  }
+
   frame(dt, render = true) {
     const real = dt;
     dt *= this.timeScale;
     this.time += dt;
     this.grade.uniforms.uTime.value = this.time + (this.timeScale < 1 ? performance.now() / 1000 : 0);
+    const t0 = performance.now();
     this.update(dt, this.time, real);
+    const t1 = performance.now();
     if (render) this.composer.render(dt);
+    // (dev only: frames over 50 ms, how long the game's update and the render each took)
+    if (import.meta.env.DEV) { const t2 = performance.now(); if (t2 - t0 > 50) (window.__slowFrames ??= []).push({ at: Math.round(t0), update: Math.round(t1 - t0), render: Math.round(t2 - t1) }); }
   }
 
   // Debug: advance the game by `seconds` in fixed steps (independent of the browser's frame rate),

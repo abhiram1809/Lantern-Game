@@ -584,16 +584,20 @@ Every model faces +Z (`facing: 1`) and has WebP textures.
 
 `boot()` sets up the game in this order:
 
-1. It creates the `Engine`, `Input`, `AudioBank`, `Voice` and `UI`.
-2. Three things load in parallel: `loadCharacters()` (three GLBs plus the Xbot mocap),
-   the poster textures, and `initPhysics()` (Rapier WASM).
+1. It creates the `Engine`, `Input`, `AudioBank`, `Voice` and `UI`, and registers the service
+   worker (`public/sw.js`, see *Loading and performance*).
+2. Three things load in parallel: `loadCharacters()` (the core: both Hals, Abin Sur and the Xbot
+   mocap), the poster textures, and `initPhysics()` (Rapier WASM).
 3. It exposes `window.__game` (`story` is a getter: the story object doesn't exist until the
    title has picked a part).
 4. It starts `engine.start((dt, t, real) => { tick(dt); story?.update(dt, t, real); input.endFrame(); })`.
-5. It runs `titleFlow()`, which resolves with `{ part, id }`.
+5. While the title shows, it fetches the part it guesses comes next (the URL hash's, else
+   `latestCheckpoint()`'s): that part's code (`PART_CODE`, a dynamic import) and its scans
+   (`characters.more(PART_SCANS[part])`). Then it runs `titleFlow()`, which resolves with `{ part, id }`.
 6. It calls `audio.init()`. That has to happen after a user click, because of the browser's
    autoplay rules.
-7. It makes the part's story (`Story` for Part One, `Corps` for Part Two) and calls
+7. It awaits the chosen part's class and scans (already there if the guess was right), makes the
+   story (`Story` for Part One, `Corps` for Part Two, ... `Roam` for Part Six) and calls
    `story.run(id)`. If a step throws, the error is logged and a card ("The story stopped") offers
    to restart the checkpoint; before, the story just stopped and Hal kept walking a scene that
    never moved on.
@@ -624,7 +628,9 @@ grade fade) uses `real`.
 
 ### Engine (`src/engine/Engine.js`)
 
-- **Renderer:** pixel ratio capped at 1.5, PCF shadows, ACES tone mapping.
+- **Renderer:** pixel ratio capped at 1.5 and adapted to the frame rate (`adapt`: an eighth down
+  after 1.5 s under 45 fps, to 0.6 of the cap at least, an eighth up after 4 s over 70;
+  `localStorage.gl_res` fixes it), PCF shadows, ACES tone mapping.
 - **Post chain:** `RenderPass` → NaN/Inf guard → `UnrealBloomPass` → grade `ShaderPass` →
   `OutputPass`.
   - The composer renders into a HalfFloat target with 4× MSAA.
@@ -637,6 +643,46 @@ grade fade) uses `real`.
 - `Physics.beforeStep` (an array of `fn(dt)`) runs before each world step: a driven car's wheels.
 - `engine.frame(dt, render)` and `async engine.advance(seconds, dt = 1/30)` step the game
   manually, for debugging and captures.
+
+### Loading and performance (2026-11-19)
+
+The user (2026-11-19): the frame rate "dropping quite fast" even on their Mac, the browser freezing
+for a moment on every boot, and they asked for the game to load bit by bit and stay in the browser's
+cache. What's in place:
+
+- **Code by part.** `main.js` imports each part's story class on demand (`PART_CODE`); the build
+  splits them (`Corps`, `Coast`, `Prisoner`, `Probation`, `Roam` chunks). The `Story` chunk (5 MB, 1.9
+  MB gzipped) is mostly Rapier's WASM, which the compat build inlines as base64 (4.1 MB), and three.js.
+- **Scans by part.** `loadCharacters()` loads only the core (both Hals, Abin Sur, the mocap: 0.3 s,
+  was 2 s for everything); `characters.more(names)` loads the rest (`SCANS`, `PART_SCANS`: Kilowog for
+  Part Two, Carol and Hector for Part Three, and so on), started while the title shows.
+- **The browser's cache.** `public/sw.js`, a service worker: everything under `/models`, `/textures`,
+  `/voices` and `/anims` is served from the cache (`gl-assets-v1`) at once and fetched again behind it,
+  so a rebuilt file shows on the visit after. A hard refresh skips it. The code isn't cached there
+  (the dev server and a deploy's hashed bundles do that). Bump `CACHE` to drop everything.
+- **Building in slices.** The Ferris scene with the block is built by generators (`Ferris.steps()`,
+  `blockSteps`, `Batch.buildSteps`) that yield between buildings, rooms and batches;
+  `sliced(steps, 12)` (`engine/Slice.js`) runs them in 12 ms pieces with a macrotask between, and
+  `runSteps` straight through (`Ferris.build()`, which the story chapters still use).
+  `Coast.setupFerrisAsync()` / `Ferris.buildAsync()` are free roam's way in. It was one 1.1 to 1.7 s
+  frame before.
+- **Shaders compiled behind the loading.** `Story.warmUp(scene, prepare, roots)`: the scene split into
+  pieces of 300 objects or fewer, each compiled with `renderer.compileAsync` (hidden things shown for
+  it, `prepare()` setting the night so its variants are made too), a macrotask between pieces, then
+  every texture uploaded (`initTexture`) a few at a time. CityLife warms its people the same way.
+- **Point lights pooled** (`city/Lamps.js`, `LampPool`, `Ferris.lamps`): four real lights for the whole
+  scene, given to the nearest sources that are on (rooms, shops, the offices, the hangar, the night's
+  lamps; `lamps.add(object3d, { color, power, reach })`, `src.power` to dim). There were 17: three.js
+  shades every point light for every lit pixel, and a change in the count recompiles every material.
+- **Draw calls and triangles**: the block's cells, instancing, shared merges, the car tiers and draw
+  distances under *Coast City's block* (`Lod.js`); 21 props decimated at build time (`tris` / `error`
+  in `build-props.mjs`: the palms, the fire escape and the newsbox stayed heavy, they lose their shape);
+  static things' matrices frozen (`matrixAutoUpdate` off), hidden people skipped.
+- **Measured** in the block (Chrome, 1280×800, the pane's Mac): the update 5.3 → 2.9 ms, the render's
+  CPU 32 → 11 ms, the GPU 25 → 13 ms, 1,134 draw calls (384 of them the shadow map), the heap 880 → 795
+  MB. Entering free roam: about 10 s from Continue with nothing longer than 170 ms, except one frame of
+  about 0.55 s when the scene first draws (the geometry's upload to the GPU) and car merges of 80 to
+  105 ms in the first seconds.
 
 ### Story (`src/story/Story.js`, `src/story/lines.js`)
 
@@ -1044,7 +1090,7 @@ boulevard from Hal's lot to the cross street, both sides, built into the Ferris 
   street lights, hydrants, newspaper boxes, a mailbox, a cabinet, the bus stop along the kerb, open to
   the pavement, and a bench); the
   alleys (walls, power lines, bins, dumpsters, a cart, the fire escape); `setNight(k)` (lamp pools,
-  halos, a few real lights, light from the shops on the pavement, the neon). `Ferris.night()` is the
+  halos, the lamp pool's sources, light from the shops on the pavement, the neon). `Ferris.night()` is the
   night preset that turns it on.
 - **Colliders are exact**: `ctx.solids` go to Smash with `shrink: 1` (its default shrinks a box 6%,
   which left the diner's floor half a metre short of every wall: see Gotchas). The fittings built from
@@ -1066,8 +1112,8 @@ boulevard from Hal's lot to the cross street, both sides, built into the Ferris 
   lightbox, scratchers, the cigarette wall, a candy rack), three gondolas stocked to the edges, six
   coolers of cans, wall shelving, the ATM, magazines, the ice chest, a security mirror, a drop
   ceiling with troffers. Goods are two instanced meshes over a label atlas (`goodsTexture`,
-  `stockShelves`: about 2,500). One point light per room, on only while the camera is within 70 m
-  (three.js lights every surface with every point light: keep them few). `ctx.spots` are what the
+  `stockShelves`: about 2,500). Each room's lamp is a source in the scene's lamp pool (see *Loading
+  and performance*), not a light of its own. `ctx.spots` are what the
   story makes interactions of (Roam's `blockRoam`): sit at the counter or in a booth (`Roam.sit`:
   walked up, lowered onto it by `sitEdge` with the hips at the seat's height, `autoAnim` off; E or a
   step gets up), the jukebox (`Roam.jukebox`, a progression on `musicBox`), the menu, the store's bell,
@@ -1079,14 +1125,21 @@ boulevard from Hal's lot to the cross street, both sides, built into the Ferris 
   place there is no need to render everything"): `Ferris.lod`, checked five times a second and at once
   after a cut, from the camera; hysteresis of a tenth. Only drawing changes: bodies, colliders and
   Smash's items are untouched. The block's tiers (`DRAW`): walls, roofs, glass, signs, pavements and road
-  paint always (from the air they're the town); its trim (frames, sills, iron, copings, awnings) within
-  300 m; parked cars, palms, lamps within 260; small props within 160, casting shadows within 80.
-  Everything else Smash holds at Ferris by size (160 / 260 / 600 m, buildings always); the prototypes
-  (the apron's 1.8 km, Hangar Two's 300 m). Static props are merged per material when placed
-  (`flatten`: a pole's 19 parts, a condenser's 12, one draw call each per material). **Cars**
-  (`addCar`): beyond 15 m a merged copy of themselves (about 10 draw calls, not 54), made again if the
-  car has been hurt since; within it their own parts, for dents, glass and doors. Measured in the block:
-  2,829 draw calls to 974 (the cars were most of it); 230 m off, 1,906 to 491; 420 m, 240 → 230.
+  paint always (from the air they're the town), in 80 m cells (`Batch.buildSteps`, `cell`) so the view
+  and the shadow camera cull them; its trim (frames, sills, iron, copings, awnings) within 220 m; the
+  street's furniture within 200; small props within 90. Inside the rooms: shelves, coolers and rooms
+  within 45 to 50 m, small things 35, goods 50, doors 60, none of them casting shadows. Everything else
+  Smash holds at Ferris by size (90 / 200 / 600 m, buildings always; shadows within 35 / 70 / 150); the
+  prototypes (the apron's 1.8 km, Hangar Two's 300 m). Static props are merged per material when placed
+  (`flatten`: a pole's 19 parts, a condenser's 12, one draw call each per material), and those that never
+  move and repeat (`STILL`: palms, decals, booths, stools, coolers, wall shelves, the ATMs) are instanced
+  per geometry, material, cell and tier. Merged copies share geometry where their parts and placement
+  match (`mergeByMaterial`'s `shared`, refcounted, `releaseMerged`). **Cars** (`addCar(car, dist, item,
+  { near, low, shadow })`): beyond `near` (15 m for traffic, 4 m for parked cars) a merged copy of
+  themselves (about 10 draw calls, not 54), beyond `low` (45 m) a copy simplified to a third of its
+  triangles (`simplified`, meshoptimizer), made again if the car has been hurt since; within `near`
+  their own parts, for dents, glass and doors. At most two copies are merged per check (each is a few
+  milliseconds). Measured in the block on 2026-11-18: 2,829 draw calls to 974; 230 m off, 1,906 to 491.
 
 **Hal's block's people** (`story/CityLife.js`, `new CityLife(story, ferris).start()` from
 `Roam.blockRoam`; 2026-11-18): 28 of the Rocketbox people (`STAFF`, `DINERS`, `STANDS`, `WALKERS`), each
@@ -1153,9 +1206,10 @@ now, the jaw on the voice. Movement is one primitive: `go(p, worldPoints, { spee
   where they are.
 - **By night** (`ferris.isNight`) half the walkers and the bus stop's people and the friends are gone,
   going home and coming out only where the camera can't see them (`p.out`: the clock runs now).
-  **Cost**: anyone beyond 150 m of the camera (45 m inside) isn't drawn or animated; shadows within 40 m.
-  Measured on the west pavement: 22 out, 91 draw calls and 276k triangles of the scene's 1,154 and
-  3.66 M, 0.64 ms a frame for their updates.
+  **Cost**: anyone beyond 110 m of the camera (40 m inside) isn't drawn or animated (nor are their
+  matrices updated); the rest are posed every frame within 25 m and in view, every third frame farther
+  or out of view, every eighth far and out of view; shadows within 22 m. They're made one at a time
+  between frames, hidden until their shaders are compiled (`Story.warmUp`).
 - **Their bodies are in no collision pairs** (`setCollisionGroups(0x00020000)`): Hal's controller still
   finds them (its queries don't filter by group) and the ring finds the emergencies' actors as targets,
   but a person walking through a parked car doesn't shove it (an officer did, and half the street went).
@@ -1173,8 +1227,9 @@ agreed on 2026-11-18, see *Working with this user*). In the Ferris scene, free r
   mornings (`haze`, fog ×11), overcast, now and then rain (streaks in a box round the camera, off indoors:
   `block.indoors`; the asphalt and concrete materials darker and glossier, roughness floored at 0.42 or
   the kerbs went white; its hiss), crickets at night, birds of a morning. `LifeSave` (engine/Save.js, its
-  own store `gl_life_v1`) keeps the hour, day and weather. The night kit's lights are compiled in at the
-  start (`renderer.compile` with the lamps on): the first dusk otherwise recompiled every material. Sleep
+  own store `gl_life_v1`) keeps the hour, day and weather. Night needs no recompile: the scene's point
+  lights are the lamp pool's four, the same count all day, and the night kit's materials are compiled on
+  the way in (`Story.warmUp` with the night set, in the background). Sleep
   in the flat sets the hour (7:06 AM or 7:39 PM).
 - **His life** (`story/Life.js`, the panel under the clock `#life`, `ui.life`): **money** (starts $38.50;
   Ferris pays $120 a shift, `Roam.offerShift` through Carol as Hal, 7 AM to 1 PM, once a day, the clock to
@@ -1234,8 +1289,8 @@ agreed on 2026-11-18, see *Working with this user*). In the Ferris scene, free r
   Staff: a Rocketbox person per shop at a post (CityLife makes any post's `staff`, with `lines` of their
   own); E at the counter (`buy` spots, `Roam.shopBuy`): the trade's items, paid (food heals a little, the
   clinic all of it, the laundromat and the barber take the time), thanks by voice, Green Lantern told
-  he's welcome. **One shared lamp** for the eighteen (`ctx.shopLights`, HalsBlock's `shopLamp`, moved to
-  the room the camera's in or nearest within 18 m): each its own point light would have cost every frame.
+  he's welcome. Each shop's lamp is a source in the lamp pool (`ctx.shopLights`, HalsBlock's `shopLamp`):
+  each its own point light would have cost every frame.
   A fitting may place its own staff (`room.post`), the buy spot (`room.buy`) and **regulars**
   (`regular()`: a post of anyone else, standing on a beat or sitting, `sit`, on a stool or a chair); a
   trade may keep its own counter (`ownCounter`), go without the stocked back shelving (`back: false`),
@@ -2169,6 +2224,8 @@ The checks that have worked:
 0. **Test silently** when the user asks (they did on 2026-11-12, asleep): `localStorage.gl_mute = '1'`
    routes the whole mix into a zero gain (`AudioBank.init`), and voices off in the save avoids the
    browser's speech fallback.
+   Set `localStorage.gl_res = '1.5'` too for captures to compare: the resolution otherwise adapts to
+   the frame rate, and a throttled test tab steps it down.
 1. **Run your own dev server on 5180** from Bash, in the background. The user's server is on 5173;
    leave it alone.
 
@@ -2229,6 +2286,24 @@ The checks that have worked:
    still playing. Every source edit makes Vite reload all tabs, theirs included.
 
 ## Gotchas (learned the hard way)
+
+- **Measuring a frame in the page counts the game's own frames too.** A wrapper on
+  `renderBufferDirect` or a timer around `composer.render` also catches the animation loop's frames
+  that run while the test awaits; wrappers left on stack up across runs; and a hidden pane throttles
+  frames to one a second. Pause the engine, call `story.update` and `composer.render` by hand for one
+  frame, take the wrapper off after, and keep the pane visible. HMR reloads modules: a wrap on a class's
+  prototype from the console may not be the class the game uses.
+- **The shadow map is a second scene's worth of draw calls.** 384 of the block's 1,134 were the sun's
+  shadow pass: everything that casts is drawn again. Small things and room contents cast nothing.
+- **A door built from boxes is a dozen draw calls.** Each frame, rail, panel and handle was a mesh;
+  flattened per material they're two or three.
+- **Every point light costs every lit pixel**, on or off, near or far (17 in the valley); adding one
+  recompiles every material. Pool them (`LampPool`).
+- **`compileAsync` isn't all off the main thread.** Its programs link in the background, but making
+  them for a whole scene at once was a 1 s stall. Split the scene into pieces and yield between them.
+  Rendering the scene in slices to warm it instead took 17 s and made 130 programs more.
+- **The first frame that draws a new scene uploads all its geometry** (about 0.55 s for the valley
+  with the blocks); `initTexture` covers the textures, not the buffers.
 
 - **A sign atlas fills up quietly.** With the second block, every sign drawn after the 2048 atlas was
   full landed off its canvas: the shops' back-wall boards came out as black panels. `SignAtlas.add`
@@ -2731,6 +2806,14 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-19, loading and performance) on 5180, muted, voices off, the pane's Mac Chrome at 1280×800:
+  the block's frame measured by hand (update, render CPU, GPU by timer query, draw calls) before and
+  after (*Loading and performance*); the boot and Continue into free roam with the service worker on
+  (after one visit into free roam 180 files were in the cache; on a reload the boot's 17 came from it, nothing over the network, the scans in about 20 ms each), the part's code and scans
+  loaded after the title; long tasks logged on the way in; captures of the street, the diner, the
+  alley's poles and wires and the second block after the instancing (matching the earlier ones); no
+  console errors; a clean build.
+
 - (2026-11-19, the block over the crossing, Korugar's tavern, the Ferris offices) on 5180, muted,
   fixed-step and scripted keys from `#world`: Hal's block's fingerprint unchanged through the refactor;
   the new block from the crossing, down both pavements, from above and at dusk (captures); all fourteen
@@ -3074,6 +3157,13 @@ Verified by playing in the browser:
 
 Not verified:
 
+- Loading and performance on other machines and at full screen on a Retina display (the adaptive
+  resolution steps it down; its steps not seen by hand); Parts One to Five booted with their own scans
+  since the scans load by part (only Part Six's free roam was played in); the service worker on a deploy
+  (only on the dev server), and a rebuilt model showing on the next visit; the first draw's 0.55 s
+  upload; the lamp pool's lights changing source at full speed (a light can fade across between rooms);
+  the parked cars' merged copies past 4 m from the follow camera.
+
 - The new block, Korugar's tavern and the offices by hand, by ear, at full frame rate (the second block
   adds about as much again as Hal's: two more pages of signs, 22 more people, 14 more rooms); talking to
   each new person (only Gus bought from; the lines exist and are rendered, not heard); the cinema's ticket
@@ -3334,7 +3424,7 @@ src/main.js                 boot, loading, title / continue / chapters, window._
 src/engine/                 Engine (renderer + post), Input, Physics (Rapier), CameraDirector
                             (follow / shot / orbit / shake), Time (game-time waits + tweens),
                             Audio (WebAudio synth), Voice (pre-rendered clips, lip-sync curve,
-                            speech fallback), Save (checkpoints)
+                            speech fallback), Save (checkpoints), Slice (building in slices)
 src/characters/             Rig + Animator, IK, Mocap, Poses, Player (walk + flight), Characters,
                             BodyLanguage (talking gestures), Guardian + Robe + HairCards (the Guardians),
                             FlightSuit (Hal's test-pilot kit), People (Coast City's Rocketbox people: load, fingers,
@@ -3366,7 +3456,7 @@ src/city/                   Coast City's kit: Kit (materials, the glass with roo
                             one over the crossing, their streets, doors), Lod (drawing by distance, merged props,
                             cars' merged copies), Interiors (the diner, the corner store), Shops (every other shop's
                             fittings, staff and wares: the bar, the precinct, the ER...), Traffic (the cars),
-                            Office (the Ferris offices)
+                            Office (the Ferris offices), Lamps (the pooled point lights)
 src/story/                  Story (Part One + shared plumbing, the lantern), Corps (Part Two, travel), KorugarLife (Korugar's street life),
                             CityLife (the blocks' people: walkers, talk, whispers, who sees him), DinerLife (Rosie's
                             service, Dot's kitchen, the customers, Hal's order), Life (money, XP, the ring's stats,
@@ -3382,7 +3472,8 @@ src/ui/VehicleHud.js        the car's dash, the jet's panel and HUD, the test ca
 tools/                      build-assets, autorig, build-props, build-people, people-test.js, propview.html, fetch-textures, build-voices,
                             voices.html, strip-mocap, extract-posters, debug renderers
 public/models, public/anims built GLBs loaded at runtime (props in public/models/props); public/textures/posters,
-                            public/textures/pbr (Poly Haven surfaces); public/voices (clips + manifest.json)
+                            public/textures/pbr (Poly Haven surfaces); public/voices (clips + manifest.json);
+                            public/sw.js (the service worker: assets kept in the browser's cache)
 ```
 
 ---
@@ -3390,6 +3481,20 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-19: loading by part, the browser's cache, and the frame rate
+- The user: the frame rate "dropping quite fast" even on their Mac, the browser freezing on boot, and
+  the game to load "bit by bit" and stay in the browser's cache. See *Loading and performance*.
+- `main.js` (`PART_CODE`, the guess prefetched behind the title, the service worker), `Characters.js`
+  (`more`, `SCANS`, `PART_SCANS`), `public/sw.js` (new), `engine/Slice.js` (new), `city/Lamps.js`
+  (new), `Engine.js` (`adapt`, `gl_res`), `Kit.js` (`buildSteps`, cells), `HalsBlock.js` (`blockSteps`,
+  the pool's sources, `STILL` instancing, frozen matrices, draw and shadow distances), `Lod.js` (shared
+  merges, the simplified tier, `near`), `Ferris.js` (`steps`, `buildAsync`, `lamps`, Smash's tiers),
+  `Office.js`, `Coast.setupFerrisAsync`, `Roam.enterPlace` (`warmUp`), `Story.warmUp`, `CityLife.js`
+  (made between frames, posed by distance and view), `build-props.mjs` (21 props decimated,
+  `tris`/`error`); `meshoptimizer` moved to the runtime dependencies.
+- Verified: see Status (2026-11-19, loading and performance). Not verified: other machines, the other
+  parts' boots, a deploy.
 
 ### 2026-11-19: the block over the crossing (police, hospital, bar), the other shops, Korugar's tavern, the Ferris offices
 - The user's "no finish everything i told you": the agreed interiors ("the Ferris offices, the police

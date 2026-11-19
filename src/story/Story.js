@@ -143,6 +143,34 @@ export class Story {
 
   // Back on his feet after a cutscene that flew him (a voyage's dive leaves the flying pose and a
   // raised ring arm on him): standing, his own walk and idle again.
+  // Every material in a scene compiled before any of it is drawn, in the background where the browser
+  // can (the first frame of free roam compiled 300 programs on the spot: the page froze a second), a
+  // piece at a time (working them all out at once held it half a second); then its textures sent to the
+  // GPU a few at a time (a first frame sends them all). Whatever is hidden (drawn by distance, a night's
+  // lamps) is shown just while its programs are gathered; `prepare` may set more up for it and returns
+  // what puts it back. `roots`: only these, lit as the scene is (the people, in a scene already warm).
+  async warmUp(scene, prepare, roots = [scene]) {
+    const r = this.engine.renderer;
+    if (!r.compileAsync) return;
+    let t = performance.now();
+    const breathe = async () => { if (performance.now() - t > 10) { await new Promise((res) => setTimeout(res, 0)); t = performance.now(); } };
+    const pieces = [], split = (o) => { let n = 0; o.traverse(() => n++); if (n > 300 && o.children.length) o.children.forEach(split); else pieces.push(o); };
+    roots.forEach(split);
+    const jobs = [], textures = new Set();
+    for (const piece of pieces) {
+      const hidden = [];
+      piece.traverse((o) => {
+        if (!o.visible) { hidden.push(o); o.visible = true; }
+        for (const m of [o.material].flat()) if (m) for (const v of Object.values(m)) if (v?.isTexture && !v.isRenderTargetTexture) textures.add(v);
+      });
+      const undo = prepare?.();
+      try { jobs.push(r.compileAsync(piece, this.engine.camera, scene)); } finally { for (const o of hidden) o.visible = false; undo?.(); }
+      await breathe();
+    }
+    await Promise.race([Promise.all(jobs), new Promise((res) => setTimeout(res, 8000))]); // (real time: the game's may be stopped)
+    for (const tex of textures) { r.initTexture(tex); await breathe(); }
+  }
+
   standDown() {
     const { player } = this, an = player.animator;
     player.flying = false;

@@ -11,7 +11,7 @@ import { DinerLife } from './DinerLife.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
-const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _p = new THREE.Vector3(), _e = new THREE.Vector3(), _c = new THREE.Vector3(), _s = new THREE.Vector3();
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _p = new THREE.Vector3(), _e = new THREE.Vector3(), _c = new THREE.Vector3(), _s = new THREE.Vector3(), _sph = new THREE.Sphere();
 
 // Hal's block with people on it (2026-11-18; the user's notes the same day: "they are not that
 // intelligent... no one is serving them", "I want to be able to hear whispers", "Hal should not be
@@ -174,8 +174,12 @@ export class CityLife {
       per.rig.root.scale.setScalar(id.includes('child') ? 1 : k);
       return per;
     };
+    // (seventy people made in one go held the page: a breath for the browser every 10 ms of them)
+    let bt = performance.now();
+    const breathe = async () => { if (performance.now() - bt > 10) { await new Promise((r) => setTimeout(r, 0)); bt = performance.now(); } };
     // the staff and the shopper at their posts
     for (const [who, s] of Object.entries(STAFF)) {
+      await breathe();
       const post = posts.find((p) => p.who === who), per = make(s.id);
       if (!post || !per) continue;
       this.add(per, { kind: who, tag: who, voice: s.voice, label: s.label, post, home: post.at.clone(), yaw: post.face, state: 'post', inside: true, speed: who === 'shopper' ? 0.6 : 0.95, radius: who === 'shopper' ? 1.7 : 2.4 });
@@ -183,6 +187,7 @@ export class CityLife {
     // the other shops' staff (city/Shops.js: each post brings its person, voice and lines)
     for (const post of posts) {
       if (!post.staff) continue;
+      await breathe();
       const per = make(post.staff.id);
       if (!per) continue;
       // (seated, some: the regulars on their stools, the officer at his typewriter, the travel agent)
@@ -190,6 +195,7 @@ export class CityLife {
     }
     // the street: standing, waiting, talking, on the phone
     for (const s of STANDS) {
+      await breathe();
       const per = make(s.id);
       if (!per) continue;
       const at = V(s.at[0], 0, s.at[1]);
@@ -201,16 +207,18 @@ export class CityLife {
     // the walkers, spread along each block's loop, half each way
     for (const [k, list] of [WALKERS, WALKERS2].entries()) {
       const lp = this.loops[k], L = lp.length - lp.hop.len;
-      list.forEach((id, i) => {
+      for (const [i, id] of list.entries()) {
+        await breathe();
         const per = make(id);
-        if (!per) return;
+        if (!per) continue;
         const voice = id.includes('female') ? ['townf1', 'townf2', 'townf3'][i % 3] : ['townm1', 'townm2', 'townm3'][i % 3];
         this.add(per, { kind: 'walker', loop: lp, voice, label: id.includes('female') ? 'A woman' : 'A man', state: 'walk', s: (i / list.length) * L + (i % 3) * 4, dir: i % 2 ? -1 : 1, lane: 0.22 + ((i * 7) % 5) * 0.07, speed: 1.18 + ((i * 13) % 7) * 0.045, radius: 1.9, night: i % 2 === 0 });
-      });
+      }
     }
     // the diner: its first customers, Rosie's service, Dot's kitchen
     this.diner = new DinerLife(this);
     for (const d of DINERS) {
+      await breathe();
       const per = make(d.id);
       if (!per) continue;
       const p = this.add(per, { kind: 'diner', tag: d.tag, voice: d.voice, label: d.label, home: V(0, 0, 0), state: 'seated', inside: true, radius: 1.3, sit: 0.47 });
@@ -221,6 +229,8 @@ export class CityLife {
     this.talks = TALKS.map((g) => ({ ...g, people: g.members.map((t) => this.byTag(t)), last: -99 })).filter((g) => g.people.every(Boolean));
     this.watch = { onCast: () => this.scare() };
     this.story.powers.watchers.add(this.watch);
+    // their materials compiled before any of them is drawn (each first draw compiled on the spot)
+    await this.story.warmUp?.(this.f.scene, null, this.people.map((p) => p.rig.root));
     this.f.updaters.push((dt) => this.update(dt));
     this.diner.start();
     this.started = true;
@@ -233,6 +243,7 @@ export class CityLife {
   add(per, opts) {
     const { f, story } = this, rig = per.rig;
     f.scene.add(rig.root);
+    rig.root.visible = false; // (shown by `update` when they're near, once their materials are compiled)
     const anim = new Animator(rig), loco = new Locomotion(story.mocap);
     loco.scale = rig.hipsHeight * rig.root.scale.y / story.mocap.hipsHeight;
     loco.relax.adduct = 0.08;
@@ -564,6 +575,7 @@ export class CityLife {
   update(dt) {
     const { story, f } = this, player = story.player, cam = story.director.camera ?? story.engine.camera, hp = player.position;
     this.t += dt;
+    this.frameN = (this.frameN ?? 0) + 1;
     const night = !!f.isNight;
     cam.updateMatrixWorld();
     this.projM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
@@ -580,10 +592,11 @@ export class CityLife {
       const d = Math.hypot(p.pos.x - hp.x, p.pos.z - hp.z), dc = p.pos.distanceTo(cam.position);
       if (p.out === undefined || (goes !== p.out && !(dc < 70 && this.frustum.containsPoint(_s.copy(p.pos).setY(p.pos.y + 1))))) p.out = goes;
       const out = p.out;
-      const active = out && near && dc < (p.inside ? 45 : 150);
+      const active = out && near && dc < (p.inside ? 40 : 110);
       if (active !== p.active) {
         p.active = active;
         p.rig.root.visible = active;
+        p.rig.root.matrixWorldAutoUpdate = active; // (no bones worked out for someone not drawn)
         if (!active) p.rb.setNextKinematicTranslation({ x: p.pos.x, y: -50, z: p.pos.z });
       }
       if (!active && p.state !== 'route') continue;
@@ -627,10 +640,13 @@ export class CityLife {
       p.loco.direction = 1;
       if (p.it) p.it.enabled = !p.mute && active && !p.talking && p.state !== 'flee' && p.state !== 'cower' && !player.flying && (p.kind !== 'diner' || p.state === 'seated');
       if (!active) { p.rb.setNextKinematicTranslation({ x: p.pos.x, y: -50, z: p.pos.z }); continue; }
-      p.anim.update(dt);
-      p.per.update(dt);
+      // (posed every frame only near the camera; farther, every third, the time made up; out of view
+      // and casting no shadow, every eighth: 70 people posed every frame was most of the street's cost)
+      p.animDt = (p.animDt ?? 0) + dt;
+      const every = !(dc < 22 || this.frustum.intersectsSphere(_sph.set(_s.copy(p.pos).setY(p.pos.y + 1), 1.2))) ? 8 : dc < 35 ? 1 : 3;
+      if (every === 1 || (this.frameN + (p.slot ??= this.people.indexOf(p))) % every === 0) { p.anim.update(p.animDt); p.per.update(p.animDt); p.animDt = 0; }
       eyesOf(p.rig, p.head);
-      const cast = dc < 40;
+      const cast = dc < 22;
       if (cast !== p.cast) { p.cast = cast; for (const m of p.rig.meshes) m.castShadow = cast; }
       p.rb.setNextKinematicTranslation({ x: p.pos.x, y: p.ghost ? -50 : p.pos.y, z: p.pos.z }); // (`ghost`: no body, someone sat inside a car)
       if (p.state === 'route' || p.kind === 'diner') this.block.openers.push(p.pos);

@@ -405,8 +405,11 @@ export class Roam extends Exile {
     this.roamTick = null;
     let air;
     if (id === 'ferris' || id === 'coast') {
-      const f = this.setupFerris();
+      const f = await this.setupFerrisAsync();
       f.roadGround();
+      // its materials compiled first, the town's night lamps among them (city/Lamps.js keeps the
+      // lights the same at any hour, so dusk recompiles nothing)
+      await this.warmUp(f.scene, () => { f.block?.setNight(1); f.office?.setNight(1); return () => { f.block?.setNight(this.dayCycle?.k ?? 0); f.office?.setNight(this.dayCycle?.k ?? 0); }; });
       if (id === 'ferris') this.enterFerris(HANGAR_MOUTH.clone().add(V(0, 0, -6)), 0);
       else this.enterFerris(LOT.clone().add(V(4, 0, -30)), Math.PI);
       this.world = 'earth';
@@ -480,10 +483,7 @@ export class Roam extends Exile {
     const { audio, player, powers, engine } = this;
     if (!this.dayCycle) {
       this.dayCycle = new DayCycle(f, LifeSave, { audio, engine });
-      // the town's night lights compiled in now: the first dusk otherwise recompiled every material
-      // in view as the lamps came on (adding a light does)
-      if (f.block) { f.block.setNight(1); engine.renderer.compile(f.scene, engine.camera); f.block.setNight(0); }
-      this.dayCycle.apply(engine.camera);
+      this.dayCycle.apply(engine.camera); // (the night's materials were compiled with the rest: enterPlace's warmUp)
     }
     // the streets' traffic (city/Traffic.js), in free roam only
     if (!this.traffic && f.block) { this.traffic = new Traffic(f, this, { count: 16, lot: LOT }); f.updaters.push((dt) => this.traffic.update(dt)); }

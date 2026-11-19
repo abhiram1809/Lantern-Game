@@ -11,6 +11,7 @@ import { building, box, label } from './Building.js';
 import { kit, shell, FLOOR } from './Interiors.js';
 import { SignAtlas } from './Signs.js';
 import { swingDoors, SOLID } from './HalsBlock.js';
+import { flatten } from './Lod.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const _in = new THREE.Vector3();
@@ -56,10 +57,12 @@ export function buildFerrisOffice(f, at = V(83, 0, 51)) {
     f.smash.add(d, { kind: 'solid', box: new THREE.Box3(sd.half.clone().negate(), sd.half), shrink: 1, stuff: sd.stuff, glass: false });
   }
   for (const p of ctx.parapets) f.physics.fixedBox(p.c, p.half, p.q);
-  for (const d of ctx.doors) g.add(d.pivot);
-  const light = new THREE.PointLight(0xfff4e6, 0, 18, 2);
+  for (const d of ctx.doors) { flatten(d.pivot); g.add(d.pivot); }
+  // its light, a source in the scene's pool (city/Lamps.js)
+  const light = new THREE.Object3D();
   if (r) light.position.copy(V((r.x0 + r.x1) / 2, r.ceil - 0.6, r.z0 - 6).applyMatrix4(r.M));
   g.add(light);
+  const src = f.lamps?.add(light, { color: 0xfff4e6, power: 0, reach: 18 });
   const inv = r?.M.clone().invert();
   return {
     group: g, ctx, spots: ctx.spots, posts: ctx.posts,
@@ -72,7 +75,7 @@ export function buildFerrisOffice(f, at = V(83, 0, 51)) {
     setNight(k) { for (const m of [mats.signLit]) m.emissiveIntensity = 0.1 + k * 0.4; },
     update(dt, t, camera) {
       swingDoors(ctx.doors, g.position, dt, this);
-      if (camera) light.intensity = light.position.distanceTo(camera.position) < 40 ? 6 : 0;
+      if (camera && src) src.power = light.position.distanceTo(camera.position) < 40 ? 6 : 0;
     },
   };
 }

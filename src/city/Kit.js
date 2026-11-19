@@ -3,6 +3,7 @@
 // behind it (interior mapping: each pane looks into a box of a room, its walls, floor, ceiling and a
 // little furniture, blinds or curtains in front, lit or dark at night). Geometry goes into a Batch by
 // material, merged into one mesh each at the end, so a whole block is a dozen draw calls.
+import { runSteps } from '../engine/Slice.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { pbrMaterial } from '../fx/Textures.js';
@@ -234,18 +235,32 @@ export class Batch {
     return g;
   }
 
-  // one mesh per material
-  build(mats, { shadows = true } = {}) {
-    const group = new THREE.Group();
+  // one mesh per material in each `cell` metres square: a mesh the length of two blocks is always in
+  // view and in the shadow's box, so all of it was drawn twice a frame; cut into cells, the camera and
+  // the shadow leave out what they can't see
+  build(mats, opts) { return runSteps(this.buildSteps(mats, opts)); }
+  *buildSteps(mats, { shadows = true, cell = 80 } = {}) {
+    const group = new THREE.Group(), _c = new THREE.Vector3();
     for (const [key, list] of this.parts) {
-      const geo = mergeGeometries(list, false);
-      if (!geo) { console.warn('city: could not merge', key); continue; }
-      geo.computeBoundingSphere();
-      const mesh = new THREE.Mesh(geo, mats[key]);
-      mesh.name = `city_${key}`;
-      mesh.castShadow = shadows && key !== 'glass' && key !== 'lamp';
-      mesh.receiveShadow = true;
-      group.add(mesh);
+      const cells = new Map();
+      for (const g of list) {
+        g.computeBoundingBox();
+        g.boundingBox.getCenter(_c);
+        const k = `${Math.floor(_c.x / cell)},${Math.floor(_c.z / cell)}`;
+        (cells.get(k) ?? cells.set(k, []).get(k)).push(g);
+      }
+      for (const [k, geos] of cells) {
+        const geo = mergeGeometries(geos, false);
+        if (!geo) { console.warn('city: could not merge', key); continue; }
+        geo.computeBoundingSphere();
+        const mesh = new THREE.Mesh(geo, mats[key]);
+        mesh.name = `city_${key}`;
+        mesh.userData.cell = k;
+        mesh.castShadow = shadows && key !== 'glass' && key !== 'lamp';
+        mesh.receiveShadow = true;
+        group.add(mesh);
+        yield;
+      }
     }
     return group;
   }
