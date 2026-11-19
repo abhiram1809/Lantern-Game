@@ -108,11 +108,14 @@ export class UI {
     this.el.fill.style.width = '100%';
     // kept up two frames more: the scene's first draw uploads its geometry (half a second for the
     // valley), and that stall is better under the loading screen than on the scene's first frame
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (this.load) return;
+    // (and a second and a half at most, if no frames come: a window that isn't drawn still has the game)
+    const finish = () => {
+      if (this.load || this.el.loading.classList.contains('done')) return;
       this.el.loading.classList.add('done');
       setTimeout(() => { if (!this.load) this.el.loading.style.display = 'none'; }, 900);
-    }));
+    };
+    requestAnimationFrame(() => requestAnimationFrame(finish));
+    setTimeout(finish, 1500);
   }
 
   chapter(text) { this.el.chapter.textContent = text ?? ''; }

@@ -165,7 +165,8 @@ export class Story {
     let later = [];
     if (near) {
       const box = new THREE.Box3(), d = new Map();
-      for (const p of pieces) { box.setFromObject(p); d.set(p, box.isEmpty() ? 0 : box.distanceToPoint(near)); }
+      // (a piece that can't be measured is compiled with the near ones, not the reason the way in stops)
+      for (const p of pieces) { let dd = 0; try { box.setFromObject(p); dd = box.isEmpty() ? 0 : box.distanceToPoint(near); } catch { /* compiled now */ } d.set(p, dd); }
       pieces.sort((a, b) => d.get(a) - d.get(b));
       const n = pieces.findIndex((p) => d.get(p) > radius);
       if (n >= 0) later = pieces.splice(n);

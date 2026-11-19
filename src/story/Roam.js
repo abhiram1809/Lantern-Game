@@ -388,9 +388,21 @@ export class Roam extends Exile {
       } else {
         await ui.fade(1, 0.6);
         sky = id === 'lake' && !this.civilian; // (the lake is another valley: he flies in over it)
+        // the loading screen over the black, not the black (the user: the field from Coast City was a
+        // black screen for half a minute: it had stopped, see Stream.buildCell); it goes when the place
+        // fades up (UI.fade) or he has control
+        const ferris = id === 'ferris' || id === 'coast';
+        ui.loadStart(`${P.name}`, ferris ? [['city', 'Building the streets round him', 2], ['shaders', 'Getting the light right', 2]] : [['scene', `Getting ${P.name} ready`, 3], ['shaders', 'Getting the light right', 1]]);
       }
       await this.enterPlace(id, { sky, breach });
+      ui.loadStage('shaders', 1);
       if (!sky) ui.fade(0, 0.6);
+    } catch (e) {
+      // whatever went wrong, not a black screen for good: back up where he is, with control
+      console.error('travel', e);
+      ui.loadEnd();
+      ui.fade(0, 0.6);
+      ui.toast?.('The ring lost the way · try again');
     } finally {
       this.busy = false;
     }

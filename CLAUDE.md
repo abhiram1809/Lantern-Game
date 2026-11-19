@@ -668,7 +668,9 @@ cache. What's in place:
   props, scene, shaders), `ui.loadStage(key, k)` from the way in (`loadProps(names, onProgress)`,
   `setupFerrisAsync`, the city's fill, `warmUp`), and it goes by itself at the scene's first fade up
   (`ui.fade` to a lower level), `giveControl()` or a card (`ui.screen`), or after 15 s without
-  progress. It stays up two frames past `loadEnd()`: the scene's first draw (the geometry's upload and,
+  progress. Free roam's switches within a world put it over the black too (`Roam.goTo`: Ferris and Coast
+  City, the lake), and a switch that throws fades back up with control rather than staying black. It stays
+  up two frames past `loadEnd()` (or 1.5 s, if no frames come): the scene's first draw (the geometry's upload and,
   in a chapter, its shaders) is a 0.5 to 1.2 s stall, and it's better under the loading screen. The bar
   never goes backwards. While it's up the engine neither draws (`engine.veiled`) nor changes resolution
   (its frames are slow because the scene is being built). `window.__load` (dev) has each stage's start.
@@ -2426,6 +2428,12 @@ The checks that have worked:
 
 ## Gotchas (learned the hard way)
 
+- **A geometry whose arrays are freed after upload can't be measured again.** The streamed blocks let
+  their vertex arrays go once on the GPU (`freeArray`), and `Box3.setFromObject` (the warm-up's distances)
+  then computed a box no one had and read a null array: going back from Coast City to the field threw, and
+  the switch stopped faded to black for good (the user waited half a minute and thought it had gone). The
+  bounds are computed before the arrays go, the warm-up survives a piece it can't measure, and a travel
+  that throws recovers.
 - **An interaction placed inside a prop's colliders never shows.** The prototype's "Fly a test card" spot
   was under its wing, inside the airframe's boxes, and appeared only once he was clocked in: the user
   couldn't work at Ferris at all. Map each new spot with Hal's capsule (the overlap grid under *Check a room
@@ -2977,6 +2985,11 @@ The checks that have worked:
 ## Status
 
 Verified by playing in the browser:
+
+- (2026-11-19, switching places) on 5180, muted, fixed-step: Ferris to Coast City and back by `goTo`
+  (back threw before: the stack, `computeBoundingBox` on a freed array), then the lake and back; each with
+  the loading screen up over the switch, gone after it, and control back. Not by the travel menu with a
+  mouse; real-time durations not measured (the pane drew no frames: fades only ran as it was stepped).
 
 - (2026-11-19, the test card's checkpoints) on 5180, muted, voices off, fixed-step with real key events
   from `#world`: as Hal at 10, E at the prototype (clocked in, seated); a takeoff by keys ("Take off, gear
@@ -3728,6 +3741,13 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-19: switching places without the black
+- The user: switching between Ferris and Coast City was black, back to Ferris for 30 s ("I think like it
+  has gone"). It had thrown (see Gotchas). `city/Stream.js` (bounds before freeing), `story/Story.js`
+  (`warmUp`'s guard), `story/Roam.js` (`goTo`: the loading screen, the recovery), `ui/UI.js` (`loadEnd`'s
+  fallback).
+- Verified: see Status (2026-11-19, switching places).
 
 ### 2026-11-19: the test card's checkpoints, and out from under the wing
 - The user: a crash on landing ended the card with Carol shouting; "checkpoint every part of the flight";

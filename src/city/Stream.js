@@ -282,6 +282,10 @@ export class CityStream {
     for (const m of [...merged.children]) {
       // once on the GPU its arrays aren't needed here (a block's were 16 MB of the page's memory): nothing
       // reads them back (the colliders are boxes, the rays Rapier's), and its bounds are worked out already
+      // (its bounds first: Box3.setFromObject asked for the box afterwards, found the positions gone, and
+      // threw: going back from Coast City to the field stopped on a black screen)
+      m.geometry.computeBoundingBox();
+      m.geometry.computeBoundingSphere();
       for (const a of [...Object.values(m.geometry.attributes), m.geometry.index]) a?.onUpload(freeArray);
       const key = m.name.replace('city_', '');
       (FAR.has(key) || key.startsWith('sign') || (towers && (key === 'metal' || key === 'concrete')) ? far : near).add(m);
