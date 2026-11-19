@@ -8,6 +8,36 @@ import { LOT } from '../scenes/Ferris.js';
 import { wait, onFrame } from '../engine/Time.js';
 import { LINES } from './lines.js';
 import { DinerLife } from './DinerLife.js';
+import { streetX, STREET_Z, K_MIN, K_MAX, FREEWAY, NS, EW } from '../city/Plan.js';
+import { breath } from '../engine/Slice.js';
+
+// The rest of the city's people (2026-11-19, the user: "there is no life outside of this block... the
+// same everywhere, but more randomized. I don't mind if you reuse stuff"): `roamer`s, the block's walkers'
+// models again, out on every pavement of the grid near the camera (city/Plan.js), down the middle of
+// each (9.5 m off a north-south street's middle, 8.5 off an east-west one), over the crosswalks at the
+// corners, on at each corner or round it; put down where nobody's looking when the camera leaves them,
+// half of them home by night. Everything the block's people do they do (talk, stop and look up at him,
+// run from a construct, see him change).
+const PATH_NS = (NS.kerb + NS.front) / 2, PATH_EW = (EW.kerb + EW.front) / 2;
+const XC = []; for (let k = K_MIN; k <= K_MAX; k++) XC.push(streetX(k) - PATH_NS, streetX(k) + PATH_NS);
+const ZC = []; for (let i = 1; i < STREET_Z.length; i++) ZC.push(STREET_Z[i] - PATH_EW, STREET_Z[i] + PATH_EW);
+XC.sort((a, b) => a - b); ZC.sort((a, b) => a - b);
+// a stretch of pavement they may walk (the lot's frame): in the city, not on Hal's blocks (their own
+// people) or under the freeway's ramp
+const roamOK = (axis, fixed, a, b) => {
+  const m = (a + b) / 2, x = axis === 'z' ? fixed : m, z = axis === 'z' ? m : fixed;
+  if (x < XC[0] - 1 || x > XC[XC.length - 1] + 1 || z < ZC[0] - 1 || z > ZC[ZC.length - 1] + 1) return false;
+  if (x > -48 && x < 64 && z < 64) return false;
+  if (Math.abs(z - FREEWAY.z) < 12 && x < FREEWAY.westTop + 12) return false;
+  return true;
+};
+// the ground under a point of the grid's (the lot's frame): the road, or a pavement's 14 cm up
+const gridGround = (x, z) => {
+  const k = Math.round((x - 6) / 80), dx = Math.abs(x - streetX(k));
+  const dz = STREET_Z.reduce((m, sz) => Math.min(m, Math.abs(z - sz)), Infinity);
+  return dx < NS.kerb || dz < EW.kerb ? 0 : PAVE;
+};
+const nextOf = (list, u, dir) => { if (dir > 0) { for (const v of list) if (v > u + 0.01) return v; } else { for (let i = list.length - 1; i >= 0; i--) if (list[i] < u - 0.01) return list[i]; } return null; };
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -176,7 +206,7 @@ export class CityLife {
     };
     // (seventy people made in one go held the page: a breath for the browser every 10 ms of them)
     let bt = performance.now();
-    const breathe = async () => { if (performance.now() - bt > 10) { await new Promise((r) => setTimeout(r, 0)); bt = performance.now(); } };
+    const breathe = async () => { if (performance.now() - bt > 10) { await breath(); bt = performance.now(); } };
     // the staff and the shopper at their posts
     for (const [who, s] of Object.entries(STAFF)) {
       await breathe();
@@ -191,7 +221,9 @@ export class CityLife {
       const per = make(post.staff.id);
       if (!per) continue;
       // (seated, some: the regulars on their stools, the officer at his typewriter, the travel agent)
-      this.add(per, { kind: 'shopkeep', tag: post.who, voice: post.staff.voice, label: post.staff.label, lines: post.staff.lines, post, home: post.at.clone(), yaw: post.face, state: post.sit != null ? 'seated' : 'post', sit: post.sit, stool: post.stool, inside: true, speed: 0.7, radius: 2.2 });
+      // (`remote`: the Ferris offices' receptionist, on the field 6 km from the block: the block's own
+      // reach left her undrawn, a voice behind an empty desk)
+      this.add(per, { kind: 'shopkeep', tag: post.who, voice: post.staff.voice, label: post.staff.label, lines: post.staff.lines, glLines: post.staff.glLines, remote: post.room === 'ferris', post, home: post.at.clone(), yaw: post.face, state: post.sit != null ? 'seated' : 'post', sit: post.sit, stool: post.stool, inside: true, speed: 0.7, radius: 2.2 });
     }
     // the street: standing, waiting, talking, on the phone
     for (const s of STANDS) {
@@ -214,6 +246,15 @@ export class CityLife {
         const voice = id.includes('female') ? ['townf1', 'townf2', 'townf3'][i % 3] : ['townm1', 'townm2', 'townm3'][i % 3];
         this.add(per, { kind: 'walker', loop: lp, voice, label: id.includes('female') ? 'A woman' : 'A man', state: 'walk', s: (i / list.length) * L + (i % 3) * 4, dir: i % 2 ? -1 : 1, lane: 0.22 + ((i * 7) % 5) * 0.07, speed: 1.18 + ((i * 13) % 7) * 0.045, radius: 1.9, night: i % 2 === 0 });
       }
+    }
+    // the rest of the city's (placed near the camera when it's over the city: roamKeep)
+    const ROAM = [...WALKERS, ...WALKERS2];
+    for (let i = 0; i < 26; i++) {
+      await breathe();
+      const id = ROAM[(i * 7) % ROAM.length], per = make(id);
+      if (!per) continue;
+      const voice = id.includes('female') ? ['townf1', 'townf2', 'townf3'][i % 3] : ['townm1', 'townm2', 'townm3'][i % 3];
+      this.add(per, { kind: 'roamer', voice, label: id.includes('female') ? 'A woman' : 'A man', state: 'roam', remote: true, home: V(0, -60, 0), lane: (Math.random() - 0.5) * 2.2, speed: 1.12 + Math.random() * 0.36, radius: 1.9, night: i % 2 === 0 });
     }
     // the diner: its first customers, Rosie's service, Dot's kitchen
     this.diner = new DinerLife(this);
@@ -425,7 +466,10 @@ export class CityLife {
     p.loco.speed = 0;
     p.per.smile = story.civilian ? 0.25 : 0.1;
     if (Math.random() < 0.5) p.anim.gesture('nod', 0.8, 0.3);
-    await this.say(p, p.lines ? p.lines[(p.lineN = ((p.lineN ?? -1) + 1)) % p.lines.length] : this.pick(p.voice));
+    // (a post's own lines are what they say to Hal Jordan; to Green Lantern their `glLines`, or what anyone
+    // in town would say to him: the receptionist greeted him by name in the uniform)
+    const own = story.civilian ? p.lines : p.glLines;
+    await this.say(p, own ? own[(p.lineN = ((p.lineN ?? -1) + 1)) % own.length] : this.pick(p.voice));
     p.per.smile = 0;
     await wait(0.6);
     this.look(p, null);
@@ -588,11 +632,12 @@ export class CityLife {
       // who's out: by night half the walkers and the bus stop's people go home (not while they're busy),
       // and come out again in the morning; either only out of sight (the clock runs: at dusk they
       // vanished in front of him)
-      const goes = p.state === 'route' || p.kind === 'diner' || !night || (p.kind === 'walker' ? p.night : !p.day);
+      const goes = p.state === 'route' || p.kind === 'diner' || !night || (p.kind === 'walker' || p.kind === 'roamer' ? p.night : !p.day);
+      if (p.kind === 'roamer') this.roamKeep(p, cam);
       const d = Math.hypot(p.pos.x - hp.x, p.pos.z - hp.z), dc = p.pos.distanceTo(cam.position);
       if (p.out === undefined || (goes !== p.out && !(dc < 70 && this.frustum.containsPoint(_s.copy(p.pos).setY(p.pos.y + 1))))) p.out = goes;
       const out = p.out;
-      const active = out && near && dc < (p.inside ? 40 : 110);
+      const active = out && (near || p.remote) && dc < (p.inside ? 40 : 110) && (p.kind !== 'roamer' || !!p.rm);
       if (active !== p.active) {
         p.active = active;
         p.rig.root.visible = active;
@@ -603,6 +648,7 @@ export class CityLife {
       const r = p.rig.root;
       let speed = 0, want = null;
       if (p.state === 'walk') ({ speed, want } = this.walk(p, dt, d, flyingOver));
+      else if (p.state === 'roam') ({ speed, want } = this.roam(p, dt, d, flyingOver));
       else if (p.state === 'post') ({ speed, want } = this.post(p, dt, d, flyingOver));
       else if (p.state === 'hold') want = p.faceTo ?? p.yaw;
       else if (p.state === 'route') ({ speed, want } = this.follow(p, dt));
@@ -624,6 +670,7 @@ export class CityLife {
           } else {
             p.anim.play(p.loco, 0.6);
             if (p.kind === 'walker') { p.state = 'walk'; this.rejoin(p); }
+            else if (p.kind === 'roamer') { p.state = 'roam'; this.roamRejoin(p); }
             else if (p.pos.distanceTo(p.home) < 0.3) this.settle(p);
             else { p.state = 'return'; p.goal = p.home.clone(); }
           }
@@ -760,6 +807,96 @@ export class CityLife {
     if (d < 4.5 && along > 0.5 && !p.glance) { p.glance = true; this.look(p, this.halHead(), this.story.civilian ? 0.45 : 0.75); }
     else if (p.glance && (d > 5.5 || along < -0.5)) { p.glance = false; this.look(p, null); }
     return { speed, want: Math.atan2(fwd.x, fwd.z) };
+  }
+
+  // ---------------------------------------------------------------- the city's roamers
+  // one down a stretch of the grid's pavement (`p.rm`: on a north-south one, axis z at x `fixed`; on an
+  // east-west one, axis x at z `fixed`; `u` how far along, `to` the next corner)
+  roam(p, dt, d, flyingOver) {
+    const player = this.story.player, hp = player.position, m = p.rm;
+    if (!m) return { speed: 0, want: null };
+    if (flyingOver && d < 16 && hp.y > p.pos.y + 3 && !p.up) {
+      p.up = true; p.upT = 2.5 + Math.random() * 2;
+      this.look(p, this.halHead(), 0.8);
+      if (Math.random() < 0.3) p.anim.reach('R', () => p.rig.bonePosition('upperArm_R', _p).add(_a.copy(hp).sub(_p).normalize().multiplyScalar(0.62)), { weight: 1, rate: 6 });
+      if (this.t - (this.calledUp ?? -99) > 12 && Math.random() < 0.4) { this.calledUp = this.t; this.story.bark(['cityUp1', 'cityUp2', 'cityUp3'][Math.floor(Math.random() * 3)]); }
+    }
+    if (p.up) {
+      if ((p.upT -= dt) > 0 && player.flying) return { speed: 0, want: Math.atan2(hp.x - p.pos.x, hp.z - p.pos.z) };
+      p.up = false; p.anim.reach('R', null); this.look(p, null);
+    }
+    if (p.paused) return { speed: 0, want: p.faceTo };
+    const fx = m.axis === 'x' ? m.dir : 0, fz = m.axis === 'z' ? m.dir : 0, rx = -fz, rz = fx;
+    // Hal in the way: round him, slower
+    const ox = hp.x - p.pos.x, oz = hp.z - p.pos.z, along = ox * fx + oz * fz, lat = ox * rx + oz * rz;
+    let target = p.lane, speed = p.speed;
+    if (!player.flying && along > -0.4 && along < 2.4 && Math.abs(lat - p.offset) < 0.9) { target = THREE.MathUtils.clamp(lat > p.offset ? lat - 0.95 : lat + 0.95, -1.8, 1.8); speed *= along < 0.9 ? 0.25 : 0.6; }
+    p.offset += (target - p.offset) * Math.min(1, dt * 2.5);
+    m.u += m.dir * speed * dt;
+    if ((m.dir > 0 && m.u >= m.to) || (m.dir < 0 && m.u <= m.to)) { m.u = m.to; this.roamTurn(p); }
+    const n = p.rm, gx = n.axis === 'z' ? n.fixed : n.u, gz = n.axis === 'z' ? n.u : n.fixed;
+    const nfx = n.axis === 'x' ? n.dir : 0, nfz = n.axis === 'z' ? n.dir : 0;
+    const tx = gx - nfz * p.offset, tz = gz + nfx * p.offset;
+    _b.set(tx + LOT.x, gridGround(tx, tz), tz + LOT.z);
+    p.pos.x += (_b.x - p.pos.x) * Math.min(1, dt * 4);
+    p.pos.z += (_b.z - p.pos.z) * Math.min(1, dt * 4);
+    p.pos.y += (_b.y - p.pos.y) * Math.min(1, dt * 10);
+    if (d < 4.5 && along > 0.5 && !p.glance) { p.glance = true; this.look(p, this.halHead(), this.story.civilian ? 0.45 : 0.75); }
+    else if (p.glance && (d > 5.5 || along < -0.5)) { p.glance = false; this.look(p, null); }
+    return { speed, want: Math.atan2(nfx, nfz) };
+  }
+  // at a corner: on, or round it (not back the way they came unless there's nothing else)
+  roamTurn(p) {
+    const m = p.rm, cx = m.axis === 'z' ? m.fixed : m.u, cz = m.axis === 'z' ? m.u : m.fixed;
+    const opts = [];
+    const go = (axis, dir, w) => {
+      const list = axis === 'z' ? ZC : XC, u = axis === 'z' ? cz : cx, fixed = axis === 'z' ? cx : cz, to = nextOf(list, u, dir);
+      if (to != null && roamOK(axis, fixed, u, to)) opts.push({ axis, dir, fixed, u, to, w });
+    };
+    go(m.axis, m.dir, 5);
+    const other = m.axis === 'z' ? 'x' : 'z';
+    go(other, 1, 2.2);
+    go(other, -1, 2.2);
+    if (!opts.length) go(m.axis, -m.dir, 1);
+    if (!opts.length) { p.rm = null; return; }
+    let w = Math.random() * opts.reduce((a, o) => a + o.w, 0);
+    for (const o of opts) { if ((w -= o.w) <= 0) { Object.assign(m, o); return; } }
+    Object.assign(m, opts[0]);
+  }
+  // Kept near the camera: when it's left them behind (or they've no pavement yet), put down at a corner
+  // within reach of it that nobody's looking at, facing on along it.
+  roamKeep(p, cam) {
+    if (this.frameN % 15 !== (p.slot ?? 0) % 15) return;
+    const cx = cam.position.x - LOT.x, cz = cam.position.z - LOT.z;
+    if (p.rm) {
+      const dc = Math.hypot(p.pos.x - cam.position.x, p.pos.z - cam.position.z);
+      if (dc < 140 || this.frustum.containsPoint(_s.copy(p.pos).setY(p.pos.y + 1)) && dc < 220) return;
+    }
+    if (p.state !== 'roam' || cam.position.y > 140 || cz < ZC[0] - 150 || cz > ZC[ZC.length - 1] + 150) { if (p.rm && p.state === 'roam') { p.rm = null; p.pos.y = -60; } return; }
+    for (let tries = 0; tries < 10; tries++) {
+      const x = XC[Math.floor(Math.random() * XC.length)], z = ZC[Math.floor(Math.random() * ZC.length)];
+      const dd = Math.hypot(x - cx, z - cz);
+      if (dd < 25 || dd > 115) { const k = Math.floor(Math.random() * XC.length); void k; continue; }
+      _s.set(x + LOT.x, 1, z + LOT.z);
+      if (this.frustum.containsPoint(_s) && dd < 70) continue;
+      const axis = Math.random() < 0.5 ? 'z' : 'x', dir = Math.random() < 0.5 ? 1 : -1;
+      const list = axis === 'z' ? ZC : XC, u = axis === 'z' ? z : x, fixed = axis === 'z' ? x : z, to = nextOf(list, u, dir);
+      if (to == null || !roamOK(axis, fixed, u, to)) continue;
+      p.rm = { axis, dir, fixed, u, to };
+      p.offset = p.lane;
+      const gx = axis === 'z' ? fixed : u, gz = axis === 'z' ? u : fixed;
+      p.pos.set(gx + LOT.x, gridGround(gx, gz), gz + LOT.z);
+      p.rig.root.rotation.y = Math.atan2(axis === 'x' ? dir : 0, axis === 'z' ? dir : 0);
+      return;
+    }
+  }
+  // after running: on from the nearest corner's line
+  roamRejoin(p) {
+    const cx = p.pos.x - LOT.x, cz = p.pos.z - LOT.z;
+    const x = XC.reduce((b, v) => (Math.abs(v - cx) < Math.abs(b - cx) ? v : b), XC[0]), z = ZC.reduce((b, v) => (Math.abs(v - cz) < Math.abs(b - cz) ? v : b), ZC[0]);
+    const axis = Math.abs(cx - x) < Math.abs(cz - z) ? 'z' : 'x', fixed = axis === 'z' ? x : z, u = axis === 'z' ? cz : cx, dir = Math.random() < 0.5 ? 1 : -1;
+    const to = nextOf(axis === 'z' ? ZC : XC, u, dir);
+    p.rm = to != null ? { axis, dir, fixed, u, to } : null;
   }
 
   // back onto the loop at the nearest point (after running, the hop, or coming out of the diner)

@@ -65,7 +65,7 @@ export class Prisoner extends Coast {
 
   async prepare(id) {
     const { ui, player } = this;
-    await loadProps([...FERRIS_PROPS, 'phone', 'fridge', 'coffee', 'm35', 'lighttower']);
+    await loadProps([...FERRIS_PROPS, 'phone', 'fridge', 'coffee', 'm35', 'lighttower'], (k) => this.ui.loadStage('props', k));
     ui.clock(this.save.info(id).clock);
     this.ring = createRing();
     this.attachRing(this.ring, this.hal);
@@ -73,7 +73,7 @@ export class Prisoner extends Coast {
     Object.assign(this.powers.enabled, { hud: false, constructs: false, flight: false });
     this.hud.show(false);
     player.setTired(0.2);
-    if (id === 'pilot') return; // pilot() builds Ferris and puts him in the lot
+    if (id === 'pilot') { await this.setupFerrisAsync(); return; } // pilot() puts him in the lot (it's built here in slices, under the loading screen)
     this.lanternUp();
   }
 

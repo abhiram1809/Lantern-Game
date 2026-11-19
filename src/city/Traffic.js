@@ -8,6 +8,22 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { makeCar } from '../props/Car.js';
+import { streetX, STREET_Z, K_MIN, K_MAX, FREEWAY } from './Plan.js';
+
+// The rest of the city's streets (2026-11-19, the user: "the surrounding city needs the life the same as
+// his block"): cars on routes across the grid near the camera (city/Plan.js: north-south streets every
+// 80 m, east-west ones every 200 m), keeping right 2.2 m off the middle, stopping at each crossing's
+// line on its lights (each crossing's own phase, so they don't all change at once), straight on or
+// turning; in and out where nobody sees. Not on Hal's blocks' streets (the boulevard south of the street
+// at z 70 and his cross street: the traffic above), nor under the freeway's ramp off Ocean Avenue.
+const LANE = 2.2, GSTOP = 10.5, CYCLE = 36;
+const S_MIN = 1, S_MAX = STREET_Z.length - 1;
+const nodeAt = (k, s) => [streetX(k), STREET_Z[s]];
+const segOK = (k0, s0, k1, s1) => {
+  if (k0 < K_MIN || k1 < K_MIN || k0 > K_MAX || k1 > K_MAX || s0 < S_MIN || s1 < S_MIN || s0 > S_MAX || s1 > S_MAX) return false;
+  if (s0 === s1 && STREET_Z[s0] === FREEWAY.z && Math.max(streetX(k0), streetX(k1)) <= FREEWAY.westTop + 10) return false;
+  return true;
+};
 
 // the lanes, in the lot's frame (Ferris.js LOT): the boulevard's x (northbound +z, southbound -z),
 // the cross street's z (eastbound +x, westbound -x), the stop lines, the far ends
@@ -67,14 +83,15 @@ const pickW = (list) => { let r = Math.random() * list.reduce((n, [, w]) => n + 
 
 export class Traffic {
   // f: the Ferris scene (its smash, its physics); story: for Hal, the people, the camera, the sounds
-  constructor(f, story, { count = 10, lot }) {
+  constructor(f, story, { count = 10, lot, grid = 0 }) {
     Object.assign(this, { f, story, lot });
+    this.gridWant = grid;
     this.cars = [];
     this.phase = 0;
     this.phaseT = 0;
     this.bays = new Map(); // bay x → the car in it
     this.made = 0;
-    for (let i = 0; i < count + 2; i++) this.cars.push(this.make());
+    for (let i = 0; i < count + grid + 2; i++) this.cars.push(this.make());
     // the two cars Part Three left waiting at the lights stood in the cross street's lanes (on the wrong
     // side, too): to its kerbs, parked
     for (const it of f.smash.items) {
@@ -153,6 +170,61 @@ export class Traffic {
   }
   park(c) { c.state = 'parked'; c.v = 0; }
 
+  // ---------------------------------------------------------------- the grid's
+  // each crossing's lights: the cycle offset by where it is
+  gridLight(ix) {
+    const ph = (this.t + (Math.abs(Math.sin(ix * 91.7) * 1e4) % 1) * CYCLE) % CYCLE;
+    return ph < 15 ? 'NS' : ph < 18 ? 'NSa' : ph < 19.5 ? 'red' : ph < 32.5 ? 'EW' : ph < 35.5 ? 'EWa' : 'red';
+  }
+  // a route from a stretch of street near the camera: `n` crossings on, straight mostly, a turn now and
+  // then (never off the grid or onto Hal's streets)
+  gridRoute(cx, cz) {
+    const k0 = Math.round((cx - 6) / 80), s0 = STREET_Z.reduce((b, z, i) => (Math.abs(z - cz) < Math.abs(STREET_Z[b] - cz) ? i : b), 0);
+    for (let tries = 0; tries < 12; tries++) {
+      const ns = Math.random() < 0.55, k = k0 + Math.round((Math.random() - 0.5) * 6), s = s0 + Math.round((Math.random() - 0.5) * 3);
+      let d = ns ? (Math.random() < 0.5 ? [0, 1] : [0, -1]) : (Math.random() < 0.5 ? [1, 0] : [-1, 0]);
+      let A = [k, s], B = [k + (ns ? 0 : d[0]), s + (ns ? d[1] : 0)];
+      if (!segOK(A[0], A[1], B[0], B[1])) continue;
+      const pa = nodeAt(...A), pb = nodeAt(...B), rt = [-d[1], d[0]], f0 = 0.15 + Math.random() * 0.45;
+      const pts = [[pa[0] + (pb[0] - pa[0]) * f0 + rt[0] * LANE, pa[1] + (pb[1] - pa[1]) * f0 + rt[1] * LANE]];
+      const stops = [];
+      let len = 0;
+      const push = (q) => { const l = pts[pts.length - 1]; len += Math.hypot(q[0] - l[0], q[1] - l[1]); pts.push(q); };
+      for (let n = 0; n < 9; n++) {
+        const pB = nodeAt(...B), r = [-d[1], d[0]];
+        const entry = [pB[0] - d[0] * GSTOP + r[0] * LANE, pB[1] - d[1] * GSTOP + r[1] * LANE];
+        push(entry);
+        stops.push({ s: len, group: d[0] === 0 ? 'NS' : 'EW', ix: B[0] * 97 + B[1] });
+        // on: straight, left or right, where the grid goes on
+        const opts = [[d, 5], [[-d[1], d[0]], 1.4], [[d[1], -d[0]], 1.4]].filter(([dd]) => segOK(B[0], B[1], B[0] + dd[0] * (dd[0] !== 0 ? 1 : 0), B[1] + (dd[1] !== 0 ? dd[1] : 0)));
+        if (!opts.length) break;
+        let w = Math.random() * opts.reduce((a, o) => a + o[1], 0), d2 = opts[0][0];
+        for (const [dd, wt] of opts) { if ((w -= wt) <= 0) { d2 = dd; break; } }
+        const r2 = [-d2[1], d2[0]], exit = [pB[0] + d2[0] * GSTOP + r2[0] * LANE, pB[1] + d2[1] * GSTOP + r2[1] * LANE];
+        if (d2 === d) push(exit);
+        else for (const q of curve(entry, d, exit, d2, 10)) push(q);
+        d = d2;
+        A = B;
+        B = [B[0] + (d[0] !== 0 ? d[0] : 0), B[1] + (d[1] !== 0 ? d[1] : 0)];
+        if (!segOK(A[0], A[1], B[0], B[1])) { const pA = nodeAt(...A); push([pA[0] + d[0] * 60 + r2[0] * LANE, pA[1] + d[1] * 60 + r2[1] * LANE]); break; }
+      }
+      const world = pts.map(([x, z]) => [x + this.lot.x, z + this.lot.z]);
+      return { path: new Path(world), stops, grid: true };
+    }
+    return null;
+  }
+  gridSpawn(c) {
+    const cam = this.story.engine.camera, cx = cam.position.x - this.lot.x, cz = cam.position.z - this.lot.z;
+    const r = this.gridRoute(cx, cz);
+    if (!r) return false;
+    const p0 = r.path.p[0], d = Math.hypot(p0[0] - cam.position.x, p0[1] - cam.position.z);
+    if (d > 260 || !this.unseen(p0[0], p0[1], 120) || !this.clear(p0[0], p0[1], 14)) return false;
+    Object.assign(c, { ...r, si: 0, stopS: -1, group: null, bay: null, s: 0, v: CRUISE * 0.7, state: 'drive', blocked: 0, parkedT: 0, hitSeen: c.item.lastHit });
+    c.obj.visible = true;
+    this.place(c, true);
+    return true;
+  }
+
   // A car sent somewhere (the police, an ambulance: story/Emergencies.js): in along `pts` (the lot's
   // frame) from as near as it can start unseen, through the lights, to stop at the last point and stay
   // ('held') until it's dismissed. Never put down where another car might be: two bodies made one on
@@ -182,6 +254,8 @@ export class Traffic {
     if (c.bay != null && this.bays.get(c.bay) === c) this.bays.delete(c.bay);
     c.state = 'pool';
     c.bay = null;
+    c.grid = false;
+    c.stops = null;
     c.item.body.setNextKinematicTranslation({ x: this.lot.x + 300, y: -60, z: this.lot.z });
     c.obj.visible = false;
   }
@@ -213,11 +287,20 @@ export class Traffic {
     if ((this.phaseT += dt) > PHASES[this.phase][1]) { this.phaseT = 0; this.phase = (this.phase + 1) % PHASES.length; }
     // keep the streets busy (fewer at night)
     const night = this.f.isNight, want = night ? Math.ceil(this.want * 0.5) : this.want;
-    const driving = this.cars.filter((c) => c.state === 'drive' || c.state === 'parked').length;
+    const driving = this.cars.filter((c) => (c.state === 'drive' || c.state === 'parked') && !c.grid).length;
     if (driving < want && (this.spawnT = (this.spawnT ?? 0) - dt) < 0) {
       this.spawnT = 0.7 + Math.random() * 1.2;
       const c = this.cars.find((q) => q.state === 'pool');
-      if (c) this.spawn(c);
+      if (c && !this.spawn(c)) c.stops = null;
+    }
+    // and the rest of the city's, when the camera's over it (not out at the field)
+    const camZ = cam.position.z - this.lot.z, inCity = camZ > -200 && camZ < 3700 && cam.position.y < 160;
+    const gridWant = inCity ? (night ? Math.ceil(this.gridWant * 0.5) : this.gridWant) : 0;
+    const gridOn = this.cars.filter((c) => c.grid && c.state === 'drive').length;
+    if (gridOn < gridWant && (this.gridT = (this.gridT ?? 0) - dt) < 0) {
+      this.gridT = 0.25;
+      const c = this.cars.find((q) => q.state === 'pool');
+      if (c && !this.gridSpawn(c)) c.grid = false;
     }
     const lit = night || story.dayCycle?.w.grey > 0.6 ? 1 : 0;
     const people = story.cityLife?.people ?? [];
@@ -241,9 +324,19 @@ export class Traffic {
         if (turn > 1e-3) v = Math.min(v, Math.sqrt(LATERAL / turn) + ahead * 0.35);
       }
       if (c.bay != null && c.path.total - c.s < 14) v = Math.min(v, 1.2 + (c.path.total - c.s) * 0.35); // (into the space)
+      if (c.stops) {
+        // the next crossing's line, and its own lights
+        while (c.si < c.stops.length && c.stops[c.si].s < c.s - 0.4) c.si++;
+        const st = c.stops[c.si];
+        c.stopS = st ? st.s : -1;
+        c.group = st?.group;
+        if (st) { const l = this.gridLight(st.ix); c.go = c.group === 'NS' ? l === 'NS' : l === 'EW'; c.amb = c.group === 'NS' ? l === 'NSa' : l === 'EWa'; }
+        // far off and unseen: back to the pool
+        if (Math.hypot(c.obj.position.x - cam.position.x, c.obj.position.z - cam.position.z) > 300 && this.unseen(c.obj.position.x, c.obj.position.z, 150)) { this.retire(c); continue; }
+      }
       if (c.s < c.stopS) {
-        const go = this.green(c.group), toLine = c.stopS - c.s;
-        if (!go && !(this.amber(c.group) && toLine < (c.v * c.v) / (2 * BRAKE) - 1)) v = Math.min(v, Math.sqrt(2 * BRAKE * Math.max(0, toLine - 0.3)));
+        const go = c.stops ? c.go : this.green(c.group), toLine = c.stopS - c.s;
+        if (!go && !((c.stops ? c.amb : this.amber(c.group)) && toLine < (c.v * c.v) / (2 * BRAKE) - 1)) v = Math.min(v, Math.sqrt(2 * BRAKE * Math.max(0, toLine - 0.3)));
       }
       let blockedByHal = false;
       const look = (x, z, len, lat = 1.7) => {
@@ -266,8 +359,12 @@ export class Traffic {
       c.s += ds;
       this.place(c);
       for (const w of c.obj.userData.wheels ?? []) w.rotation.x += ds / 0.33;
+      // the front wheels steered for the way ahead, eased (read off the path's heading frame by frame,
+      // the steering flickered from side to side)
       const turn = wrap(c.path.at(c.s + 2.5, _p).yaw - pose.yaw) / 2.5;
-      for (const w of c.obj.userData.front ?? []) w.rotation.y = Math.atan((c.obj.userData.axle?.base ?? 2.7) * turn);
+      const steer = Math.max(-0.6, Math.min(0.6, Math.atan((c.obj.userData.axle?.base ?? 2.7) * turn)));
+      c.steer = (c.steer ?? 0) + (steer - (c.steer ?? 0)) * Math.min(1, dt * 6);
+      for (const w of c.obj.userData.front ?? []) w.rotation.y = c.steer;
       this.lamps(c, lit, v < c.v - 0.5);
       // Hal standing in the road: a horn
       c.blocked = blockedByHal ? c.blocked + dt : 0;

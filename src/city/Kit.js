@@ -88,20 +88,25 @@ function glassMaterial() {
   const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]);
   Object.assign(uniforms, cityU, { uCamObj: { value: new THREE.Vector3() } });
   const mat = new THREE.ShaderMaterial({
-    uniforms, fog: true,
+    uniforms, fog: true, vertexColors: true, // (white on a window; a tower's curtain wall its glass's tint)
     vertexShader: /* glsl */`
       attribute vec4 aCell; attribute vec4 aRoom;
-      varying vec3 vP; varying vec3 vN; varying vec4 vCell; varying vec4 vRoom;
+      varying vec3 vP; varying vec3 vN; varying vec4 vCell; varying vec4 vRoom; varying vec3 vTint;
       #include <fog_pars_vertex>
       void main() {
         vP = position; vN = normal; vCell = aCell; vRoom = aRoom;
+        #ifdef USE_COLOR
+        vTint = color;
+        #else
+        vTint = vec3(1.0);
+        #endif
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
       }`,
     fragmentShader: /* glsl */`
       uniform float uNight; uniform float uTime; uniform vec3 uSkyTop; uniform vec3 uSkyHor; uniform vec3 uGround; uniform vec3 uDayLight; uniform vec3 uCamObj;
-      varying vec3 vP; varying vec3 vN; varying vec4 vCell; varying vec4 vRoom;
+      varying vec3 vP; varying vec3 vN; varying vec4 vCell; varying vec4 vRoom; varying vec3 vTint;
       #include <common>
       #include <fog_pars_fragment>
       float h1(float s) { return fract(sin(s * 91.731 + 3.17) * 43758.5453); }
@@ -121,7 +126,8 @@ function glassMaterial() {
         vec3 wallC = pick4(r1, vec3(0.86, 0.81, 0.7), vec3(0.64, 0.71, 0.76), vec3(0.7, 0.74, 0.6), vec3(0.88, 0.74, 0.62));
         vec3 floorC = r2 < 0.55 ? vec3(0.42, 0.27, 0.15) * (0.85 + 0.15 * step(0.5, fract(h.x * 9.0))) : vec3(0.52, 0.47, 0.42);
         vec3 ceilC = vec3(0.9, 0.88, 0.84);
-        bool shop = kind > 0.5 && kind < 1.5, office = kind > 1.5 && kind < 2.5, diner = kind > 2.5;
+        bool tinted = kind > 3.5; // (4: an office behind a tower's tinted curtain wall)
+        bool shop = kind > 0.5 && kind < 1.5, office = (kind > 1.5 && kind < 2.5) || tinted, diner = kind > 2.5 && kind < 3.5;
         if (shop || diner) { floorC = mix(vec3(0.75), vec3(0.18), step(0.5, mod(floor(h.x * 10.0) + floor(h.z * 8.0), 2.0))); wallC = pick4(r1, vec3(0.92, 0.9, 0.84), vec3(0.95, 0.88, 0.72), vec3(0.78, 0.86, 0.84), vec3(0.94, 0.94, 0.94)); }
         if (diner) { wallC = h.y < 0.3 ? vec3(0.7, 0.1, 0.1) : vec3(0.93, 0.9, 0.82); floorC = mix(vec3(0.85), vec3(0.08), step(0.5, mod(floor(h.x * 14.0) + floor(h.z * 10.0), 2.0))); }
         if (office) { wallC = vec3(0.82, 0.83, 0.82); floorC = vec3(0.42, 0.44, 0.48); }
@@ -174,6 +180,7 @@ function glassMaterial() {
         vec3 sky = R.y > 0.0 ? mix(uSkyHor, uSkyTop, pow(R.y, 0.55)) : mix(uSkyHor * 0.6, uGround, min(-R.y * 4.0, 1.0));
         sky *= mix(1.0, 0.12, uNight);
         float F = 0.05 + 0.95 * pow(1.0 - max(dot(-D, N), 0.0), 5.0);
+        if (tinted) { inside *= 0.28 + 0.34 * uNight; F = 0.3 + 0.7 * pow(1.0 - max(dot(-D, N), 0.0), 3.0); sky *= mix(vec3(1.0), vTint * 1.7, 0.6); }
         float smudge = 0.9 + 0.1 * fract(sin(dot(floor(p.xy * vec2(vCell.z, vCell.w) * 3.0), vec2(12.9, 78.2))) * 4375.0);
         vec3 outc = inside * (1.0 - F) * smudge + sky * (F * 0.8 + 0.09);
         gl_FragColor = vec4(outc, 1.0);
@@ -239,7 +246,9 @@ export class Batch {
   // view and in the shadow's box, so all of it was drawn twice a frame; cut into cells, the camera and
   // the shadow leave out what they can't see
   build(mats, opts) { return runSteps(this.buildSteps(mats, opts)); }
-  *buildSteps(mats, { shadows = true, cell = 80 } = {}) {
+  // (`chunk`: at most that many parts in one mesh, so a merge never holds a frame up long: the
+  // streamed blocks', city/Stream.js)
+  *buildSteps(mats, { shadows = true, cell = 80, chunk = Infinity } = {}) {
     const group = new THREE.Group(), _c = new THREE.Vector3();
     for (const [key, list] of this.parts) {
       const cells = new Map();
@@ -247,9 +256,11 @@ export class Batch {
         g.computeBoundingBox();
         g.boundingBox.getCenter(_c);
         const k = `${Math.floor(_c.x / cell)},${Math.floor(_c.z / cell)}`;
-        (cells.get(k) ?? cells.set(k, []).get(k)).push(g);
+        let arr = cells.get(k) ?? cells.set(k, [[]]).get(k);
+        if (arr.at(-1).length >= chunk) arr.push([]);
+        arr.at(-1).push(g);
       }
-      for (const [k, geos] of cells) {
+      for (const [k, runs] of cells) for (const geos of runs) {
         const geo = mergeGeometries(geos, false);
         if (!geo) { console.warn('city: could not merge', key); continue; }
         geo.computeBoundingSphere();

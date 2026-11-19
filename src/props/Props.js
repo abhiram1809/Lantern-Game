@@ -7,10 +7,11 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 const loader = new GLTFLoader();
 const pending = new Map(), ready = new Map();
 
-export function loadProps(names) {
+export function loadProps(names, onProgress = null) {
+  let done = 0;
   return Promise.all(names.map((n) => {
     if (!pending.has(n)) pending.set(n, loader.loadAsync(`/models/props/${n}.glb`).then((g) => { prepare(g.scene); ready.set(n, g.scene); }));
-    return pending.get(n);
+    return pending.get(n).then(() => onProgress?.(++done / names.length)); // (`onProgress`: how many of them are in, for the loading screen)
   }));
 }
 

@@ -143,7 +143,7 @@ export class DayCycle {
     // the town: its lamps, its windows, its people indoors by night (and on overcast days the lamps
     // come on early)
     const lamps = Math.max(k, w.grey * 0.35 * (1 - k));
-    if (Math.abs(lamps - this.k) > 0.003) { this.k = lamps; f.block?.setNight(lamps); f.office?.setNight(lamps); }
+    if (Math.abs(lamps - this.k) > 0.003) { this.k = lamps; f.block?.setNight(lamps); f.office?.setNight(lamps); f.city?.setNight(lamps); }
     f.isNight = k > 0.5;
     // (the glass's rooms and reflections: city/Kit.js)
     cityU.uSkyTop.value.copy(sky.uTop.value);

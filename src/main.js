@@ -11,6 +11,12 @@ import { Story, chapterMenu } from './story/Story.js';
 import { Save, CorpsSave, CoastSave, PrisonerSave, ProbationSave, ExileSave, PARTS, partOf, takeResume, latestCheckpoint } from './engine/Save.js';
 
 const POSTERS = ['airforce', 'jets', 'testpilot', 'flightseat', 'sidewall', 'squadron', 'whitejet'];
+// the loading screen's stages after the title, [key, what it says, its share of the bar] (the shares
+// are what each took, measured: ui/UI.js's loadStart)
+const LOAD_PLANS = {
+  world: [['code', 'Loading the story', 1], ['props', 'Loading Coast City', 3], ['scene', 'Building the valley and Hal’s blocks', 6], ['city', 'Building the streets round him', 3], ['shaders', 'Getting the light right', 3]],
+  chapter: [['code', 'Loading the story', 1], ['props', 'Loading the scene', 3], ['scene', 'Building the scene', 4], ['shaders', 'Getting the light right', 1]],
+};
 // each part's code, loaded when it's chosen (Part Six's brings the whole valley and its town with it)
 const PART_CODE = {
   corps: () => import('./story/Corps.js').then((m) => m.Corps),
@@ -35,6 +41,7 @@ async function boot() {
   const voice = new Voice();
   voice.audio = audio; // clips play through the game's own mix
   const ui = new UI({ input, audio, voice });
+  engine.veiled = () => ui.load != null;
 
   const manager = new THREE.LoadingManager();
   manager.onProgress = (_url, loaded, total) => ui.loading(loaded / total);
@@ -78,7 +85,13 @@ async function boot() {
 
   const { part, id } = await titleFlow(ui);
   audio.init();
-  const [Part] = await Promise.all([PART_CODE[part]?.() ?? Story, characters.more(PART_SCANS[part] ?? [])]);
+  // from here to the first frame of the scene, the loading screen (not the dark): its stages are the
+  // way in's (story code reports each: Props, Ferris's steps, the city's blocks, the shaders)
+  const save = PARTS[part];
+  ui.loadStart(`${save.label} · ${save.info(id).label}`, LOAD_PLANS[id] ?? LOAD_PLANS.chapter);
+  let got = 0;
+  const step = (p) => p.then((v) => { ui.loadStage('code', ++got / 2); return v; });
+  const [Part] = await Promise.all([step(PART_CODE[part]?.() ?? Promise.resolve(Story)), step(characters.more(PART_SCANS[part] ?? []))]);
   story = new Part({ engine, ui, input, audio, voice, assets: { characters, posters } });
   try {
     await story.run(id);

@@ -12,6 +12,11 @@ import { sliced, runSteps } from '../engine/Slice.js';
 import { buildFerrisOffice } from '../city/Office.js';
 import { LampPool } from '../city/Lamps.js';
 import { Lod } from '../city/Lod.js';
+import { CityStream } from '../city/Stream.js';
+import { cityOcean } from '../city/Ground.js';
+import { CITY, LOT_Z, coastX, COAST_GLSL, CHANNEL } from '../city/Plan.js';
+// the city's own ground collider (world: its x lines on the channel's edges every 10 m)
+const CITY_GROUND = { x0: -1400, x1: 3000, z0: 5400, z1: 9800 };
 
 // Ferris Aircraft, mid-morning: the airfield in the desert outside Coast City where Martin Jordan
 // flew (the dream's airfield, in daylight, twenty years on). North to south: the runway, a taxiway,
@@ -25,7 +30,7 @@ export const CAROL_SPOT = V(19.5, 0, -20.5);
 export const CAR_SPOT = V(36, 0, 54); // Hal's space in the staff lot, nose to the north
 export const HAL_BAY = V(36, 0, 51); // the painted space itself (its lines run z 48.5 to 53.5); CAR_SPOT, where Part Three leaves the car, is 3 m back in its mouth
 export const GATE = V(4, 0, 112);
-export const LOT = V(0, 0, 6000); // behind the apartment building (Hal's car)
+export const LOT = V(0, 0, LOT_Z); // behind the apartment building (Hal's car)
 export const CEMETERY = V(150, 0, 5150); // the memorial park on the edge of town, east of the road (Martin Jordan's grave)
 export const GRAVE = V(24, 0, 4); // his father's stone, in the park's frame (CEMETERY): at the far end of the path, past the rows, under two cypresses by a bench
 export const RUNWAY_Z = -150;
@@ -51,8 +56,7 @@ const PALMS = [/^Palm_tree_001/, /^Palm_tree_002/]; // the two trees in the palm
 export const BOULEVARD = { x0: 2, x1: 10, z0: -24, z1: -440, cross: -210 }; // in the lot's frame (LOT): the road out of town
 const SOUTH_END = -404; // where the block over the crossing (city/HalsBlock.js) gives the boulevard back
 // The coastline, west of Coast City: x of the shore at a given z (metres; the sea is west of it)
-export const coastX = (z) => -6800 + 650 * Math.sin(z / 2300) + 320 * Math.sin(z / 770 + 1.3) + 140 * Math.sin(z / 260);
-const COAST_GLSL = (z) => `(-6800.0 + 650.0 * sin(${z} / 2300.0) + 320.0 * sin(${z} / 770.0 + 1.3) + 140.0 * sin(${z} / 260.0))`;
+export { coastX }; // (the shore and Coast City's bay: city/Plan.js)
 // The desert's relief past the field (the airspace's mountains), in metres above the flats: nothing
 // within 9 km of the field, ranges beyond, the coast's plain falling to the sea in the west.
 const hash2 = (x, z) => { const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -100,7 +104,7 @@ export class Ferris {
 
   build() { runSteps(this.steps()); return this; }
   // built a stage at a time, the browser let in between (in one frame it held the page 1.7 s)
-  async buildAsync() { await sliced(this.steps()); return this; }
+  async buildAsync(onProgress) { await sliced(this.steps(), 24, { key: 'ferris', expect: 900, onProgress }); return this; }
 
   *steps() {
     const s = this.scene;
@@ -115,6 +119,7 @@ export class Ferris {
     this.smash = new Smash(this.physics, s); // (everything placed here can be touched: props/Smash.js)
     this.lamps = new LampPool(s, 4); // (its point lights, pooled: city/Lamps.js)
     this.blockOn = hasProp('ac_units'); // Hal's block is built (city/HalsBlock.js): what stood on its stretch steps aside
+    this.cityOn = this.blockOn; // (and the rest of the city round it, streamed: city/Stream.js; free roam's)
     this.buildLight();
     this.buildGround();
     yield;
@@ -146,6 +151,8 @@ export class Ferris {
     this.lod = new Lod();
     const drawn = new Set();
     if (this.blockOn) this.block = yield* blockSteps(this, LOT, this.lod, drawn);
+    // (with the blocks round Hal's lot built now: every chapter that starts there opens on them, not on their boxes)
+    if (this.cityOn) { this.city = new CityStream(this); yield* this.city.steps(); yield* this.city.fill(0, 0, 200); }
     // Hal's car: sun-faded maroon, the driver's door in primer
     this.car = makeCar('phoenix', { paint: 0x5a1d19, primer: true, dust: 0.7 });
     this.car.position.copy(CAR_SPOT);
@@ -215,7 +222,8 @@ export class Ferris {
         float gN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(gH(i), gH(i + vec2(1, 0)), f.x), mix(gH(i + vec2(0, 1)), gH(i + vec2(1, 1)), f.x), f.y); }`)
         .replace('#include <map_fragment>', `#include <map_fragment>
         if (vGw.x < ${COAST_GLSL('vGw.y')}) discard; // (the Pacific, west of town: Ferris.airspace)
-        float gA = gN(vGw / 90.0) * 0.6 + gN(vGw / 23.0) * 0.3 + gN(vGw / 6.0) * 0.1;
+${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12}.0 && vGw.y > ${LOT.z + CITY.z0 - 8}.0 && vGw.y < ${LOT.z + CITY.z1 + 12}.0 && !(abs(vGw.x) < 30.0 && vGw.y > ${LOT.z - 17}.0 && vGw.y < ${LOT.z + 13}.0)) discard; // (the city's ground: city/Ground.js)
+` : ''}        float gA = gN(vGw / 90.0) * 0.6 + gN(vGw / 23.0) * 0.3 + gN(vGw / 6.0) * 0.1;
         // Coast City's ground, seen from the air: paved, in blocks, toward the shore (not in a layer
         // of its own over the sand: two layers fought from up high)
         // (an irregular spread, thickest downtown, thinning out into the desert at its edges)
@@ -233,6 +241,8 @@ export class Ferris {
     ground.position.set(0, -0.03, 3000);
     ground.receiveShadow = true;
     s.add(ground);
+    // the bay, at the beach (from the street the airspace's sea isn't drawn)
+    s.add(cityOcean());
     // (a heightfield, not a box: Hal sank into a box this size as soon as he walked, and stuck)
     this.physics.fixedGround(600);
     // concrete: the apron, and the lot behind the hangars
@@ -283,8 +293,11 @@ export class Ferris {
       if (Math.abs(z - CEMETERY.z) < 40 && x > 0 && x < CEMETERY.x + 45) continue; // the memorial park and its drive
       const r = 0.3 + rnd() * rnd() * 1.4;
       m4.compose(p.set(x, r * 0.25, z), q.setFromAxisAngle(V(0, 1, 0), rnd() * 6), sc.set(r, r, r));
+      col.setHSL(0.17 + rnd() * 0.06, 0.15 + rnd() * 0.1, 0.32 + rnd() * 0.12);
+      // (not in the bay, nor in the city: tested after its numbers are drawn, so the rest of the scene's come out as before)
+      if (x < coastX(z) + 4 || (this.cityOn && x > CITY.x0 - 40 && x < CITY.x1 + 20 && z > LOT.z + CITY.z0 - 20 && z < LOT.z + CITY.z1 + 20)) continue;
       bushes.setMatrixAt(n, m4);
-      bushes.setColorAt(n, col.setHSL(0.17 + rnd() * 0.06, 0.15 + rnd() * 0.1, 0.32 + rnd() * 0.12));
+      bushes.setColorAt(n, col);
       n++;
     }
     bushes.count = n;
@@ -721,11 +734,20 @@ export class Ferris {
     for (const [x0, x1] of [[B.x0 - 5.5, B.x0], [B.x1, B.x1 + 5.5]]) for (const [z0, z1] of spans) {
       this.physics.fixedBox({ x: LOT.x + (x0 + x1) / 2, y: 0.07, z: LOT.z + (z0 + z1) / 2 }, { x: (x1 - x0) / 2, y: 0.07, z: (z0 - z1) / 2 });
     }
-    const cross = new THREE.Mesh(flat(320, 12), pbrMaterial('asphalt_02', { repeat: [60, 2.2] }));
-    cross.position.set(6, 0.02, B.cross); // over the boulevard (it was 1 mm under it, and fought it)
-    cross.receiveShadow = true;
-    g.add(cross);
+    if (!this.cityOn) { // (the city's ground paints its streets: city/Ground.js)
+      const cross = new THREE.Mesh(flat(320, 12), pbrMaterial('asphalt_02', { repeat: [60, 2.2] }));
+      cross.position.set(6, 0.02, B.cross); // over the boulevard (it was 1 mm under it, and fought it)
+      cross.receiveShadow = true;
+      g.add(cross);
+    }
     const ground = new THREE.Mesh(flat(420, len + 520), pbrMaterial('asphalt_02', { repeat: [70, 160], tint: new THREE.Color(0.85, 0.83, 0.8) }));
+    if (this.cityOn) { // only south of the city's edge: the road out to the field
+      ground.material.onBeforeCompile = (sh) => {
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vOz;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvOz = (modelMatrix * vec4(transformed, 1.0)).z;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vOz;').replace('#include <map_fragment>', `if (vOz > ${LOT.z + CITY.z0 - 8}.0) discard;\n#include <map_fragment>`);
+      };
+      ground.material.customProgramCacheKey = () => 'boulevardSouth';
+    }
     ground.position.set(6, 0, (B.z0 + B.z1) / 2 + 120);
     ground.receiveShadow = true;
     g.add(ground);
@@ -742,10 +764,10 @@ export class Ferris {
         z -= w + 4 + rnd() * 8;
       }
     }
-    // the blocks round the lot, so it sits in town and not at the edge of the desert
-    for (const [name, x, z, r] of [['office2', -78, 10, Math.PI / 2], ['office5', -70, -50, Math.PI / 2], ['office4', -76, 70, Math.PI / 2], ['office6', 92, 30, -Math.PI / 2], ['office5', 66, -48, -Math.PI / 2], ['office1', 70, 96, -Math.PI / 2], ['office4', -20, 86, Math.PI], ['office2', 40, 70, Math.PI]]) this.smash.solid(put(prop(name), x, z, r), { stuff: 'stone', mesh: true });
+    // the blocks round the lot, so it sits in town and not at the edge of the desert (the city's own, streamed, when it's on)
+    if (!this.cityOn) for (const [name, x, z, r] of [['office2', -78, 10, Math.PI / 2], ['office5', -70, -50, Math.PI / 2], ['office4', -76, 70, Math.PI / 2], ['office6', 92, 30, -Math.PI / 2], ['office5', 66, -48, -Math.PI / 2], ['office1', 70, 96, -Math.PI / 2], ['office4', -20, 86, Math.PI], ['office2', 40, 70, Math.PI]]) this.smash.solid(put(prop(name), x, z, r), { stuff: 'stone', mesh: true });
     // downtown, behind Hal's building: the towers through the haze
-    for (const [name, x, z, sc, r] of [['office3', -120, 190, 2.3, 0.3], ['office1', -40, 260, 2.0, -0.2], ['office3', 70, 230, 1.9, 1.2], ['office4', 150, 170, 1.7, 0.5], ['office6', -210, 120, 1.2, 0.9]]) this.smash.solid(put(prop(name), x, z, r, sc), { stuff: 'stone', mesh: true });
+    if (!this.cityOn) for (const [name, x, z, sc, r] of [['office3', -120, 190, 2.3, 0.3], ['office1', -40, 260, 2.0, -0.2], ['office3', 70, 230, 1.9, 1.2], ['office4', 150, 170, 1.7, 0.5], ['office6', -210, 120, 1.2, 0.9]]) this.smash.solid(put(prop(name), x, z, r, sc), { stuff: 'stone', mesh: true });
     // street furniture: palms in the verge, lamps at the kerb, hydrants, bins
     for (let z = B.z0 - 10, n = 0; z > B.z1 + 10; z -= 18, n++) {
       if (Math.abs(z - B.cross) < 12 || (own && z > from)) continue;
@@ -994,7 +1016,21 @@ export class Ferris {
   // driven: walking needs only the patches round the lot, the field and the park).
   roadGround() {
     if (this.roadGroundBody) return;
-    this.roadGroundBody = this.physics.fixedGround(16000, 0, 160, 0, 3000);
+    if (!this.cityOn) { this.roadGroundBody = this.physics.fixedGround(16000, 0, 160, 0, 3000); return; }
+    // with the city: the valley's ground dropped out of sight under it, and the city's own at 10 m cells
+    // over it, the channel's banks and bed cut in (city/Plan.js CHANNEL: its edges on the cells' lines,
+    // so the banks come out exact)
+    const F = CITY_GROUND, C = CHANNEL;
+    const under = (x, z) => (x > F.x0 + 100 && x < F.x1 - 100 && z > F.z0 + 100 && z < F.z1 - 100 ? -10 : 0);
+    this.roadGroundBody = this.physics.fixedHeights(16000, 16000, 160, 160, under, 0, 3000);
+    const cz0 = LOT.z + CITY.z0, cz1 = LOT.z + CITY.z1;
+    const city = (x, z) => {
+      if (z < cz0 || z > cz1 || x < C.x0 || x > C.x1) return 0;
+      if (x < C.bed0) return -C.depth * (x - C.x0) / (C.bed0 - C.x0);
+      if (x > C.bed1) return -C.depth * (C.x1 - x) / (C.x1 - C.bed1);
+      return -C.depth;
+    };
+    this.cityGroundBody = this.physics.fixedHeights(F.x1 - F.x0, F.z1 - F.z0, (F.x1 - F.x0) / 10, (F.z1 - F.z0) / 10, city, (F.x0 + F.x1) / 2, (F.z0 + F.z1) / 2);
   }
   // The car is driven out of its bay: its stand-in box goes (carSolid puts one back where it stops).
   freeCar() {
@@ -1052,6 +1088,7 @@ export class Ferris {
         .replace('#include <map_fragment>', `#include <map_fragment>
         float sx = ${COAST_GLSL('vSw.z')};
         if (vSw.x > sx) discard;
+        if (vSw.x > -8990.0 && vSw.z > 1210.0 && vSw.z < 14790.0) discard; // (the bay's own, nearer: city/Ground.js)
         diffuseColor.rgb = mix(vec3(0.16, 0.42, 0.46), diffuseColor.rgb, smoothstep(0.0, 900.0, sx - vSw.x));`);
     };
     sea.position.set(-46000, 0.05, 3000);
@@ -1078,6 +1115,7 @@ export class Ferris {
       const x = -6200 + rnd() * 8800, z = 3600 + rnd() * 9400;
       if (x < coastX(z) + 250) continue;
       if (Math.abs(x - 6) < 900 && z > LOT.z - 700 && z < LOT.z + 500) continue; // the real streets
+      if (this.cityOn && x > CITY.x0 - 60 && x < CITY.x1 + 60 && z > LOT.z + CITY.z0 - 60 && z < LOT.z + CITY.z1 + 60) continue; // (the city's, streamed)
       // the same spread as the paving under it (the desert shader's gSpread, roughly)
       const spread = Math.hypot((x + 1800) / 4300, (z - 7800) / 4600);
       if (spread > 0.9 || rnd() < spread * 0.5) continue;
@@ -1153,6 +1191,7 @@ export class Ferris {
     this.exhaust.update(dt, t, camera, renderer);
     if (this.beacon) this.beacon.visible = Math.sin(t * 3) > 0;
     this.block?.update(dt, t, camera);
+    this.city?.update(dt, camera);
     this.office?.update(dt, t, camera);
     this.lamps.update(dt, camera);
     this.lod.update(dt, camera);

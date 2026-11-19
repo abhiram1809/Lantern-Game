@@ -51,7 +51,8 @@ export class Exile extends Probation {
 
   async prepare(id) {
     const { ui, player } = this;
-    await loadProps(FERRIS_PROPS);
+    await loadProps(FERRIS_PROPS, (k) => this.ui.loadStage('props', k));
+    if (id === 'dawn') await this.setupFerrisAsync(); // (in slices, under the loading screen)
     ui.clock(this.save.info(id).clock);
     this.ring = createRing();
     this.attachRing(this.ring, this.hal);

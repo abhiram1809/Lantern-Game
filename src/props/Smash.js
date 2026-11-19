@@ -139,6 +139,10 @@ export class Smash {
     if (item.hazard) item.hazard.active = () => false;
     item.fire?.group.removeFromParent();
     item.fireLoop?.stop?.(0.5);
+    // (Rapier hands a freed handle to the next body made: left in the maps, a streamed-in lamp post
+    // would have answered as a car put away long before)
+    if (item.body) { this.byBody.delete(item.body.handle); for (let k = 0; k < item.body.numColliders(); k++) this.byCollider.delete(item.body.collider(k).handle); }
+    if (item.collider) this.byCollider.delete(item.collider.handle);
     if (item.body && this.physics.world.bodies.contains(item.body.handle)) this.physics.world.removeRigidBody(item.body);
     item.object?.removeFromParent();
   }

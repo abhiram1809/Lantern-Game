@@ -41,10 +41,24 @@ export class Life {
   }
 
   get level() { return levelOf(this.d.xp).level; }
-  save() { LifeSave.update((s) => { for (const k of ['money', 'tab', 'rentDue', 'xp', 'points', 'stats', 'opinion', 'worked', 'lateNoted']) s[k] = this.d[k]; }); }
+  save() { LifeSave.update((s) => { for (const k of ['money', 'tab', 'rentDue', 'xp', 'points', 'stats', 'opinion', 'worked', 'lateNoted', 'ledger', 'events']) s[k] = this.d[k]; }); }
 
   // ---------------------------------------------------------------- money
+  // (each in and out kept for the phone's bank, the last forty)
+  record(amount, why) {
+    const dc = this.story.dayCycle;
+    (this.d.ledger ??= []).unshift({ day: dc?.day ?? 1, hour: dc?.hour ?? 0, amount, why });
+    this.d.ledger.length = Math.min(this.d.ledger.length, 40);
+  }
+  // what happened in town, for the phone's paper (the emergencies and what came of them)
+  note(text, good = true) {
+    const dc = this.story.dayCycle;
+    (this.d.events ??= []).unshift({ day: dc?.day ?? 1, hour: dc?.hour ?? 0, text, good });
+    this.d.events.length = Math.min(this.d.events.length, 12);
+    this.save();
+  }
   pay(amount, why) {
+    this.record(amount, why);
     this.d.money += amount;
     this.save();
     this.story.ui.toast(`+${money(amount)} · ${why}`);
@@ -53,6 +67,7 @@ export class Life {
   // false (and nothing spent) if he hasn't got it
   spend(amount, why) {
     if (this.d.money + 1e-6 < amount) return false;
+    this.record(-amount, why ?? 'cash');
     this.d.money -= amount;
     this.save();
     if (why) this.story.ui.toast(`−${money(amount)} · ${why}`);

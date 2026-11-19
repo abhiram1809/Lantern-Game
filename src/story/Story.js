@@ -19,6 +19,7 @@ import { RingPowers } from '../powers/RingPowers.js';
 import { PowerHud } from '../ui/PowerHud.js';
 import { LINES } from './lines.js';
 import { loadProps } from '../props/Props.js';
+import { breath } from '../engine/Slice.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const ORB_SPOT = V(0.55, 1.5, -0.75);
@@ -149,26 +150,47 @@ export class Story {
   // GPU a few at a time (a first frame sends them all). Whatever is hidden (drawn by distance, a night's
   // lamps) is shown just while its programs are gathered; `prepare` may set more up for it and returns
   // what puts it back. `roots`: only these, lit as the scene is (the people, in a scene already warm).
-  async warmUp(scene, prepare, roots = [scene]) {
+  // The shaders for what's in `roots` compiled (and its textures uploaded) before it's drawn, a piece
+  // at a time with the browser let in between. With `near` (a point) and `radius`, only the pieces
+  // within that of it are waited for: the rest go on behind, after the loading screen, nearest first
+  // (free roam's way in at the field: the town's six kilometres off waited eight seconds and more).
+  // (`onProgress`: the loading screen's)
+  async warmUp(scene, prepare, roots = [scene], onProgress = null, { near = null, radius = 600 } = {}) {
     const r = this.engine.renderer;
     if (!r.compileAsync) return;
     let t = performance.now();
-    const breathe = async () => { if (performance.now() - t > 10) { await new Promise((res) => setTimeout(res, 0)); t = performance.now(); } };
+    const breathe = async () => { if (performance.now() - t > 10) { await breath(); t = performance.now(); } };
     const pieces = [], split = (o) => { let n = 0; o.traverse(() => n++); if (n > 300 && o.children.length) o.children.forEach(split); else pieces.push(o); };
     roots.forEach(split);
-    const jobs = [], textures = new Set();
-    for (const piece of pieces) {
-      const hidden = [];
-      piece.traverse((o) => {
-        if (!o.visible) { hidden.push(o); o.visible = true; }
-        for (const m of [o.material].flat()) if (m) for (const v of Object.values(m)) if (v?.isTexture && !v.isRenderTargetTexture) textures.add(v);
-      });
-      const undo = prepare?.();
-      try { jobs.push(r.compileAsync(piece, this.engine.camera, scene)); } finally { for (const o of hidden) o.visible = false; undo?.(); }
-      await breathe();
+    let later = [];
+    if (near) {
+      const box = new THREE.Box3(), d = new Map();
+      for (const p of pieces) { box.setFromObject(p); d.set(p, box.isEmpty() ? 0 : box.distanceToPoint(near)); }
+      pieces.sort((a, b) => d.get(a) - d.get(b));
+      const n = pieces.findIndex((p) => d.get(p) > radius);
+      if (n >= 0) later = pieces.splice(n);
     }
-    await Promise.race([Promise.all(jobs), new Promise((res) => setTimeout(res, 8000))]); // (real time: the game's may be stopped)
-    for (const tex of textures) { r.initTexture(tex); await breathe(); }
+    const compile = async (list, progress) => {
+      const jobs = [], textures = new Set();
+      for (const [i, piece] of list.entries()) {
+        progress?.((i / list.length) * 0.5);
+        const hidden = [];
+        piece.traverse((o) => {
+          if (!o.visible) { hidden.push(o); o.visible = true; }
+          for (const m of [o.material].flat()) if (m) for (const v of Object.values(m)) if (v?.isTexture && !v.isRenderTargetTexture) textures.add(v);
+        });
+        const undo = prepare?.();
+        try { jobs.push(r.compileAsync(piece, this.engine.camera, scene)); } finally { for (const o of hidden) o.visible = false; undo?.(); }
+        await breathe();
+      }
+      let compiled = 0;
+      await Promise.race([Promise.all(jobs.map((j) => j.then(() => progress?.(0.5 + (++compiled / jobs.length) * 0.3)))), new Promise((res) => setTimeout(res, 8000))]); // (real time: the game's may be stopped)
+      let up = 0;
+      for (const tex of textures) { r.initTexture(tex); progress?.(0.8 + (++up / textures.size) * 0.2); await breathe(); }
+    };
+    await compile(pieces, onProgress);
+    onProgress?.(1);
+    if (later.length) this.warming = compile(later).catch((e) => console.warn('warm up', e)); // (behind the game, not waited for)
   }
 
   standDown() {
@@ -199,6 +221,7 @@ export class Story {
   }
 
   giveControl(objective) {
+    this.ui.loadEnd(); // (a chapter that hands him control without a fade: the loading screen goes all the same)
     this.ui.cinematic(false);
     this.director.mode = 'follow';
     this.player.control = true;
@@ -323,7 +346,7 @@ export class Story {
   }
 
   async prepare(id) {
-    await loadProps(['fridge', 'coffee', 'f104']); // the kitchenette's fridge and coffee maker, the dream's jet
+    await loadProps(['fridge', 'coffee', 'f104'], (k) => this.ui.loadStage('props', k)); // the kitchenette's fridge and coffee maker, the dream's jet
     const { ui, player } = this;
     ui.clock(this.save.info(id).clock);
     if (['home', 'bedroom', 'light', 'question'].includes(id)) this.setupBedroom();

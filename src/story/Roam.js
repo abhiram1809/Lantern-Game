@@ -8,16 +8,22 @@ import { POWER_KEYS } from './Story.js';
 import { POSES, still, makePose } from '../characters/Poses.js';
 import { createKatma } from '../characters/Characters.js';
 import { loadProps } from '../props/Props.js';
-import { LOT } from '../scenes/Ferris.js';
+import { LOT, coastX } from '../scenes/Ferris.js';
+import { sliced } from '../engine/Slice.js';
 import { Bedroom } from '../scenes/Bedroom.js';
 import { CityLife } from './CityLife.js';
 import { createSky } from '../fx/Sky.js';
 import { DayCycle } from '../scenes/DayCycle.js';
 import { LifeSave } from '../engine/Save.js';
-import { Life, STATS, MAX_STAT, SHIFT_PAY, money } from './Life.js';
+import { Life, STATS, MAX_STAT, money } from './Life.js';
 import { Traffic } from '../city/Traffic.js';
 import { Emergencies } from './Emergencies.js';
 import { Pressure } from './Pressure.js';
+import { WORK } from './Work.js';
+import { ALBUM } from './Album.js';
+import { Phone } from '../ui/Phone.js';
+import { CityMap } from '../ui/CityMap.js';
+import { buildPhone } from './Coast.js';
 import { ARRIVAL as LAKE_ARRIVAL, SHIP } from '../scenes/CrashSite.js';
 import { HAL_START } from '../scenes/Oa.js';
 import { HALL } from '../scenes/Hall.js';
@@ -55,8 +61,8 @@ const AIRLESS = new Set(['oa', 'ysmault', 'qward']);
 const THANKS = { townm1: 'thxM1', townm2: 'thxM2', townm3: 'thxM3', townf1: 'thxF1', townf2: 'thxF2', townf3: 'thxF3' };
 const TAKES = { wash: 0.75, haircut: 0.5, shave: 0.3, press: 1.0, movie: 2.0, workout: 1.0 }; // (hours: what a purchase takes)
 const SECTORS = { oa: 'SECTOR 0', korugar: 'SECTOR 1417', ysmault: 'SECTOR 666', qward: 'QWARD' }; // (off Earth the clock's place shows where he is) // (no air for a man out of the uniform; Korugar has its people's)
-const CIVILIAN_KEYS = '<b>T</b> Green Lantern &nbsp; <b>L</b> lantern &nbsp; <b>M</b> travel';
-const LANTERN_KEYS = `${POWER_KEYS} &nbsp; <b>T</b> Hal Jordan &nbsp; <b>M</b> travel &nbsp; <b>E</b> high up: star chart`;
+const CIVILIAN_KEYS = '<b>T</b> Green Lantern &nbsp; <b>L</b> lantern &nbsp; <b>M</b> travel &nbsp; <b>G</b> phone &nbsp; <b>N</b> map';
+const LANTERN_KEYS = `${POWER_KEYS} &nbsp; <b>T</b> Hal Jordan &nbsp; <b>M</b> travel &nbsp; <b>G</b> phone &nbsp; <b>N</b> map &nbsp; <b>E</b> high up: star chart`;
 
 // Free roam, after Part Six (the user's call, 2026-11-17, and their notes the same day: "I really
 // can't travel in space as a Green Lantern", "I should be able to change into Hal Jordan, and use my
@@ -71,6 +77,7 @@ const LANTERN_KEYS = `${POWER_KEYS} &nbsp; <b>T</b> Hal Jordan &nbsp; <b>M</b> t
 // Qward and back. M is the ring's travel menu, the same places by name. T changes: the suit sweeping
 // off into his clothes, or back on (it needs charge). L sets the lantern down, or puts it away, on any
 // world; beside it, E recharges the ring (the whole oath when it's low).
+const _hp = new THREE.Vector3();
 export class Roam extends Exile {
   steps() { return { ...super.steps(), world: () => this.openWorld() }; }
 
@@ -81,12 +88,55 @@ export class Roam extends Exile {
     if (free && this.input.hit('KeyM')) { this.input.consume?.('KeyM'); this.travelMenu(); }
     else if (free && this.input.hit('KeyT')) { this.input.consume?.('KeyT'); this.changeClothes(); }
     else if (free && this.life && this.input.hit('KeyK')) { this.input.consume?.('KeyK'); this.ringStats(); }
+    else if (free && this.input.hit('KeyG') && !this.player.flying && !this.driving && !this.jet) { this.input.consume?.('KeyG'); this.openPhone(); }
+    else if (free && this.cityMap && this.current === this.ferrisScene && this.input.hit('KeyN')) { this.input.consume?.('KeyN'); this.cityMap.openFull(); }
+    this.cityMap?.update(real ?? dt);
     if (dt > 0) this.roamTick?.(dt);
     // in sight or out of it, on Earth's streets (he changes only where no one can see him)
     const earth = this.current === this.ferrisScene && this.cityLife?.started && !this.driving;
     this.ui.watching(earth && this.player.control ? this.watchers().length : null);
     if (dt > 0) this.updateAir(dt);
     this.updateDay(dt);
+  }
+
+  // ---------------------------------------------------------------- his phone
+  // G on the ground (ui/Phone.js): out of his pocket into his left hand, the screen to his eyes, the
+  // phone's apps over the scene; G again puts it away
+  async openPhone() {
+    const { player } = this;
+    this.phoneUI ??= new Phone(this);
+    if (this.phoneUI.open) return;
+    this.menuOpen = true;
+    const had = player.control;
+    player.control = false;
+    this.ui.prompt?.(null);
+    this.phoneUI.show();
+    let grip = null, phone = null;
+    try {
+      await loadProps(['phone']);
+      if (this.phoneUI.open && player.rig) {
+        phone = (this.phoneProp ??= buildPhone());
+        phone.userData.screen.material.color.setScalar(0.85);
+        const rig = player.rig, chest = V(0, 0, 0), fwd = () => V(Math.sin(player.object.rotation.y), 0, Math.cos(player.object.rotation.y));
+        this.current.scene.add(phone);
+        rig.bonePosition('hand_L', phone.position);
+        const was = this.hal;
+        this.hal = rig; // (holdInHand works on this.hal: in the suit, the suit's hand)
+        grip = this.holdInHand(phone, 'L');
+        this.hal = was;
+        player.animator.reach('L', () => rig.bonePosition('chest', chest).addScaledVector(fwd(), 0.33).add(V(0, 0.1, 0)), { pole: V(0.6, -0.9, -0.4), rate: 5 });
+        player.lookAt(() => phone.getWorldPosition(_hp), 0.85);
+      }
+    } catch (e) { console.warn('phone', e); }
+    this.phoneUI.onHide = () => {
+      this.phoneUI.onHide = null;
+      grip?.release();
+      player.animator.reach('L', null);
+      player.lookAt(null);
+      phone?.removeFromParent();
+      this.menuOpen = false;
+      player.control = had && !this.busy;
+    };
   }
 
   // ---------------------------------------------------------------- the day
@@ -201,6 +251,7 @@ export class Roam extends Exile {
     this.civilian = false;
     this.life = new Life(this);
     this.life.apply();
+    this.cityMap = new CityMap(this); // (the radar and the whole map: ui/CityMap.js)
     await this.enterPlace('ferris');
     ui.fade(0, 1.0);
     this.roaming = true;
@@ -409,9 +460,12 @@ export class Roam extends Exile {
       f.roadGround();
       // its materials compiled first, the town's night lamps among them (city/Lamps.js keeps the
       // lights the same at any hour, so dusk recompiles nothing)
-      await this.warmUp(f.scene, () => { f.block?.setNight(1); f.office?.setNight(1); return () => { f.block?.setNight(this.dayCycle?.k ?? 0); f.office?.setNight(this.dayCycle?.k ?? 0); }; });
-      if (id === 'ferris') this.enterFerris(HANGAR_MOUTH.clone().add(V(0, 0, -6)), 0);
-      else this.enterFerris(LOT.clone().add(V(4, 0, -30)), Math.PI);
+      // the city's blocks round where he'll be, built before he's there (the rest stream in: city/Stream.js)
+      const at = id === 'ferris' ? HANGAR_MOUTH.clone().add(V(0, 0, -6)) : LOT.clone().add(V(4, 0, -30));
+      if (f.city) await sliced(f.city.fill(at.x, at.z - LOT.z, 200), 24, { key: `fill_${id}`, expect: 300, onProgress: (k) => this.ui.loadStage('city', k) });
+      await this.warmUp(f.scene, () => { f.block?.setNight(1); f.office?.setNight(1); f.city?.setNight(1); return () => { const k = this.dayCycle?.k ?? 0; f.block?.setNight(k); f.office?.setNight(k); f.city?.setNight(k); }; }, [f.scene], (k) => this.ui.loadStage('shaders', k), { near: at, radius: 700 });
+      if (id === 'ferris') this.enterFerris(at, 0);
+      else this.enterFerris(at, Math.PI);
       this.world = 'earth';
       this.ferrisRoam(f, id);
       air = id === 'ferris' ? [V(0.5, 64, 74), Math.PI, V(0, -4, -9)] : [LOT.clone().add(V(6, 84, -380)), 0, V(0, -4, 9)];
@@ -486,14 +540,18 @@ export class Roam extends Exile {
       this.dayCycle.apply(engine.camera); // (the night's materials were compiled with the rest: enterPlace's warmUp)
     }
     // the streets' traffic (city/Traffic.js), in free roam only
-    if (!this.traffic && f.block) { this.traffic = new Traffic(f, this, { count: 16, lot: LOT }); f.updaters.push((dt) => this.traffic.update(dt)); }
+    // (16 on Hal's blocks' streets, 16 more on the rest of the city's near the camera)
+    if (!this.traffic && f.block) { this.traffic = new Traffic(f, this, { count: 16, grid: 16, lot: LOT }); f.updaters.push((dt) => this.traffic.update(dt)); }
     // and what goes wrong on them, for Green Lantern to answer (story/Emergencies.js)
     if (!this.emergencies && f.block) { this.emergencies = new Emergencies(this, f); f.updaters.push((dt) => this.emergencies.update(dt)); }
     // and what a city that's turned against Green Lantern does about it (story/Pressure.js)
     if (!this.pressure && f.block) { this.pressure = new Pressure(this, f); f.updaters.push((dt) => this.pressure.update(dt)); }
     f.follow = () => (this.driving ? f.car.position : player.position);
     this.ambience(audio.wind(0.05), audio.traffic(id === 'coast' ? 0.05 : 0.015));
-    powers.attach({ scene: f.scene, physics: f.physics, ground: () => 0, floor: () => 0, canLand: (x, z) => Math.abs(x) < 4200 && z > -1200 && z < 7600, center: V(0, 0, 3200), radius: 5400, ceiling: 650 });
+    // (flight over the field, the road and the whole city to its north edge, never down into the sea; the
+    // city's buildings solid to him in the air where their blocks aren't built yet)
+    powers.attach({ scene: f.scene, physics: f.physics, ground: () => 0, floor: () => 0, canLand: (x, z) => Math.abs(x) < 4200 && z > -1200 && z < LOT.z + 3700 && (x > coastX(z) + 1 || f.city?.onPier(x, z)),
+      solid: f.city ? (x, y, z) => f.city.solidAt(x, y, z) : undefined, center: V(0, 0, 4600), radius: 6400, ceiling: 650 });
     powers.regen = 0;
     player.boostScale = 2.4; // (six kilometres from the field to the city)
     // what the ring breaks in town costs him the city's goodwill (story/Life.js): not collisions
@@ -506,6 +564,7 @@ export class Roam extends Exile {
     this.lanternSpots(f);
     this.carolRoam(f);
     this.addCarSpot(f);
+    this.addWorkSpots(f); // (the time clock in Hangar Two, the prototype's test cards: story/Work.js)
     this.blockRoam(f);
     // high over the valley: the whole test range under him, the coast and the sea out to the horizon
     // (Part Five's airspace), and back to the valley's haze coming down
@@ -554,28 +613,16 @@ export class Roam extends Exile {
     } });
   }
 
-  // A day's flying for Ferris (from seven in the morning until one: the day goes by to four, and his
-  // pay with it, less if he came in late); the only money he makes
-  shiftOpen() { const dc = this.dayCycle; return !!dc && !!this.life && dc.hour >= 7 && dc.hour < 13 && this.life.d.worked !== dc.day; }
+  // Work at Ferris: clocked in any time from nine to five, paid by the hour (story/Work.js); Carol puts
+  // him on the clock when he asks her
+  shiftOpen() { const dc = this.dayCycle; return !!dc && !!this.life && !this.work && dc.hour >= 9 && dc.hour < 17; }
   async offerShift() {
-    const { ui, dayCycle: dc, life } = this;
-    const pick = ui.pick('Ferris Aircraft', ['Fly the shift (till 4 PM)', 'Not today']);
+    const { ui } = this;
+    const pick = ui.pick('Ferris Aircraft', [`Clock in · $62 an hour`, 'Not yet']);
     const i = await Promise.race([pick, wait(12).then(() => -1)]);
     pick.cancel();
     if (i !== 0) return false;
-    this.takeControl();
-    await this.bark('halShift');
-    await ui.fade(1, 0.9);
-    const hours = Math.max(2, 16 - dc.hour), pay = Math.round(SHIFT_PAY * Math.min(1, hours / 8));
-    dc.setHour(16);
-    dc.apply(this.engine.camera);
-    life.d.worked = dc.day;
-    await wait(0.8);
-    ui.toast(`Four o’clock · ${hours >= 7.5 ? 'a full day’s flying' : `${Math.round(hours)} hours flown`}`);
-    await ui.fade(0, 0.9);
-    life.pay(pay, hours >= 7.5 ? 'a day’s test flying' : 'a short day’s flying');
-    life.gain(15, 'a day at Ferris');
-    await this.carolSay(hours >= 7.5 ? 'carolShiftEnd' : 'carolShiftLate', [['', 'open']], { skip: false });
+    await this.clockIn();
     this.giveControl(this.roamObjective());
     return true;
   }
@@ -1057,9 +1104,13 @@ export class Roam extends Exile {
     // its people (story/CityLife.js): loaded while he's already about, they appear when they're ready
     this.cityLife = new CityLife(this, f);
     this.cityLife.start().catch((e) => console.warn('city life', e));
-    // home: his building's front door, on the lot
-    const door = LOT.clone().add(V(0.4, 0, 12.7));
-    this.blockIts.push(f.interact({ position: door, radius: 1.4, look: door.clone().add(V(0, 1.4, 0.8)), label: 'Go up to the apartment', action: () => this.enterFlat() }));
+    // home: his building's two front doors on the lot, up their stoops, and the lawn between them (the
+    // one spot there was, 1.4 m across in front of the middle wall, was at neither door: the user
+    // pressed E at the doors and nothing happened)
+    for (const x of [-13.6, 0, 13.6]) {
+      const door = LOT.clone().add(V(x, 0, 11.6));
+      this.blockIts.push(f.interact({ position: door, radius: x ? 3 : 4.2, look: door.clone().add(V(0, 1.4, 2.6)), label: 'Go home', action: () => { this.homeDoor = x; return this.enterFlat(); } }));
+    }
   }
 
   // At Coast Liquor's register, once Ray's there: a soda, a candy bar or a scratcher (story/Life.js's
@@ -1182,11 +1233,11 @@ export class Roam extends Exile {
     Object.defineProperty(rent, 'enabled', { get: () => !!due()?.soon, set() {} });
     Object.defineProperty(rent, 'label', { get: () => { const st = due(); return st ? `Pay Sal the rent · ${money(st.owed)}${st.late ? ` · ${st.late} day${st.late > 1 ? 's' : ''} late` : ''}` : 'Pay the rent'; } });
     room.interact({ position: V(0.8, 0, 2.35), radius: 0.8, look: V(0.8, 1.0, 3.0), label: 'Check the fridge', action: () => this.checkFridge() });
-    room.interact({ position: V(0.1, 0, 2.45), radius: 0.8, look: V(0.22, 1.0, 3.0), label: 'Make coffee', action: () => this.bark('coffee') });
+    const ready = room.interact({ position: V(0.1, 0, 2.45), radius: 0.8, look: V(0.22, 1.0, 3.0), label: 'Get ready', action: () => this.getReady() });
+    Object.defineProperty(ready, 'label', { get: () => { const h = this.dayCycle?.hour ?? 8; return h > 4 && h < 12 ? 'Get ready for the day' : 'Make coffee'; } });
     room.interact({ position: V(1.25, 0, -1.25), radius: 0.9, look: V(1.3, 0.92, -1.86), label: 'Look at the photo', action: () => this.bark('halHomePhoto') });
     room.interact({ position: V(1.85, 0, -0.35), radius: 0.9, look: V(2.4, 1.5, -0.35), label: 'Look outside', action: () => this.bark('halHomeWindow') });
-    const bed = room.interact({ position: V(-0.2, 0, -0.6), radius: 0.9, look: V(-1.1, 0.6, -1.0), label: 'Sleep', action: () => this.sleep() });
-    Object.defineProperty(bed, 'label', { get: () => (this.ferrisScene?.isNight ? 'Sleep till morning' : 'Sleep till evening') });
+    room.interact({ position: V(-0.2, 0, -0.6), radius: 0.9, look: V(-1.1, 0.6, -1.0), label: 'Go to bed', action: () => this.sleep() });
     return room;
   }
 
@@ -1243,7 +1294,7 @@ export class Roam extends Exile {
     audio.door();
     await ui.fade(1, 0.6);
     const f = this.ferrisScene;
-    this.enterFerris(LOT.clone().add(V(0.4, 0, 13.2)), Math.PI);
+    this.enterFerris(LOT.clone().add(V(this.homeDoor ?? 13.6, 0, 11.4)), Math.PI); // (out of the door he went in by, at the foot of its stoop)
     this.ferrisRoam(f, 'coast');
     this.roam.where = 'coast';
     this.powersFor();
@@ -1273,25 +1324,53 @@ export class Roam extends Exile {
   }
 
   // Lie down, and the town outside turns over: day to night, or night to morning
+  // the bed: till morning (ready for a shift at Ferris, 9 to 5), till evening, or a nap
   async sleep() {
     const { player, ui } = this;
+    const f = this.ferrisScene, dc = this.dayCycle, h = dc?.hour ?? (f.isNight ? 22 : 10);
+    const opts = [['Sleep till morning · 7:00 AM', 7.05, 'halSleep'], ['Sleep till evening · 7:30 PM', 19.5, 'halSleep'], ['A two-hour nap', h + 2, 'halNap']];
+    if (h >= 19.5 || h < 5) opts.splice(1, 1); // (evening's come: the morning or a nap)
+    const pick = ui.pick('Bed', [...opts.map((o) => o[0]), 'Not now']);
+    const i = await pick;
+    if (i < 0 || i >= opts.length) return;
     this.busy = true;
     this.takeControl();
-    this.bark('halSleep');
+    this.bark(opts[i][2]);
     await wait(1.2);
     await ui.fade(1, 1.4);
-    const f = this.ferrisScene, night = !f.isNight, dc = this.dayCycle;
-    if (dc) { dc.setHour(night ? 19.65 : 7.1); dc.apply(this.engine.camera); } else if (night) f.night(); else f.day();
-    this.flatTime(this.flat, night);
+    if (dc) { dc.setHour(opts[i][1]); dc.apply(this.engine.camera); } else if (i === 1) f.night(); else f.day();
+    this.flatTime(this.flat, !!f.isNight);
     player.place(V(-0.2, 0, -0.45), Math.PI);
+    this.powers.health = this.powers.maxHealth ?? 100;
     await wait(1.0);
-    ui.toast?.(night ? `Evening · ${dc?.clock ?? '7:40 PM'}` : `Morning · ${dc?.clock ?? '7:05 AM'}`);
+    ui.toast?.(`${dc?.hour < 12 ? 'Morning' : dc?.hour < 18 ? 'Afternoon' : 'Evening'} · ${dc?.clock ?? ''}`);
     await ui.fade(0, 1.4);
     this.busy = false;
     this.giveControl(this.roamObjective());
+  }
+
+  // coffee, a shower, a shave, a clean shirt: half an hour, and he's himself again (in the morning; any
+  // other time it's only coffee)
+  async getReady() {
+    const { ui } = this, dc = this.dayCycle, h = dc?.hour ?? 8;
+    if (!(h > 4 && h < 12)) { await this.bark('coffee'); return; }
+    this.busy = true;
+    this.takeControl();
+    await ui.fade(1, 0.8);
+    this.audio.door?.();
+    if (dc) { dc.setHour(h + 0.5); dc.apply(this.engine.camera); }
+    this.powers.health = this.powers.maxHealth ?? 100;
+    await wait(0.8);
+    ui.toast?.(`Ready for the day · ${dc?.clock ?? ''}`);
+    await ui.fade(0, 0.8);
+    this.busy = false;
+    this.giveControl(this.roamObjective());
+    this.bark('halReady');
   }
 
 }
 
 // Kilowog's range from Part Two: another round when asked (the drill, his lines, the drones' waves).
 for (const name of ['wave', 'kwSay', 'kwBark', 'kwPoint', 'addDrillStart']) Roam.prototype[name] ??= Corps.prototype[name];
+// Hal's job at Ferris: clocking in and out, the test cards (story/Work.js)
+Object.assign(Roam.prototype, WORK, ALBUM); // (and the pictures on his phone: story/Album.js)

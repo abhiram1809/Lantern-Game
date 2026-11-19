@@ -2,6 +2,42 @@ import * as THREE from 'three';
 import { prop, meshes, boundsIn, pivot } from './Props.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+// A wheel modelled turned (three of the four town cars have their front wheels steered 20 to 30°)
+// spins about the car's axle like a wheel on a bent axle: the traffic's front wheels wobbled from side
+// to side. Its disc's axis (the direction its vertices spread least along) is turned back onto the
+// axle by a group inside the hub's pivot.
+const _wm = new THREE.Matrix4();
+function straighten(hub) {
+  hub.updateMatrixWorld(true);
+  const inv = _wm.copy(hub.matrixWorld).invert(), m = [0, 0, 0], pts = [], p = V(0, 0, 0), M = new THREE.Matrix4();
+  hub.traverse((o) => {
+    if (!o.isMesh) return;
+    const pos = o.geometry.attributes.position, step = Math.max(1, Math.floor(pos.count / 1200));
+    M.multiplyMatrices(inv, o.matrixWorld);
+    for (let i = 0; i < pos.count; i += step) { p.fromBufferAttribute(pos, i).applyMatrix4(M); pts.push(p.x, p.y, p.z); }
+  });
+  const n = pts.length / 3;
+  if (n < 12) return;
+  for (let i = 0; i < pts.length; i++) m[i % 3] += pts[i] / n;
+  const C = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < pts.length; i += 3) for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) C[a * 3 + b] += (pts[i + a] - m[a]) * (pts[i + b] - m[b]) / n;
+  // the least spread: the largest of (trace - C), by power iteration
+  const tr = C[0] + C[4] + C[8];
+  let a = [1, 0.05, 0.05];
+  for (let it = 0; it < 50; it++) {
+    const b = [0, 1, 2].map((r) => tr * a[r] - (C[r * 3] * a[0] + C[r * 3 + 1] * a[1] + C[r * 3 + 2] * a[2]));
+    const l = Math.hypot(...b) || 1;
+    a = b.map((x) => x / l);
+  }
+  if (a[0] < 0) a = a.map((x) => -x);
+  const yaw = Math.atan2(a[2], a[0]);
+  if (Math.abs(yaw) < 0.02 || Math.abs(yaw) > 0.7) return; // (straight already, or not a wheel's disc)
+  const inner = new THREE.Group();
+  for (const c of [...hub.children]) inner.add(c);
+  inner.rotation.y = yaw;
+  hub.add(inner);
+}
 const PAINT = /^(body|bodycolou?r|510w_body)$/i;
 
 // A car from the props (CREDITS.md), nose to +Z, origin on the ground at its centre:
@@ -38,6 +74,7 @@ export function makeCar(name, { paint = 0x8c2a22, primer = false, dust = 0.55 } 
     if (k) (wheelSets[k] ??= []).push(m);
   }
   g.userData.wheels = Object.values(wheelSets).map((list) => pivot(g, list, boundsIn(g, list).getCenter(V(0, 0, 0))));
+  for (const w of g.userData.wheels) straighten(w);
   // the axles (the rear one is where a car turns about), and the front wheels steer: about their
   // upright first, then spinning about the steered axle
   const hubZ = g.userData.wheels.map((w) => w.position.z);
@@ -185,22 +222,30 @@ export function rollCar(car, leg, s, last) {
 }
 const _pose = {};
 
+// (the amounts are uniforms, not numbers written into the shader: one program for every car's paint.
+// Each car's dust in its source was a program of its own, about a hundred of them, and compiling them
+// was most of free roam's way in)
 function roughFloor(mat, r) {
+  const u = { value: r };
   mat.onBeforeCompile = (sh) => {
-    sh.fragmentShader = sh.fragmentShader.replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>\nroughnessFactor = max(roughnessFactor, ${r.toFixed(2)});`);
+    sh.uniforms.uRoughFloor = u;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uRoughFloor;')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = max(roughnessFactor, uRoughFloor);');
   };
-  mat.customProgramCacheKey = () => `gl-rough-${r}`;
+  mat.customProgramCacheKey = () => 'gl-rough';
 }
 
 // Dust settling on a car's lower body: paler and flatter toward the ground.
 function dusty(mat, amount) {
+  const u = { value: amount };
   mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uDust = u;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vDustY;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvDustY = (modelMatrix * vec4(transformed, 1.0)).y;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vDustY;')
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vDustY;\nuniform float uDust;')
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-        float dustK = ${amount.toFixed(2)} * (1.0 - smoothstep(0.15, 0.85, vDustY));
+        float dustK = uDust * (1.0 - smoothstep(0.15, 0.85, vDustY));
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.53, 0.42), dustK * 0.75);
         roughnessFactor = mix(roughnessFactor, 0.95, dustK);`);
   };
-  mat.customProgramCacheKey = () => `gl-dust-${amount}`;
+  mat.customProgramCacheKey = () => 'gl-dust';
 }

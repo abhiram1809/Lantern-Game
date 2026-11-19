@@ -134,7 +134,8 @@ export class Engine {
       this.timer.update(timestamp);
       const raw = this.lastStamp == null ? 0 : (timestamp - this.lastStamp) / 1000;
       this.lastStamp = timestamp;
-      if (!this.paused && raw > 0 && raw < 0.25 && !document.hidden) this.adapt(raw);
+      // (not behind the loading screen: its frames are slow because the scene's being built, not drawn)
+      if (!this.paused && !this.veiled?.() && raw > 0 && raw < 0.25 && !document.hidden) this.adapt(raw);
       // the timer can report a negative delta when its clock and the frame timestamps disagree
       // (around visibility changes); a negative step poisons damping and flight maths with NaN
       const dt = Math.max(0, Math.min(this.timer.getDelta(), 1 / 20));
@@ -172,7 +173,7 @@ export class Engine {
     const t0 = performance.now();
     this.update(dt, this.time, real);
     const t1 = performance.now();
-    if (render) this.composer.render(dt);
+    if (render && !this.veiled?.()) this.composer.render(dt); // (behind the loading screen nothing's seen: `veiled`, main.js)
     // (dev only: frames over 50 ms, how long the game's update and the render each took)
     if (import.meta.env.DEV) { const t2 = performance.now(); if (t2 - t0 > 50) (window.__slowFrames ??= []).push({ at: Math.round(t0), update: Math.round(t1 - t0), render: Math.round(t2 - t1) }); }
   }

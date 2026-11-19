@@ -82,8 +82,10 @@ export class Emergencies {
       story.life?.gain(xp, `${a.label}, answered`);
       story.life?.opine(op, `${a.label}: Green Lantern was there`);
       story.ringSay?.('ringResolved');
+      story.life?.note?.(a.label, true);
     } else if (answered === false) {
       story.life?.opine(-3, a.failWhy ?? 'nobody came');
+      story.life?.note?.(a.label, false);
     }
     // the scene stays until nobody's looking, then it's cleared away
     const clear = () => {

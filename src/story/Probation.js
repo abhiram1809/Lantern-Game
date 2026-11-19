@@ -71,7 +71,7 @@ export class Probation extends Prisoner {
 
   async prepare(id) {
     const { ui, player } = this;
-    await loadProps([...FERRIS_PROPS, 'phone', 'fridge', 'coffee']);
+    await loadProps([...FERRIS_PROPS, 'phone', 'fridge', 'coffee'], (k) => this.ui.loadStage('props', k));
     ui.clock(this.save.info(id).clock);
     this.ring = createRing();
     this.attachRing(this.ring, this.hal);
@@ -82,7 +82,7 @@ export class Probation extends Prisoner {
     this.learn('hammer', false); // (Part Four's: in hand from here on)
     if (id === 'rent') { this.setupFlat(); return; }
     if (['commute', 'advance', 'testflight', 'pickup'].includes(id)) {
-      const f = this.setupFerris();
+      const f = await this.setupFerrisAsync();
       f.car.rotation.y = Math.PI;
       if (id === 'commute') return; // commute() puts him at his car behind his building
       if (id === 'advance') {

@@ -101,7 +101,7 @@ function lobby(ctx, M, r) {
   K.solid(mid - 2.65, FLOOR, dz - 0.75, mid + 2.65, FLOOR + 1.1, dz + 0.04, 'wood');
   K.add('dark', box(mid + 0.8, FLOOR + 1.1, dz - 0.5, mid + 1.1, FLOOR + 1.18, dz - 0.25), 0x141414); // the phone
   K.add('paint', box(mid - 1.2, FLOOR + 1.1, dz - 0.55, mid - 0.6, FLOOR + 1.112, dz - 0.15), 0xf2efe6); // the visitors' book
-  ctx.posts.push({ who: 'ferris:reception', room: 'ferris', staff: { id: 'business-female-03', voice: 'townf1', label: 'The receptionist', lines: ['ferrisRec1', 'ferrisRec2', 'ferrisRec3'] }, at: V(mid, FLOOR, dz - 1.2).applyMatrix4(M), beat: [V(mid - 1.8, FLOOR, dz - 1.2).applyMatrix4(M), V(mid + 1.8, FLOOR, dz - 1.2).applyMatrix4(M)], face: K.yawOf });
+  ctx.posts.push({ who: 'ferris:reception', room: 'ferris', staff: { id: 'business-female-03', voice: 'townf1', label: 'The receptionist', lines: ['ferrisRec1', 'ferrisRec2', 'ferrisRec3'], glLines: ['ferrisRecG1', 'ferrisRecG2', 'ferrisRecG3'] }, at: V(mid, FLOOR, dz - 1.2).applyMatrix4(M), beat: [V(mid - 1.8, FLOOR, dz - 1.2).applyMatrix4(M), V(mid + 1.8, FLOOR, dz - 1.2).applyMatrix4(M)], face: K.yawOf });
   // the company's jets in miniature, under glass on their plinths
   const models = [['prototype', 0.026, Math.PI / 2], ['f104', 0.03, -Math.PI / 2]].filter(([n]) => hasProp(n));
   for (const [i, [name, sc, yaw]] of models.entries()) {

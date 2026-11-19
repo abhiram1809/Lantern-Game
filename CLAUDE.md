@@ -660,16 +660,34 @@ cache. What's in place:
   `/voices` and `/anims` is served from the cache (`gl-assets-v1`) at once and fetched again behind it,
   so a rebuilt file shows on the visit after. A hard refresh skips it. The code isn't cached there
   (the dev server and a deploy's hashed bundles do that). Bump `CACHE` to drop everything.
+- **The loading screen** (the user, 2026-11-19: Continue "took 30 seconds... add a true loading screen
+  for assets, just don't show users the dark"). `#loading` is kept after boot and comes back from the
+  title's click to the first frame of the scene: the part and chapter as its title, the stage under
+  way, a bar, a tip (`LOAD_TIPS` in `UI.js`). `ui.loadStart(title, stages)` (stages `[key, label,
+  weight]`, `LOAD_PLANS` in `main.js`: free roam's code, props, scene, city, shaders; a chapter's code,
+  props, scene, shaders), `ui.loadStage(key, k)` from the way in (`loadProps(names, onProgress)`,
+  `setupFerrisAsync`, the city's fill, `warmUp`), and it goes by itself at the scene's first fade up
+  (`ui.fade` to a lower level), `giveControl()` or a card (`ui.screen`), or after 15 s without
+  progress. It stays up two frames past `loadEnd()`: the scene's first draw (the geometry's upload and,
+  in a chapter, its shaders) is a 0.5 to 1.2 s stall, and it's better under the loading screen. The bar
+  never goes backwards. While it's up the engine neither draws (`engine.veiled`) nor changes resolution
+  (its frames are slow because the scene is being built). `window.__load` (dev) has each stage's start.
 - **Building in slices.** The Ferris scene with the block is built by generators (`Ferris.steps()`,
   `blockSteps`, `Batch.buildSteps`) that yield between buildings, rooms and batches;
-  `sliced(steps, 12)` (`engine/Slice.js`) runs them in 12 ms pieces with a macrotask between, and
-  `runSteps` straight through (`Ferris.build()`, which the story chapters still use).
-  `Coast.setupFerrisAsync()` / `Ferris.buildAsync()` are free roam's way in. It was one 1.1 to 1.7 s
-  frame before.
-- **Shaders compiled behind the loading.** `Story.warmUp(scene, prepare, roots)`: the scene split into
-  pieces of 300 objects or fewer, each compiled with `renderer.compileAsync` (hidden things shown for
-  it, `prepare()` setting the night so its variants are made too), a macrotask between pieces, then
-  every texture uploaded (`initTexture`) a few at a time. CityLife warms its people the same way.
+  `sliced(steps, budget, { key, expect, onProgress })` (`engine/Slice.js`) runs them in pieces with a
+  macrotask between (24 ms behind the loading screen) and reports how far it is (its yields counted
+  against last time's, `localStorage.gl_steps_<key>`); `runSteps` runs them straight through
+  (`Ferris.build()`, for a chapter that builds Ferris in play). `Coast.setupFerrisAsync()` /
+  `Ferris.buildAsync()` are the way in for free roam and for every chapter whose `prepare` needs
+  Ferris (Coast's, Prisoner's `pilot`, Probation's drive and field, Exile's `dawn`); a later
+  `setupFerris()` gets the same scene. It was one 1.1 to 2 s frame before.
+- **Shaders compiled behind the loading.** `Story.warmUp(scene, prepare, roots, onProgress, { near,
+  radius })`: the scene split into pieces of 300 objects or fewer, each compiled with
+  `renderer.compileAsync` (hidden things shown for it, `prepare()` setting the night so its variants
+  are made too), a macrotask between pieces, then every texture uploaded (`initTexture`) a few at a
+  time. With `near`, only the pieces within `radius` of that point are waited for (free roam: 700 m of
+  where he arrives); the rest compile after he's in (`story.warming`). CityLife warms its people the
+  same way. Programs: about 210 in the valley (399 before the cars' paint stopped making one each).
 - **Point lights pooled** (`city/Lamps.js`, `LampPool`, `Ferris.lamps`): four real lights for the whole
   scene, given to the nearest sources that are on (rooms, shops, the offices, the hangar, the night's
   lamps; `lamps.add(object3d, { color, power, reach })`, `src.power` to dim). There were 17: three.js
@@ -680,9 +698,10 @@ cache. What's in place:
   static things' matrices frozen (`matrixAutoUpdate` off), hidden people skipped.
 - **Measured** in the block (Chrome, 1280×800, the pane's Mac): the update 5.3 → 2.9 ms, the render's
   CPU 32 → 11 ms, the GPU 25 → 13 ms, 1,134 draw calls (384 of them the shadow map), the heap 880 → 795
-  MB. Entering free roam: about 10 s from Continue with nothing longer than 170 ms, except one frame of
-  about 0.55 s when the scene first draws (the geometry's upload to the GPU) and car merges of 80 to
-  105 ms in the first seconds.
+  MB. Entering free roam (with the streamed city): 5.4 s from Continue's click to control (16 s before
+  the loading-screen work), the props 0.3 s, the valley and blocks 2.2 s, the shaders 2.1 s, then the
+  first draw (0.5 s) under the loading screen; Part Six's `dawn` 4.3 s; Part Three's `morning` 1.4 s.
+  The user's 30 s was on their server (a cold cache, or a slower first visit: not measured there).
 
 ### Story (`src/story/Story.js`, `src/story/lines.js`)
 
@@ -1232,8 +1251,7 @@ agreed on 2026-11-18, see *Working with this user*). In the Ferris scene, free r
   the way in (`Story.warmUp` with the night set, in the background). Sleep
   in the flat sets the hour (7:06 AM or 7:39 PM).
 - **His life** (`story/Life.js`, the panel under the clock `#life`, `ui.life`): **money** (starts $38.50;
-  Ferris pays $120 a shift, `Roam.offerShift` through Carol as Hal, 7 AM to 1 PM, once a day, the clock to
-  4 PM, pro rata if late; the rent $75 a week to Sal at the notice by the flat's door, $5 a day late, the
+  Ferris pays a test pilot's $62 an hour on the clock, see *Work at Ferris* below; the rent $75 a week to Sal at the notice by the flat's door, $5 a day late, the
   lock changed after five; Rosie's coffee 50¢ and the melt and pie $5.25, on a tab to $15 if he's short,
   Green Lantern's on the house; Ray's soda, candy bar and scratchers, which sometimes win); **XP** (60 a
   chapter played in any part, backfilled the first time; Kilowog's round 40, a Qward wave 30 + 10n, a day
@@ -1335,6 +1353,120 @@ agreed on 2026-11-18, see *Working with this user*). In the Ferris scene, free r
   held, then the drain growing (gone in about 7.5 s), the grade's `uChoke` (drained, a closing tunnel,
   swimming), his heart, hands at his throat, legs going (`player.hamper`); T forms the uniform; down, the
   ring forms it on him at the last ("SUFFOCATED").
+
+**The rest of Coast City, streamed** (2026-11-19, the user's "4x4 km", then "please do" to my plan: the
+agreed 1.5 km core at full detail, a ring out to 4 km of fronts without interiors, the skyline beyond).
+In the lot's frame, built round Hal's blocks whenever the block's kit is loaded (`Ferris.cityOn`: free
+roam and the chapters that load Ferris with it):
+- **The plan** (`city/Plan.js`): north-south streets every 80 m (`streetX(k) = 6 + 80k`: the boulevard
+  k 0, Ocean Avenue on the beach k -14), east-west ones every 200 m from z 70 and Hal's cross street at
+  -210 (`STREET_Z`); kerbs 7 and 6 m from a street's middle, fronts 12 and 11 (the boulevard's 6.4 and
+  11.9, Hal's blocks'). The city from the shore (x about -1205, `shoreX`) to x 2818, z -404 to 3592: 980
+  blocks (`cityCells`) 56 m across, two rows of lots back to back with an alley. Beside the boulevard by
+  Hal's blocks and his lot only the outer half is new (`half`); his lot and building are kept clear
+  (`HALS_LOT`). Districts by place (`district`): the **waterfront** (two columns along Ocean Avenue:
+  pastel deco hotels and apartments, three to six storeys, streamline bands, pilasters, beach shops),
+  **downtown** (300 m round (-560, 660): towers on plazas and masonry office blocks), **midtown** (to 540
+  m: midrises and mixed blocks), **town** (the rest of the core: shops on every other street, flats and
+  courts between), the **ring** (shops on every fifth street, flats and courts, single-storey houses with
+  hip roofs and side yards to the north), **industrial** (east and south: warehouses, roll-up doors,
+  painted names). Each face is filled with the kit's specs (`style`: shops, mixed, homes, houses, deco,
+  midrise, warehouse), corner buildings turning the corner with shops or windows; signs from a pool of
+  made-up businesses (`SIGNS`), names of courts, hotels and firms. `CityIndex`: every spec's boxes and a
+  40 m grid of them (`solidAt`, `cellAt`). `planCell` is deterministic (each block's own seed).
+- **Towers** (`city/Tower.js`, `tower(ctx, spec)`): a lobby of glass between stone piers, a canopy and
+  the name over it; curtain wall floor on floor (spandrels, mullions, a pane a bay with its office behind
+  it: the kit's glass with room kind 4, tinted and reflective, `vTint` from the pane's colour); setbacks;
+  a crown (plant room, stepped deco shoulders lit at night, or a radio mast). One collider a tier.
+- **Streaming** (`city/Stream.js`, `CityStream`, `Ferris.city`): a block is built when the camera comes
+  within its reach (280 m in the core, 220 out of it, 950 for a block with a tower), nearest first, 3.5 ms
+  a frame (9 when one within 90 m isn't built), its meshes shown three a frame (each is uploaded the
+  first frame it's drawn), and put away beyond 1.25 times its reach, one a frame. Built: its buildings
+  merged by material in runs of 350 parts (`Batch.buildSteps`'s `chunk`), walls, roofs, glass, signs and
+  pavements drawn in reach and the trim within 210 m; pavements, kerbs, gutters; lamps and palms along
+  the kerbs, hydrants, and in the core the signals at its corners (Hal's crossing and the T at his lot are
+  Ferris's), drawn instanced (`placeKit`: each one a Smash stand-in without meshes; a post that snaps gets
+  the real piece back and its copy taken out); colliders for every mass, parapet and pavement (plain
+  boxes); the lamps' pools and the shops' light at night. Their backs on the alleys are blank (`back:
+  false`). Once uploaded a block's arrays are let go (`freeArray`). No props on the walls and roofs, no
+  interiors, people, parked cars or traffic: those are Hal's blocks'. Everything else is **shaded boxes**:
+  one instanced mesh of every building's boxes (`buildFar`, 16,700), windows, storeys, glass towers, roofs
+  and lit rooms at night in the shader, a block's hidden while it's built (`aShow`). Flying into a block
+  that isn't built, `solidAt` is the flight's `solid`. `fill(x, z, r)` builds the blocks round a point at
+  once (Ferris's steps fill round the lot; free roam's way in round where he arrives).
+- **The ground and the bay** (`city/Ground.js`): one mesh over the city in 100 m tiles at y 0, its streets
+  painted in the shader from the grid (`GRID_GLSL`: asphalt, the double yellow, the parking lanes' lines,
+  crosswalks and stop bars at every corner, the pavements' concrete, alleys, downtown's plazas, the
+  promenade and the beach to the wet sand); not over Hal's lot or the lines his blocks paint themselves.
+  The desert, the old boulevard's asphalt (south of -412 now) and the cross street's plane step aside for
+  it. The sea (`cityOcean`, in every Ferris scene: the coast came in): shallows to deep water, surf
+  running in, waves in the normals. **The coast** (`coastX`, `COAST_GLSL` in Plan.js, used by Ferris's
+  desert, relief, sea and airspace): the old shore far west, sweeping in to the city's beach as a bay.
+- **The waterfront** (`city/Waterfront.js`): Ocean Avenue's promenade the city's length (paving in 100 m
+  pieces, the sea wall with gaps, palms, lamps, bolted benches), lifeguard towers every 300 m, and the
+  pier at z 372 (a ramp over the sand to a deck at 4.2 m on piles, railings, lamps, a bait shop, an
+  arcade, the Crab Shack across its head, and a Ferris wheel turning, its cars kept level; the pier's
+  deck is somewhere to land, `onPier`).
+- Free roam's flight covers it (`powers.attach`: centre (0, 4600), radius 6400; no landing in the sea).
+- **Cost** (the pane's Mac, 1280×800 at 1.5): at a street in the core with 31 blocks built, the city
+  added about 4 ms of GPU (17.5 ms against 13.6 without it) and 440 draw calls; the page's memory after
+  collection 1.1 GB (0.8 before). Flying north at 40 m/s, 30 m up: frames 15 ms at the median, 29 at the
+  99th percentile, a few garbage collections over 50 ms. Entering free roam about 13.6 s (with the
+  blocks round the lot).
+
+**Free roam's additions of 2026-11-19, the second round** (the user's notes after playing the streamed city):
+- **Work at Ferris** (`story/Work.js`, mixed onto `Roam`): a punch clock by the shop office's door in Hangar
+  Two (`CLOCK`); as Hal between 9 and 5 E clocks in (or Carol, asked, `offerShift`), E again clocks out, and
+  five o'clock or leaving the field (1.6 km) clocks him out; paid for the hours on it at **$62 an hour**
+  (`PAY_HOUR`: Salary.com's US average for an experimental test pilot; the user guessed $250 and asked me to
+  check). On the clock, E by the prototype on the apron flies **a test card** (`testCard`): Part Five's jet,
+  cockpit and flight suit, the walk out cut (a fade to the seat at the runway's east end), the card off the
+  ground, then 8,000 ft or 7 g held 2 s or both (random), then down on 27 and stopped; Carol on the radio
+  (`towerJob*`); 25 XP; a crash is a toast and Carol's line, not a reload. After it he's on the apron in his
+  own clothes (`casualRig`).
+- **Home** (`blockRoam`): E at either of his building's two front doors (lot x ±13.6, the stoops) or on the
+  lawn between them (the one spot there was stood in front of the middle wall, at neither door); out of the
+  door he went in by (`homeDoor`). The bed is a choice (`sleep`: till morning, till evening, a two-hour nap;
+  health full); the kitchenette's "Get ready for the day" in the morning (`getReady`: half an hour, health).
+- **His phone** (`ui/Phone.js`; G on the ground, not driving or in the jet; `Roam.openPhone`): Coast's phone
+  prop out into his left hand (`holdInHand` with `this.hal` set to the rig he's in), the DOM phone over the
+  scene. Apps: What Up (threads: Carol, Tom, his mother, Jim, Jack, Sal, and Oa, where nothing's delivered;
+  `live(phone)` lines from the game's state: the rent, the clock, the city's mood), Photos (rendered in the
+  valley's own scene the first time it opens, one a frame inside the game's frame so the composer draws over
+  it: `Phone.snap`, the set-ups in `story/Album.js`: Hal in the flight suit by the prototype, at the Blue
+  Marlin with a beer, his Phoenix, the pier, Carol in the hangar, the jet; and Martin's photograph), Maps
+  (the full map), Coast S&L (balance, the rent, the job, the ledger: `Life.record`), the Herald (the lead by
+  the city's mood, what the emergencies came to: `Life.note`), Weather. Keys: arrows/WASD, E open, Q back,
+  G put away.
+- **The map** (`ui/CityMap.js`): a radar top left (the HUD's chapter and objective move right of it:
+  `#hud.mapped`), turned with the camera, zoomed out with speed and height, the place's name under it; N or
+  the phone's Maps for the whole map (north up; WASD or drag to pan, Q/E or the wheel to zoom, Enter or a
+  click sets a waypoint as the HUD's marker, Backspace clears it). Drawn from the plan: blocks by district,
+  parks, the channel and its bridges, the freeway, the beach and pier, Hal's blocks and building, the road
+  south and the field; icons for the places from the people who work in them, home, the car, the city's
+  emergency, the marker. The world's x is east with the view mirrored from a compass's, so the map is the
+  ground turned half a turn (what's on Hal's left is on the map's left).
+- **The rest of the city's people** (`roamer`s in `CityLife`): 26 of the walkers' models again, on the
+  middle of every pavement of the grid (9.5 m off a north-south street's middle, 8.5 off an east-west one),
+  over the crosswalks, on at each corner or round it (`roamTurn`), kept within about 115 m of the camera and
+  put down at a corner nobody's looking at when it leaves them (`roamKeep`), half home by night; they talk,
+  look up, run, see him change, as the block's people do (`remote`: drawn away from the block).
+- **The rest of the city's traffic** (`Traffic` with `grid`: 16 more cars): routes generated across the
+  grid near the camera (`gridRoute`: nine crossings on, straight mostly, turns by `curve`), keeping right
+  2.2 m off a street's middle, stopping at each crossing's line on its own lights (`gridLight`: the cycle
+  offset by the crossing), not on Hal's blocks' streets or under the freeway's west ramp; retired when far
+  and unseen. The traffic's front wheels steer eased (they flickered).
+- **Parks, the freeway, the channel** (`city/Plan.js`: `FREEWAY`, `CHANNEL`, `cell.park`; 56 parks by a
+  hash, one big one of four blocks in the ring, none downtown or on the waterfront): a park's grass and
+  paths are painted by the city ground's shader from a mask texture of the blocks (`cellMask`), its hedge,
+  trees (`fx/Trees.js` broadleaf, instanced), benches, lamps, palms and fountain or pool built with its
+  block (`Stream.park`), clear of the painted paths. The freeway (`city/Landmarks.js`, built once with the
+  city): a deck 11.5 m up over the street at z 1070 on piers down its middle, a ramp off Ocean Avenue and
+  one down to the desert road past the east edge, barriers, lanes, median lamps, three overhead signs. The
+  channel: concrete banks 4 m down to a bed with water, railed, a deco bridge at every street (pylons with
+  lamps); the ground shader opens it between the bridges, and the city has its own 10 m heightfield with
+  the banks cut in (`Ferris.roadGround`, `Physics.fixedHeights`), the valley's coarse one dropped 10 m out
+  of sight under it.
 
 **Korugar's streets** (`story/KorugarLife.js`, `StreetLife(story, kor, { era, walkers, guards })`):
 walkers on loops (`ROUTES`: the avenue, the market, the plaza at r 31), guards at posts; each a full
@@ -2287,6 +2419,34 @@ The checks that have worked:
 
 ## Gotchas (learned the hard way)
 
+- **A wheel modelled turned spins like a bent axle.** Three of the four town cars have their front wheels
+  steered 20 to 30° in the model; spun about the car's axle by their hub pivots, they wobbled from side to
+  side (the user's "wheels... wobbling left and right"). `Car.js` `straighten` finds each wheel's disc axis
+  (the direction its vertices spread least along) and turns it back inside the pivot.
+- **A timer to let the browser in is throttled in a hidden tab** to about one a second: the city's build
+  in 85 slices took minutes with the pane hidden (a player who switched tabs while it loaded would come
+  back to it loading). `engine/Slice.js` `breath()` posts a message to itself instead (React's way: no
+  4 ms clamp, no throttling); the build, the warm-up and CityLife's making of people use it.
+- **A comment written into a line of code swallows the rest of it.** A note added after `{ ... };` on one
+  line took the traffic's updater with it, and the closing brace: Roam.js didn't parse ("Unexpected token"
+  three hundred lines on, at the next method). Parse a changed file (`rolldown/parseAst`) before reloading.
+- **A ray exactly on a heightfield's cell line can miss it** (straight down at x -500, z 6600: through both
+  the city's and the valley's). The player's controller casts shapes; a test ray off the lines hits.
+- **The block's people are only drawn near the block** (`near`: the camera within 900 m of the lot): the
+  Ferris offices' receptionist, 6 km off on the field, was a voice behind an empty desk. `remote` people
+  skip it. And a post's own `lines` were said to Green Lantern too ("Mr. Jordan" to the man in the mask):
+  `glLines`, or the town's lines for Green Lantern.
+- **A per-material number written into a shader's source makes a program per material.** The cars'
+  dust and roughness floor (`Car.js` `dusty`, `roughFloor`) put each car's own amount into its
+  `onBeforeCompile` text with a cache key that named it: 110 of the valley's 399 programs were car
+  paint. Pass it as a uniform (each material's own: `onBeforeCompile` runs per material) and keep the
+  cache key constant.
+- **The loading screen was removed after boot**, so from Continue to the first frame the page was
+  black (16 s here, 30 for the user). Anything slow between a click and the scene needs the loading
+  screen up (`ui.loadStart`), and something has to end it: a fade up, `giveControl`, a card.
+- **In page tests, going to `/#id` from `/` is a hash change, not a reload**: the old page stays, its
+  title's buttons and all. Set `location.href` with a query (`/?r=1#id`).
+
 - **Measuring a frame in the page counts the game's own frames too.** A wrapper on
   `renderBufferDirect` or a timer around `composer.render` also catches the animation loop's frames
   that run while the test awaits; wrappers left on stack up across runs; and a hidden pane throttles
@@ -2806,6 +2966,36 @@ The checks that have worked:
 
 Verified by playing in the browser:
 
+- (2026-11-19, the second round of the open world) on 5180, muted, voices off, fixed-step and scripted keys
+  from `#world`: the receptionist drawn (the `remote` gate); every traffic car's wheels within 0.2° of their
+  axles (20 to 30° before, measured in each pivot's frame); the home's doors found by an elevation shot
+  (x ±13.6); clocking in at 10 (as Hal), a test card started (the flight suit, the jet), a crash forced (back
+  on the apron in his clothes, in control, still on the clock), clocking out at 12:30 ($155 = 2.5 h × $62,
+  in the ledger); the phone on G (pane screenshots: the home screen, a What Up thread), its photos developed
+  (7 in 0.2 s, looked at: the flight suit by the jet, the bar, the car, the pier by night, Carol, the jet);
+  the radar (pane screenshot) and the seen tag under the level; the city's people and traffic from a town
+  corner (22 of 26 roamers out, 16 grid cars, captures); the channel's ground by rays (its banks exact, the
+  bridges' decks, the freeway's deck and ramps); captures of a park, the big park, the channel and a bridge,
+  the freeway from below and above; the load from Continue in a hidden pane (5 s; minutes before
+  `breath()`); a frame's update 3 to 9 ms and render 7 to 11 ms in town; a clean build; 18 new lines rendered.
+
+- (2026-11-19, the loading screen) on 5180, muted, voices off, Continue clicked by script and timed to
+  control: free roam (the screen's title, stage, bar and tip in a pane screenshot; the bar moving
+  through each stage; gone after the first draw; 5.4 s, 9.2 s before the bigger slices and the veil,
+  16 s at the start; 209 programs; the resolution kept at 1.5), `#dawn` (4.3 s, the Ferris build sliced,
+  no 2 s freeze), `#morning` (1.4 s), `#duel` (the screen ends); what ends it each time (traced); no
+  console errors from the game; a clean build.
+
+- (2026-11-19, the streamed city) on 5180, muted, voices off, fixed-step captures and scripted moves
+  from `#world`: the streets north of Hal's lot (shops, flats, signs, palms, lamps, hydrants, the lines,
+  crosswalks, stop bars and signals at a corner), downtown (the towers' lobbies and tinted curtain
+  walls, the midrises), the waterfront (the promenade, sea wall, benches, beach, surf, the pier and the
+  Ferris wheel), the city from the air by day, at golden hour and at night (lamps' pools, lit rooms, the
+  towers); walking from a road up a kerb onto a new pavement and into a building's front (he stops at
+  it); `solidAt` inside, above and beside a far block, landing refused in the sea and allowed on the
+  pier; frame times flying across it, the GPU and draw calls, memory before and after collection; no
+  console errors; a clean build.
+
 - (2026-11-19, loading and performance) on 5180, muted, voices off, the pane's Mac Chrome at 1280×800:
   the block's frame measured by hand (update, render CPU, GPU by timer query, draw calls) before and
   after (*Loading and performance*); the boot and Continue into free roam with the service worker on
@@ -3157,6 +3347,26 @@ Verified by playing in the browser:
 
 Not verified:
 
+- The second round by hand: a test card flown to its end by a person (only a forced crash; the landing and
+  the card's ticks are Part Five's code), the phone with a real mouse (clicks) and the map's drag and wheel,
+  the map's full screen and the waypoint followed to its end, the roamers at the real frame rate (their
+  turns at corners, crowding at crosswalks, walking into the parks' hedges' gaps: they keep to pavements),
+  the grid traffic's turns seen close and two cars meeting in a crossing on a turn (no right of way beyond
+  the lights), cars under the freeway beside its piers, the channel walked along and its bridges driven
+  over, Hal flying into the freeway's deck and signs, the parks' trees by night; the new lines heard; the
+  map's icons for places whose people aren't made yet (before CityLife starts).
+
+- The loading screen on the user's machine and server (their 30 s not reproduced; 5.4 s here, warm
+  caches); a first visit with an empty service-worker cache; chapters whose `prepare` builds Oa,
+  Korugar, Qward or the site (built in one go: the bar stops while they build, the screen stays up);
+  the chapters after the first draw (their shaders compile on it, not warmed up); free roam's
+  background compile against first sight of the far pieces (a stall if one draws before it's done).
+
+- The streamed city by hand at the real frame rate: walking and driving its streets (the car on the new
+  kerbs), hooking its lamps and palms, standing on its roofs, flying into a far block at full speed; the
+  chapters that pass the lot (Part Three's drive and morning, Part Five's commute) with the new blocks
+  round it (their cameras were checked only by their coordinates); frame rate on other machines.
+
 - Loading and performance on other machines and at full screen on a Retina display (the adaptive
   resolution steps it down; its steps not seen by hand); Parts One to Five booted with their own scans
   since the scans load by part (only Part Six's free roam was played in); the service worker on a deploy
@@ -3327,8 +3537,13 @@ Not verified:
 - The Thunderers don't speak; they have no hurt or death animation beyond a kneel and the dissolve (the
   winged one droops its wings); the flail's chain is rigid (it swings, it doesn't bend); the archer
   doesn't reach for a new arrow from his quiver.
-- Coast City, what's left (2026-11-19): two blocks of the agreed 1.5 km core (downtown's glass, the
-  waterfront, the pier and beach aren't built; beyond them the old office blocks and the skyline); the
+- Coast City, what's left (2026-11-19): the streamed city's blocks have no interiors, no props on their
+  walls and roofs, and no parked cars (its streets have people and traffic now; their signals' lamps don't
+  change with the traffic's phases); nobody walks in the parks or sits on their benches, and nothing drives
+  the freeway; the photos are taken at whatever hour it is (the pier by night is dark); the district edges are sharp (a block is one district);
+  the sea and the pier have no boats or people; the Ferris wheel's rim has no collider; the far boxes
+  are plain boxes (no roof shapes); the garbage collector still costs a frame now and then while
+  blocks build (the kit allocates a geometry per box). In Hal's blocks: the
   flats over the shops can't be walked into (their glass is the room shader); the shops' rooms are big
   and plain beside the diner (a counter, one trade's fittings, a board); the diner's corner is square;
   the alleys are bare; Carol stays in Hangar Two (not at her desk in the offices). Its people: walkers
@@ -3456,12 +3671,17 @@ src/city/                   Coast City's kit: Kit (materials, the glass with roo
                             one over the crossing, their streets, doors), Lod (drawing by distance, merged props,
                             cars' merged copies), Interiors (the diner, the corner store), Shops (every other shop's
                             fittings, staff and wares: the bar, the precinct, the ER...), Traffic (the cars),
-                            Office (the Ferris offices), Lamps (the pooled point lights)
+                            Office (the Ferris offices), Lamps (the pooled point lights), Plan (the city's
+                            grid, districts and buildings), Tower (downtown's towers), Stream (building
+                            blocks near the camera, boxes for the rest), Ground (the painted streets, the
+                            bay), Waterfront (the promenade, beach, pier and Ferris wheel), Landmarks (the freeway,
+                            the channel and its bridges)
 src/story/                  Story (Part One + shared plumbing, the lantern), Corps (Part Two, travel), KorugarLife (Korugar's street life),
                             CityLife (the blocks' people: walkers, talk, whispers, who sees him), DinerLife (Rosie's
                             service, Dot's kitchen, the customers, Hal's order), Life (money, XP, the ring's stats,
                             opinion), Emergencies (the city's), Pressure (when opinion's low),
                             Coast (Part Three), Prisoner (Part Four), Probation (Part Five), Exile (Part Six), Roam (free roam after it),
+                            Work (the time clock, test cards), Album (the phone's photos),
                             Voyage (flights between worlds),
                             lines (all dialogue)
 src/ui/UI.js                HUD, subtitles, glyph cipher + decode, choice, cards, pause, toasts
@@ -3469,6 +3689,8 @@ src/ui/PowerHud.js          vitals, ring charge, armed construct, ring readout, 
                             training panel, target bracket, damage numbers, construct wheel
 src/ui/TravelHud.js         flight readout, arrival card, StarMap (the ring's star chart), WORLDS
 src/ui/VehicleHud.js        the car's dash, the jet's panel and HUD, the test card, the g grey-out
+src/ui/Phone.js             Hal's phone (G): What Up, Photos, Maps, the S&L, the Herald, Weather
+src/ui/CityMap.js           the radar top left and the whole map (N), waypoints
 tools/                      build-assets, autorig, build-props, build-people, people-test.js, propview.html, fetch-textures, build-voices,
                             voices.html, strip-mocap, extract-posters, debug renderers
 public/models, public/anims built GLBs loaded at runtime (props in public/models/props); public/textures/posters,
@@ -3481,6 +3703,49 @@ public/models, public/anims built GLBs loaded at runtime (props in public/models
 ## Change log
 
 Newest first. Add an entry for every decent update (see the top of this file).
+
+### 2026-11-19: work, a phone, a map, the city's life, parks, a freeway and a channel
+- The user, after playing the streamed city: the receptionist missing and naming Green Lantern "Mr. Jordan";
+  traffic's front wheels wobbling; no life outside the block ("the same everywhere, but more randomized");
+  a GTA map top left; the seen tag over the XP; home with E from the front yard (to sleep or get ready);
+  daytime test flights for test pilots' pay ("250 an hour, but double check"), 9 to 5, Part Five's mission
+  simpler (7 g, 8,000 ft); a phone on G with What Up, photos and more, "5 6 apps"; parks, "a flyover or a
+  bridge". Then Part Seven.
+- New: `story/Work.js`, `story/Album.js`, `ui/Phone.js`, `ui/CityMap.js`, `city/Landmarks.js`. Changed:
+  `CityLife.js` (roamers, `remote`, `glLines`), `Traffic.js` (the grid), `Car.js` (`straighten`), `Roam.js`
+  (G, N, the phone, the doors, the bed, getting ready, the shift through Carol), `Plan.js` (`FREEWAY`,
+  `CHANNEL`, parks), `Ground.js` (parks painted, the channel opened), `Stream.js` (`park`, the landmarks),
+  `Ferris.js` (the city's heightfield), `Physics.js` (`fixedHeights`), `Life.js` (the ledger, the events),
+  `Emergencies.js` (`note`), `Slice.js` (`breath`), `Office.js`, `Coast.js` (`buildPhone` exported),
+  `UI.js`/`index.html`/`style.css` (the seen tag in the panel, the phone, the map), 20 lines.
+- Verified: see Status (2026-11-19, the second round). Not verified: by hand, by ear.
+
+### 2026-11-19: a real loading screen, and Continue three times quicker
+- The user: "Does not work when i click continue, very slow load, took 30 seconds, either add a true
+  loading screen for assets, just don't show users the dark". The loading screen went after boot, so
+  everything from Continue to the scene was black; here it was 16 s.
+- `ui/UI.js` (`loadStart`, `loadStage`, `loadEnd`, `LOAD_TIPS`, the watchdog, ended by `fade` and
+  `screen`), `index.html` and `style.css` (its title and tip), `main.js` (`LOAD_PLANS`, the stages,
+  `engine.veiled`), `engine/Engine.js` (no drawing or resolution changes while veiled),
+  `engine/Slice.js` (progress), `props/Props.js` (`loadProps` progress), `Story.js` (`warmUp`'s `near`
+  and background compile; `giveControl` ends it), `Roam.enterPlace` (the stages), `Ferris.buildAsync`
+  and the fill in 24 ms slices, the chapters' `prepare` building Ferris in slices (`Coast`, `Prisoner`,
+  `Probation`, `Exile`), `props/Car.js` (the paint's dust and roughness floor as uniforms: 399 programs
+  to about 210).
+- Verified: see Status (2026-11-19, the loading screen). Not verified: the user's machine.
+
+### 2026-11-19: the rest of Coast City, four kilometres, streamed
+- The user asked whether the city was 4 × 4 km (it was two blocks), then "please do" to my plan: the
+  core at full detail streamed in blocks, a ring of fronts to 4 km, boxes beyond. See *The rest of Coast
+  City, streamed*.
+- New: `city/Plan.js`, `city/Tower.js`, `city/Stream.js`, `city/Ground.js`, `city/Waterfront.js`.
+  Changed: `Ferris.js` (the coast from Plan.js, the bay's sea, the desert and old ground stepping aside,
+  the placeholder offices round the lot and downtown only without the city, the airspace's blocks
+  outside it, `city` built and updated), `Roam.js` (filling round the arrival, the flight's bounds,
+  `solid`, landing), `DayCycle.js` (the city's night), `Building.js` (signs shared by key through
+  `signs.cache`; a flat roof's vents without props), `Kit.js` (`chunk`; the glass's tinted office kind and
+  `vTint`), `Smash.js` (`remove` clears its handle maps: Rapier reuses handles).
+- Verified: see Status (2026-11-19, the streamed city). Not verified: by hand, the chapters by the lot.
 
 ### 2026-11-19: loading by part, the browser's cache, and the frame rate
 - The user: the frame rate "dropping quite fast" even on their Mac, the browser freezing on boot, and

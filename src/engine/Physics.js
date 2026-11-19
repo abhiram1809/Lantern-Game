@@ -37,6 +37,15 @@ export class Physics {
     return this.fixedCollider(RAPIER.ColliderDesc.heightfield(cells, cells, heights, { x: size, y: 1, z: size }).setFriction(0.8), { x, y, z });
   }
 
+  // Ground of any shape: `sx` by `sz` metres about (x, z) in cells `nx` by `nz`, its height at each
+  // corner `h(wx, wz)` (world coordinates). Rapier's heightfield runs its rows along z and its columns
+  // along x, the heights column by column.
+  fixedHeights(sx, sz, nx, nz, h, x = 0, z = 0) {
+    const heights = new Float32Array((nx + 1) * (nz + 1));
+    for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) heights[i * (nz + 1) + j] = h(x - sx / 2 + (i * sx) / nx, z - sz / 2 + (j * sz) / nz);
+    return this.fixedCollider(RAPIER.ColliderDesc.heightfield(nz, nx, heights, { x: sx, y: 1, z: sz }).setFriction(0.8), { x, y: 0, z });
+  }
+
   // Collider for a static mesh's world-space triangles.
   fixedTrimesh(mesh) {
     mesh.updateMatrixWorld(true);

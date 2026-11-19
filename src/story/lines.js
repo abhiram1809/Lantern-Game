@@ -697,6 +697,8 @@ export const LINES = {
   halHomePhoto: { who: 'thought', text: 'Hey, Dad. Still flying.' },
   halHomeWindow: { who: 'thought', text: 'Coast City. Somebody’s always awake out there.' },
   halSleep: { who: 'thought', text: 'Couple of hours. That’s all.' },
+  halNap: { who: 'thought', text: 'Two hours. Then the world can have me back.' },
+  halReady: { who: 'thought', text: 'Coffee, a shave, a clean shirt. Almost looks like a test pilot.' },
   // Hal's block, its people (story/CityLife.js). Each passer-by has one voice and says that voice's
   // lines: small talk to Hal Jordan in his clothes, awe or nerves to Green Lantern.
   cityM1a: { who: 'townm1', name: 'A passer-by', text: 'Hot one today, huh? Supposed to break ninety.' },
@@ -893,6 +895,9 @@ export const LINES = {
   ferrisRec1: { who: 'townf1', name: 'The receptionist', text: 'Mr. Jordan. Miss Ferris is out at the hangars, if you’re looking for her.' },
   ferrisRec2: { who: 'townf1', name: 'The receptionist', text: 'Sign the book, please. Even you. Especially you, after last time.' },
   ferrisRec3: { who: 'townf1', name: 'The receptionist', text: 'Your father’s picture is on the wall, you know. Second from the left.' },
+  ferrisRecG1: { who: 'townf1', name: 'The receptionist', text: 'Green Lantern. In our lobby. I... should I call Miss Ferris?' },
+  ferrisRecG2: { who: 'townf1', name: 'The receptionist', text: 'Visitors sign the book. You don’t have to sign the book.' },
+  ferrisRecG3: { who: 'townf1', name: 'The receptionist', text: 'That jet you caught over the runway was ours. Thank you. Really.' },
   halMartinPhoto: { who: 'thought', text: 'Dad. Nineteen fifty-nine. Not one picture of him looking scared.' },
   halFerrisMags: { who: 'thought', text: 'A flying magazine, six months old. Ferris on the cover, before the crash.' },
   // Korugar's places once it's freed (scenes/Korugar.js buildTavern, Roam.korugarRoam)
@@ -1130,6 +1135,20 @@ export const LINES = {
   carolShiftEnd: { who: 'carol', text: 'Good numbers today. Same time tomorrow, and try to be early.' },
   carolShiftLate: { who: 'carol', text: 'Half a day’s flying is half a day’s pay, Jordan. Clock in on time.' },
   halShift: { who: 'hal', text: 'Let’s go to work.' },
+  // the time clock and the test cards (story/Work.js)
+  halClockIn: { who: 'thought', text: 'On the clock. Sixty-two dollars an hour to fly. Don’t tell anyone it feels like cheating.' },
+  halClockOut: { who: 'thought', text: 'Clocked out. Somebody paid me to fly today.' },
+  halClockEarly: { who: 'thought', text: 'Shifts start at nine. Even Carol isn’t here yet.' },
+  halClockLate: { who: 'thought', text: 'Five o’clock’s been and gone. Tomorrow.' },
+  halClockGL: { who: 'thought', text: 'Green Lantern doesn’t have a time card. Hal Jordan does.' },
+  towerJob1: { who: 'carol', style: 'phone', name: 'Carol · Ferris tower', text: 'Ferris Two-Seven, runway two-seven, cleared for takeoff. Short card today, Jordan.' },
+  towerJobAlt: { who: 'carol', style: 'phone', name: 'Carol · Ferris tower', text: 'Climb to eight thousand and level off.' },
+  towerJobAltOk: { who: 'carol', style: 'phone', name: 'Carol · Ferris tower', text: 'Eight thousand. Good.' },
+  towerJobG: { who: 'carol', style: 'phone', name: 'Carol · Ferris tower', text: 'Give me seven g for two seconds. Then you can breathe.' },
+  towerJobGOk: { who: 'carol', style: 'phone', name: 'Carol · Ferris tower', text: 'Seven g. The instruments liked that more than you did.' },
+  towerJobHome: { who: 'carol', style: 'phone', name: 'Carol · Ferris tower', text: 'That’s the card. Bring her home, runway two-seven, gear down.' },
+  towerJobDone: { who: 'carol', style: 'phone', name: 'Carol · Ferris tower', text: 'Down and stopped. That’s on the clock, Hal. Nice flying.' },
+  carolJetLost: { who: 'carol', style: 'phone', name: 'Carol · Ferris tower', text: 'You put my prototype in the desert. We have a spare. We do not have a spare you.' },
   // the rent (Roam.payRent)
   halRentPaid: { who: 'hal', text: 'There. Paid up, Sal. Don’t spend it all at once.' },
   halRentShort: { who: 'thought', text: 'Not enough. Not even close.' },

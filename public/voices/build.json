@@ -8384,6 +8384,150 @@
    "f0dry": 113.1,
    "f0wet": 112.4,
    "beta": 0.959
+  },
+  "halNap": {
+   "hash": "5c6cd56aa3b65b59",
+   "ps": "tˈuː ˈaʊɚz. ðˈɛn ðə wˈɜːld kæn hæv mˌiː bˈæk.",
+   "f0raw": 120.3,
+   "f0dry": 112.4,
+   "f0wet": 111.5,
+   "beta": 0.959
+  },
+  "halReady": {
+   "hash": "73982e4113ed9679",
+   "ps": "kˈɔfi, ɐ ʃˈeɪv, ɐ klˈiːn ʃˈɜːt. ˈɔːlmoʊst lˈʊks lˈaɪk ɐ tˈɛst pˈaɪlət.",
+   "f0raw": 133.9,
+   "f0dry": 124.4,
+   "f0wet": 124.5,
+   "beta": 0.959
+  },
+  "ferrisRecG1": {
+   "hash": "c9a7cbed025c3c7e",
+   "ps": "ɡɹˈiːn lˈæntɚn. ɪn ˌaʊɚ lˈɑːbi. ˈaɪ… ʃˌʊd aɪ kˈɔːl mˈɪs fˈɛɹɪs?",
+   "f0raw": 206.9,
+   "f0dry": 215.8,
+   "f0wet": 214.1,
+   "beta": 1.032
+  },
+  "ferrisRecG2": {
+   "hash": "b829813a3a54ddbf",
+   "ps": "vˈɪzɪɾɚz sˈaɪn ðə bˈʊk. juː dˈoʊnt hæv tə sˈaɪn ðə bˈʊk.",
+   "f0raw": 203.7,
+   "f0dry": 211.9,
+   "f0wet": 209.9,
+   "beta": 1.032
+  },
+  "ferrisRecG3": {
+   "hash": "65b537f19bd9d491",
+   "ps": "ðæt dʒˈɛt juː kˈɔːt ˌoʊvɚ ðə ɹˈʌnweɪ wʌz aʊɚz. θˈæŋk juː. ɹˈiəli.",
+   "f0raw": 198.1,
+   "f0dry": 206.5,
+   "f0wet": 207.2,
+   "beta": 1.032
+  },
+  "halClockIn": {
+   "hash": "7ac1e5000103e7c1",
+   "ps": "ɔnðə klˈɑːk. sˈɪkstitˈuː dˈɑːlɚz ɐn ˈaʊɚ tə flˈaɪ. dˈoʊnt tˈɛl ˈɛnɪwˌʌn ɪt fˈiːlz lˈaɪk tʃˈiːɾɪŋ.",
+   "f0raw": 121.6,
+   "f0dry": 110.4,
+   "f0wet": 110,
+   "beta": 0.959
+  },
+  "halClockOut": {
+   "hash": "14b88577d35d9eff",
+   "ps": "klˈɑːkt ˈaʊt. sˈʌmbɑːdi pˈeɪd mˌiː tə flˈaɪ tədˈeɪ.",
+   "f0raw": 123.8,
+   "f0dry": 119.6,
+   "f0wet": 113.6,
+   "beta": 0.959
+  },
+  "halClockEarly": {
+   "hash": "ae5e352f5037bddd",
+   "ps": "ʃˈɪfts stˈɑːɹt æt nˈaɪn. ˈiːvən kˈæɹəl ˌɪzənt hˈɪɹ jˈɛt.",
+   "f0raw": 136.3,
+   "f0dry": 123.8,
+   "f0wet": 121,
+   "beta": 0.959
+  },
+  "halClockLate": {
+   "hash": "c92af39ace6ec887",
+   "ps": "fˈaɪv əklˈɑːks bˌɪn ænd ɡˈɔn. təmˈɑːɹoʊ.",
+   "f0raw": 119.6,
+   "f0dry": 107.4,
+   "f0wet": 110.3,
+   "beta": 0.959
+  },
+  "halClockGL": {
+   "hash": "a96b17423d8d1656",
+   "ps": "ɡɹˈiːn lˈæntɚn dˈʌzənt hæv ɐ tˈaɪm kˈɑːɹd. hˈæl dʒˈoːɹdən dˈʌz.",
+   "f0raw": 128.2,
+   "f0dry": 122.7,
+   "f0wet": 122,
+   "beta": 0.959
+  },
+  "towerJob1": {
+   "hash": "079e6d923c1d3ef1",
+   "ps": "fˈɛɹɪs tˈuːsˈɛvən, ɹˈʌnweɪ tˈuːsˈɛvən, klˈɪɹd fɔːɹ tˈeɪkɔf. ʃˈɔːɹt kˈɑːɹd tədˈeɪ, dʒˈoːɹdən.",
+   "f0raw": 208.8,
+   "f0dry": 200.6,
+   "f0wet": 201.7,
+   "beta": 0.932
+  },
+  "towerJobAlt": {
+   "hash": "478ea251976b2f26",
+   "ps": "klˈaɪm tʊ ˈeɪt θˈaʊzənd ænd lˈɛvəl ˈɔf.",
+   "f0raw": 183.7,
+   "f0dry": 171.6,
+   "f0wet": 170.9,
+   "beta": 0.932
+  },
+  "towerJobAltOk": {
+   "hash": "21671173c8328e34",
+   "ps": "ˈeɪt θˈaʊzənd. ɡˈʊd.",
+   "f0raw": 226.4,
+   "f0dry": 210.2,
+   "f0wet": 218.3,
+   "beta": 0.932
+  },
+  "towerJobG": {
+   "hash": "ae78b8ad1bf0ccf7",
+   "ps": "ɡˈɪv mˌiː sˈɛvən dʒˈiː fɔːɹ tˈuː sˈɛkəndz. ðˈɛn juː kæn bɹˈiːð.",
+   "f0raw": 222.9,
+   "f0dry": 209.7,
+   "f0wet": 203.8,
+   "beta": 0.932
+  },
+  "towerJobGOk": {
+   "hash": "84c158945f7ed8b1",
+   "ps": "sˈɛvən dʒˈiː. ðɪ ˈɪnstɹəmənts lˈaɪkt ðæt mˈoːɹ ðɐn juː dˈɪd.",
+   "f0raw": 206.2,
+   "f0dry": 192.9,
+   "f0wet": 188,
+   "beta": 0.932
+  },
+  "towerJobHome": {
+   "hash": "a69714ce5b7c1faf",
+   "ps": "ðæts ðə kˈɑːɹd. bɹˈɪŋ hɜː hˈoʊm, ɹˈʌnweɪ tˈuːsˈɛvən, ɡˈɪɹ dˈaʊn.",
+   "f0raw": 195.5,
+   "f0dry": 183.7,
+   "f0wet": 184,
+   "beta": 0.932
+  },
+  "towerJobDone": {
+   "hash": "9fce35a5ca9b5812",
+   "ps": "dˌaʊn ænd stˈɑːpt. ðæts ɔnðə klˈɑːk, hˈæl. nˈaɪs flˈaɪɪŋ.",
+   "f0raw": 209.7,
+   "f0dry": 198.1,
+   "f0wet": 204.1,
+   "beta": 0.932
+  },
+  "carolJetLost": {
+   "hash": "c9a3b5a376d8e54f",
+   "ps": "juː pˌʊt maɪ pɹˈoʊɾoʊtˌaɪp ɪnðə dˈɛzɚt. wiː hæv ɐ spˈɛɹ. wiː duːnˌɑːt hæv ɐ spˈɛɹ juː.",
+   "f0raw": 211.7,
+   "f0dry": 198.4,
+   "f0wet": 197.7,
+   "beta": 0.932
   }
  },
  "characters": {

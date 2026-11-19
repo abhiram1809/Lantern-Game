@@ -12,6 +12,20 @@ const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>'
 
 const SPEAKERS = { hal: 'Hal Jordan', abin: 'Abin Sur', light: '', dad: 'Martin Jordan', kid: 'Young Hal', thought: '', kilowog: 'Kilowog', sinestro: 'Sinestro', guardian: 'The Guardians', carol: 'Carol Ferris', tom: 'Tom Kalmaku', landlord: 'Sal Delgado', pilot: 'Viper One-One', hammond: 'Hector Hammond', tech: 'Air Force technician', tech2: 'Air Force technician', atrocitus: 'Atrocitus', katma: 'Katma Tui', radio: 'KCST 1040', caller: 'Caller', korugar: 'Korugarian', korugarf: 'Korugarian', guard: 'A guard', crowd: 'The crowd', weaponer: 'A Weaponer of Qward', rosie: 'Rosie', cook: 'Dot', clerk: 'Ray', townm1: 'A passer-by', townm2: 'A passer-by', townm3: 'A passer-by', townf1: 'A passer-by', townf2: 'A passer-by', townf3: 'A passer-by', citykid: 'A kid' };
 const ADVANCE = ['Space', 'Enter', 'Click', 'KeyE'];
+// what the loading screen says while it waits (the controls and what there is to find)
+const LOAD_TIPS = [
+  '<b>4</b> opens the construct wheel; time stops while it’s open.',
+  'Hold <b>F</b> or the right button to guard. Raised just as a blow lands, it parries.',
+  'Double-tap <b>Space</b> to fly. <b>Shift</b> boosts, <b>C</b> comes down.',
+  '<b>T</b> changes between Hal Jordan and Green Lantern, where nobody can see him.',
+  '<b>L</b> brings the lantern from wherever it is. Below a quarter of a charge, say the oath.',
+  'Fly high and press <b>E</b> for the ring’s star chart. <b>M</b> is the same places by name.',
+  'Rosie’s Diner is open all night. The patty melt is $5.25 with the pie.',
+  'Ferris pays $120 a shift. Sal wants the rent on Mondays.',
+  'What Green Lantern breaks in town, the town remembers.',
+  'Hal’s car is in his space by the hangars. The ring makes the key.',
+  'The pier’s Ferris wheel turns all night. The beach runs the length of the city.',
+];
 
 export class UI {
   constructor({ input, audio, voice }) {
@@ -31,10 +45,74 @@ export class UI {
     this.fadeLevel = 1;
   }
 
-  loading(p) { this.el.fill.style.width = `${Math.round(p * 100)}%`; }
+  // The loading screen. At boot it's the bar under the emblem (`loading(p)`, then `loaded()`); after
+  // the title it comes back over everything while a part's world is made (the user, 2026-11-19: "add a
+  // true loading screen... just don't show users the dark"): `loadStart(title, stages)` with stages
+  // [key, label, weight], `loadStage(key, k)` the one under way and how far into it, and it fades out
+  // by itself when the scene fades in (`fade`), or with `loadEnd()`. (dev: each stage's start in
+  // window.__load, to see where the time goes)
+  loading(p) {
+    if (this.load) return this.loadStage(this.load.key, p);
+    this.el.fill.style.width = `${Math.round(p * 100)}%`;
+  }
   loaded() {
     this.el.loading.classList.add('done');
-    setTimeout(() => this.el.loading.remove(), 900);
+    setTimeout(() => { if (!this.load) this.el.loading.style.display = 'none'; }, 900);
+  }
+  loadStart(title, stages) {
+    const L = this.el.loading;
+    this.load = { stages, key: stages[0][0], k: 0, total: stages.reduce((s, x) => s + x[2], 0), t0: performance.now(), shown: 0 };
+    L.style.display = '';
+    L.style.transition = 'none';
+    L.classList.remove('done');
+    void L.offsetWidth;
+    L.style.transition = '';
+    L.querySelector('.title').textContent = title ?? '';
+    const tip = LOAD_TIPS[Math.floor(Math.random() * LOAD_TIPS.length)];
+    L.querySelector('.tip').innerHTML = tip;
+    this.el.fill.style.transition = 'none';
+    this.el.fill.style.width = '0%';
+    void this.el.fill.offsetWidth;
+    this.el.fill.style.transition = '';
+    if (import.meta.env.DEV) window.__load = [];
+    this.loadStage(this.load.key, 0);
+    // (a way in that never fades the scene up or hands over control would leave it up for good: after
+    // 15 s without progress it goes)
+    clearInterval(this.loadDog);
+    this.loadDog = setInterval(() => {
+      if (!this.load) { clearInterval(this.loadDog); return; }
+      if (performance.now() - this.load.last > 15000) { console.warn('loading screen: no progress for 15 s'); this.loadEnd(); }
+    }, 1000);
+  }
+  loadStage(key, k = 0) {
+    const L = this.load;
+    if (!L) return;
+    const i = L.stages.findIndex((s) => s[0] === key);
+    if (i < 0) return;
+    L.last = performance.now();
+    if (key !== L.key || !L.began) {
+      L.began = true;
+      if (import.meta.env.DEV) window.__load.push([key, Math.round(performance.now() - L.t0)]);
+    }
+    L.key = key;
+    L.k = Math.min(1, Math.max(0, k));
+    const done = L.stages.slice(0, i).reduce((s, x) => s + x[2], 0) + L.stages[i][2] * L.k;
+    L.shown = Math.max(L.shown, done / L.total); // (it never goes backwards)
+    this.el.fill.style.width = `${(L.shown * 100).toFixed(1)}%`;
+    this.el.loading.querySelector('.label').textContent = L.stages[i][1];
+  }
+  loadEnd() {
+    if (!this.load) return;
+    if (import.meta.env.DEV) window.__load.push(['end', Math.round(performance.now() - this.load.t0)]);
+    this.load = null;
+    this.el.fill.style.width = '100%';
+    // kept up two frames more: the scene's first draw uploads its geometry (half a second for the
+    // valley), and that stall is better under the loading screen than on the scene's first frame
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (this.load) return;
+      this.el.loading.classList.add('done');
+      setTimeout(() => { if (!this.load) this.el.loading.style.display = 'none'; }, 900);
+    }));
   }
 
   chapter(text) { this.el.chapter.textContent = text ?? ''; }
@@ -76,6 +154,7 @@ export class UI {
   }
 
   fade(to, duration = 1) {
+    if (to < this.fadeLevel) this.loadEnd(); // (the scene's coming up: the loading screen goes)
     const from = this.fadeLevel;
     return tween(duration, (k) => {
       this.fadeLevel = from + (to - from) * k;
@@ -225,7 +304,7 @@ export class UI {
 
   // Full-screen card. Resolves with the index of the button pressed. A button is a label or
   // { label, sub, disabled }; `stack` lays them out as a vertical menu.
-  screen(opts) { return this.card(this.el.screen, opts); }
+  screen(opts) { this.loadEnd(); return this.card(this.el.screen, opts); } // (a card, the error's included: over the scene, not under the loading screen)
 
   // The pause menu uses its own layer so it can open over anything.
   pauseMenu(opts) { return this.card(this.el.pause, opts); }

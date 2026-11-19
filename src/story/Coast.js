@@ -144,7 +144,7 @@ export class Coast extends Story {
 
   async prepare(id) {
     const { ui, player } = this;
-    await loadProps([...FERRIS_PROPS, 'phone', 'fridge', 'coffee', 'f104', 'm35', 'lighttower', ...CEMETERY_PROPS]);
+    await loadProps([...FERRIS_PROPS, 'phone', 'fridge', 'coffee', 'f104', 'm35', 'lighttower', ...CEMETERY_PROPS], (k) => this.ui.loadStage('props', k));
     ui.clock(this.save.info(id).clock);
     this.ring = createRing();
     this.attachRing(this.ring, this.hal);
@@ -153,7 +153,7 @@ export class Coast extends Story {
     this.hud.show(false);
     player.setTired(0.45);
     if (id === 'morning') { this.setupApartment(); return; }
-    this.setupFerris();
+    await this.setupFerrisAsync(); // (in slices, under the loading screen: the steps' setupFerris() then has it)
     if (id === 'drive') return; // starts in the car
     this.ferrisScene.car.rotation.y = Math.PI; // parked nose to the hangars, as he left it
     if (id === 'test') { this.readyJet(); return; } // test() puts him by his car
@@ -403,7 +403,7 @@ export class Coast extends Story {
     if (this.ferrisScene) return this.ferrisScene;
     this.bedroom?.dispose();
     this.bedroom = null;
-    const f = await new Ferris(this).buildAsync();
+    const f = await new Ferris(this).buildAsync((k) => this.ui.loadStage('scene', k));
     return (this.ferrisScene ??= f);
   }
 
@@ -2239,7 +2239,7 @@ const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _eu = new THRE
 // Hal's phone (a downloaded model, CREDITS.md) with the morning's lock screen drawn on it. The group
 // lies flat, screen up; its child is the phone itself (long axis +Y, screen +Z), so in the group's
 // frame the screen faces +Y and the phone's top points -Z.
-function buildPhone({ call = null } = {}) {
+export function buildPhone({ call = null } = {}) {
   const g = new THREE.Group(), ph = prop('phone', { ownMaterials: true });
   ph.rotation.x = -Math.PI / 2;
   g.add(ph);

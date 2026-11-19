@@ -298,15 +298,22 @@ export function label(ctx, F, a0, a1, y0, h, sg, out = 0) {
   const y1 = y0 + h, lit = sg.style === 'lightbox' || sg.style === 'neon';
   let atlas = lit ? ctx.signs.lit : ctx.signs.painted;
   const px = Math.min(160, (atlas.size - 4) / (a1 - a0)); // texels per metre (fewer for a sign wider than the atlas: the hospital's on its roof)
-  if (!atlas.fits((a1 - a0) * px, h * px) && ctx.signs.more) atlas = ctx.signs.more(lit); // (full: a page of its own, and its material)
-  const r = atlas.add((a1 - a0) * px, h * px, (g, w, hh) => drawSign(g, w, hh, sg));
+  // (the city's streamed blocks share their signs: one drawn once is used wherever it comes up again)
+  const ck = ctx.signs.cache && `${sg.text}|${sg.sub}|${sg.style}|${sg.font}|${sg.bg}|${sg.fg}|${Math.round((a1 - a0) * 20)}|${Math.round(h * 20)}`;
+  let r = ck && ctx.signs.cache.get(ck), key = r?.key;
+  if (!r) {
+    if (!atlas.fits((a1 - a0) * px, h * px) && ctx.signs.more) atlas = ctx.signs.more(lit); // (full: a page of its own, and its material)
+    r = atlas.add((a1 - a0) * px, h * px, (g, w, hh) => drawSign(g, w, hh, sg));
+    key = atlas.key ?? (lit ? 'signLit' : 'sign');
+    if (ck) ctx.signs.cache.set(ck, { ...r, key });
+  }
   const depth = sg.style === 'letters' ? 0.005 : 0.08;
   if (sg.style !== 'letters') ctx.batch.add('paint', box(a0 - 0.03, y0 - 0.03, out, a1 + 0.03, y1 + 0.03, out + depth), F, sg.edge ?? 0x2a2420);
   const face = new THREE.PlaneGeometry(a1 - a0, h);
   face.translate((a0 + a1) / 2, (y0 + y1) / 2, out + depth + 0.003);
   const uv = face.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, r.u0 + uv.getX(i) * (r.u1 - r.u0), r.v0 + uv.getY(i) * (r.v1 - r.v0));
-  ctx.batch.add(atlas.key ?? (lit ? 'signLit' : 'sign'), face, F, 0xffffff);
+  ctx.batch.add(key, face, F, 0xffffff);
 }
 
 // a canvas awning: sloping out from the wall over the glass, its valance, its sides, the frame's front pipe
@@ -513,8 +520,9 @@ function flatRoof(ctx, M, s, H, t, top) {
   batch.add('roofing', box(t, H - 0.2, -s.d + t, s.w - t, H + 0.03, -t), M, 0x55524e);
   // flashing up the inside of the parapets
   batch.add('roofing', box(t, H, -t - 0.02, s.w - t, H + 0.3, -t), M, 0x3d3b38);
-  if (!ctx.props) return;
+  // (without props, the streamed blocks', its vents, hatch and aerial all the same: they're the kit's)
   const place = (name, u, z, yaw = 0, sc = 1) => {
+    if (!ctx.props) return null;
     const o = prop(name);
     o.scale.multiplyScalar(sc);
     o.position.set(u, H + 0.03, z);

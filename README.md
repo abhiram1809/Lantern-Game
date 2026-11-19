@@ -27,7 +27,9 @@ ring, and Hal follows them back into the dark, where the Weaponers give Sinestro
 He returns to Korugar as the Yellow Lantern and asks Hal the question the light asked him on his
 first night: are you afraid? Then free roam: everywhere the story has been, Earth's valley and the
 lake, Oa, Korugar, Ysmault and Qward, by the ring's star chart; Hal in the suit or in his clothes,
-with his car (and a ring-made key); Part Seven's marker on Hangar Two.
+with his car (and a ring-made key); Part Seven's marker on Hangar Two. Coast City is four kilometres
+square now: Hal's blocks with their shops and people, the streets round them, downtown's towers, and
+the waterfront (the beach, the promenade, the pier and its Ferris wheel), built as you come near.
 
 ## Run
 
@@ -113,6 +115,9 @@ in front of you. Beside it, **E** recharges the ring (or puts it away when the r
 | E (flying high) | The star chart: Earth, Oa, Korugar, Ysmault, or Qward through a breach |
 | M | The ring's travel menu: every place by name (Coast City, Ferris, the lake, Oa, Korugar, Ysmault, Qward) |
 | T | Change: Green Lantern to Hal Jordan, or back (the suit needs a little charge) |
+| G (on the ground) | Hal's phone: messages (What Up), photos, the map, his bank, the paper, the weather |
+| N | The map of Coast City and the valley (WASD or drag to pan, Q/E or the wheel to zoom, Enter or a click for a waypoint) |
+| E (the time clock in Hangar Two) | Clock in as Hal, any time from 9 to 5 ($62 an hour), and out; on the clock, E by the prototype flies a test card |
 | E (at the car's door) | Hal makes a key with the ring and gets in (in the suit, he changes first); with the ring out of charge, the key won't form |
 | E (stopped, driving) | Get out; the car stays where you left it |
 
@@ -429,7 +434,10 @@ block debris, bolts and Hal.
 7. **Free roam:** the end card offers it. Everywhere the story has been is open. Fly high and press
    **E** for the star chart (the voyage to Oa, Korugar or Ysmault, or a breach into Qward), or press
    **M** for the ring's travel menu. On Earth: the valley from Ferris Aircraft to Coast City (fly it, or
-   drive it), and the lake where Abin Sur's ship came down. Press **T** to change: out of the suit into
+   drive it), and the lake where Abin Sur's ship came down. Coast City has people on every street, traffic,
+   parks, a freeway across it and a flood channel with its bridges; the radar's top left and **N** opens
+   the whole map. Hal earns his money at Ferris: clock in at Hangar Two between nine and five and fly test
+   cards in the prototype. **G** takes out his phone. He goes home by either front door of his building. Press **T** to change: out of the suit into
    Hal's clothes (no flying, no constructs), or back. Hal's car is in his space by the hangars: at the
    driver's door the ring makes him a key (unless it's out of charge), and he drives it anywhere on the
    valley floor and gets out where he stops. The lantern (**L**) comes to him on any world; from low
