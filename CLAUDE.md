@@ -26,15 +26,20 @@ story class with its own save store and checkpoints. Checkpoint ids are unique a
 | Four, The Prisoner | `Prisoner` (`Prisoner.js`) | `gl_prisoner_v1` | pilot cell site ysmault trial |
 | Five, Probation | `Probation` (`Probation.js`) | `gl_probation_v1` | rent commute advance testflight pickup korugar patrol rebels report |
 | Six, Exile | `Exile` (`Exile.js`), run as `Roam` (`Roam.js`) | `gl_exile_v1` | dawn palace tribunal firstnight qward yellow world |
-| Seven, Sapphire | `Sapphire` (`Sapphire.js`) | `gl_sapphire_v1` | ask pier strike hold |
+| Seven, Sapphire | `Sapphire` (`Sapphire.js`) | `gl_sapphire_v1` | ask pier strike hold trail zamaron |
 
 - `world` is **free roam**: every world the story has visited (Earth's valley and Coast City, the
   lake, Oa, Korugar, Ysmault, Qward), travel by star chart or menu, Hal in the suit or his clothes,
   his car, a job at Ferris, money, XP, public opinion, traffic, emergencies, a day and weather cycle.
   `range` and `earth` are Part Two's free flight.
-- **Part Seven is in progress.** Planned next: the Zamarons' world, getting Carol back, Black
-  Hand's sting. The user has warned of a big map rework and a graphics rework this iteration (not
-  started); the pier chapters depend on the city's `PIER` and the day presets, so check them after.
+- **Part Seven is in progress.** Built: `trail` (the breach's wake flown through space: `scenes/Wake.js`)
+  and `zamaron` (the valley, the Kept, the wardens, Carol over the dais: `scenes/Zamaron.js`). Agreed
+  next (2026-11-21): `queen` (Aga'po; Hal sealed in crystal; Carol frees him by mastering the gem),
+  `predator` (boss: love's entity, Carol fighting beside Hal), `home` (the pier, the dinner finished),
+  `hand` (sting: William Hand with Atrocitus's device). Carol comes home keeping the gem and her own
+  mind. The user is making Aga'po in Tripo; the other Star Sapphires are `createStarSapphire` (Carol's
+  Sapphire scan, recoloured). `home` and `hand` wait for the user's map and graphics rework (not
+  started), which the pier chapters (`PIER`, the day presets) also need checking after.
 - **Story rules:** take beats from the comics (*Green Lantern: Secret Origin* first, modern
   continuity: no yellow weakness). When proposing beats, say which come from the comics and which
   are ours. Discuss a new part's beats with the user before building it.
@@ -125,7 +130,8 @@ src/characters/    Rig + Animator, IK, Mocap, Poses, Player (walk + flight), Cha
                    BodyLanguage, Guardian/Robe/HairCards, FlightSuit, People (Rocketbox)
 src/powers/        RingPowers (charge, health, wheel, aim, guard, constructs), Constructs (list, shaders, geometry)
 src/scenes/        Bedroom, Dream, Hyperspace, CrashSite (the lake), Space, Oa + Hall, Ferris (the field, the
-                   road, Coast City's host scene), Site, Ysmault, Korugar + KorugarSigns + Statue, Qward, DayCycle
+                   road, Coast City's host scene), Site, Ysmault, Korugar + KorugarSigns + Statue, Qward, Wake
+                   (Part Seven's flight through space), Zamaron, DayCycle
 src/city/          Coast City: Kit, Building, Signs, HalsBlock, Interiors, Shops, Office, Lod, Lamps, Traffic,
                    Plan, Tower, Stream, Ground, Waterfront, Landmarks
 src/props/         Props (load, clone, helpers), Car (makeCar, planDrive), Smash (every prop touchable)
@@ -201,7 +207,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   beyond). Traffic keeps right: southbound on the boulevard is its east half (x 6 to 10).
 - Other worlds: `CrashSite` (the lake, `terrainHeight`), `Oa` + `Hall`, `Space` (planets from orbit,
   `Voyage.js` routes), `Site` (downtown at night), `Ysmault`, `Korugar` (built, not downloaded;
-  `night(on)`), `Qward`.
+  `night(on)`), `Qward`, `Wake` (no ground: Hal can't land; `track(p)` is how far off the line he is),
+  `Zamaron` (downloaded crystal re-skinned by `fx/Crystal.js`; the Kept are `kept[i].hold(rig)`).
 
 ### Dialogue and voices
 
@@ -308,7 +315,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   `if (this.busy) return` guard makes E silently dead.
 - Test the end of every fight with Hal in the air, and every new interaction by walking up to it.
 - The test tab pauses itself once the player has control (no pointer lock), so step
-  `engine.advance()`; never `await` a story promise without stepping. A hidden tab throttles
+  `engine.advance()`; never `await` a story promise without stepping. A pane screenshot after stepping
+  shows the last drawn frame: `engine.frame(0)` first. A hidden tab throttles
   `requestAnimationFrame` and timers to ~1 Hz: in-page loops yield by `MessageChannel`.
 - A loop of `engine.advance()` never yields to the network: yield a macrotask per step when loading.
 - A pending restart (`gl_resume`) beats the URL hash: `sessionStorage.clear()`. Going from `/` to
@@ -327,14 +335,16 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   the rest of it.
 
 **Story flow**
-- A chapter method can't share a name with a story field (`site`, `pilot`): the field wins. The
-  `site` step's method is `atrocitus()`; the flight-suit rig is `pilotRig`.
+- A chapter method can't share a name with a story field (`site`, `pilot`, `trail`): the field wins. The
+  `site` step's method is `atrocitus()`; `trail`'s is `followWake()`; the flight-suit rig is `pilotRig`.
 - A part's end card that starts the next part must save this part's last checkpoint first.
 - A scripted jet or NPC must wait for the player: slow its clock while it's off screen.
 - `warmUp`'s far pieces compile after the chapter has begun, so its `prepare` must undo to the state
   as it is by then, not a fixed one (the pier's night ran with dusk's lamps: `Sapphire.pierLamps`).
 - A goal zone must sit where the player sees the goal, and say on screen why a near miss doesn't count.
 - An interaction placed inside a prop's colliders never shows; prefer a prompt that says why not.
+- Look-at targets outlive cuts: aim heads at what the next shot holds before the fade (Hal turned back
+  to a warden still standing at the court), and place walkers in the dark, not after the fade up.
 - Nothing fades the grade's `uFlash`: whatever sets it fades it, including a chapter entered from one.
 - Camera helpers in absolute heights break on raised floors (the pier's deck is 4.2 m up); work
   relative to the player or a head bone. Cameras placed by offset can land inside crowds and buildings.
@@ -349,8 +359,10 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - A body removed from the world but left in `physics.dynamics` panics Rapier (`Smash.remove`).
 - The ring's impacts only damage bodies in `physics.dynamics`, and an impact skips what its sweep
   already touched.
-- Locking a body's translation stops its friction; `setCanSleep(false)` for scripted falls.
-- Rapier's wheel brake is an impulse per step: pass force × dt. `Player.place` must clear fall speed.
+- Locking a body's translation stops its friction; `setCanSleep(false)` for scripted falls (on the
+  body's desc: a made body has no `setCanSleep`).
+- Rapier's wheel brake is an impulse per step: pass force × dt. `Player.place` must clear fall speed
+  and end a scripted walk (it does: a walk left running turned him back toward its old target).
 - The controller sometimes returns no movement on a flat floor box (`floorOnly` retry in
   `updateGround`). A ray exactly on a heightfield's cell line can miss.
 - Camera and aim rays must skip invisible walls and dynamic bodies.
@@ -371,7 +383,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - `mergeGeometries` returns null on mismatched attributes. `Color.multiplyScalar` is linear.
 - Geometry whose arrays were freed (`freeArray`) can't be measured: compute bounds first.
 - The sign atlas fills quietly (`signs.more` adds pages). `glowTexture()`'s default mid-tone is green.
-- A camera inside a translucent construct tints the frame.
+- A camera inside a translucent construct tints the frame. A glow tube the camera flies inside is seen
+  edge-on and vanishes under a view-angle falloff: draw a thin core faded near the camera (`Wake`).
+- A bright point light on glossy pale stone blooms into a white sun: roughness 0.6 or more under it.
 
 **Models and props**
 - Tripo sheets can hold several figures (`keepSide`, `figure`); a scanned bow or weapon can be a sheet.
@@ -381,6 +395,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - The fitted arm axis is pulled off the arm by forearm armour or long hair: Star Sapphire's shoulders
   landed 30 and 67 cm behind her, the upper arms went to the chest and the forearms swung about a
   point behind her back (her arms hung off her in every pose). Measure the limb and give `rig.arms`.
+- A cluster scaled up into a spire is as wide as it's tall: one beside the citadel's stair swallowed the
+  stair's head and the camera. Check what's within a spire's width of a path.
 - A downloaded prop may be two objects, turned, off its origin, or bounded far past its shape: look
   at its parts and ground contact (`piece(..., { root: true })`) and give non-boxes triangle colliders.
 - Loaded vertex positions may be interleaved: use `getX/Y/Z` and a plain attribute before moving them.
@@ -398,6 +414,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   Seated poses need `player.autoAnim` off.
 - Turn a body about its hips, not the object's origin (which is at the feet). Point with the arm on
   the target's side.
+- Foot IK only lowers the hips: a root must ride at or above the ground under its feet. A stair's slope
+  goes through the steps' noses, not the risers' feet, or a body standing on it squats.
 
 **Code**
 - `v.copy(p).y += 1.2` is a number, not a vector.
@@ -414,6 +432,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   (built on my defaults while they slept).
 - Star Sapphire's model: weak feet and tiara, a pale fin on each forearm; the night sea's moon glint
   shows as pixelated patches. No Zamaron models yet (the Guardian generator starts from a male scan).
+- The derived Star Sapphires all have Carol's face (other skins, hair, markings); the Korugarians kept
+  in crystal still wear the Corps emblem from Abin Sur's scan; the citadel's plaza is bare (it's the
+  `queen` and `predator` arena, not dressed yet). Zamaron isn't in free roam's places yet.
 - The streamed city has no interiors, wall props or parked cars; Hal's blocks' upper-floor flats can't
   be entered. Tom Kalmaku is a voice only.
 - Scans have no finger bones (hands stay open) and lip sync is a jaw only.

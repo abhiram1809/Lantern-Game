@@ -215,6 +215,25 @@ export const PROPS = [
     title: 'Magazine Rack Full of Geo Articles', author: 'Brendan_489', uid: '53f55fbd5c0b4c1cbc219bb717b6819e' },
   { name: 'oldregister', tris: 1500, error: 0.015, src: 'assets/props/oldregister.glb', forward: '+z', height: 0.42, tex: 1024,
     title: 'Old Cash Register_PBR', author: 'Li.Wenzhao', uid: 'cfdc8b3756fa4bb4b7c26d8ac92fd1bc' },
+  // Zamaron (Part Seven): the violet crystal's world (scenes/Zamaron.js re-skins the crystals in its own light)
+  { name: 'crystal_cluster', src: 'assets/props/crystal_cluster.glb', forward: '+z', height: 6, tex: 512,
+    title: 'Crystal Cluster', author: 'WhiteWinterprison', uid: 'e920cf6b57d642a3a03c76c847031f1f' },
+  { name: 'crystal_giant', src: 'assets/props/crystal_giant.glb', forward: '+z', height: 10.7, tex: 1024,
+    title: 'Giant crystal formation', author: 'chrisconn', uid: 'e2e2be20c11545fb801659bd2c8ecee6' },
+  { name: 'crystal_formation', src: 'assets/props/crystal_formation.glb', forward: '+z', height: 2.2, tex: 512,
+    title: 'Crystal Formation', author: 'jbeedle252', uid: 'b70726824a0d44c0bd4f5e98be299651' },
+  { name: 'crystal_rocks', src: 'assets/props/crystal_rocks.glb', forward: '+z', height: 1.2, tex: 1024,
+    title: 'Crystals', author: 'AlexOlTroi', uid: '9cfd21f096254bc08cbbb410d4798eb0' },
+  { name: 'amethyst', tris: 24000, error: 0.004, src: 'assets/props/amethyst.glb', forward: '+z', height: 4, tex: 1024,
+    title: 'Amethyst crystal', author: 'panomedia', uid: '671adaa900014ca88993fa81c27f7e5e' },
+  { name: 'crystal_shard', src: 'assets/props/crystal_shard.glb', forward: '+z', height: 3, tex: 1024,
+    title: 'Purple Crystal', author: 'emmashanks', uid: 'd4f635c56cea426bac50263a5bd740af' },
+  { name: 'stibnite', tris: 16000, error: 0.004, src: 'assets/props/stibnite.glb', forward: '+z', height: 3, tex: 1024,
+    title: 'Stibnite (antimony)', author: 'NaRoCreations', uid: '79b0a78e32fc4d65accbc5fc60d077d6' },
+  { name: 'plant_glow', src: 'assets/props/plant_glow.glb', forward: '+z', height: 1.4, tex: 512,
+    title: 'Alien Plant (Cydrakoniss)', author: 'Blake_Stahlbaum', uid: 'd940adfc452146efacc2cbb63fa2c01d' },
+  { name: 'plant_bulbs', src: 'assets/props/plant_bulbs.glb', forward: '+z', height: 3.5, tex: 512, drop: /^(pot|dirt)/,
+    title: 'Alien Plant', author: 'green364', uid: '142addd0188c49e18e6d836fb9dfe813' },
 ];
 
 const YAW = { '+z': 0, '-z': Math.PI, '+x': -Math.PI / 2, '-x': Math.PI / 2 };

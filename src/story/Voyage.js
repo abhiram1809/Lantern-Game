@@ -221,7 +221,7 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
 
 // Out of the sky: Hal braces, a ring of light bursts round him with a sonic boom, and he rockets
 // straight up on a column of light; the shot ends on a flash.
-async function launchOut(story) {
+export async function launchOut(story) {
   const { player, director, audio, engine, powers } = story;
   const grade = engine.gradeUniforms, o = player.object;
   const p0 = o.position.clone(), yaw = player.yaw;

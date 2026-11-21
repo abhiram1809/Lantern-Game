@@ -242,6 +242,99 @@ export function createSapphire(gltf) {
   return rig;
 }
 
+// The Star Sapphires of other worlds (Part Seven), derived from Carol's Star Sapphire model (the user's
+// call, 2026-11-21: they make Queen Aga'po; the corps comes from Carol's). In the comics the corps is
+// women of many species in the one uniform; ours: another skin (any colour a world might give it),
+// another hair colour, markings on the face (dots over the brows, lines down the cheeks, a mark on the
+// forehead: painted in the bind pose's object space), the suit's pink turned through rose and violet, a
+// little taller or shorter. `rig.ss` holds the values.
+const SS_FACE = /* glsl */ `
+  {
+    vec3 sc = diffuseColor.rgb;
+    float sLum = dot(sc, vec3(0.299, 0.587, 0.114));
+    float sSkin = smoothstep(0.02, 0.08, sc.r - max(sc.g, sc.b)) * smoothstep(0.1, 0.22, sc.r);
+    float sHair = (1.0 - sSkin) * smoothstep(0.3, 0.16, sLum);
+    vec3 skin = uSkinC * clamp(sLum / 0.42, 0.35, 1.45);
+    vec3 hair = uHairC * clamp(0.35 + sLum * 3.0, 0.3, 1.6);
+    // the markings, below the mask (it covers the brow and the eyes): dots along the cheekbones, lines
+    // down the cheeks, or a diamond on each cheekbone; only on the face's front, only on skin
+    vec3 p = vDPos;
+    float front = smoothstep(0.06, 0.1, p.z);
+    float ax = abs(p.x);
+    float dots = 0.0;
+    for (int i = 0; i < 3; i++) { vec2 c = vec2(0.045 + float(i) * 0.0065, 1.535 - float(i) * 0.0135); dots = max(dots, 1.0 - smoothstep(0.0018, 0.0028, length(vec2(ax, p.y) - c))); }
+    float cheek = (1.0 - smoothstep(0.0011, 0.0021, abs(ax - (0.047 + (1.55 - p.y) * 0.11)))) * smoothstep(1.502, 1.506, p.y) * (1.0 - smoothstep(1.546, 1.55, p.y));
+    float diamond = 1.0 - smoothstep(0.0032, 0.0042, abs(ax - 0.05) + abs(p.y - 1.532) * 0.7);
+    float mark = (uMark < 0.5 ? dots : uMark < 1.5 ? cheek : diamond) * front;
+    sc = mix(sc, skin, sSkin);
+    sc = mix(sc, hair, sHair * step(1.36, p.y));
+    sc = mix(sc, uMarkC, mark * sSkin);
+    diffuseColor.rgb = sc;
+    sMarkGlow = mark * sSkin;
+  }
+`;
+// a hue turn (radians) for the suit's woven panels
+const SS_SUIT = /* glsl */ `
+  {
+    const mat3 toYIQ = mat3(0.299, 0.596, 0.211, 0.587, -0.274, -0.523, 0.114, -0.322, 0.312);
+    const mat3 toRGB = mat3(1.0, 1.0, 1.0, 0.956, -0.272, -1.106, 0.621, -0.647, 1.703);
+    vec3 yiq = toYIQ * diffuseColor.rgb;
+    float c = cos(uSuitHue), s = sin(uSuitHue);
+    yiq.yz = mat2(c, s, -s, c) * yiq.yz;
+    diffuseColor.rgb = max(toRGB * yiq, 0.0) * uSuitK;
+  }
+`;
+export function createStarSapphire(gltf, { seed = 1 } = {}) {
+  const rig = createSapphire(gltf);
+  let s = seed * 7919 + 1301;
+  const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  // skins from worlds the ring has seen and hasn't: lilac, gold, teal, rose-grey, deep blue, pale green, white
+  const SKINS = [[0.76, 0.3, 0.62], [0.12, 0.55, 0.6], [0.48, 0.42, 0.5], [0.93, 0.25, 0.55], [0.62, 0.45, 0.42], [0.3, 0.3, 0.62], [0.08, 0.1, 0.74]];
+  const HAIRS = [[0.0, 0.0, 0.92], [0.85, 0.5, 0.42], [0.0, 0.0, 0.05], [0.78, 0.35, 0.22], [0.55, 0.3, 0.5], [0.08, 0.6, 0.55]];
+  const pick = (list) => list[Math.floor(rnd() * list.length) % list.length];
+  const [sh, ss, sl] = pick(SKINS), [hh, hs, hl] = pick(HAIRS);
+  const ssU = (rig.ss = {
+    uSkinC: { value: new THREE.Color().setHSL(sh + (rnd() - 0.5) * 0.03, ss, sl) },
+    uHairC: { value: new THREE.Color().setHSL(hh, hs, hl * 0.35) },
+    uMark: { value: Math.floor(rnd() * 3) },
+    uMarkC: { value: new THREE.Color().setHSL(rnd() < 0.5 ? 0.13 : 0.82, 0.6, 0.75) },
+    uSuitHue: { value: 0.12 + rnd() * 0.5 }, // (this way the pink turns to magenta and violet; the other, to orange)
+    uSuitK: { value: new THREE.Color().setScalar(0.85 + rnd() * 0.25) },
+  });
+  for (const m of rig.meshes) {
+    const mat = m.material, name = mat.name, base = mat.onBeforeCompile;
+    if (/^Carol/.test(name)) {
+      mat.onBeforeCompile = (sh2, r) => {
+        base(sh2, r);
+        Object.assign(sh2.uniforms, ssU);
+        sh2.fragmentShader = sh2.fragmentShader
+          .replace('#include <common>', '#include <common>\nuniform vec3 uSkinC, uHairC, uMarkC; uniform float uMark;\nfloat sMarkGlow = 0.0;')
+          .replace('diffuseColor.rgb *= uTint;', `${SS_FACE}\n        diffuseColor.rgb *= uTint;`)
+          .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n        totalEmissiveRadiance += uMarkC * sMarkGlow * 0.25;');
+      };
+      mat.customProgramCacheKey = () => 'gl-star-sapphire-face';
+    } else if (/^Suit/.test(name)) {
+      mat.onBeforeCompile = (sh2, r) => {
+        base(sh2, r);
+        Object.assign(sh2.uniforms, ssU);
+        sh2.fragmentShader = sh2.fragmentShader
+          .replace('#include <common>', '#include <common>\nuniform float uSuitHue; uniform vec3 uSuitK;')
+          .replace('diffuseColor.rgb *= uTint;', `${SS_SUIT}\n        diffuseColor.rgb *= uTint;`);
+      };
+      mat.customProgramCacheKey = () => 'gl-star-sapphire-suit';
+    } else {
+      // the plain-coloured armour and the light: turned the same way in hue (toward violet is down in HSL)
+      const turn = -ssU.uSuitHue.value / (Math.PI * 2);
+      mat.color.offsetHSL(turn, 0, 0);
+      if (mat.emissive) mat.emissive.offsetHSL(turn, 0, 0);
+    }
+  }
+  const k = 0.94 + rnd() * 0.12;
+  rig.root.scale.set(k, k, k);
+  rig.eyeGlow(1);
+  return rig;
+}
+
 // Sinestro of Korugar, derived from Abin Sur's scan (a long, severe alien face, no mask, a tall lean
 // body in the Corps uniform), matched to a comic reference the user chose (2026-11-09): warm
 // coral-red skin, more orange up the forehead; black hair slicked back from a sharp widow's peak,

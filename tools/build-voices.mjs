@@ -105,6 +105,32 @@ const CHARACTERS = {
       ['reverb', { rt: 3.4, pre: 0.04, wet: 0.3, damp: 0.4, er: 0.2 }]],
     tail: 1.0,
   },
+  // Star Sapphires of Zamaron (Part Seven): women of other worlds, sure of themselves, in the open air of
+  // a crystal valley (a little shimmer: their light in the voice)
+  warden: {
+    desc: 'A Star Sapphire warden: calm, assured, warm, faintly alien',
+    voice: 'af_aoede', speed: 0.92, f0: 186, formant: 1.03,
+    fx: [['hp', 100], ['octave', 1.008, 0.18, 0.012], ['peak', 3200, 1.5, 1], ['comp', { thr: -18, ratio: 3 }], ['reverb', { rt: 1.4, pre: 0.02, wet: 0.16, damp: 0.4 }]],
+    tail: 0.5,
+  },
+  warden2: {
+    desc: 'A second Star Sapphire warden: lower, older, gentle',
+    voice: 'af_sky', speed: 0.9, f0: 168, formant: 0.98,
+    fx: [['hp', 90], ['octave', 0.993, 0.16, 0.014], ['comp', { thr: -18, ratio: 3 }], ['reverb', { rt: 1.4, pre: 0.02, wet: 0.16, damp: 0.4 }]],
+    tail: 0.5,
+  },
+  keeper: {
+    desc: 'A Star Sapphire tending the crystal she keeps her love in: soft, tender, certain',
+    voice: 'bf_lily', speed: 0.9, f0: 200, formant: 1.04,
+    fx: [['hp', 100], ['octave', 1.006, 0.14, 0.01], ['comp', { thr: -20, ratio: 2.5 }], ['reverb', { rt: 1.2, pre: 0.02, wet: 0.14, damp: 0.45 }]],
+    tail: 0.45,
+  },
+  keeper2: {
+    desc: 'Another Star Sapphire at her crystal: proud, a little bitter, tired',
+    voice: 'af_river', speed: 0.94, f0: 178, formant: 1.0,
+    fx: [['hp', 90], ['octave', 0.994, 0.14, 0.012], ['comp', { thr: -20, ratio: 2.5 }], ['reverb', { rt: 1.2, pre: 0.02, wet: 0.14, damp: 0.45 }]],
+    tail: 0.45,
+  },
   abin: {
     desc: 'Abin Sur: dying alien Lantern, deep, gentle, tired, breathy',
     voice: 'bm_lewis', speed: 0.86, f0: 90, formant: 0.93,

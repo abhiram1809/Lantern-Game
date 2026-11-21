@@ -32,6 +32,7 @@ export class Player {
     this.moveScale = 1; // slowed while firing a held construct
     this.boostScale = 1; // a story moment can ask more of the ring (the chase after the falling jet)
     this.flyScale = 1; // (the ring's flight stat, story/Life.js)
+    this.topScale = 1; // (the flight's top speed: raised in open space, Part Seven's wake)
     this.dashV = new THREE.Vector3(); // a lunge (the sword), on the ground or in the air
     this.dashT = 0;
     this.strafe = false; // a held construct is up: face where the camera looks, move where the keys say
@@ -143,6 +144,10 @@ export class Player {
     this.vel.set(0, 0, 0);
     this.vy = 0; // (a fall in progress is over: placed over the sea after dropping out of flight, he went through the pier's deck at 900 m/s)
     this.fall = 0;
+    // and so is a scripted walk (placed at the stair's head mid-walk, he turned back for the old target)
+    const sc = this.script;
+    this.script = null;
+    sc?.resolve();
     if (this.kcc) this.groundMode();
   }
 
@@ -367,7 +372,7 @@ export class Player {
     const dvl = _dv.length();
     if (dvl > accel * dt) _dv.multiplyScalar((accel * dt) / dvl);
     v.add(_dv);
-    if (v.length() > FLY.top) v.setLength(FLY.top);
+    if (v.length() > FLY.top * this.topScale) v.setLength(FLY.top * this.topScale);
 
     // keep above the ground and water (also outside the physics terrain), and inside the play space
     const p = this.object.position, air = this.air;

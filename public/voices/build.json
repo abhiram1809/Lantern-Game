@@ -151,6 +151,22 @@
   "zamaron:e1affacf5e28": {
    "base": 203.1,
    "beta": 0.8344
+  },
+  "keeper:67a40c9c9b1b": {
+   "base": 167,
+   "beta": 1.1534
+  },
+  "keeper2:e3d89a5824c1": {
+   "base": 182.9,
+   "beta": 0.9325
+  },
+  "warden:db5a348d2536": {
+   "base": 186.7,
+   "beta": 0.913
+  },
+  "warden2:94079154a8f2": {
+   "base": 173,
+   "beta": 0.9783
   }
  },
  "lines": {
@@ -9176,6 +9192,374 @@
    "f0dry": 122.7,
    "f0wet": 122.6,
    "beta": 0.946
+  },
+  "ringTrail0": {
+   "hash": "5592e88e10c79e5a",
+   "ps": "ðə bɹˈiːtʃ lˈɛft ɐ wˈeɪk. ɪt ɹˈʌnz ˌaʊtəv ðɪs sˈɛktə, pˈast maɪ tʃˈɑːts. aɪ kan hˈəʊld ɪt wˌaɪl juː stˈeɪ ˈɒn ɪt.",
+   "f0raw": 179.6,
+   "f0dry": 179.6,
+   "f0wet": 177.4,
+   "beta": 1
+  },
+  "halTrail0": {
+   "hash": "b3479643febb5b76",
+   "ps": "ðˈɛn aɪ stˈeɪ ˈɔn ɪt.",
+   "f0raw": 132.8,
+   "f0dry": 115.6,
+   "f0wet": 115.5,
+   "beta": 0.946
+  },
+  "ringTrailWeak": {
+   "hash": "00d4d6b6a4d91eba",
+   "ps": "ðə wˈeɪk ɪz fˈeɪdɪŋ hˈiə. bˈak tʊ ɪt.",
+   "f0raw": 172.2,
+   "f0dry": 172.2,
+   "f0wet": 184.5,
+   "beta": 1
+  },
+  "ringTrailLost": {
+   "hash": "0d815cc2c2b412f3",
+   "ps": "wˈeɪk lˈɒst. ɹɪtˈɜːnɪŋ juː tʊ wˌeəɹ aɪ lˈast hˈɛld ɪt.",
+   "f0raw": 178,
+   "f0dry": 178,
+   "f0wet": 176.7,
+   "beta": 1
+  },
+  "ringTrailShards": {
+   "hash": "8c93f32996cf2ac1",
+   "ps": "kɹˈɪstəl ɐhˈɛd. ðə bɹˈiːtʃɪz lˈaɪt, ɡɒn sˈɒlɪd az ɪt kˈuːld.",
+   "f0raw": 178.4,
+   "f0dry": 178.4,
+   "f0wet": 178.2,
+   "beta": 1
+  },
+  "ringTrailVeil": {
+   "hash": "5326d26c5f16e178",
+   "ps": "ɐ nˈɛbjʊlə. ðə wˈeɪk wɪl biː hˈɑːd tə sˈiː ɪn ɪt. aɪ wɪl mˈɑːk ðə wˈeɪ.",
+   "f0raw": 183.6,
+   "f0dry": 183.6,
+   "f0wet": 184,
+   "beta": 1
+  },
+  "ringTrailWho1": {
+   "hash": "426549e20e3ef475",
+   "ps": "ˈɑːkaɪv mˈatʃ. zˈamaɹən. ɪt ɪz ɪnðə ɡˈɑːdiənz ˈəʊldɪst ɹˈɛkɔːdz, wˈʌns. ðə wˈɪmɪn ɒv ˈəʊə lˈɛft ðˌɛm ˌəʊvəɹ ɐ dˌɪsɐɡɹˈiːmənt ɐbˌaʊt lˈʌv, fəɹə wˈɜːld pˈast ðə tʃˈɑːts.",
+   "f0raw": 181.7,
+   "f0dry": 181.7,
+   "f0wet": 181.8,
+   "beta": 1
+  },
+  "halTrailWho1": {
+   "hash": "20797ecc08978620",
+   "ps": "ðə ɡˈɑːɹdiənz hæd wˈaɪvz?",
+   "f0raw": 119.2,
+   "f0dry": 101.1,
+   "f0wet": 100.4,
+   "beta": 0.946
+  },
+  "ringTrailWho2": {
+   "hash": "000260e6ea50bb9c",
+   "ps": "ðə ɹˈɛkɔːd dʌznˌɒt sˈeɪ wˈaɪvz. ɪt sˈɛz ðeɪ dˌɪsɐɡɹˈiːd.",
+   "f0raw": 184.2,
+   "f0dry": 184.2,
+   "f0wet": 187.5,
+   "beta": 1
+  },
+  "halTrailWho2": {
+   "hash": "870e5d0927c74424",
+   "ps": "sˈaʊndz lˈaɪk ðˌɛm.",
+   "f0raw": 142.2,
+   "f0dry": 128.8,
+   "f0wet": 128.8,
+   "beta": 0.946
+  },
+  "halTrail2": {
+   "hash": "6647ccd39d550e43",
+   "ps": "hˈæŋ ˈɔn, kˈæɹəl. aɪm kˈʌmɪŋ.",
+   "f0raw": 129.8,
+   "f0dry": 123.8,
+   "f0wet": 125.1,
+   "beta": 0.946
+  },
+  "halTrail3": {
+   "hash": "399cf315a23ce91a",
+   "ps": "ðeɪ tˈʊk hɜː bɪkˈʌz ʃiː lˈʌvz tˈuː hˈɑːɹd. ðeɪ dˈoʊnt nˈoʊ hɜː. nˈoʊbɑːdi tˈɛlz kˈæɹəl fˈɛɹɪs hˌuː tə lˈʌv.",
+   "f0raw": 120.1,
+   "f0dry": 114.2,
+   "f0wet": 118.2,
+   "beta": 0.946
+  },
+  "ringTrailEnd": {
+   "hash": "1a2fd0d977aaa6a3",
+   "ps": "ðə wˈeɪk ˈɛndz ɐhˈɛd. ɐ wˈɜːld.",
+   "f0raw": 184.1,
+   "f0dry": 184.1,
+   "f0wet": 184.6,
+   "beta": 1
+  },
+  "ringZam1": {
+   "hash": "ed83299eb1ef03dd",
+   "ps": "zˈamaɹən. ʌntʃˈɑːtɪd, ʌntˈɪl nˈaʊ. ðɪ ˈeə wɪl hˈəʊld juː. ðə vˈaɪəlɪt sˈɪɡnɪtʃəɹ ɪz stɹˈɒŋɡɪst ɪnðə nˈɔːθ.",
+   "f0raw": 178.7,
+   "f0dry": 178.7,
+   "f0wet": 186.7,
+   "beta": 1
+  },
+  "halZam0": {
+   "hash": "9f1a36f028dff53b",
+   "ps": "ðˈɛɹ juː ɑːɹ.",
+   "f0raw": 130.8,
+   "f0dry": 119.7,
+   "f0wet": 119.6,
+   "beta": 0.946
+  },
+  "ringZam2": {
+   "hash": "ed128a253453a62f",
+   "ps": "kˈaɹəlz sˈɪɡnɪtʃəɹ ɪz ˌʌndə ðə ɡɹˈeɪt kɹˈɪstəl, tə ðə nˈɔːθ. ʃiː ɪz ʌnhˈɜːt.",
+   "f0raw": 185.2,
+   "f0dry": 185.2,
+   "f0wet": 189.4,
+   "beta": 1
+  },
+  "halZam1": {
+   "hash": "3b49e30da9268988",
+   "ps": "kˈæɹəl wʊd lˈʌv ðɪs plˈeɪs. ðæts wʌt wˈʌɹiz mˌiː.",
+   "f0raw": 124.7,
+   "f0dry": 107.2,
+   "f0wet": 117.2,
+   "beta": 0.946
+  },
+  "ringZam3": {
+   "hash": "2694d1170ffcdc64",
+   "ps": "ðeə lˈaɪt ɪz hˈəʊldɪŋ ðɪ ˈeəɹ ˌəʊvə ðə sˈɪtədˌɛl. aɪ kˈɑːnt flˈaɪ juː θɹˈuː ɪt.",
+   "f0raw": 183.1,
+   "f0dry": 183.1,
+   "f0wet": 184.4,
+   "beta": 1
+  },
+  "halZam2": {
+   "hash": "9ae7f18d9b09f0e7",
+   "ps": "ðˈɛn wiː wˈɔːk.",
+   "f0raw": 129.9,
+   "f0dry": 117.6,
+   "f0wet": 117.5,
+   "beta": 0.946
+  },
+  "halZam3": {
+   "hash": "bfea5ced756347f5",
+   "ps": "ðɛɹˌɑːɹ pˈiːpəl ɪn ðˈiːz.",
+   "f0raw": 106.8,
+   "f0dry": 117.6,
+   "f0wet": 100.9,
+   "beta": 0.946
+  },
+  "ringZam4": {
+   "hash": "35a9a799e6bae599",
+   "ps": "ɐlˈaɪv, and ɐslˈiːp. ˈiːtʃ kɹˈɪstəl ɪz hˈɛld baɪ sˈʌmwɒn hˌuː lˈʌvz ðə wˈɒn ɪnsˈaɪd.",
+   "f0raw": 179,
+   "f0dry": 179,
+   "f0wet": 180,
+   "beta": 1
+  },
+  "halZam4": {
+   "hash": "08d520e41278abb7",
+   "ps": "ðæt ˌɪzənt lˈʌv. ðæts ɐ dʒˈɑːɹ.",
+   "f0raw": 138.9,
+   "f0dry": 128.3,
+   "f0wet": 127.2,
+   "beta": 0.946
+  },
+  "ringKept1": {
+   "hash": "c3d8560252ecf2f4",
+   "ps": "ɐ pˈaɪlət ɒv kˈɔːɹuːɡə. kˈɛpt fˈɔːti jˈiəz. ðə wˈɒn hˌuː kˈiːps hˌɪm kˈʌmz ˈɛvɹɪ dˈeɪ.",
+   "f0raw": 182.6,
+   "f0dry": 182.6,
+   "f0wet": 184.8,
+   "beta": 1
+  },
+  "ringKept2": {
+   "hash": "235cbbc3bdfc44e7",
+   "ps": "nˌiə hjˈuːmən. sˈɛktə wˈɒn zˈiəɹəʊ wˈɒn fˈɔː. ɐ pˈəʊɪt. ðə kɹˈɪstəl kˈiːps hˌɪm ðɪ ˈeɪdʒ hiː wɒz wɛn ʃiː tʃˈəʊz hˌɪm.",
+   "f0raw": 178.8,
+   "f0dry": 178.8,
+   "f0wet": 180.1,
+   "beta": 1
+  },
+  "ringKept3": {
+   "hash": "e2ae6b7fbf6d8f66",
+   "ps": "ɐ wˈʊmən ɒv kˈɔːɹuːɡə, kˈɛpt baɪ ɐ stˈɑː sˈafaɪəɹ ɒv hɜːɹ ˈəʊn wˈɜːld, hˌuː lˈʌvd hɜː and kʊd nˌɒt kˈiːp hɜːɹ ˌɛni ˈʌðə wˈeɪ.",
+   "f0raw": 176.9,
+   "f0dry": 176.9,
+   "f0wet": 178.1,
+   "beta": 1
+  },
+  "ringKept4": {
+   "hash": "2056d9defea2ae82",
+   "ps": "hiː lˈɛft ɐ stˈɑː sˈafaɪə fɔːɹ ɐnˈʌðə wˈɜːld. ʃiː bɹˈɔːt hˌɪm bˈak.",
+   "f0raw": 176.6,
+   "f0dry": 176.6,
+   "f0wet": 177.6,
+   "beta": 1
+  },
+  "ringKept5": {
+   "hash": "f6f33ec1b14204a7",
+   "ps": "kˈɛpt tˈuː hˈʌndɹɪd jˈiəz. nˈəʊwˈɒn hɐz kˈʌm tə ðˈɪswˌɒn ɪn ɐ lˈɒŋ tˈaɪm.",
+   "f0raw": 181.8,
+   "f0dry": 181.8,
+   "f0wet": 181.9,
+   "beta": 1
+  },
+  "ringKept6": {
+   "hash": "51ff8973a4b66745",
+   "ps": "ɐ sˈəʊldʒə. ʃiː fˈaʊnd hˌɪm dˈaɪɪŋ ˌɒn ɐ bˈatəlfˌiːld, and kˈɛpt ðə mˈəʊmənt bɪfˈɔː.",
+   "f0raw": 177,
+   "f0dry": 177,
+   "f0wet": 178.3,
+   "beta": 1
+  },
+  "ringKept7": {
+   "hash": "1b5576fa1d99dd13",
+   "ps": "hiː ˈaskt təbi kˈɛpt. ðə ɹˈɛkɔːd sˈɛz hiː wɒz hˈapi tuː.",
+   "f0raw": 181.2,
+   "f0dry": 181.2,
+   "f0wet": 179.6,
+   "beta": 1
+  },
+  "ringKept8": {
+   "hash": "328af4a0a28399e3",
+   "ps": "ðˈɪswˌɒn ɪz dɹˈiːmɪŋ. ðə kɹˈɪstəl ʃˈəʊz ðə dɹˈiːm tə ðə wˈɒn hˌuː kˈiːps hɜː.",
+   "f0raw": 182.6,
+   "f0dry": 182.6,
+   "f0wet": 183.1,
+   "beta": 1
+  },
+  "ringKeptQuiet": {
+   "hash": "44c53a18f50269ba",
+   "ps": "aɪ kˈɑːnt ɹˈiːd ðˈɪswˌɒn. huːˈɛvə kˈiːps hɜː kˈiːps hɜː klˈəʊs.",
+   "f0raw": 195.6,
+   "f0dry": 195.6,
+   "f0wet": 195.3,
+   "beta": 1
+  },
+  "ringKeptHit": {
+   "hash": "6b0820e06edc9242",
+   "ps": "ðat ɪz ðeə lˈaɪt, nˌɒt stˈəʊn. wɪl ɐlˈəʊn wəʊnt bɹˈeɪk ɪt.",
+   "f0raw": 185.4,
+   "f0dry": 185.4,
+   "f0wet": 188,
+   "beta": 1
+  },
+  "keep1a": {
+   "hash": "4c2019cffb9a80e6",
+   "ps": "hiː wˈɒntɪd tə sˈiː ðə stˈɑːz. aɪ kˈiːp ðˌɛm fɔː hˌɪm.",
+   "f0raw": 158.1,
+   "f0dry": 180.2,
+   "f0wet": 180.3,
+   "beta": 1.153
+  },
+  "halKeep1": {
+   "hash": "b78f9cd4101d913e",
+   "ps": "hiː kˈænt sˈiː ˈɛnɪθˌɪŋ ɪn ðˈɛɹ.",
+   "f0raw": 120.2,
+   "f0dry": 112.7,
+   "f0wet": 117,
+   "beta": 0.946
+  },
+  "keep1b": {
+   "hash": "c07b5f31ab223cb8",
+   "ps": "hiː sˈiːz mˌiː. ðat wɒz ˈɔːlweɪz ɪnˈʌf fɔː hˌɪm.",
+   "f0raw": 168.9,
+   "f0dry": 200.3,
+   "f0wet": 201.5,
+   "beta": 1.153
+  },
+  "keep2a": {
+   "hash": "38b0478ba8490ef0",
+   "ps": "dˈoʊnt lˈʊk æt mˌiː lˈaɪk ðˈæt, lˈæntɚn. juː wʊd kˈiːp hɜː tˈuː, ɪf juː kˈʊd.",
+   "f0raw": 176.3,
+   "f0dry": 167,
+   "f0wet": 173.9,
+   "beta": 0.933
+  },
+  "halKeep2": {
+   "hash": "0edb4985fd265314",
+   "ps": "aɪd lˈɛt hɜː tʃˈuːz.",
+   "f0raw": 127.6,
+   "f0dry": 113.4,
+   "f0wet": 115.7,
+   "beta": 0.946
+  },
+  "keep2b": {
+   "hash": "7cc9aab91661438c",
+   "ps": "ʃiː hˈæz.",
+   "f0raw": 182.9,
+   "f0dry": 174.9,
+   "f0wet": 183.8,
+   "beta": 0.933
+  },
+  "ward1": {
+   "hash": "27e7abb23951506b",
+   "ps": "ɡɹˈiːn lˈæntɚn. juː kˈeɪm ɐ lˈɔŋ wˈeɪ fɔːɹ hɜː.",
+   "f0raw": 177.9,
+   "f0dry": 169.7,
+   "f0wet": 170.2,
+   "beta": 0.913
+  },
+  "halWard1": {
+   "hash": "ac0a6aa6aea5f4fe",
+   "ps": "aɪ kˈeɪm tə tˈeɪk hɜː hˈoʊm.",
+   "f0raw": 143.9,
+   "f0dry": 124.6,
+   "f0wet": 124.2,
+   "beta": 0.946
+  },
+  "ward2": {
+   "hash": "0611eee25126bf04",
+   "ps": "ʃiː ɪz hˈoʊm. hɜː hˈɑːɹt wʌz tʃˈoʊzən. sˌoʊ wʌz jˈoːɹz, ɪf juː wʊd lˈɛt ɪt bˈiː.",
+   "f0raw": 172.8,
+   "f0dry": 169.6,
+   "f0wet": 171.6,
+   "beta": 0.978
+  },
+  "halWard2": {
+   "hash": "289948f522f31b23",
+   "ps": "wˈɛɹ ɪz ʃiː?",
+   "f0raw": 130.5,
+   "f0dry": 119.8,
+   "f0wet": 119.7,
+   "beta": 0.946
+  },
+  "ward3": {
+   "hash": "e0bcd1e57f811dff",
+   "ps": "wˈeɪɾɪŋ fɔːɹ juː. kˈʌm. ðə kwˈiːn wɪl wˈɔnt tə sˈiː ðə mˈæn ʃiː lˈʌvz.",
+   "f0raw": 190.1,
+   "f0dry": 186.5,
+   "f0wet": 190.9,
+   "beta": 0.913
+  },
+  "ringZam5": {
+   "hash": "07647361dd90fe81",
+   "ps": "kˈaɹəl. ʃiː ɪz ɐwˈeɪk. ðə dʒˈɛm ɪz spˈiːkɪŋ tə hɜː.",
+   "f0raw": 185.7,
+   "f0dry": 185.7,
+   "f0wet": 184.8,
+   "beta": 1
+  },
+  "halZam5": {
+   "hash": "967e1275fbec35d7",
+   "ps": "kˈæɹəl!",
+   "f0raw": 129.6,
+   "f0dry": 129.8,
+   "f0wet": 127.8,
+   "beta": 0.946
+  },
+  "ward4": {
+   "hash": "545d683a6fc4695b",
+   "ps": "nˌɑːt jˈɛt, lˈæntɚn. fˈɜːst, ðə kwˈiːn.",
+   "f0raw": 154.8,
+   "f0dry": 141,
+   "f0wet": 157.1,
+   "beta": 0.978
   }
  },
  "characters": {
@@ -9261,6 +9645,42 @@
    "formant": 1,
    "psola": 0.8344,
    "fx": "hp → octave → octave → octave → octave → highshelf → comp → reverb"
+  },
+  "warden": {
+   "desc": "A Star Sapphire warden: calm, assured, warm, faintly alien",
+   "voice": "af_aoede",
+   "speed": 0.92,
+   "f0": 186,
+   "formant": 1.03,
+   "psola": 0.913,
+   "fx": "hp → octave → peak → comp → reverb"
+  },
+  "warden2": {
+   "desc": "A second Star Sapphire warden: lower, older, gentle",
+   "voice": "af_sky",
+   "speed": 0.9,
+   "f0": 168,
+   "formant": 0.98,
+   "psola": 0.9783,
+   "fx": "hp → octave → comp → reverb"
+  },
+  "keeper": {
+   "desc": "A Star Sapphire tending the crystal she keeps her love in: soft, tender, certain",
+   "voice": "bf_lily",
+   "speed": 0.9,
+   "f0": 200,
+   "formant": 1.04,
+   "psola": 1.1534,
+   "fx": "hp → octave → comp → reverb"
+  },
+  "keeper2": {
+   "desc": "Another Star Sapphire at her crystal: proud, a little bitter, tired",
+   "voice": "af_river",
+   "speed": 0.94,
+   "f0": 178,
+   "formant": 1,
+   "psola": 0.9325,
+   "fx": "hp → octave → comp → reverb"
   },
   "abin": {
    "desc": "Abin Sur: dying alien Lantern, deep, gentle, tired, breathy",

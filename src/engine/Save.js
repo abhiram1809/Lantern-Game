@@ -97,6 +97,8 @@ export const SAPPHIRE_CHECKPOINTS = [
   { id: 'pier', label: 'The pier', clock: '7:12 PM' },
   { id: 'strike', label: 'The violet light', clock: '8:47 PM' },
   { id: 'hold', label: 'The gem’s hold', clock: '8:58 PM' },
+  { id: 'trail', label: 'The wake', clock: 'DEEP SPACE · UNCHARTED' },
+  { id: 'zamaron', label: 'Zamaron', clock: 'ZAMARON · UNCHARTED' },
 ];
 
 function readCookie(key) {

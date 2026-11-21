@@ -30,11 +30,14 @@ lake, Oa, Korugar, Ysmault and Qward, by the ring's star chart; Hal in the suit 
 with his car (and a ring-made key). Coast City is four kilometres
 square now: Hal's blocks with their shops and people, the streets round them, downtown's towers, and
 the waterfront (the beach, the promenade, the pier and its Ferris wheel), built as you come near.
-**Part Seven, Sapphire** (begun: four chapters so far; talk to Carol in Hangar Two in free roam, or pick it
+**Part Seven, Sapphire** (begun: six chapters so far; talk to Carol in Hangar Two in free roam, or pick it
 from the title): Hal asks Carol to dinner again, and she sets her terms; the pier at night, the ring quiet;
 a violet light out of the sky that has been looking for a heart like hers; and the fight over the water, where
-what Hal has to break is the gem's hold, not Carol. (After *Green Lantern* #16, 1962, and
-Geoff Johns's "Mystery of the Star Sapphire", 2007.)
+what Hal has to break is the gem's hold, not Carol. Then after her: the breach's wake, flown out past the
+charted stars (stay inside its light or the ring loses it), through a field of the breach's light gone to
+crystal and a nebula where the ring marks the way; and Zamaron, the Zamarons' world, a valley of violet
+crystal where the Star Sapphires keep the ones they love asleep in crystal, and Carol waits in their light.
+(After *Green Lantern* #16, 1962, and Geoff Johns's "Mystery of the Star Sapphire", 2007.)
 
 ## Run
 
@@ -234,7 +237,9 @@ Part Seven:
 | `ask` | Dinner: Hangar Two in the morning, Hal and Carol |
 | `pier` | The pier: the waterfront at dusk, then the night, the Ferris wheel overhead |
 | `strike` | The violet light: the pier, the gem, Star Sapphire |
-| `hold` | The gem's hold: over the water, her fight, the Zamarons' light (the end card, for now) |
+| `hold` | The gem's hold: over the water, her fight, the Zamarons' light |
+| `trail` | The wake: out after her, flying the breach's wake through space |
+| `zamaron` | Zamaron: the Zamarons' valley, the garden of the Kept, the citadel (the end card, for now) |
 
 For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#lantern`.
 

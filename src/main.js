@@ -20,6 +20,9 @@ const LOAD_PLANS = {
   pier: [['code', 'Loading the story', 1], ['props', 'Loading Coast City', 3], ['scene', 'Building the valley', 4], ['city', 'Building the waterfront', 3], ['shaders', 'Getting the light right', 3]],
 };
 LOAD_PLANS.strike = LOAD_PLANS.hold = LOAD_PLANS.pier;
+// Part Seven's way out after her: the wake through space, and the Zamarons' valley
+LOAD_PLANS.trail = [['code', 'Loading the story', 1], ['props', 'Loading the crystal', 2], ['scene', 'Following the wake', 3], ['shaders', 'Getting the light right', 2]];
+LOAD_PLANS.zamaron = [['code', 'Loading the story', 1], ['props', 'Loading the crystal', 3], ['scene', 'Building the valley', 4], ['shaders', 'Getting the light right', 2]];
 // each part's code, loaded when it's chosen (Part Six's brings the whole valley and its town with it)
 const PART_CODE = {
   corps: () => import('./story/Corps.js').then((m) => m.Corps),

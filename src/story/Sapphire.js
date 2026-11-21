@@ -5,11 +5,19 @@ import { Roam } from './Roam.js';
 import { CAROL_IN, HANGAR_MOUTH } from './Exile.js';
 import { loadProps } from '../props/Props.js';
 import { FERRIS_PROPS, LOT, coastX } from '../scenes/Ferris.js';
-import { createRing, createSapphire } from '../characters/Characters.js';
-import { makePose, still } from '../characters/Poses.js';
+import { createRing, createSapphire, createStarSapphire, createKorugarian, createKatma } from '../characters/Characters.js';
+import { makePose, still, POSES } from '../characters/Poses.js';
+import { Animator } from '../characters/Rig.js';
+import { Locomotion } from '../characters/Mocap.js';
+import { BodyLanguage } from '../characters/BodyLanguage.js';
+import { loadPeople, createPerson } from '../characters/People.js';
+import { launchOut } from './Voyage.js';
+import { Space, ZAMARON } from '../scenes/Space.js';
+import { Wake, WAKE_PROPS, LOCK, WEAK, SHARDS, VEIL } from '../scenes/Wake.js';
+import { Zamaron, ZAMARON_PROPS, ARRIVE, LANDING, COURT, STAIR, PLAZA, BATTERY, THRONE, GATE } from '../scenes/Zamaron.js';
 import { glowTexture } from '../fx/Textures.js';
 import { createShaft } from '../fx/GreenLight.js';
-import { sliced } from '../engine/Slice.js';
+import { sliced, breath } from '../engine/Slice.js';
 import { StarSapphire, YIELD_AT } from '../enemies/StarSapphire.js';
 import { RAPIER } from '../engine/Physics.js';
 
@@ -73,13 +81,18 @@ export class Sapphire extends Roam {
       pier: () => this.pier(),
       strike: () => this.strike(),
       hold: () => this.hold(),
+      trail: () => this.followWake(),
+      zamaron: () => this.toZamaron(),
     };
   }
 
   async prepare(id) {
     const { ui, player } = this;
-    await loadProps(FERRIS_PROPS, (k) => ui.loadStage('props', k));
-    await this.setupFerrisAsync(); // (in slices, under the loading screen)
+    // (off Earth: no valley to build, only the place itself, which its chapter builds)
+    const away = id === 'trail' || id === 'zamaron';
+    await loadProps(away ? (id === 'trail' ? WAKE_PROPS : ZAMARON_PROPS) : FERRIS_PROPS, (k) => ui.loadStage('props', k));
+    if (!away) await this.setupFerrisAsync(); // (in slices, under the loading screen)
+    else this.engine.gradeUniforms.uFlash.value = 1; // (each begins out of the flash of arriving)
     ui.clock(this.save.info(id).clock);
     this.ring = createRing();
     this.attachRing(this.ring, this.hal);
@@ -1045,14 +1058,617 @@ export class Sapphire extends Roam {
     this.ringGlow = 1.2;
     await this.halClose(1.1);
     await this.say('halHold7');
-    await wait(1.0);
+    await wait(0.6);
+    // (on into the wake: `followWake`, from the pier)
+  }
+  // ---------------------------------------------------------------- 5. the wake
+  // Out after her (ours). From the pier: up out of the night and into orbit, the ring finding the
+  // breach's wake; then the wake itself, flown: a stream of violet light out past the charted stars that
+  // the ring can hold only while he stays on it (off it, it fades; too far, and the ring takes him back
+  // to where it last held it). Its stretches: open space; the shards (the breach's light gone solid);
+  // the veil, a nebula where the ring marks the way. On the way the ring finds the one record of the
+  // world it leads to (the comics': the Zamarons are the women of Oa, who left the Guardians). At its
+  // end, Zamaron from orbit, and the dive.
+  async followWake() {
+    const { ui, player, powers, engine } = this;
+    const g = engine.gradeUniforms;
+    this.takeControl();
+    ui.objective(null);
+    ui.clock(this.save.info('trail').clock);
+    this.lanternUp();
+    for (const id of ['hammer', 'staff', 'bubble']) this.learn(id, false);
+    if (this.current && this.current === this.ferrisScene) await this.offWorld();
+    else g.uFlash.value = 1;
+    await loadProps(WAKE_PROPS, (k) => ui.loadStage('props', k));
+    const w = (this.wakeScene ??= new Wake({ engine }).build());
+    w.progress = 0;
+    w.near = 0;
+    this.show(w);
+    this.world = 'space';
+    this.ambience(this.audio.wind(0.03), this.audio.pad([46.2, 55, 69.3], 0.03, { cutoff: 420 }));
+    const start = w.at(0.004), dir = w.tangent(0.004).clone(), yaw = Math.atan2(dir.x, dir.z);
+    player.spawn(w.physics, w.scene, start, yaw);
+    powers.attach({ scene: w.scene, physics: w.physics, ...w.airBounds() });
+    powers.regen = 1.2;
+    player.boostScale = 2.6;
+    player.topScale = 1.7;
+    await this.warmUp(w.scene, null, [w.scene], (k) => ui.loadStage('shaders', k));
+    this.playerActive = true;
+    await this.arriveFlying(start, yaw, dir.clone().multiplyScalar(16));
+    ui.fade(0, 0.5);
+    wait(1.0).then(() => g.uFlashColor.value.setRGB(0.55, 1.6, 0.75)); // (the breach's violet, put back once the flash is out)
+    const hud = this.travelHud;
+    hud.set({ mode: 'TRACKING THE WAKE', speed: 0.3, rows: [['Wake', 'Held'], ['Source', 'Uncharted'], ['Distance', '—']] });
+    hud.panel.classList.add('high');
+    hud.show(true);
+    this.giveControl('Follow the violet wake');
+    await this.wakeRun(w);
+    hud.show(false);
+    hud.panel.classList.remove('high');
+    player.boostScale = 1;
+    player.topScale = 1;
+    await this.zamApproach();
+  }
+
+  // Up from the pier into orbit over the night side, the ring plotting where the light went, then away
+  // (Voyage.js's departure, cut short: the course is the wake's, not a charted one)
+  async offWorld() {
+    const { player, director, audio, engine, powers } = this, g = engine.gradeUniforms;
+    this.playerActive = false;
+    if (!player.flying && player.rb) player.place(player.position.clone(), player.yaw);
+    player.flying = false;
+    player.autoAnim = false;
+    player.lookAt(null);
+    player.animator.reach('R', null);
+    player.animator.reach('L', null);
+    player.animator.lean.pitch = player.animator.lean.roll = player.animator.twist = 0;
+    player.animator.feet.ground = null;
+    player.pivot.quaternion.identity();
+    const animStop = onFrame((dt) => player.animator.update(dt));
+    const o = player.object;
+    try {
+      await launchOut(this);
+      powers.detach();
+      player.removeFromPhysics();
+      const space = (this.space ??= new Space());
+      space.show('earth');
+      for (const p of [space.earth, space.oa, space.ysmault, space.korugar, space.zamaron]) p.position.set(0, 0, 0);
+      this.show(space);
+      space.scene.add(o);
+      o.position.set(0, 0, 0);
+      o.rotation.set(0, Math.PI, 0, 'YXZ');
+      space.anchor = o.position;
+      player.animator.play(still(POSES.hover, 0.5), 0.6);
+      space.drift.set(0, 0, 0);
+      director.cut(V(1.5, 1.7, 2.9), V(-1.4, -3.6, -9), 54);
+      director.move(V(1.15, 1.5, 2.3), V(-1.4, -4.0, -9), 5, ease.inOut, 52);
+      player.lookAt(V(-2, -6, -8), 0.7);
+      audio.whoosh(2.2, 0.35);
+      await tween(0.9, (k) => (g.uFlash.value = 1 - k), ease.out);
+      await wait(0.6);
+      // his ring hand out, the light gathering on it, a violet thread found in the dark ahead
+      director.cut(V(-1.7, 1.75, -2.4), V(0, 1.5, -0.2), 40);
+      director.move(V(-1.45, 1.7, -2.1), V(0, 1.55, -0.3), 4.2, ease.inOut, 38);
+      player.lookAt(null);
+      const sh = V(0, 0, 0), aim = V(0, 1.7, -4);
+      player.animator.reach('R', () => { player.rig.bonePosition('upperArm_R', sh); return sh.add(aim.clone().sub(sh).normalize().multiplyScalar(0.62)); }, { pole: V(-0.4, -0.85, -0.3), rate: 4 });
+      this.ringGlow = 6;
+      audio.riser(3, 0.3);
+      await this.say('ringTrail0', { name: 'The ring' });
+      await this.say('halTrail0');
+      // and away
+      director.cut(V(0.35, 1.9, 3.3), V(0, 1.2, -12), 56);
+      player.animator.reach('R', null, { rate: 4 });
+      player.flightState.k = 1;
+      player.animator.play(player.flightGen, 0.5);
+      audio.whoosh(1.8, 0.8);
+      const away = V(0, 0.35, -1).normalize();
+      await tween(1.6, (k) => {
+        o.rotation.set(1.45 * ease.inOut(Math.min(1, k * 1.6)), Math.PI, 0, 'YXZ');
+        space.earth.position.addScaledVector(away, -k * k * 6);
+        space.drift.copy(away).multiplyScalar(k * k * 60);
+        director.fov = 56 + 16 * k * k;
+      }, ease.linear);
+      audio.whoosh(1.2, 0.9);
+      g.uFlashColor.value.setRGB(1.3, 0.6, 1.7);
+      await tween(0.35, (k) => (g.uFlash.value = k * k), ease.linear);
+      this.ringGlow = 0.6;
+      o.removeFromParent(); // (Hal out of the orbit scene before the next takes him)
+    } finally {
+      animStop();
+      director.fov = 55;
+      player.animator.reach('R', null);
+    }
+  }
+
+  // The wake, flown, until he reaches its end. Locked on, it shines and the readout counts down; drifting
+  // off it fades, and the ring says so; lost (off it for a few seconds, or far off it at once) the ring
+  // brings him back to it. The ring's pings mark the way through the veil.
+  async wakeRun(w) {
+    const { player, powers } = this, hud = this.travelHud;
+    let lostT = 0, warnT = 4, pingT = 0, ping = -1, losing = false, shown = '';
+    const LY = 61.4;
+    const chat = this.wakeChat(w);
+    const tick = onFrame((dt) => {
+      if (losing || !player.control) return;
+      if (!player.flying) player.airborne(V(0, 0, 0)); // (nowhere to land out here: he never stops flying)
+      w.track(player.position);
+      const off = w.off;
+      const lock = off < LOCK ? 1 : off < WEAK ? 1 - ((off - LOCK) / (WEAK - LOCK)) * 0.75 : 0.12;
+      const u = w.wakeU.uLock;
+      u.value += (lock - u.value) * Math.min(1, dt * 4);
+      warnT -= dt;
+      if (off > WEAK) lostT += dt; else lostT = Math.max(0, lostT - dt * 2);
+      if (off > LOCK + 8 && warnT <= 0) { this.ringSay('ringTrailWeak'); warnT = 9; }
+      if (lostT > 3.2 || off > 170) { losing = true; this.loseWake(w).finally(() => { losing = false; lostT = 0; warnT = 5; }); return; }
+      // the ring's pings through the veil: a pulse running on ahead along it
+      if (w.veil > 0.3) {
+        pingT -= dt;
+        if (pingT <= 0) { pingT = 2.8; ping = w.progress * w.length; this.audio.ringChime?.(); }
+        if (ping >= 0) { ping += dt * 190; if (ping > w.progress * w.length + 300) ping = -1; }
+      } else ping = -1;
+      w.wakeU.uPing.value = ping;
+      // the readout
+      const state = off < LOCK ? 'Held' : off < WEAK ? 'Fading' : 'Losing it';
+      const left = (LY * (1 - w.progress)).toFixed(1);
+      const rows = `${state}|${left}`;
+      if (rows !== shown) {
+        shown = rows;
+        hud.set({ rows: [['Wake', state], ['Source', 'Uncharted'], ['Distance', `${left} LY`]], speed: 0.25 + 0.5 * Math.min(1, player.vel.length() / 70) });
+      }
+    });
+    try {
+      await waitFor(() => w.progress > 0.975);
+    } finally {
+      tick();
+      chat.stop();
+    }
+    this.takeControl();
+    powers.holster?.();
+    this.ringSay('ringTrailEnd');
+  }
+
+  // what's said on the way, as he reaches each part of it (stopped when the wake ends)
+  wakeChat(w) {
+    let stopped = false;
+    const at = (k) => waitFor(() => stopped || w.progress > k);
+    (async () => {
+      await at(0.03);
+      await wait(1.5);
+      if (stopped) return;
+      this.hud.tutorial?.({ kicker: 'The wake', n: 1, of: 1, title: 'Stay on it', html: 'Fly <b>inside the violet light</b>: off it, it fades; too far off, the ring loses it and takes you back.<br><kbd>Shift</kbd> boosts. <kbd>Space</kbd> and <kbd>C</kbd> climb and dive.' });
+      await at(0.12);
+      if (stopped) return;
+      this.hud.tutorial?.(null);
+      await this.ringSay('ringTrailWho1');
+      await wait(0.4);
+      if (stopped) return;
+      await this.bark('halTrailWho1');
+      await this.ringSay('ringTrailWho2');
+      await wait(0.3);
+      if (stopped) return;
+      await this.bark('halTrailWho2');
+      await at(SHARDS[0] - 0.02);
+      if (stopped) return;
+      this.ringSay('ringTrailShards');
+      await at(SHARDS[0] + 0.12);
+      if (stopped) return;
+      await this.bark('halTrail2');
+      await at(VEIL[0] - 0.01);
+      if (stopped) return;
+      this.ringSay('ringTrailVeil');
+      await at(VEIL[0] + 0.15);
+      if (stopped) return;
+      await this.bark('halTrail3');
+    })().catch(console.warn);
+    return { stop: () => { stopped = true; this.hud.tutorial?.(null); } };
+  }
+
+  // the ring takes him back to where it last held the wake
+  async loseWake(w) {
+    const { player, ui } = this;
+    this.takeControl();
+    this.ringSay('ringTrailLost');
+    await ui.fade(1, 0.45);
+    const k = Math.max(0.004, w.progress - 0.006), p = w.at(k), dir = w.tangent(k).clone(), yaw = Math.atan2(dir.x, dir.z);
+    w.near = Math.round(k * 2047);
+    player.place(p, yaw);
+    player.airborne(dir.multiplyScalar(10));
+    player.camYaw = yaw + Math.PI;
+    player.camPitch = 0.2;
+    this.director.mode = 'follow';
+    await wait(0.3);
+    await ui.fade(0, 0.5);
+    this.giveControl('Follow the violet wake');
+  }
+
+  // Out of the veil, the wake running on into a world: Zamaron from orbit, the ring's reading of it, the dive
+  async zamApproach() {
+    const { player, director, audio, engine, powers } = this, g = engine.gradeUniforms, hud = this.travelHud;
+    g.uFlashColor.value.setRGB(1.3, 0.6, 1.7);
+    await tween(0.5, (k) => (g.uFlash.value = k * k), ease.linear);
+    this.playerActive = false;
+    player.flying = false;
+    player.autoAnim = false;
+    player.lookAt(null);
+    player.animator.lean.pitch = player.animator.lean.roll = player.animator.twist = 0;
+    player.animator.feet.ground = null;
+    player.pivot.quaternion.identity();
+    player.pivot.position.y = 1;
+    const animStop = onFrame((dt) => player.animator.update(dt));
+    const o = player.object;
+    try {
+      powers.detach();
+      player.removeFromPhysics();
+      const space = (this.space ??= new Space());
+      space.show('zamaron');
+      for (const p of [space.earth, space.oa, space.ysmault, space.korugar, space.zamaron]) p.position.set(0, 0, 0);
+      this.show(space);
+      space.scene.add(o);
+      o.position.set(0, 0, 0);
+      o.rotation.set(1.2, Math.PI, 0, 'YXZ');
+      space.anchor = o.position;
+      space.drift.set(0, 0, -30);
+      player.flightState.k = 1;
+      hud.set({ mode: 'ORBITAL APPROACH', speed: 0.35, rows: [['Destination', 'Zamaron'], ['Sector', 'Uncharted'], ['Status', 'Atmosphere: breathable']] });
+      hud.show(true);
+      const target = ZAMARON.center.clone().add(V(0, 40, 0));
+      director.cut(V(-1.5, 1.5, 3.6), target, 50);
+      const fade = tween(0.9, (k) => (g.uFlash.value = 1 - k), ease.out);
+      player.animator.play(still(POSES.hover, 0.4), 1.6);
+      await tween(2.4, (k) => {
+        o.rotation.set(1.2 * (1 - ease.inOut(k)) + 0.15, Math.PI, 0, 'YXZ');
+        space.drift.set(0, 0, -30 * (1 - k));
+        director.pos.z = 3.6 - k * 0.5;
+      }, ease.linear);
+      await fade;
+      hud.arrive({ name: 'Zamaron', sector: 'Uncharted' });
+      await this.say('ringZam1', { name: 'The ring' });
+      await this.say('halZam0');
+      player.animator.play(player.flightGen, 0.4);
+      director.cut(V(0.3, 1.9, 3.0), target, 52);
+      audio.whoosh(1.6, 0.8);
+      const planet = space.zamaron, p0 = planet.position.clone();
+      await tween(1.5, (k) => {
+        o.rotation.set(0.15 + 1.6 * ease.inOut(Math.min(1, k * 2)), Math.PI, 0, 'YXZ');
+        planet.position.copy(p0).addScaledVector(V(0, 0.08, 1), k * k * 380);
+        space.drift.set(0, -20 * k, -60 * k);
+        director.fov = 52 + 20 * k * k;
+      }, ease.linear);
+      await tween(0.35, (k) => (g.uFlash.value = k), ease.in);
+      o.removeFromParent();
+    } finally {
+      animStop();
+      hud.show(false);
+      director.fov = 55;
+    }
+  }
+
+  // ---------------------------------------------------------------- 6. Zamaron
+  // Down out of a rose evening into the valley (ours, the place; the comics', what's in it). The ring
+  // finds Carol under the great crystal to the north, but their light holds the air over the citadel and
+  // sets him down at the garden's mouth: on foot, then, through the Kept, the ones the Star Sapphires
+  // love, asleep standing in crystal (the ring reads them; two Sapphires tend theirs, and answer him).
+  // At the court two of them meet him and walk him to the citadel's stair; from its head, Carol, in their
+  // light over the queen's dais. The queen is the next chapter (the user is making Aga'po).
+  async toZamaron() {
+    const { ui, director, audio, player, powers } = this;
+    this.takeControl();
+    ui.objective(null);
+    ui.clock(this.save.info('zamaron').clock);
+    this.lanternUp();
+    for (const id of ['hammer', 'staff', 'bubble']) this.learn(id, false);
+    await loadProps(ZAMARON_PROPS, (k) => ui.loadStage('props', k));
+    const z = await this.setupZamaron();
+    this.enterZamaron(ARRIVE, Math.PI);
+    await this.warmUp(z.scene, null, [z.scene], (k) => ui.loadStage('shaders', k), { near: LANDING, radius: 260 });
+    await this.arriveFlying(ARRIVE, Math.PI, V(0, -5, -14));
+    ui.fade(0, 0.6);
+    wait(1.0).then(() => this.engine.gradeUniforms.uFlashColor.value.setRGB(0.55, 1.6, 0.75));
+    powers.markerTarget = { pos: BATTERY.clone(), label: 'Carol' };
+    this.giveControl('Find Carol');
+    wait(1.6).then(() => this.ringSay('ringZam2'));
+    wait(6.5).then(() => { if (player.control) this.bark('halZam1'); });
+    // their light won't let him over the citadel: it sets him down at the garden's mouth
+    await waitFor(() => player.position.z < LANDING.z + 46);
+    await this.setDown();
+    // the garden, on foot
+    powers.markerTarget = { pos: COURT.clone().add(V(0, 1.5, 0)), label: 'Carol' };
+    this.giveControl('Find Carol');
+    (async () => {
+      await waitFor(() => player.position.z < 96);
+      await this.bark('halZam3');
+      await this.ringSay('ringZam4');
+      await wait(0.4);
+      await this.bark('halZam4');
+    })().catch(console.warn);
+    await waitFor(() => player.position.distanceTo(COURT) < 13 && !this.busy);
+    powers.markerTarget = null;
+    await this.wardens(z);
+    await this.zamEnd();
+  }
+
+  async setupZamaron() {
+    if (this.zam) return this.zam;
+    const { ui } = this;
+    ui.loadStage('scene', 0.1);
+    await breath();
+    const z = (this.zam = new Zamaron({ engine: this.engine }).build());
+    ui.loadStage('scene', 0.6);
+    await this.keptFigures(z);
+    ui.loadStage('scene', 0.85);
+    this.zamSapphires(z);
+    ui.loadStage('scene', 1);
+    return z;
+  }
+
+  enterZamaron(at, yaw) {
+    const { player, audio, powers } = this, z = this.zam;
+    this.world = 'zamaron';
+    this.show(z);
+    this.playerActive = true;
+    player.spawn(z.physics, z.scene, at, yaw);
+    player.ground = (x, zz) => z.ground(x, zz);
+    player.surface = 'stone';
+    powers.attach({ scene: z.scene, physics: z.physics, ...z.airBounds() });
+    powers.regen = 0.6;
+    player.boostScale = 1.4;
+    this.ambience(audio.wind(0.05), audio.pad([55, 69.3, 82.4], 0.025, { cutoff: 620 }));
+    z.updaters.push(() => z.focus(player.position));
+    // a blow on one of the Kept: it sparks and holds (and the ring says why, once)
+    const smash = z.smash, blow = smash.blow.bind(smash);
+    let told = false;
+    smash.blow = (item, ...args) => {
+      if (item?.kept && !told) { told = true; wait(0.4).then(() => this.ringSay('ringKeptHit')); }
+      return blow(item, ...args);
+    };
+  }
+
+  // The ones kept in the garden's crystals: people of Korugar (from Abin Sur's scan and Katma Tui's), and
+  // near-humans from worlds the ring knows by number (Rocketbox people), each asleep standing, the head
+  // bowed. The ring reads eight of them.
+  async keptFigures(z) {
+    const ch = this.assets.characters;
+    const WHO = [
+      { kind: 'kor', seed: 3, read: 'ringKept1' }, { kind: 'person', id: 'male-adult-03', read: 'ringKept2' },
+      { kind: 'katma', seed: 2, read: 'ringKept3' }, { kind: 'person', id: 'male-adult-15', read: 'ringKept4' },
+      { kind: 'kor', seed: 7, read: 'ringKept5' }, { kind: 'person', id: 'female-adult-09', read: 'ringKept8' },
+      { kind: 'kor', seed: 11, guard: true, read: 'ringKept6' }, { kind: 'person', id: 'male-adult-07', read: 'ringKept7' },
+      { kind: 'katma', seed: 5 }, { kind: 'person', id: 'female-adult-04' }, { kind: 'kor', seed: 15 }, { kind: 'person', id: 'male-adult-18' },
+    ];
+    const ids = WHO.filter((w) => w.kind === 'person').map((w) => w.id);
+    const gl = new Map((await loadPeople(ids)).map((g, i) => [ids[i], g]));
+    const ASLEEP = makePose({ nx: 0.2, kx: 0.16, sx: 0.02, cx: 0.02, aL: [0.1, -1, 0.1], eL: 0.32, aR: [-0.1, -1, 0.1], eR: 0.32, lLz: 0.02, lRz: -0.02, fL: 0.05, fR: 0.05 });
+    for (const [i, k] of z.kept.entries()) {
+      const w = WHO[i];
+      let rig = null;
+      if (w.kind === 'kor' && ch.abin) rig = createKorugarian(ch.abin, { seed: w.seed, guard: w.guard });
+      else if (w.kind === 'katma' && ch.katma) rig = createKatma(ch.katma, { citizen: true, seed: w.seed });
+      else if (w.kind === 'person' && gl.get(w.id)) {
+        const person = createPerson(gl.get(w.id), { seed: i + 3 });
+        rig = person.rig;
+        person.setShape('blinkL', 1);
+        person.setShape('blinkR', 1);
+      }
+      if (!rig) continue;
+      rig.apply(ASLEEP);
+      rig.root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });
+      k.hold(rig);
+      const look = k.at.clone().setY(1.6);
+      z.interact({ position: k.at.clone().add(V(-k.side * 2.4, 0, 0)), radius: 2.0, look, label: 'Read the crystal', action: async () => {
+        this.player.lookAt(look, 0.9);
+        this.ringGlow = 2;
+        this.audio.ringChime?.();
+        await this.ringSay(w.read ?? 'ringKeptQuiet');
+        this.ringGlow = 1.2;
+        this.player.lookAt(null);
+      } });
+    }
+  }
+
+  // The Star Sapphires: two tending their crystals in the garden, who'll answer him; two wardens waiting
+  // at the court; and Carol, over the dais in the citadel, in their light. Each from Carol's model but Carol.
+  zamSapphires(z) {
+    const gl = this.assets.characters.sapphire, mocap = this.mocap;
+    if (!gl) return;
+    const make = (seed, at, yaw) => {
+      const rig = createStarSapphire(gl, { seed });
+      rig.root.position.copy(at);
+      rig.root.rotation.y = yaw;
+      z.scene.add(rig.root);
+      const anim = new Animator(rig), loco = new Locomotion(mocap);
+      loco.scale = rig.hipsHeight / mocap.hipsHeight;
+      loco.relax.adduct = 0.1;
+      anim.play(loco, 0);
+      anim.look.maxYaw = 0.8;
+      const body = new BodyLanguage(rig, anim, { lookHome: null, scale: 1, reach: 0.55, shift: null, gestures: undefined });
+      z.updaters.push((dt) => { body.update(dt); anim.update(dt); });
+      return { rig, anim, loco, body };
+    };
+    // the keepers: a hand on the crystal, her head to it
+    this.keepers = [[0, 'keep1a', 'halKeep1', 'keep1b', 21], [6, 'keep2a', 'halKeep2', 'keep2b', 33]].map(([ki, a, h, b, seed]) => {
+      const k = z.kept[ki], toPath = V(-k.side, 0, 0);
+      const at = k.at.clone().setY(0).addScaledVector(toPath, 1.95).add(V(0, 0, 0.9));
+      const sp = make(seed, at, Math.atan2(k.at.x - at.x, k.at.z - at.z));
+      const touch = k.at.clone().setY(1.45).addScaledVector(toPath, 0.92).add(V(0, 0, 0.3));
+      sp.anim.reach('R', () => touch, { rate: 3, pole: V(0.5, -0.8, -0.3) });
+      sp.anim.lookAt(() => k.at.clone().setY(1.7), 0.6);
+      let n = 0;
+      z.interact({ position: at, radius: 2.4, look: () => sp.rig.bonePosition('head', V(0, 0, 0)), label: 'Speak to her', action: async () => {
+        this.takeControl();
+        const P = this.player.position;
+        this.player.turnTo(Math.atan2(at.x - P.x, at.z - P.z));
+        sp.anim.lookAt(() => this.player.rig.bonePosition('head', V(0, 0, 0)), 0.7);
+        this.player.lookAt(() => sp.rig.bonePosition('head', V(0, 0, 0)), 0.8);
+        this.npcClose(sp.rig, 1.2);
+        if (n++ === 0) {
+          await this.perform(sp.body, a);
+          await this.halClose(0.9);
+          await this.say(h);
+          await this.npcClose(sp.rig, 0.9, -1);
+          await this.perform(sp.body, b);
+        } else await this.perform(sp.body, b);
+        sp.anim.lookAt(() => k.at.clone().setY(1.7), 0.6);
+        this.player.lookAt(null);
+        this.giveControl('Find Carol');
+      } });
+      return sp;
+    });
+    // the wardens, at the court's north side, facing the garden
+    this.wardensAt = [make(44, COURT.clone().add(V(-1.6, 0, -9.2)), 0), make(57, COURT.clone().add(V(1.6, 0, -9.4)), 0)];
+    // Carol, over the dais, in their light: her head back, her arms open
+    const c = (this.zamCarol = createSapphire(gl));
+    c.root.position.copy(THRONE).add(V(0, 1.2 + 2.4, 0));
+    c.root.rotation.y = 0;
+    z.scene.add(c.root);
+    const ca = (this.zamCarolAnim = new Animator(c));
+    ca.play(still(RAPTURE), 0);
+    c.glowUp(1.15);
+    c.eyeGlow(1);
+    z.updaters.push((dt, t) => { ca.update(dt); c.root.position.y = THRONE.y + 3.6 + Math.sin(t * 0.7) * 0.12; });
+    const shaft = createShaft({ from: THRONE.clone().add(V(0, 1.2, 0)), to: BATTERY.clone().add(V(0, -8, 0)), radiusFrom: 1.4, radiusTo: 2.4, color: new THREE.Color(0.6, 0.14, 0.7) });
+    shaft.userData.uniforms.uOpacity.value = 0.16;
+    z.scene.add(shaft);
+  }
+
+  // a close shot of someone who isn't Carol (the keepers, the wardens): from their front, to one side
+  npcClose(rig, duration = 1.2, side = 1, fov = 32) {
+    const h = rig.bonePosition('head', V(0, 0, 0)), yaw = rig.root.rotation.y;
+    const f = V(Math.sin(yaw), 0, Math.cos(yaw)), r = V(f.z, 0, -f.x);
+    return this.director.move(h.clone().addScaledVector(f, 1.7).addScaledVector(r, 0.45 * side).add(V(0, -0.06, 0)), h.clone().add(V(0, -0.04, 0)), duration, ease.inOut, fov);
+  }
+
+  // Their light sets him down at the garden's mouth: a pulse out of the battery, the air thick with it, and
+  // he's on the quartz, on his feet
+  async setDown() {
+    const { ui, director, audio, player, powers, engine } = this, g = engine.gradeUniforms;
+    this.takeControl();
+    powers.holster?.();
+    powers.markerTarget = null;
+    g.uFlashColor.value.setRGB(1.4, 0.5, 1.7);
+    audio.rumble?.(0.4);
+    audio.whoosh(1.6, 0.6);
+    await tween(0.5, (k) => (g.uFlash.value = 0.7 * k * k), ease.linear);
+    await ui.fade(1, 0.3);
+    player.place(LANDING.clone(), Math.PI);
+    player.lookAt(null);
+    powers.enabled.flight = false;
+    director.cut(LANDING.clone().add(V(2.6, 1.3, -3.4)), LANDING.clone().add(V(0, 1.1, 0)), 42);
+    g.uFlash.value = 0;
+    g.uFlashColor.value.setRGB(0.55, 1.6, 0.75);
+    player.animator.play(still(POSES.land, 0.25), 0.05);
+    await ui.fade(0, 0.5);
+    await wait(0.5);
+    player.animator.play(player.locomotion ?? player.groundGen ?? still(POSES.stand), 0.6);
+    player.autoAnim = true;
+    director.move(LANDING.clone().add(V(-2.2, 1.6, -3.0)), BATTERY.clone().add(V(0, -10, 0)), 3, ease.inOut, 46);
+    player.lookAt(BATTERY.clone(), 0.7);
+    await this.say('ringZam3', { name: 'The ring' });
+    await this.halClose(0.9);
+    await this.say('halZam2');
+    player.lookAt(null);
+  }
+
+  // At the court: the two wardens; they walk him to the stair, and up it
+  async wardens(z) {
+    const { director, player } = this;
+    const [a, b] = this.wardensAt ?? [];
+    if (!a) return;
+    this.takeControl();
+    const head = () => player.rig.bonePosition('head', V(0, 0, 0));
+    for (const w of [a, b]) w.anim.lookAt(head, 0.7);
+    // he walks the last of the way in to them
+    const stand = COURT.clone().add(V(0, 0, -4.6));
+    player.walkTo(stand, 1.4);
+    director.cut(COURT.clone().add(V(5.6, 1.7, 1.6)), COURT.clone().add(V(0, 1.4, -7.4)), 40);
+    await Promise.race([waitFor(() => player.position.distanceTo(stand) < 0.5), wait(6)]);
+    player.turnTo(0 + Math.PI);
+    player.lookAt(() => a.rig.bonePosition('head', V(0, 0, 0)), 0.8);
+    await this.npcClose(a.rig, 1.2);
+    await this.perform(a.body, 'ward1', [['long', 'open']]);
+    await this.halClose(0.9);
+    await this.say('halWard1');
+    player.lookAt(() => b.rig.bonePosition('head', V(0, 0, 0)), 0.8);
+    await this.npcClose(b.rig, 1.1, -1);
+    await this.perform(b.body, 'ward2', [['chosen', 'open']]);
+    await this.halClose(0.9, -1);
+    await this.say('halWard2');
+    player.lookAt(() => a.rig.bonePosition('head', V(0, 0, 0)), 0.8);
+    await this.npcClose(a.rig, 1.0);
+    await this.perform(a.body, 'ward3');
+    // up the way to the stair, and up it: they go ahead, he follows (two shots: the climb, and its head).
+    // Each walker is placed at once (in the dark, before the picture comes up) and moves with the gait's
+    // own speed, easing in and out, so her feet don't slide
+    const walk = (w, from, to, speed) => {
+      w.rig.root.position.copy(from);
+      w.rig.root.rotation.y = Math.atan2(to.x - from.x, to.z - from.z);
+      Object.assign(w.anim.feet, { ground: (x, zz) => z.ground(x, zz), offL: 0, offR: 0, drop: 0 }); // (what the feet had where she was is no use here)
+      const e = 0.125, along = (k) => (k < e ? (k * k) / (2 * e) : k > 1 - e ? 1 - e - ((1 - k) ** 2) / (2 * e) : k - e / 2) / (1 - e);
+      return tween(from.distanceTo(to) / speed / (1 - e), (k) => {
+        const p = w.rig.root.position.lerpVectors(from, to, along(k));
+        p.y = z.ramp(p.x, p.z);
+        w.loco.speed = speed * Math.min(1, k / e, (1 - k) / e);
+      }, ease.linear).then(() => (w.loco.speed = 0));
+    };
+    const s0 = STAIR[0], gz = GATE.z;
+    player.lookAt(V(0, PLAZA.y + 3, gz), 0.55); // (up the stair, to the citadel: not back at where they stood)
+    for (const w of [a, b]) w.anim.lookAt(null);
+    await this.ui.fade(1, 0.6);
+    player.place(V(0.3, 0, s0 + 7.5), Math.PI);
+    director.cut(V(5.4, 1.2, s0 + 9), V(0, 2.4, s0 - 4), 44);
+    director.move(V(4.6, 2.4, s0 + 3), V(0, 4.8, s0 - 12), 7, ease.inOut, 44);
+    const up = [walk(a, V(-1.4, 0, s0 + 3.5), V(-1.4, 0, s0 - 5), 1.3), walk(b, V(1.4, 0, s0 + 3.2), V(1.4, 0, s0 - 5.2), 1.3)];
+    await this.ui.fade(0, 0.6);
+    await wait(0.3);
+    player.walkTo(V(0.3, 0, s0 - 1.5), 1.3);
+    await Promise.all(up);
+    // the head of it: they wait either side of the gate, turned in to him, and watch him come up between them
+    await this.ui.fade(1, 0.5);
+    for (const [w, x] of [[a, -3.4], [b, 3.4]]) {
+      w.rig.root.position.set(x, PLAZA.y, gz - 0.6);
+      w.rig.root.rotation.y = Math.atan2(-x * 0.4, 1); // (turned in a little, to him)
+      Object.assign(w.anim.feet, { ground: (xx, zz) => z.ground(xx, zz), offL: 0, offR: 0, drop: 0 });
+      w.anim.lookAt(() => player.rig.bonePosition('head', V(0, 0, 0)), 0.6);
+    }
+    player.place(V(0, z.ramp(0, STAIR[1] + 4), STAIR[1] + 4), Math.PI);
+    player.lookAt(() => this.zamCarol.bonePosition('head', V(0, 0, 0)), 0.5);
+    director.cut(V(-2.6, PLAZA.y + 1.5, gz - 5.5), V(0, PLAZA.y + 0.8, STAIR[1] + 3), 44);
+    await this.ui.fade(0, 0.5);
+    player.walkTo(V(0, PLAZA.y, gz + 0.4), 1.25);
+    await Promise.race([waitFor(() => player.position.z < gz + 0.9), wait(6)]);
+  }
+
+  // From the stair's head: across the plaza, Carol in their light over the dais, and the ring's word on her;
+  // close on her; and the warden's. The queen is next.
+  async zamEnd() {
+    const { ui, director, player } = this;
+    const c = this.zamCarol, face = () => c.bonePosition('head', V(0, 0, 0));
+    player.turnTo(Math.PI);
+    player.lookAt(face, 0.8);
+    // behind him at the gate: the plaza, the battery over it, and far off at its end, her
+    director.cut(GATE.clone().add(V(0.9, 2.3, 5.2)), THRONE.clone().add(V(0, 5, 0)), 50);
+    director.move(GATE.clone().add(V(0.7, 2.1, 3.8)), THRONE.clone().add(V(0, 4.6, 0)), 4, ease.inOut, 46);
+    await wait(2.2);
+    // close on her, from below: her head back in the light, her eyes lit
+    const h = face();
+    director.cut(h.clone().add(V(0.9, -0.75, 2.1)), h.clone().add(V(0, -0.04, 0)), 30);
+    director.move(h.clone().add(V(0.7, -0.6, 1.7)), h.clone().add(V(0, -0.02, 0)), 5, ease.inOut, 28);
+    await this.say('ringZam5', { name: 'The ring' });
+    await this.halClose(0.8);
+    await this.say('halZam5');
+    const b = this.wardensAt[1];
+    b.anim.lookAt(() => player.rig.bonePosition('head', V(0, 0, 0)), 0.7);
+    await this.npcClose(b.rig, 0.9, -1);
+    await this.perform(b.body, 'ward4');
+    await wait(0.8);
     await ui.fade(1, 1.6);
-    const pick = await ui.screen({ kicker: 'Part Seven · Sapphire', title: 'ZAMARON', subtitle: 'Part Seven so far', body: 'The Zamarons have taken Carol to a world the ring has never charted, to be their queen. Hal is going after her. The rest of Part Seven is still to come.', buttons: ['Free roam', 'Quit to title'] });
+    const pick = await ui.screen({ kicker: 'Part Seven · Sapphire', title: 'ZAMARON', subtitle: 'Part Seven so far', body: 'Hal has followed the Zamarons to their world and found Carol under their great crystal. Their queen is waiting for him. The rest of Part Seven is still to come.', buttons: ['Free roam', 'Quit to title'] });
     if (pick === 0) { ExileSave.resumeAfterReload('world'); await new Promise(() => {}); return; }
     location.hash = '';
     location.reload();
     await new Promise(() => {});
   }
+
   // The second airframe's cockpit, found on its hidden canopy (the airframe's own pose is the scene's:
   // Ferris.js), so the glint and her eyes' line go where the open cockpit is
   cockpitOf(f) {

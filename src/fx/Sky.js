@@ -25,6 +25,8 @@ export const PRESETS = {
   korugarNight: { top: 0x07051a, horizon: 0x3a2346, bottom: 0x120a10, sun: 0xd8d2ff, sunDir: [-0.5, 0.42, -0.6], sunSize: 0.0016, glow: 0.7, cloud: 0.35, cloudColor: 0x1a1222, cloudLit: 0x6a5a8a, stars: 1.0 },
   qward: { top: 0x020103, horizon: 0x2a0c34, bottom: 0x050206, sun: 0x120418, sunDir: [0.3, 0.32, -0.9], sunSize: 0.012, glow: 2.4, cloud: 0.55, cloudColor: 0x0a040e, cloudLit: 0x6a2a7a, stars: 0.35 },
   korugar: { top: 0x2c2f52, horizon: 0xe2a978, bottom: 0x3a2c2a, sun: 0xfff1cc, sunDir: [0.62, 0.24, -0.58], sunSize: 0.0042, glow: 1.5, cloud: 0.3, cloudColor: 0x7c5c60, cloudLit: 0xffd6a4, stars: 0.0 },
+  // Zamaron (Part Seven): a long rose evening under a pale sun, the zenith already violet and starred
+  zamaron: { top: 0x140828, horizon: 0xc27aa6, bottom: 0x3a1c30, sun: 0x9a8290, sunDir: [0.52, 0.2, -0.83], sunSize: 0.0022, glow: 0.95, cloud: 0.36, cloudColor: 0x7a3e6e, cloudLit: 0xffc4e4, stars: 0.5 },
   sunset: { top: 0x3a5d8a, horizon: 0xffb070, bottom: 0x6b4a32, sun: 0xffd6a0, sunDir: [0.0, 0.08, -1], sunSize: 0.002, glow: 2.2, cloud: 0.35, cloudColor: 0xd08a6a, cloudLit: 0xffe0b0, stars: 0.0 },
 };
 

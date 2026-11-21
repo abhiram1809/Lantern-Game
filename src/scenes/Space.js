@@ -45,6 +45,7 @@ export const EARTH = { radius: 300, center: new THREE.Vector3(0, -362, 0) };
 export const OA = { radius: 190, center: new THREE.Vector3(0, -60, -760) };
 export const YSMAULT = { radius: 170, center: new THREE.Vector3(30, -50, -700) };
 export const KORUGAR = { radius: 185, center: new THREE.Vector3(-20, -55, -720) };
+export const ZAMARON = { radius: 180, center: new THREE.Vector3(10, -50, -710) };
 
 export class Space {
   constructor() {
@@ -61,6 +62,7 @@ export class Space {
     this.buildOa();
     this.buildYsmault();
     this.buildKorugar();
+    this.buildZamaron();
     this.buildDust();
     this.hemi = new THREE.HemisphereLight(0x1a2436, 0x0a1020, 0.35);
     this.key = new THREE.DirectionalLight(0xcfdcff, 1.2);
@@ -447,6 +449,58 @@ export class Space {
     this.scene.add(g);
   }
 
+  // Zamaron (Part Seven): the Zamarons' world, past the charts. Ours, after the comics' violet crystal:
+  // pale rose continents glittering with it, seas of deep violet, crystal fields catching the sun as
+  // points of light, a band of pink aurora round the poles; on the night side the citadel's glow and
+  // its veins of violet light running out across the land; a rose haze at the limb.
+  buildZamaron() {
+    const g = (this.zamaron = new THREE.Group());
+    this.zSun = new THREE.Vector3(0.9, 0.32, 0.08).normalize(); // (from the side, as he comes at it: half of it in day)
+    const surface = new THREE.ShaderMaterial({
+      uniforms: { uSun: { value: this.zSun }, uTime: this.time },
+      vertexShader: VERT,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uSun; uniform float uTime;
+        varying vec3 vObj, vN, vW;
+        ${NOISE3}
+        void main() {
+          vec3 d = normalize(vObj), N = normalize(vN), Vw = normalize(cameraPosition - vW);
+          float h = fbm3(d * 2.4 + 1.0), r = fbm3(d * 10.0 + 3.0), m = fbm3(d * 32.0 + 6.0);
+          float land = smoothstep(0.46, 0.5, h);
+          vec3 sea = mix(vec3(0.05, 0.01, 0.09), vec3(0.12, 0.03, 0.18), r);
+          vec3 ground = mix(vec3(0.62, 0.44, 0.52), vec3(0.82, 0.66, 0.72), r) * (0.85 + m * 0.3);
+          // the crystal fields: violet, darker, in drifts across the land
+          float field = smoothstep(0.55, 0.7, fbm3(d * 6.0 + 8.0)) * land;
+          ground = mix(ground, vec3(0.36, 0.12, 0.5), field * 0.8);
+          vec3 col = mix(sea, ground, land);
+          float cl = smoothstep(0.56, 0.76, fbm3(d * 4.6 + vec3(uTime * 0.004, 0.0, 0.0)));
+          col = mix(col, vec3(0.96, 0.86, 0.92), cl * 0.5);
+          float lit = max(dot(N, uSun), 0.0);
+          vec3 day = col * (0.04 + 1.3 * lit) * vec3(1.0, 0.9, 0.95);
+          // the crystal fields glinting where they mirror the sun
+          vec3 H = normalize(uSun + Vw);
+          float glint = step(0.93, h3(floor(d * 900.0))) * pow(max(dot(N, H), 0.0), 40.0) * field * (1.0 - cl);
+          day += vec3(1.2, 0.8, 1.4) * glint * 2.0;
+          // the night side: veins of violet light out of the north, the citadel's glow at their heart
+          float vein = 1.0 - smoothstep(0.0, 0.02, abs(fbm3(d * 5.0 + 4.0) - 0.5));
+          float heart = pow(max(dot(d, normalize(vec3(0.1, 0.62, 0.78))), 0.0), 60.0);
+          vec3 night = (vec3(0.6, 0.15, 0.9) * vein * land * 0.16 + vec3(1.2, 0.4, 1.4) * heart * 1.4) * smoothstep(0.08, -0.2, dot(N, uSun)) * (1.0 - cl * 0.7);
+          // aurora round the poles
+          float aur = smoothstep(0.62, 0.78, abs(d.y)) * (1.0 - smoothstep(0.82, 0.92, abs(d.y))) * (0.5 + 0.5 * sin(atan(d.z, d.x) * 9.0 + uTime * 0.3));
+          gl_FragColor = vec4(day + night + vec3(0.6, 0.18, 0.5) * aur * 0.25, 1.0);
+        }`,
+    });
+    const planet = new THREE.Mesh(new THREE.SphereGeometry(ZAMARON.radius, 160, 96), surface);
+    planet.position.copy(ZAMARON.center);
+    g.add(planet);
+    g.add(this.atmosphere(ZAMARON.center, ZAMARON.radius * 1.03, this.zSun, new THREE.Color(0.85, 0.45, 0.75), new THREE.Color(0.6, 0.15, 0.55), 1 / 1.03));
+    // its sun: pale, rose-white
+    const sun = new THREE.Mesh(new THREE.SphereGeometry(64, 32, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 1.25, 1.4) }));
+    sun.position.copy(this.zSun).multiplyScalar(3300);
+    g.add(sun);
+    this.scene.add(g);
+  }
+
   buildDust(count = 900) {
     const geo = new THREE.BufferGeometry();
     this.dustPos = new Float32Array(count * 3).map(() => (Math.random() - 0.5) * 80);
@@ -464,12 +518,20 @@ export class Space {
     this.oa.visible = place === 'oa';
     this.ysmault.visible = place === 'ysmault';
     this.korugar.visible = place === 'korugar';
+    this.zamaron.visible = place === 'zamaron';
     this.skyU.uCore.value = place === 'oa' ? 1 : 0;
     if (place === 'korugar') {
       // its big white-gold sun ahead and to the right
       this.key.color.set(0xffe6c0); this.key.intensity = 1.8; this.key.position.copy(this.kSun).multiplyScalar(50);
       this.rim.color.set(0x55ffaa); this.rim.intensity = 0.3; this.rim.position.set(0, -20, -50);
       this.hemi.color.set(0x2a2018); this.hemi.groundColor.set(0x0a0806); this.hemi.intensity = 0.35;
+      return;
+    }
+    if (place === 'zamaron') {
+      // its pale sun ahead and up; the planet's rose light from below
+      this.key.color.set(0xffe0f0); this.key.intensity = 1.7; this.key.position.copy(this.zSun).multiplyScalar(50);
+      this.rim.color.set(0xd060ff); this.rim.intensity = 0.45; this.rim.position.set(0, -20, -50);
+      this.hemi.color.set(0x2a1830); this.hemi.groundColor.set(0x140812); this.hemi.intensity = 0.4;
       return;
     }
     if (place === 'ysmault') {
