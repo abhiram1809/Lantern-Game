@@ -4,6 +4,7 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { Rig } from './Rig.js';
 import { MocapSource } from './Mocap.js';
 import { glowTexture } from '../fx/Textures.js';
+import { assetUrl } from '../engine/Assets.js';
 
 // The scans. Hal's two and Abin Sur's (and the mocap) at boot, which every part needs; the others with
 // the part that needs them (`more`), after the title: decoding all nine scans' textures at once was what
@@ -17,19 +18,25 @@ export const PART_SCANS = {
   probation: ['carol', 'katma', 'korCrowd', 'kilowog'], exile: ['carol', 'katma', 'korCrowd', 'kilowog', 'atrocitus'],
   sapphire: ['carol', 'sapphire', 'katma', 'korCrowd', 'kilowog', 'atrocitus'], // (Part Seven: her violet self too; the rest for the free roam it ends in)
 };
-export async function loadCharacters(manager) {
-  const loader = new GLTFLoader(manager);
-  const [casual, lantern, abin, xbot] = await Promise.all([
-    loader.loadAsync('/models/hal_casual.glb'),
-    loader.loadAsync('/models/hal_lantern.glb'),
-    loader.loadAsync('/models/abin_sur.glb'),
-    loader.loadAsync('/anims/xbot.glb'),
-  ]);
+const CORE_SCANS = ['models/hal_casual.glb', 'models/hal_lantern.glb', 'models/abin_sur.glb', 'anims/xbot.glb'];
+export const CORE_SCAN_COUNT = CORE_SCANS.length;
+
+export async function loadCharacters(track) {
+  const loader = new GLTFLoader();
+  const [casual, lantern, abin, xbot] = await Promise.all(CORE_SCANS.map((path) =>
+    track((onProgress) => loader.loadAsync(assetUrl(path), onProgress))));
   for (const g of [casual, lantern, abin]) prepScan(g);
   const out = { casual, lantern, abin, kilowog: null, carol: null, hammond: null, atrocitus: null, katma: null, korCrowd: null, sapphire: null, mocap: new MocapSource(xbot) };
   const pending = {};
   // the given scans loaded (once each; one that's missing stays null: Kilowog is optional)
-  out.more = (names = []) => Promise.all(names.map((n) => (pending[n] ??= new GLTFLoader().loadAsync(`/models/${SCANS[n]}.glb${SCAN_VERSION[n] ? `?v=${SCAN_VERSION[n]}` : ''}`).then((g) => { if (n !== 'korCrowd') prepScan(g); out[n] = g; }).catch(() => { out[n] = null; })))).then(() => out);
+  out.more = (names, track) => Promise.all(names.map((name) => track((onProgress) => {
+    const path = `models/${SCANS[name]}.glb${SCAN_VERSION[name] ? `?v=${SCAN_VERSION[name]}` : ''}`;
+    pending[name] ??= loader.loadAsync(assetUrl(path), onProgress).then((g) => {
+      if (name !== 'korCrowd') prepScan(g);
+      out[name] = g;
+    }).catch(() => { out[name] = null; });
+    return pending[name];
+  }))).then(() => out);
   return out;
 }
 // Tripo packs occlusion into the red channel of the ORM texture

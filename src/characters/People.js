@@ -8,6 +8,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { Rig } from './Rig.js';
 import { makeUniforms, patchMaterial } from './Characters.js';
+import { assetUrl } from '../engine/Assets.js';
 
 const loader = new GLTFLoader();
 const cache = new Map();
@@ -15,7 +16,7 @@ let roster = null;
 
 // people.json: who exists (heights, eye heights, roles)
 export async function peopleRoster() {
-  roster ??= fetch('/models/people/people.json').then((r) => (r.ok ? r.json() : { people: {} })).catch(() => ({ people: {} }));
+  roster ??= fetch(assetUrl('models/people/people.json')).then((r) => (r.ok ? r.json() : { people: {} })).catch(() => ({ people: {} }));
   return (await roster).people;
 }
 
@@ -23,7 +24,7 @@ export async function peopleRoster() {
 export function loadPeople(ids) {
   return Promise.all(ids.map((id) => {
     if (!cache.has(id)) {
-      cache.set(id, loader.loadAsync(`/models/people/${id}.glb`).then((g) => {
+      cache.set(id, loader.loadAsync(assetUrl(`models/people/${id}.glb`)).then((g) => {
         g.scene.traverse((o) => {
           if (!o.isSkinnedMesh) return;
           const m = o.material;

@@ -6,7 +6,7 @@
   <title>Green Lantern — Awakening</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;500;700;800&family=Noto+Sans+Runic&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Exo+2:wght@300;500;700;800&family=Noto+Sans+Runic&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <link rel="stylesheet" href="/src/style.css" />
 </head>
 <body>
@@ -32,13 +32,16 @@
     <div id="screen"></div>
     <div id="pause"></div>
     <div id="loading">
-      <div class="title"></div>
-      <div class="emblem"></div>
-      <div class="label">Charging the lantern…</div>
-      <div class="bar"><div class="fill"></div></div>
+      <div class="title">Green Lantern</div>
+      <div class="emblem" aria-hidden="true"></div>
+      <div class="label" id="loading-label" role="status">Loading game code…</div>
+      <div class="bar" role="progressbar" aria-labelledby="loading-label"><div class="fill"></div></div>
+      <div class="progress-caption"><span class="detail"></span><span class="percent" aria-hidden="true"></span></div>
+      <button class="retry" type="button" hidden>Retry</button>
+      <noscript>Enable JavaScript to play.</noscript>
       <div class="tip"></div>
     </div>
   </div>
-  <script type="module" src="/src/main.js"></script>
+  <script type="module" src="/src/entry.js"></script>
 </body>
 </html>

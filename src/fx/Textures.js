@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { assetUrl } from '../engine/Assets.js';
 
 const canvas = (w, h = w) => {
   const c = document.createElement('canvas');
@@ -185,7 +186,7 @@ const pbrLoader = new THREE.TextureLoader();
 function pbrTexture(id, name, colour) {
   const key = `${id}/${name}`;
   if (!pbrCache.has(key)) {
-    const t = pbrLoader.load(`/textures/pbr/${id}/${name}.webp`);
+    const t = pbrLoader.load(assetUrl(`textures/pbr/${id}/${name}.webp`));
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.anisotropy = 8;
     if (colour) t.colorSpace = THREE.SRGBColorSpace;

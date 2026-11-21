@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { assetUrl, trackAssets } from '../engine/Assets.js';
 
 // Downloaded models (see CREDITS.md), built by tools/build-props.mjs into public/models/props:
 // each faces +Z in metres, standing on y = 0. A part loads the set it needs first
@@ -8,11 +9,17 @@ const loader = new GLTFLoader();
 const pending = new Map(), ready = new Map();
 
 export function loadProps(names, onProgress = null) {
-  let done = 0;
-  return Promise.all(names.map((n) => {
-    if (!pending.has(n)) pending.set(n, loader.loadAsync(`/models/props/${n}.glb`).then((g) => { prepare(g.scene); ready.set(n, g.scene); }));
-    return pending.get(n).then(() => onProgress?.(++done / names.length)); // (`onProgress`: how many of them are in, for the loading screen)
-  }));
+  if (!names.length) return Promise.resolve([]);
+  const track = onProgress ? trackAssets(names.length, onProgress) : (load) => load();
+  return Promise.all(names.map((name) => track((onTransfer) => {
+    if (!pending.has(name)) {
+      pending.set(name, loader.loadAsync(assetUrl(`models/props/${name}.glb`), onTransfer).then((g) => {
+        prepare(g.scene);
+        ready.set(name, g.scene);
+      }));
+    }
+    return pending.get(name);
+  })));
 }
 
 export const hasProp = (name) => ready.has(name);

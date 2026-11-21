@@ -6,7 +6,8 @@ import { Voice } from './engine/Voice.js';
 import { initPhysics } from './engine/Physics.js';
 import { tick } from './engine/Time.js';
 import { UI } from './ui/UI.js';
-import { loadCharacters, PART_SCANS } from './characters/Characters.js';
+import { assetUrl, trackAssets } from './engine/Assets.js';
+import { loadCharacters, CORE_SCAN_COUNT, PART_SCANS } from './characters/Characters.js';
 import { Story, chapterMenu } from './story/Story.js';
 import { Save, CorpsSave, CoastSave, PrisonerSave, ProbationSave, ExileSave, SapphireSave, PARTS, partOf, takeResume, latestCheckpoint } from './engine/Save.js';
 
@@ -14,10 +15,11 @@ const POSTERS = ['airforce', 'jets', 'testpilot', 'flightseat', 'sidewall', 'squ
 // the loading screen's stages after the title, [key, what it says, its share of the bar] (the shares
 // are what each took, measured: ui/UI.js's loadStart)
 const LOAD_PLANS = {
-  world: [['code', 'Loading the story', 1], ['props', 'Loading Coast City', 3], ['scene', 'Building the valley and Hal’s blocks', 6], ['city', 'Building the streets round him', 3], ['shaders', 'Getting the light right', 3]],
-  chapter: [['code', 'Loading the story', 1], ['props', 'Loading the scene', 3], ['scene', 'Building the scene', 4], ['shaders', 'Getting the light right', 1]],
+  boot: [['physics', 'Starting game physics', 1], ['assets', 'Loading models, animation and textures', CORE_SCAN_COUNT + POSTERS.length], ['ready', 'Preparing the title screen', 1]],
+  world: [['code', 'Loading chapter files', 1], ['props', 'Loading Coast City', 3], ['scene', 'Building the valley and Hal’s blocks', 6], ['city', 'Building the streets round him', 3], ['shaders', 'Getting the light right', 3]],
+  chapter: [['code', 'Loading chapter files', 1], ['props', 'Loading scene assets', 3], ['scene', 'Building the scene', 4], ['shaders', 'Getting the light right', 1]],
   // Part Seven's pier: the valley, then the city's blocks round the pier's head
-  pier: [['code', 'Loading the story', 1], ['props', 'Loading Coast City', 3], ['scene', 'Building the valley', 4], ['city', 'Building the waterfront', 3], ['shaders', 'Getting the light right', 3]],
+  pier: [['code', 'Loading chapter files', 1], ['props', 'Loading Coast City', 3], ['scene', 'Building the valley', 4], ['city', 'Building the waterfront', 3], ['shaders', 'Getting the light right', 3]],
 };
 LOAD_PLANS.strike = LOAD_PLANS.hold = LOAD_PLANS.pier;
 // each part's code, loaded when it's chosen (Part Six's brings the whole valley and its town with it)
@@ -36,9 +38,10 @@ if (import.meta.env.DEV && typeof PerformanceObserver !== 'undefined' && Perform
   new PerformanceObserver((list) => window.__longtasks.push(...list.getEntries().map((e) => ({ at: Math.round(e.startTime), ms: Math.round(e.duration) })))).observe({ type: 'longtask', buffered: true });
 }
 
-async function boot() {
+export async function boot() {
+  document.querySelector('#loading .label').textContent = 'Starting graphics…';
   // the assets kept in the browser between visits (public/sw.js)
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register(assetUrl('sw.js')).catch(() => {});
   const engine = new Engine(document.getElementById('app'));
   const input = new Input(engine.renderer.domElement);
   const audio = new AudioBank();
@@ -47,16 +50,16 @@ async function boot() {
   const ui = new UI({ input, audio, voice });
   engine.veiled = () => ui.load != null;
 
-  const manager = new THREE.LoadingManager();
-  manager.onProgress = (_url, loaded, total) => ui.loading(loaded / total);
-  const texLoader = new THREE.TextureLoader(manager);
+  ui.loadStart('Green Lantern', LOAD_PLANS.boot);
+  const texLoader = new THREE.TextureLoader();
   const mark = (name, p) => (import.meta.env.DEV ? Promise.resolve(p).then((v) => ((window.__boot ??= {})[name] = Math.round(performance.now()), v)) : p);
+  await mark('physics', initPhysics());
+  const track = trackAssets(CORE_SCAN_COUNT + POSTERS.length, (fraction, detail) => ui.loadStage('assets', fraction, detail));
   const [characters, posterTex] = await Promise.all([
-    mark('characters', loadCharacters(manager)),
-    mark('posters', Promise.all(POSTERS.map((n) => texLoader.loadAsync(`/textures/posters/${n}.jpg`)))),
-    mark('physics', initPhysics()),
-    mark('fonts', document.fonts?.ready),
+    mark('characters', loadCharacters(track)),
+    mark('posters', Promise.all(POSTERS.map((name) => track(() => texLoader.loadAsync(assetUrl(`textures/posters/${name}.jpg`)))))),
   ]);
+  ui.loadStage('ready');
   const posters = Object.fromEntries(POSTERS.map((n, i) => {
     posterTex[i].colorSpace = THREE.SRGBColorSpace;
     posterTex[i].anisotropy = 8;
@@ -82,30 +85,29 @@ async function boot() {
     story?.update(dt, t, real);
     input.endFrame();
   });
-  ui.loaded();
-  // while the title's up, the part played last fetched: its code and its scans (Continue is then quick)
-  const guess = (location.hash.length > 1 && partOf(location.hash.slice(1))) || latestCheckpoint()?.part;
-  if (guess) { PART_CODE[guess]?.().catch(() => {}); characters.more(PART_SCANS[guess] ?? []); }
-
   const { part, id } = await titleFlow(ui);
   audio.init();
   // from here to the first frame of the scene, the loading screen (not the dark): its stages are the
   // way in's (story code reports each: Props, Ferris's steps, the city's blocks, the shaders)
   const save = PARTS[part];
   ui.loadStart(`${save.label} · ${save.info(id).label}`, LOAD_PLANS[id] ?? LOAD_PLANS.chapter);
-  let got = 0;
-  const step = (p) => p.then((v) => { ui.loadStage('code', ++got / 2); return v; });
-  const [Part] = await Promise.all([step(PART_CODE[part]?.() ?? Promise.resolve(Story)), step(characters.more(PART_SCANS[part] ?? []))]);
-  story = new Part({ engine, ui, input, audio, voice, assets: { characters, posters } });
   try {
+    const scans = PART_SCANS[part] ?? [];
+    const track = trackAssets(1 + scans.length, (fraction, detail) => ui.loadStage('code', fraction, detail));
+    const [Part] = await Promise.all([
+      track(() => PART_CODE[part]?.() ?? Promise.resolve(Story)),
+      characters.more(scans, track),
+    ]);
+    story = new Part({ engine, ui, input, audio, voice, assets: { characters, posters } });
     await story.run(id);
   } catch (err) {
     // a step that throws would leave Hal in a scene that never moves on: say so, and offer the
     // checkpoint again (it rebuilds the scene from scratch)
     console.error(err);
-    try { story.takeControl(); } catch { /* the card still shows */ }
-    await ui.screen({ kicker: 'Something went wrong', title: 'THE STORY STOPPED', body: `An error stopped this chapter (${err.message}). Restarting the checkpoint usually gets past it.`, buttons: ['Restart checkpoint'] });
-    story.save.resumeAfterReload(story.checkpointId);
+    ui.loadEnd(false);
+    try { story?.takeControl(); } catch { /* the card still shows */ }
+    await ui.screen({ kicker: 'Something went wrong', title: 'THE STORY STOPPED', body: 'The chapter could not continue. Check your connection and restart the checkpoint.', buttons: ['Restart checkpoint'] });
+    save.resumeAfterReload(story?.checkpointId ?? id);
   }
 }
 
@@ -174,9 +176,3 @@ async function titleFlow(ui) {
     if (id) return { part: chapters.part, id };
   }
 }
-
-boot().catch((err) => {
-  console.error(err);
-  const label = document.querySelector('#loading .label'); // gone once the title is up
-  if (label) label.textContent = `Failed to start: ${err.message}`;
-});
