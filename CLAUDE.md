@@ -26,16 +26,18 @@ story class with its own save store and checkpoints. Checkpoint ids are unique a
 | Four, The Prisoner | `Prisoner` (`Prisoner.js`) | `gl_prisoner_v1` | pilot cell site ysmault trial |
 | Five, Probation | `Probation` (`Probation.js`) | `gl_probation_v1` | rent commute advance testflight pickup korugar patrol rebels report |
 | Six, Exile | `Exile` (`Exile.js`), run as `Roam` (`Roam.js`) | `gl_exile_v1` | dawn palace tribunal firstnight qward yellow world |
-| Seven, Sapphire | `Sapphire` (`Sapphire.js`) | `gl_sapphire_v1` | ask pier strike hold trail zamaron |
+| Seven, Sapphire | `Sapphire` (`Sapphire.js`) | `gl_sapphire_v1` | ask pier strike hold trail zamaron predator |
 
 - `world` is **free roam**: every world the story has visited (Earth's valley and Coast City, the
   lake, Oa, Korugar, Ysmault, Qward), travel by star chart or menu, Hal in the suit or his clothes,
   his car, a job at Ferris, money, XP, public opinion, traffic, emergencies, a day and weather cycle.
   `range` and `earth` are Part Two's free flight.
-- **Part Seven is in progress.** Built: `trail` (the breach's wake flown through space: `scenes/Wake.js`)
-  and `zamaron` (the valley, the Kept, the wardens, Carol over the dais: `scenes/Zamaron.js`). Agreed
-  next (2026-11-21): `queen` (Aga'po; Hal sealed in crystal; Carol frees him by mastering the gem),
-  `predator` (boss: love's entity, Carol fighting beside Hal), `home` (the pier, the dinner finished),
+- **Part Seven is in progress.** Built: `trail` (the breach's wake flown through space: `scenes/Wake.js`),
+  `zamaron` (the valley, the Kept, the wardens, Carol over the dais: `scenes/Zamaron.js`) and, ahead of
+  `queen`, `predator` (the boss on the citadel's plaza, Carol fighting beside him: `enemies/Predator.js`,
+  `SapphireAlly` in `enemies/StarSapphire.js`; reached only from `#predator` until `queen` replaces
+  `zamEnd`'s card, and its start assumes `queen`'s end: Carol free, the gem hers). Agreed next
+  (2026-11-21): `queen` (Aga'po; Hal sealed in crystal; Carol frees him by mastering the gem), `home` (the pier, the dinner finished),
   `hand` (sting: William Hand with Atrocitus's device). Carol comes home keeping the gem and her own
   mind. The user is making Aga'po in Tripo; the other Star Sapphires are `createStarSapphire` (Carol's
   Sapphire scan, recoloured). `home` and `hand` wait for the user's map and graphics rework (not
@@ -135,7 +137,7 @@ src/scenes/        Bedroom, Dream, Hyperspace, CrashSite (the lake), Space, Oa +
 src/city/          Coast City: Kit, Building, Signs, HalsBlock, Interiors, Shops, Office, Lod, Lamps, Traffic,
                    Plan, Tower, Stream, Ground, Waterfront, Landmarks
 src/props/         Props (load, clone, helpers), Car (makeCar, planDrive), Smash (every prop touchable)
-src/enemies/       Drones, Sinestro, Hammond, Atrocitus, Thunderers, StarSapphire
+src/enemies/       Drones, Sinestro, Hammond, Atrocitus, Thunderers, StarSapphire (+ SapphireAlly), Predator
 src/vehicles/      Drive (the car, raycast vehicle), Jet (flight model, mouse aim)
 src/story/         one file per part (table above), Voyage, Roam (free roam), CityLife, DinerLife, KorugarLife,
                    Life, Work, Emergencies, Pressure, Trap, Album, lines.js (all dialogue)
@@ -264,11 +266,15 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - `props/Car.js`: `makeCar` dresses a car with seat, pedal and wheel points; scripted driving is
   `planDrive` (the rear axle on arcs and straights, a stop between forward and reverse), checked
   against everything near the path.
-- **Bosses read Hal** (Sinestro, Atrocitus, Star Sapphire): `stance()` and `LANDS` scale each blow by
-  how open they are; between attacks they turn blows and answer them; a parry exposes them; poise
+- **Bosses read Hal** (Sinestro, Atrocitus, Star Sapphire, the Predator): `stance()` and `LANDS` scale each
+  blow by how open they are; between attacks they turn blows and answer them; a parry exposes them; poise
   breaks an attack only with a real hit; a held shield gets flanked. Test balance with bots:
   `tools/fight-bots.js` (`setupDuel()`, `setupSite()`, `run(secs, 'hookSpam' | 'gunSpam' |
-  'blocker' | 'turtle')`) and `tools/sapphire-bot.js`; compare damage dealt and taken.
+  'blocker' | 'turtle')`), `tools/sapphire-bot.js` and `tools/predator-bot.js` (`toFight()`, `fight()`,
+  `sequence(kind)` to shoot one attack); compare damage dealt and taken.
+- The Predator is a downloaded wyvern on its own skeleton (`createPredator`): in-place clips cut from its
+  two, layers turned about the creature's own axes in the world (rear, lunge, neck aim, jaw, tail, wings),
+  three hit parts (head, body, tail) on kinematic sensor capsules following its bones, one health.
 
 ### Performance rules
 
@@ -351,6 +357,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Spawn enemies relative to the player, not the arena.
 
 **Physics**
+- A sensor collider blocks the character controller unless its filter skips it (`Player.filter` does):
+  the Predator's sensor capsules held Hal inside it.
 - Walk on boxes, hull prisms or heightfields (`physics.fixedGround`): the character controller sinks
   into Rapier cylinders and into very large boxes.
 - Fixed colliders through Smash pass `shrink: 1` (the default shrinks boxes 6% and leaves gaps).
@@ -392,6 +400,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Paint over a scan in bind-pose object space; push vertices along position-only directions (normals
   differ across UV seams and crack). A scan's sculpted ring can't be cut out: fold it into skin.
 - Decimating hard-surface armour shatters it; blended weights bend it.
+- A scan's normal map can be broken where the scan saw little (casual Hal's face: white rims on brows and lips;
+  his throat, grey and facing up, mirrored the sky at a grazing angle). Test with `normalMap = null` and the
+  reflections off before repainting a texture (`plainHead` in `Characters.js`).
 - The fitted arm axis is pulled off the arm by forearm armour or long hair: Star Sapphire's shoulders
   landed 30 and 67 cm behind her, the upper arms went to the chest and the forearms swung about a
   point behind her back (her arms hung off her in every pose). Measure the limb and give `rig.arms`.
@@ -407,9 +418,16 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Downloaded rigs aren't world-aligned: re-skin onto translation-only bones at build time.
 
 **Animation**
+- `AnimationUtils.subclip` drops a track with no key inside the cut (an exporter's constant tracks): put
+  them back, or those bones keep whatever played before.
+- The mixer writes a bone only when its clip's value changes: layers over a clip go back to the clip's
+  pose before it runs again, not to the bind pose (a held pose dropped to bind under them).
+- A point fixed in a bone's frame, measured while the model is scaled, is wrong at full size (the
+  Predator's snout, first seen small inside the battery, ended up 7 m ahead of its head).
 - IK target functions must not return a shared scratch vector; helpers taking temporaries need their
   own scratch objects.
-- An arm held near full reach shakes: hold it short of straight, in the body's frame (`steadyHand`).
+- An arm held near full reach shakes, or its elbow swings out (Carol's at the pier's rail went out sideways):
+  hold it short of straight, in the body's frame (`steadyHand`); a shorter body needs its own lean.
 - A scripted move outside the player's update needs something to run the animator (`onFrame`).
   Seated poses need `player.autoAnim` off.
 - Turn a body about its hips, not the object's origin (which is at the feet). Point with the arm on
@@ -425,6 +443,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Disposing a scene disposes everything in it: take Hal out first. `input.consume()` a key that opens
   another interface, or it's read twice. Audio starts only after a user gesture.
 - Spoken text written outside `lines.js` gets no clip.
+- A key defined twice in `lines.js` silently replaces the earlier line, so an earlier part plays a later
+  part's text (Part One's "Core breach." played the Qward breach). `npm run voices` refuses to run until
+  one is renamed; grep the key's callers to see which moment each means.
 
 ## Known weak spots
 
@@ -432,9 +453,11 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   (built on my defaults while they slept).
 - Star Sapphire's model: weak feet and tiara, a pale fin on each forearm; the night sea's moon glint
   shows as pixelated patches. No Zamaron models yet (the Guardian generator starts from a male scan).
+- The Predator fight hasn't been played by hand: balanced by bots and staged tests (the scripted player
+  manages the ground phase, not the air one). Carol held in its beam hangs stiffly.
 - The derived Star Sapphires all have Carol's face (other skins, hair, markings); the Korugarians kept
-  in crystal still wear the Corps emblem from Abin Sur's scan; the citadel's plaza is bare (it's the
-  `queen` and `predator` arena, not dressed yet). Zamaron isn't in free roam's places yet.
+  in crystal still wear the Corps emblem from Abin Sur's scan; the citadel's plaza has only its
+  parapet (the `queen` and `predator` arena, not dressed yet). Zamaron isn't in free roam's places yet.
 - The streamed city has no interiors, wall props or parked cars; Hal's blocks' upper-floor flats can't
   be entered. Tom Kalmaku is a voice only.
 - Scans have no finger bones (hands stay open) and lip sync is a jaw only.

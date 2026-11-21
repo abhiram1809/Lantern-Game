@@ -30,14 +30,16 @@ lake, Oa, Korugar, Ysmault and Qward, by the ring's star chart; Hal in the suit 
 with his car (and a ring-made key). Coast City is four kilometres
 square now: Hal's blocks with their shops and people, the streets round them, downtown's towers, and
 the waterfront (the beach, the promenade, the pier and its Ferris wheel), built as you come near.
-**Part Seven, Sapphire** (begun: six chapters so far; talk to Carol in Hangar Two in free roam, or pick it
+**Part Seven, Sapphire** (begun: seven chapters so far; talk to Carol in Hangar Two in free roam, or pick it
 from the title): Hal asks Carol to dinner again, and she sets her terms; the pier at night, the ring quiet;
 a violet light out of the sky that has been looking for a heart like hers; and the fight over the water, where
 what Hal has to break is the gem's hold, not Carol. Then after her: the breach's wake, flown out past the
 charted stars (stay inside its light or the ring loses it), through a field of the breach's light gone to
 crystal and a nebula where the ring marks the way; and Zamaron, the Zamarons' world, a valley of violet
 crystal where the Star Sapphires keep the ones they love asleep in crystal, and Carol waits in their light.
-(After *Green Lantern* #16, 1962, and Geoff Johns's "Mystery of the Star Sapphire", 2007.)
+And, ahead of the queen's chapter (still to come; start it at `#predator`), the Predator: love's entity out
+of the Zamarons' battery, fought on the citadel's plaza with Carol beside him. (After *Green Lantern* #16,
+1962, and Geoff Johns's "Mystery of the Star Sapphire", 2007; the Predator is the comics' violet entity.)
 
 ## Run
 
@@ -239,7 +241,8 @@ Part Seven:
 | `strike` | The violet light: the pier, the gem, Star Sapphire |
 | `hold` | The gem's hold: over the water, her fight, the Zamarons' light |
 | `trail` | The wake: out after her, flying the breach's wake through space |
-| `zamaron` | Zamaron: the Zamarons' valley, the garden of the Kept, the citadel (the end card, for now) |
+| `zamaron` | Zamaron: the Zamarons' valley, the garden of the Kept, the citadel (an end card, for now) |
+| `predator` | The Predator: the citadel's plaza, Carol beside him, the boss fight (built ahead of the queen's chapter) |
 
 For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#lantern`.
 
@@ -539,7 +542,20 @@ block debris, bolts and Hal.
    while it holds. A **ring of light** under you is a cage: move out of it, or break its bars with two
    hooks. Halfway, Carol's own voice gets through for a moment. At a quarter of the gem's hold she comes down
    on the pier, herself; then the Zamarons' light from above takes her up through a breach, and the ring
-   names the world it came from: Zamaron. (The rest of the part is still to be written.)
+   names the world it came from: Zamaron.
+5. **The wake:** after her, out past the charted stars along the breach's wake: stay inside its light or the
+   ring loses it.
+6. **Zamaron:** the valley, the garden of the Kept, two wardens and the stair up to the citadel, and Carol in
+   their light over the queen's dais. (The queen's chapter, where Carol frees him by mastering the gem, is
+   still to come.)
+7. **The Predator:** the battery stutters, and what the Zamarons have kept in its light comes out of it, the
+   thing that was speaking to Carol through the gem. Its hide turns most blows; each attack has a **tell**
+   (it rears with its mouth lit before a bite; its tail lifts and rattles; its wings rise before a gust that
+   tears a held shield away). **Raise the shield just as it strikes** and it's thrown open, and **Carol pins
+   it** with crystal: then your blows land, hardest on its head. Below 60% it takes to the air, dives at
+   you (parried, it crashes onto the plaza) and **reaches for Carol** with a beam: get between them with the
+   shield up, or break it with three blows; let it finish and it drinks her light. At a fifth, Carol holds
+   it and the battery takes it back. (The rest of the part is still to be written.)
 
 ## Characters and movement
 

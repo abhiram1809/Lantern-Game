@@ -166,7 +166,46 @@ export function createCharacter(gltf, { glow = 0, roughMin = 0, jaw = null } = {
   return rig;
 }
 
-export const createHal = (gltf, opts) => createCharacter(gltf, opts);
+export function createHal(gltf, opts) {
+  const rig = createCharacter(gltf, opts);
+  if (opts?.jaw === JAW.casual) plainHead(rig);
+  return rig;
+}
+
+// Casual Hal's face and throat. The scan's normal map is broken on his face (a rim of it round his brows
+// and lips lit them white); without it, his face and hair from their shape alone. And his throat, under
+// his chin: the scan saw it only in shadow, so its texels are a dark cool grey, and the front of his neck
+// faces up-and-forward (as a neck does) with no chin's shadow on it, so seen low it mirrored the night
+// sky and the lamps, white under his jaw: there his skin, shaded, and those reflections damped (bind-pose
+// object space: the scan 1.85 m tall, facing +Z; the chin 1.553, the throat from about 1.47; the shirt
+// below keeps its normal map and its folds).
+function plainHead(rig) {
+  for (const m of rig.meshes) {
+    const mat = m.material, base = mat?.onBeforeCompile;
+    if (Array.isArray(mat) || !base) continue;
+    mat.onBeforeCompile = (sh, r) => {
+      base(sh, r);
+      sh.fragmentShader = sh.fragmentShader
+        .replace('float dEdge = 0.0;', `
+          float hcK = (1.0 - smoothstep(0.065, 0.09, abs(vDPos.x))) * smoothstep(1.455, 1.48, vDPos.y) * (1.0 - smoothstep(1.552, 1.572, vDPos.y))
+                    * smoothstep(-0.09, -0.065, vDPos.z) * (1.0 - smoothstep(0.1, 0.12, vDPos.z));
+          {
+            vec3 c0 = diffuseColor.rgb;
+            float mx = max(c0.r, max(c0.g, c0.b)), mn = min(c0.r, min(c0.g, c0.b));
+            float grey = 1.0 - smoothstep(0.1, 0.25, (mx - mn) / max(mx, 1e-4));
+            diffuseColor.rgb = mix(c0, vec3(0.3, 0.155, 0.105), hcK * grey);
+          }
+          float dEdge = 0.0;`)
+        .replace('#include <normal_fragment_maps>', `vec3 hcGeo = normal;
+          #include <normal_fragment_maps>
+          normal = normalize(mix(normal, hcGeo, smoothstep(1.44, 1.48, vDPos.y)));`)
+        .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+          reflectedLight.indirectSpecular *= 1.0 - 0.9 * hcK;
+          reflectedLight.directSpecular *= 1.0 - 0.75 * hcK;`);
+    };
+    mat.customProgramCacheKey = () => 'gl-hal-casual';
+  }
+}
 
 // Abin Sur, from his own scan: the suit's green panels glow faintly until he dies.
 export const createAbinSur = (gltf) => createCharacter(gltf, { glow: 0.32, jaw: JAW.abin });

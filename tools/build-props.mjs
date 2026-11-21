@@ -234,6 +234,10 @@ export const PROPS = [
     title: 'Alien Plant (Cydrakoniss)', author: 'Blake_Stahlbaum', uid: 'd940adfc452146efacc2cbb63fa2c01d' },
   { name: 'plant_bulbs', src: 'assets/props/plant_bulbs.glb', forward: '+z', height: 3.5, tex: 512, drop: /^(pot|dirt)/,
     title: 'Alien Plant', author: 'green364', uid: '142addd0188c49e18e6d836fb9dfe813' },
+  // the Predator, love's entity (enemies/Predator.js gives it its violet): a wyvern rigged with its own
+  // skeleton and clips, kept whole (the rig's control widgets dropped); fifteen metres, nose to tail
+  { name: 'predator', src: 'assets/props/predator.glb', forward: '+z', length: 15, tex: 1024, drop: /Shape|^Circle_0$/,
+    title: 'Prowler Dragon Variant Rig', author: 'DM-913 (SuperKapoo913)', uid: '7ee71aaf323d426bbbdf28d73d55bbd9' },
 ];
 
 const YAW = { '+z': 0, '-z': Math.PI, '+x': -Math.PI / 2, '-x': Math.PI / 2 };

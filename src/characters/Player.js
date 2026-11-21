@@ -170,7 +170,7 @@ export class Player {
   get acting() { return this.control && !this.inputBlocked; }
 
   // Collision filter: skip held constructs, and the shore's invisible walls while airborne.
-  filter = (c) => !this.ignore.has(c.handle) && !(this.flying && this.air?.ignoreInFlight?.has(c.handle));
+  filter = (c) => !this.ignore.has(c.handle) && !c.isSensor() && !(this.flying && this.air?.ignoreInFlight?.has(c.handle)); // (a sensor blocks the controller too: the Predator's held him inside it)
   // The camera only dodges the world, not things that move (drones, debris, crates): those would
   // snap it into Hal's head whenever one passed behind him.
   camFilter = (c) => this.filter(c) && !c.parent()?.isDynamic() && !this.camIgnore.has(c.handle); // (and people walking by: Korugar's streets)

@@ -18,7 +18,8 @@ import { Zamaron, ZAMARON_PROPS, ARRIVE, LANDING, COURT, STAIR, PLAZA, BATTERY, 
 import { glowTexture } from '../fx/Textures.js';
 import { createShaft } from '../fx/GreenLight.js';
 import { sliced, breath } from '../engine/Slice.js';
-import { StarSapphire, YIELD_AT } from '../enemies/StarSapphire.js';
+import { StarSapphire, SapphireAlly, YIELD_AT } from '../enemies/StarSapphire.js';
+import { Predator, loadPredator, PRED } from '../enemies/Predator.js';
 import { RAPIER } from '../engine/Physics.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -39,12 +40,19 @@ const PIER_HAL = V(-1470.5, DECK, LOT.z + 352.4), PIER_CAROL = V(-1468.85, DECK,
 const TABLE = V(-1505, DECK, LOT.z + 357), SEAT_Y = 0.47;
 const SEAT_HAL = TABLE.clone().add(V(-0.64, 0, 0)), SEAT_CAROL = TABLE.clone().add(V(0.64, 0, 0));
 // after it, at the rail: side by side looking out to sea (south), she on his left
-const LEAN_HAL = V(-1471.15, DECK, RAIL_Z + 0.4), LEAN_CAROL = V(-1469.95, DECK, RAIL_Z + 0.36);
+const LEAN_HAL = V(-1471.15, DECK, RAIL_Z + 0.4), LEAN_CAROL = V(-1469.95, DECK, RAIL_Z + 0.3);
 // sitting at a table: upright, forearms forward on it
 const DINING = makePose({
   hy: -0.29, sx: 0.04, cx: 0.06, nx: 0.02,
   lLx: -1.42, kL: 1.45, lRx: -1.5, kR: 1.55, lLz: 0.06, lRz: -0.06,
   aL: [0.22, -0.72, 0.62], eL: 1.25, aR: [-0.22, -0.72, 0.62], eR: 1.25,
+});
+// Carol at the same rail: she's 23 cm shorter, so less bent over it (Hal's lean put her shoulders level with
+// the rail and her arms went out straight to reach it); her hands on it, the elbows out to her sides
+const CAROL_LEANING = makePose({
+  sx: 0.2, cx: 0.16, nx: -0.2, kx: -0.12,
+  lRx: 0.08, kR: 0.14, lRz: -0.03, fR: 0.08,
+  aL: [0.3, -0.5, 0.8], eL: 1.5, aR: [-0.3, -0.5, 0.8], eR: 1.5,
 });
 // leaning on a rail: hips back, the back bent over it, the head up to the sea; the forearms on the top rail
 // (the hands just past it by IK, the elbows down onto it)
@@ -59,6 +67,9 @@ const LEANING = makePose({
 // west end is the Crab Shack's wall, and a camera in the gap beside it looks at plaster)
 const SAP_WAIT = V(-1596, 34, LOT.z + 330), ARENA = V(-1556, 0, LOT.z + 338);
 const LAND = PIER_HAL.clone(), LAND_HAL = PIER_CAROL.clone();
+// the Predator's fight on the citadel's plaza: Hal and Carol toward its south side (the gate behind them, the
+// battery and the dais ahead), it comes down on the plaza's middle, between them and the dais
+const PRED_HAL = PLAZA.clone().add(V(0, 0, 22)), PRED_CAROL = PRED_HAL.clone().add(V(-2.3, 0, 0.6)), PRED_AT = PLAZA.clone().add(V(0, 0, -2));
 // floating, her arms open and her head back: the light holding her (parameter pose, as the voyage's)
 const RAPTURE = makePose({
   sx: -0.06, cx: -0.12, nx: -0.28, kx: -0.22,
@@ -83,13 +94,14 @@ export class Sapphire extends Roam {
       hold: () => this.hold(),
       trail: () => this.followWake(),
       zamaron: () => this.toZamaron(),
+      predator: () => this.predatorFight(),
     };
   }
 
   async prepare(id) {
     const { ui, player } = this;
     // (off Earth: no valley to build, only the place itself, which its chapter builds)
-    const away = id === 'trail' || id === 'zamaron';
+    const away = id === 'trail' || id === 'zamaron' || id === 'predator';
     await loadProps(away ? (id === 'trail' ? WAKE_PROPS : ZAMARON_PROPS) : FERRIS_PROPS, (k) => ui.loadStage('props', k));
     if (!away) await this.setupFerrisAsync(); // (in slices, under the loading screen)
     else this.engine.gradeUniforms.uFlash.value = 1; // (each begins out of the flash of arriving)
@@ -496,9 +508,11 @@ export class Sapphire extends Roam {
     if (carol) {
       carol.root.position.copy(LEAN_CAROL);
       carol.root.rotation.y = Math.PI;
-      ca.play(still(LEANING, 0.6), 0);
-      // (her hands a stance: just past the top rail, in her frame: 0.56 m in front of her root, 1.14 up)
-      cb.stances.rail ??= { L: [0.11, RAIL_TOP - DECK + 0.05, RAIL_Z + 0.36 - (RAIL_Z - 0.2)], R: [-0.11, RAIL_TOP - DECK + 0.05, RAIL_Z + 0.36 - (RAIL_Z - 0.2)], poleL: [0.3, -1, -0.2], poleR: [-0.3, -1, -0.2] };
+      ca.play(still(CAROL_LEANING, 0.6), 0);
+      // (her hands a stance, on the top rail, in her frame, within easy reach: at nearly an arm's length the
+      // elbow had no settled place and the arm went out straight, sideways over the rail)
+      const fwd = LEAN_CAROL.z - (RAIL_Z - 0.2), up = RAIL_TOP - DECK + 0.04;
+      cb.stances.rail = { L: [0.08, up, fwd], R: [-0.08, up, fwd], poleL: [0.9, -0.5, 0.1], poleR: [-0.9, -0.5, 0.1] };
       cb.stance('rail');
       ca.arms.L.w = ca.arms.R.w = 1;
     }
@@ -1525,15 +1539,15 @@ export class Sapphire extends Roam {
     ca.play(still(RAPTURE), 0);
     c.glowUp(1.15);
     c.eyeGlow(1);
-    z.updaters.push((dt, t) => { ca.update(dt); c.root.position.y = THRONE.y + 3.6 + Math.sin(t * 0.7) * 0.12; });
-    const shaft = createShaft({ from: THRONE.clone().add(V(0, 1.2, 0)), to: BATTERY.clone().add(V(0, -8, 0)), radiusFrom: 1.4, radiusTo: 2.4, color: new THREE.Color(0.6, 0.14, 0.7) });
+    z.updaters.push((dt, t) => { ca.update(dt); if (!this.zamCarolFree) c.root.position.y = THRONE.y + 3.6 + Math.sin(t * 0.7) * 0.12; }); // (free: the fight's)
+    const shaft = (this.zamShaft = createShaft({ from: THRONE.clone().add(V(0, 1.2, 0)), to: BATTERY.clone().add(V(0, -8, 0)), radiusFrom: 1.4, radiusTo: 2.4, color: new THREE.Color(0.6, 0.14, 0.7) }));
     shaft.userData.uniforms.uOpacity.value = 0.16;
     z.scene.add(shaft);
   }
 
   // a close shot of someone who isn't Carol (the keepers, the wardens): from their front, to one side
-  npcClose(rig, duration = 1.2, side = 1, fov = 32) {
-    const h = rig.bonePosition('head', V(0, 0, 0)), yaw = rig.root.rotation.y;
+  npcClose(rig, duration = 1.2, side = 1, fov = 32, yaw = rig.root.rotation.y) {
+    const h = rig.bonePosition('head', V(0, 0, 0));
     const f = V(Math.sin(yaw), 0, Math.cos(yaw)), r = V(f.z, 0, -f.x);
     return this.director.move(h.clone().addScaledVector(f, 1.7).addScaledVector(r, 0.45 * side).add(V(0, -0.06, 0)), h.clone().add(V(0, -0.04, 0)), duration, ease.inOut, fov);
   }
@@ -1663,6 +1677,331 @@ export class Sapphire extends Roam {
     await wait(0.8);
     await ui.fade(1, 1.6);
     const pick = await ui.screen({ kicker: 'Part Seven · Sapphire', title: 'ZAMARON', subtitle: 'Part Seven so far', body: 'Hal has followed the Zamarons to their world and found Carol under their great crystal. Their queen is waiting for him. The rest of Part Seven is still to come.', buttons: ['Free roam', 'Quit to title'] });
+    if (pick === 0) { ExileSave.resumeAfterReload('world'); await new Promise(() => {}); return; }
+    location.hash = '';
+    location.reload();
+    await new Promise(() => {});
+  }
+
+  // ---------------------------------------------------------------- 8. the Predator
+  // (Ours, round the comics' Predator: the violet light's entity, love with nothing else in it, which has
+  // had Carol before.) After the queen, the gem hers: the battery stutters, and what the Zamarons have kept
+  // in its light comes out of it, the thing that was speaking to her through the gem all along. On the
+  // plaza with Carol beside him (`SapphireAlly`): block, then strike (`Predator`), and her crystal holds it
+  // when his parry throws it open; in the air it reaches for her. At a fifth of it, it comes down, she
+  // holds it, and the battery's light takes it back up.
+  async predatorFight() {
+    const { ui, director, audio, player, powers, hud, engine } = this, g = engine.gradeUniforms;
+    this.takeControl();
+    ui.objective(null);
+    ui.clock(this.save.info('predator').clock);
+    this.lanternUp();
+    for (const id of ['hammer', 'staff']) this.learn(id, false);
+    await loadProps(ZAMARON_PROPS, (k) => ui.loadStage('props', k));
+    const z = await this.setupZamaron();
+    ui.loadStage('creature', 0.3);
+    const gl = await loadPredator();
+    ui.loadStage('creature', 1);
+    this.enterZamaron(PRED_HAL.clone(), Math.PI);
+    powers.enabled.flight = true;
+    powers.trappable = null; // (too big for the bubble)
+    // Carol at his side: herself, the gem hers
+    const c = this.zamCarol, ca = this.zamCarolAnim;
+    this.zamCarolFree = true;
+    if (this.zamShaft) this.zamShaft.visible = false;
+    c.root.position.copy(PRED_CAROL);
+    c.root.rotation.set(0, Math.PI, 0);
+    ca.play(still(POSES.stand), 0);
+    ca.feet.ground = (x, q) => z.ground(x, q);
+    c.eyeGlow(0.3);
+    c.glowUp(1);
+    const cb = (this.zamCarolBody ??= new BodyLanguage(c, ca, { lookHome: null, scale: 1, reach: 0.55, shift: null, gestures: undefined }));
+    const cbTick = (dt) => cb.update(dt);
+    z.updaters.push(cbTick);
+    // the wardens at the stair's head, watching the battery
+    const [w1, w2] = this.wardensAt;
+    for (const [w, x] of [[w1, -3.4], [w2, 3.4]]) {
+      w.rig.root.position.set(x, PLAZA.y, GATE.z - 0.6);
+      w.rig.root.rotation.y = Math.PI + x * 0.06;
+      Object.assign(w.anim.feet, { ground: (xx, q) => z.ground(xx, q), offL: 0, offR: 0, drop: 0 });
+      w.anim.lookAt(() => BATTERY, 0.5);
+    }
+    // the Predator, in the battery's light (small, inside the crystal, till it comes out)
+    const foe = (this.pred = new Predator({ scene: z.scene, physics: z.physics, powers, player, audio, director, engine, gltf: gl, ground: (x, q) => z.ground(x, q), centre: PRED_AT.clone().add(V(0, 0, 4)), radius: 33, avoid: [{ x: THRONE.x, z: THRONE.z, r: 12 }] })); // (33: out to the stair's head, where he stood out of its reach)
+    foe.scripted = true;
+    foe.state = 'script';
+    foe.root.position.copy(BATTERY);
+    foe.root.scale.setScalar(0.25);
+    const foeTick = (dt, t) => foe.update(dt, t);
+    z.updaters.push(foeTick);
+    player.lookAt(BATTERY.clone(), 0.5);
+    ca.lookAt(BATTERY.clone(), 0.5);
+    await this.warmUp(z.scene, null, [z.scene], (k) => ui.loadStage('shaders', k), { near: PLAZA, radius: 220 });
+    g.uFlash.value = 0;
+    g.uFlashColor.value.setRGB(0.55, 1.6, 0.75);
+
+    // the battery, stuttering
+    // (behind the two of them, then tilting up past them to it: from behind him it's 50 degrees up, no frame
+    // holds both)
+    director.cut(PRED_HAL.clone().add(V(-1.1, 1.3, 5.4)), PRED_HAL.clone().add(V(-1.1, 2.2, -20)), 54);
+    director.move(PRED_HAL.clone().add(V(-1.0, 1.0, 4.4)), BATTERY.clone().add(V(0, -6, 0)), 5.5, ease.inOut, 54);
+    await ui.fade(0, 1.0);
+    tween(4, (k) => (z.unrest = k), ease.inOut);
+    audio.rumble?.(3, 0.3);
+    this.ringGlow = 2.2;
+    audio.ringChime?.();
+    await this.say('ringPred1', { name: 'The ring' });
+    this.ringGlow = 1.2;
+    await this.npcClose(c, 1.2);
+    await this.perform(cb, 'carolPred1', [['feel', () => ca.gesture('nod', 1, 0.35)]]); // (her 'chest' on this rig put the hand up by her head)
+    w1.anim.lookAt(this.headOf(player.rig), 0.6);
+    await this.npcClose(w1.rig, 1.1);
+    await this.perform(w1.body, 'ward5');
+    await this.npcClose(w2.rig, 1.0, -1);
+    await this.perform(w2.body, 'ward6');
+    await this.predEmerge(foe, z);
+    // the two of them
+    player.lookAt(() => foe.parts[0].tg.position, 0.6);
+    ca.lookAt(() => foe.parts[0].tg.position, 0.6);
+    await this.halClose(1.0);
+    await this.say('halPred1');
+    await this.npcClose(c, 0.9, -1);
+    await this.perform(cb, 'carolPred2');
+    player.lookAt(null);
+    for (const w of [w1, w2]) w.anim.lookAt(() => foe.parts[1].tg.position, 0.5);
+
+    // the fight
+    hud.tutorial({ kicker: 'The Predator', n: 1, of: 1, title: 'Love’s entity', html: 'Its hide turns most blows. Each attack has a tell: <b>raise the shield</b> (<kbd>Right-click</kbd> or <kbd>F</kbd>) <b>just as it strikes</b> and it’s thrown open: <b>Carol pins it</b>, and your blows land.<br>Behind it, the <b>tail</b>: fly over it or get clear. A shield <b>held</b> too long, its <b>wings</b> tear away.<br><span class="dim">In the air it reaches for Carol: get between them with the shield up, or break its head off her.</span>' });
+    hud.boss('The Predator', 1, PRED.yieldAt);
+    const bar = onFrame(() => hud.boss('The Predator', foe.fraction, PRED.yieldAt));
+    Object.assign(powers, { healDelay: 6, healRate: 4 });
+    powers.regen = 1.0;
+    z.updaters = z.updaters.filter((u) => u !== cbTick); // (her body language goes on in the ally's flight)
+    const ally = (this.predAlly = new SapphireAlly({ scene: z.scene, powers, player, audio, rig: c, anim: ca, centre: PRED_AT.clone().add(V(0, 0, 4)), radius: 30, ground: (x, q) => z.ground(x, q) }));
+    foe.ally = ally;
+    const allyTick = (dt, t) => { ally.update(dt, t); cb.update(dt); };
+    z.updaters.push(allyTick);
+    this.predBarks(foe, ally);
+    player.camDist = 3.4; // (back off it a little: at 2.3 m a fifteen-metre creature was a wall)
+    player.shoulder = 0.6;
+    powers.choose(0);
+    foe.scripted = false;
+    foe.engage();
+    ally.start(foe);
+    const gate = this.gateLight(z, true); // (the wardens close the stair behind them: on foot, no way out of it)
+    this.giveControl('Drive the Predator back into its light');
+    wait(2.5).then(() => this.ringSay('ringPred2'));
+    await new Promise((resolve) => (foe.onYield = resolve));
+    bar();
+    hud.boss(null);
+    hud.tutorialDone?.();
+    hud.tutorial(null);
+    Object.assign(powers, { healDelay: 4, healRate: 8, regen: 0 });
+    player.camDist = 2.3;
+    player.shoulder = 0.34;
+    gate.open();
+    await this.predEnd(foe, ally, z, [foeTick, allyTick]);
+  }
+
+  // A wall of their light across the stair's head, between the gate's crystals: shimmering, solid
+  gateLight(z, on) {
+    const w = 15, h = 9, at = V(0, PLAZA.y, GATE.z + 1.6);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uTime: { value: 0 }, uK: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      vertexShader: 'varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform float uTime, uK; varying vec2 vU;
+        void main(){ float s = 0.55 + 0.45 * sin(vU.x * 40.0 + uTime * 2.0) * sin(vU.y * 23.0 - uTime * 1.3);
+          float edge = smoothstep(0.0, 0.08, vU.y) * (1.0 - smoothstep(0.55, 1.0, vU.y)) * smoothstep(0.0, 0.04, vU.x) * smoothstep(0.0, 0.04, 1.0 - vU.x);
+          gl_FragColor = vec4(vec3(0.85, 0.25, 1.1) * s * edge * uK * 0.42, 1.0); }`,
+    });
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(w, h).translate(0, h / 2, 0), mat);
+    wall.position.copy(at);
+    wall.renderOrder = 22;
+    z.scene.add(wall);
+    const body = z.physics.fixedBox({ x: at.x, y: at.y + h / 2, z: at.z }, { x: w / 2, y: h / 2, z: 0.25 });
+    this.player.camIgnore?.add(body.collider(0).handle); // (the camera goes through it: it's light)
+    const tick = (dt, t) => { mat.uniforms.uTime.value = t; };
+    z.updaters.push(tick);
+    this.audio.shimmer?.(0.6);
+    tween(0.8, (k) => (mat.uniforms.uK.value = k), ease.inOut);
+    return {
+      open: () => {
+        tween(0.8, (k) => (mat.uniforms.uK.value = 1 - k), ease.inOut).then(() => { wall.removeFromParent(); z.updaters = z.updaters.filter((u) => u !== tick); });
+        z.physics.world.removeRigidBody(body);
+      },
+    };
+  }
+
+  // Out of the battery: a surge, the light cracking, and it comes out of it small and grows as it leaves the
+  // light, gliding round the citadel and down onto the plaza before them; it lands and roars.
+  async predEmerge(foe, z) {
+    const { director, audio, engine } = this, g = engine.gradeUniforms;
+    director.cut(PRED_HAL.clone().add(V(-5.5, 1.0, 7)), BATTERY.clone(), 52);
+    director.move(PRED_HAL.clone().add(V(-6.5, 1.2, 8)), BATTERY.clone().add(V(0, -2, 0)), 1.4, ease.inOut, 54);
+    await wait(1.2);
+    z.surge = 1;
+    audio.glass?.(1.2);
+    audio.explosion?.(0.5);
+    director.shake(0.4, 0.8);
+    g.uFlashColor.value.setRGB(1.4, 0.4, 1.6);
+    tween(0.9, (k) => (g.uFlash.value = 0.55 * (1 - k)), ease.out).then(() => { g.uFlash.value = 0; g.uFlashColor.value.setRGB(0.55, 1.6, 0.75); });
+    foe.body.play('glide', { fade: 0 });
+    foe.roar(1.2, 0.8);
+    // round the citadel and down onto the plaza, the camera on it
+    const path = new THREE.CatmullRomCurve3([BATTERY.clone(), BATTERY.clone().add(V(16, -9, 12)), PLAZA.clone().add(V(26, 13, -2)), PLAZA.clone().add(V(14, 6, 14)), PRED_AT.clone().add(V(3, 2.5, 4))]);
+    const look = onFrame(() => director.look.lerp(foe.parts[1].tg.position, 0.12));
+    let hovering = false;
+    await tween(4.6, (k) => {
+      const p = path.getPointAt(k), q = path.getPointAt(Math.min(1, k + 0.01));
+      foe.root.position.copy(p);
+      foe.yaw = Math.atan2(q.x - p.x, q.z - p.z);
+      foe.root.scale.setScalar(0.25 + 0.75 * Math.min(1, k * 2.2));
+      if (k > 0.72 && !hovering) { hovering = true; foe.body.play('hover', { fade: 0.6 }); }
+    }, ease.inOut);
+    // down
+    foe.body.play('land', { fade: 0.35, loop: false });
+    const from = foe.root.position.clone(), y0 = foe.yaw, y1 = yawTo(PRED_AT, PRED_HAL);
+    director.move(PRED_HAL.clone().add(V(-4.5, 1.1, 3)), PRED_AT.clone().add(V(0, 2.4, 0)), 1.2, ease.inOut, 50);
+    await tween(1.1, (k) => { foe.root.position.lerpVectors(from, PRED_AT, k); foe.yaw = y0 + wrap(y1 - y0) * k; }, ease.inOut);
+    look();
+    audio.impact?.(1.6);
+    audio.rumble?.(0.9, 0.6);
+    director.shake(0.6, 0.6);
+    await wait(0.7);
+    // the roar, low and close, before them
+    foe.scripted = false;
+    foe.faceYaw = y1;
+    const roar = { kind: 'script' };
+    foe.action = roar; // (holds the layers to what's set here)
+    const pose = foe.body.pose;
+    foe.head(_h);
+    director.cut(_h.clone().add(V(Math.sin(y1) * 5 + 2.2, -0.6, Math.cos(y1) * 5)), _h.clone().add(V(0, 0.5, 0)), 42);
+    foe.roar(1.4, 0.75);
+    await tween(1.8, (k) => { const e = Math.sin(Math.PI * Math.min(1, k * 1.3)); pose.rear = 1.3 * e; pose.jaw = e; pose.wings = 0.8 * e; foe.body.glow(1 + e); }, ease.linear);
+    foe.action = null;
+    foe.body.glow(1);
+  }
+
+  // its tells' warnings, once each; Carol's calls
+  predBarks(foe, ally) {
+    const said = new Set();
+    let last = 0;
+    const carol = (key, gap = 4) => {
+      const now = performance.now();
+      if (this.predBarking || now - last < gap * 1000) return;
+      this.predBarking = true;
+      last = now;
+      this.perform(this.zamCarolBody, key, [], { skip: false }).finally(() => (this.predBarking = false));
+    };
+    const ring = (key) => { if (said.has(key)) return; said.add(key); this.ringSay(key); };
+    const hal = (key) => { if (said.has(key)) return; said.add(key); this.bark(key); };
+    foe.onQuip = (what) => {
+      if (what === 'tail') ring('ringQTail');
+      else if (what === 'gust' && this.powers.shield) ring('ringQGust');
+      else if (what === 'dive') ring('ringQDive');
+      else if (what === 'parried') hal('halQParry');
+    };
+    foe.onHurtHal = (what) => { if (what === 'bite') hal('halQBit'); };
+    foe.onPhase = (ph) => { if (ph === 'air') { ring('ringQAir'); wait(2.4).then(() => carol('carolQAir', 0)); } };
+    foe.onTether = (what) => { if (what === 'start') wait(0.8).then(() => ring('ringQTether')); else if (what === 'drank') this.ringSay('ringQDrank'); };
+    ally.onQuip = (what) => {
+      if (what === 'pin') carol(Math.random() < 0.5 ? 'carolQPin' : 'carolQPin2', 3);
+      else if (what === 'held') carol('carolQBeam', 0);
+      else if (what === 'free') carol('carolQFree', 2);
+      else if (what === 'up') carol('carolQUp', 2);
+    };
+  }
+
+  // A fifth of it left: it comes down on the plaza, Carol's crystal on it; the battery's light comes down for
+  // it and takes it back up; the seal holds; and her, beside him.
+  async predEnd(foe, ally, z, ticks) {
+    const { ui, director, audio, player, engine } = this, g = engine.gradeUniforms, c = this.zamCarol, ca = this.zamCarolAnim;
+    this.takeControl();
+    if (foe.flying) foe.crash();
+    foe.endAction();
+    foe.state = 'script';
+    await Promise.race([waitFor(() => !foe.flying && foe.root.position.y - foe.ground(foe.root.position.x, foe.root.position.z) < 0.3), wait(2.5)]);
+    foe.scripted = true;
+    foe.action = { kind: 'script' };
+    Object.assign(foe.body.pose, { rear: -0.4, jaw: 0.4, wings: 0, tailLift: 0, lunge: 0 });
+    foe.body.pose.shake = 0.6;
+    ally.holdDown();
+    await this.touchDown();
+    // Hal before it, a little way off; it down under her chains
+    const at = foe.root.position.clone(), toHal = V(Math.sin(foe.yaw), 0, Math.cos(foe.yaw));
+    const stand = at.clone().addScaledVector(toHal, 13);
+    stand.y = z.ground(stand.x, stand.z);
+    player.place(stand, yawTo(stand, at));
+    player.lookAt(() => foe.parts[0].tg.position, 0.6);
+    director.cut(stand.clone().add(V(Math.cos(foe.yaw) * 5, 2.2, 0)).addScaledVector(toHal, 3), at.clone().add(V(0, 2, 0)), 48);
+    await wait(1.2);
+    await this.npcClose(c, 1.0, 1, 32, ally.yaw); // (her rig is in the ally's frame: its own turn is nothing)
+    await this.perform(this.zamCarolBody, 'carolPred3');
+    await this.halClose(0.9);
+    await this.say('halPred3');
+    // the light comes down for it
+    const shaft = createShaft({ from: BATTERY.clone().add(V(0, -8, 0)), to: at.clone(), radiusFrom: 2.4, radiusTo: 7, color: new THREE.Color(0.7, 0.16, 0.85) });
+    z.scene.add(shaft);
+    audio.rift?.(0.7);
+    tween(1.2, (k) => (shaft.userData.uniforms.uOpacity.value = 0.45 * k), ease.inOut);
+    const [w1] = this.wardensAt;
+    await this.npcClose(w1.rig, 1.0);
+    await this.perform(w1.body, 'ward7');
+    // up into it
+    director.cut(stand.clone().add(V(-Math.cos(foe.yaw) * 4, 1.1, 0)).addScaledVector(toHal, 4), at.clone().lerp(BATTERY, 0.4), 56);
+    const look = onFrame(() => director.look.lerp(foe.parts[1].tg.position, 0.08));
+    foe.body.play('hover', { fade: 0.8 });
+    audio.whoosh?.(3, 0.5);
+    audio.rumble?.(3.5, 0.5);
+    const from = foe.root.position.clone();
+    await tween(4.2, (k) => {
+      foe.root.position.lerpVectors(from, BATTERY, k * k);
+      foe.root.scale.setScalar(1 - 0.8 * k);
+      foe.body.glow(1 + k * 2.5);
+      shaft.userData.uniforms.uOpacity.value = 0.45 + 0.3 * k;
+      if (k > 0.35 && ally.state === 'hold') { ally.stop(); ally.state = 'script'; }
+    }, ease.inOut);
+    look();
+    z.surge = 1;
+    audio.glass?.(1.1);
+    audio.explosion?.(0.4);
+    director.shake(0.35, 0.6);
+    g.uFlashColor.value.setRGB(1.4, 0.4, 1.6);
+    await tween(0.9, (k) => (g.uFlash.value = 0.6 * (1 - k)), ease.out);
+    g.uFlash.value = 0;
+    g.uFlashColor.value.setRGB(0.55, 1.6, 0.75);
+    foe.root.visible = false;
+    tween(2.5, (k) => { shaft.userData.uniforms.uOpacity.value = 0.75 * (1 - k); z.unrest = 1 - k; }, ease.inOut).then(() => shaft.removeFromParent());
+    this.ringGlow = 2.2;
+    audio.ringChime?.();
+    await this.say('ringPred3', { name: 'The ring' });
+    this.ringGlow = 1.2;
+    // she comes down beside him
+    z.updaters = z.updaters.filter((u) => !ticks.includes(u));
+    foe.dispose();
+    this.pred = null;
+    ally.release(z.scene);
+    const land = stand.clone().add(V(Math.cos(player.yaw) * 1.6, 0, -Math.sin(player.yaw) * 1.6));
+    land.y = z.ground(land.x, land.z);
+    const cFrom = c.root.position.clone();
+    ca.play(still(POSES.stand), 1.2);
+    const cbTick = (dt) => this.zamCarolBody.update(dt);
+    z.updaters.push(cbTick);
+    player.lookAt(() => c.bonePosition('head', _r), 0.7);
+    director.move(stand.clone().add(V(0, 1.6, 0)).addScaledVector(V(-Math.sin(player.yaw), 0, -Math.cos(player.yaw)), 3).add(V(Math.cos(player.yaw) * 1.2, 0, -Math.sin(player.yaw) * 1.2)), land.clone().add(V(0, 1.4, 0)), 2.6, ease.inOut, 40);
+    await tween(2.4, (k) => { c.root.position.lerpVectors(cFrom, land, k); c.root.rotation.y = yawTo(c.root.position, player.position); }, ease.inOut);
+    ca.lookAt(this.headOf(player.rig), 0.7);
+    player.turnTo(yawTo(player.position, land));
+    await wait(0.6);
+    await this.npcClose(c, 1.0, 1, 30);
+    await this.perform(this.zamCarolBody, 'carolPred4', [['wanted', () => ca.gesture('tilt', 1, 0.4)]]);
+    await this.halClose(0.9);
+    await this.say('halPred4');
+    await this.npcClose(c, 0.9, -1, 30);
+    await this.perform(this.zamCarolBody, 'carolPred5', [['time', () => ca.gesture('nod', 1, 0.4)]]);
+    await wait(1.2);
+    await ui.fade(1, 1.6);
+    const pick = await ui.screen({ kicker: 'Part Seven · Sapphire', title: 'THE PREDATOR', subtitle: 'Part Seven so far', body: 'Hal and Carol have driven the Predator back into the Zamarons’ light, and she came out of it herself, the gem hers. Home, and what Black Hand took from the building site, are still to come.', buttons: ['Free roam', 'Quit to title'] });
     if (pick === 0) { ExileSave.resumeAfterReload('world'); await new Promise(() => {}); return; }
     location.hash = '';
     location.reload();

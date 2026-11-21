@@ -4,6 +4,7 @@ import { createSky } from '../fx/Sky.js';
 import { glowTexture } from '../fx/Textures.js';
 import { prop, hasProp } from '../props/Props.js';
 import { Smash } from '../props/Smash.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { violetCrystal, keptCrystal, litScan, crystalTime } from '../fx/Crystal.js';
 
 // Zamaron (Part Seven): the Zamarons' world, past the charts. From the comics: a world of the violet
@@ -387,6 +388,27 @@ export class Zamaron {
     inlay.position.set(P.x, P.y + 0.012, P.z);
     inlay.receiveShadow = true;
     s.add(inlay);
+    // its rim: a low parapet of the stone capped with pale crystal, open where the stair comes up (a 6 m
+    // drop with nothing at its edge: a blow in the Predator's fight threw Hal off it, out of its reach)
+    const segs = 72, R = PLAZA_R - 0.35, w = (2 * Math.PI * R) / segs + 0.08, wallH = 1.05;
+    const wall = [], cap = [], m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    for (let i = 0; i < segs; i++) {
+      const a = ((i + 0.5) / segs) * Math.PI * 2;
+      if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 0.22) continue; // (the stair's head, to the south)
+      const x = P.x + Math.sin(a) * R, z = P.z + Math.cos(a) * R;
+      q.setFromAxisAngle(V(0, 1, 0), a);
+      m4.compose(V(x, P.y + wallH / 2, z), q, V(1, 1, 1));
+      wall.push(new THREE.BoxGeometry(w, wallH, 0.55).applyMatrix4(m4));
+      m4.compose(V(x, P.y + wallH + 0.06, z), q, V(1, 1, 1));
+      cap.push(new THREE.BoxGeometry(w, 0.12, 0.68).applyMatrix4(m4));
+      this.physics.fixedBox({ x, y: P.y + 0.7, z }, { x: w / 2, y: 0.7, z: 0.3 }, { x: q.x, y: q.y, z: q.z, w: q.w });
+    }
+    const parapet = new THREE.Mesh(mergeGeometries(wall), stone);
+    parapet.castShadow = parapet.receiveShadow = true;
+    s.add(parapet);
+    const rim = new THREE.Mesh(mergeGeometries(cap), this.paleCrystal);
+    rim.receiveShadow = true;
+    s.add(rim);
     // the spires round it: the giant crystal and the clusters, leaning out
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2 + Math.PI / 10;
@@ -529,13 +551,16 @@ export class Zamaron {
     this.sky.userData.uniforms.uTime.value = t;
     this.moons.position.copy(camera.position);
     // the battery turns, and beats
+    // (and, with something in it waking, `unrest` 0 to 1: it stutters, flares and goes dark; `surge` a flash)
     const beat = Math.pow(Math.sin(t * 1.1) * 0.5 + 0.5, 3);
     if (this.battery) {
+      const un = this.unrest ?? 0, flick = un > 0 ? (Math.sin(t * 23) * Math.sin(t * 7.3) > 0.2 ? 1 : 0.2) : 1;
+      const surge = (this.surge = Math.max(0, (this.surge ?? 0) - dt * 1.4));
       this.battery.rotation.y = t * 0.08;
-      this.battery.position.y = BATTERY.y + Math.sin(t * 0.4) * 0.6;
-      this.batteryMat.userData.cu.uCGlow.value = 0.9 + beat * 0.5;
-      this.batteryLight.intensity = 50 + beat * 22;
-      this.halo.material.opacity = 0.45 + beat * 0.2;
+      this.battery.position.y = BATTERY.y + Math.sin(t * 0.4) * 0.6 + (un > 0 ? Math.sin(t * 41) * 0.08 * un : 0);
+      this.batteryMat.userData.cu.uCGlow.value = (0.9 + beat * 0.5) * (1 - un * 0.6 + un * 0.9 * flick) + surge * 3;
+      this.batteryLight.intensity = (50 + beat * 22) * (1 - un * 0.7 + un * flick) + surge * 140;
+      this.halo.material.opacity = Math.min(1, (0.45 + beat * 0.2) * (1 - un * 0.5 + un * 0.6 * flick) + surge * 0.5);
     }
     this.fountainLight.intensity = 14 + Math.sin(t * 2.3) * 2.5;
     // the motes, rising, wrapped round the camera

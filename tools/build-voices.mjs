@@ -1022,6 +1022,19 @@ function encode(pcm, file) {
 function hash(v) { return crypto.createHash('sha1').update(typeof v === 'string' ? v : JSON.stringify(v)).digest('hex'); }
 function readJson(f, d) { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } }
 
+// A key written twice in lines.js silently replaces the earlier line (the object keeps the last), so an
+// earlier scene plays a later part's text. Read from the source, since the imported LINES can't show it.
+function duplicateKeys(src) {
+  const seen = new Map(), dupes = [];
+  src.split('\n').forEach((l, i) => {
+    const m = /^\s*['"]?([\w$]+)['"]?\s*:\s*\{/.exec(l);
+    if (!m) return;
+    if (seen.has(m[1])) dupes.push(`${m[1]} (lines ${seen.get(m[1])} and ${i + 1})`);
+    else seen.set(m[1], i + 1);
+  });
+  return dupes;
+}
+
 // ---------------------------------------------------------------------------------------------
 
 async function survey() {
@@ -1040,6 +1053,8 @@ async function survey() {
 async function main() {
   if (process.env.SURVEY) return survey();
   const t0 = performance.now();
+  const dupes = duplicateKeys(fs.readFileSync(LINES_FILE, 'utf8'));
+  if (dupes.length) throw new Error(`src/story/lines.js defines a key twice, and the later line replaces the earlier: ${dupes.join(', ')}. Rename one.`);
   const { LINES } = await import(pathToFileURL(LINES_FILE).href + `?t=${Date.now()}`);
   const only = process.env.ONLY ? new Set(process.env.ONLY.split(',').map((s) => s.trim())) : null;
   const whoF = process.env.WHO ? new Set(process.env.WHO.split(',').map((s) => s.trim())) : null;

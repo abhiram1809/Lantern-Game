@@ -106,6 +106,7 @@ licence. They come from [Sketchfab](https://sketchfab.com) by way of the
 - **Stibnite (antimony)** by NaRoCreations, [sketchfab.com/3d-models/79b0a78e32fc4d65accbc5fc60d077d6](https://sketchfab.com/3d-models/79b0a78e32fc4d65accbc5fc60d077d6), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Used as `stibnite`; reoriented, rescaled, textures recompressed, simplified.
 - **Alien Plant (Cydrakoniss)** by Blake_Stahlbaum, [sketchfab.com/3d-models/d940adfc452146efacc2cbb63fa2c01d](https://sketchfab.com/3d-models/d940adfc452146efacc2cbb63fa2c01d), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Used as `plant_glow`; reoriented, rescaled, textures recompressed.
 - **Alien Plant** by green364, [sketchfab.com/3d-models/142addd0188c49e18e6d836fb9dfe813](https://sketchfab.com/3d-models/142addd0188c49e18e6d836fb9dfe813), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Used as `plant_bulbs`; reoriented, rescaled, textures recompressed, parts removed.
+- **Prowler Dragon Variant Rig** by DM-913 (SuperKapoo913), [sketchfab.com/3d-models/7ee71aaf323d426bbbdf28d73d55bbd9](https://sketchfab.com/3d-models/7ee71aaf323d426bbbdf28d73d55bbd9), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Used as `predator`; reoriented, rescaled, textures recompressed, parts removed.
 
 ## Textures
 

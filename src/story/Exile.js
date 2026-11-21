@@ -961,7 +961,7 @@ export class Exile extends Probation {
     await this.gClose(wps[0], 1.6, 0.3, 30);
     await this.gSay('wpn1', wps[0], [['waited', () => wps[0].anim.gesture('nod', 1, 0.3)]]);
     await this.sinClose(1.2);
-    await this.sinSay('sinQ1', [['what', () => sin.anim.gesture('chin', 1, 0.4)]]);
+    await this.sinSay('sinQw1', [['what', () => sin.anim.gesture('chin', 1, 0.4)]]);
     await this.gClose(wps[1], 1.4, -0.3, 30);
     wps[1].gu.uHandL.value = 1;
     wps[1].bl.play('decree');
@@ -994,7 +994,7 @@ export class Exile extends Probation {
     this.attachRing(ring, sin.rig);
     audio.ringChime();
     await this.sinClose(1.0);
-    await this.sinSay('sinQ2', [['never', () => sin.anim.gesture('beat', 0.6, 0.5)]]);
+    await this.sinSay('sinQw2', [['never', () => sin.anim.gesture('beat', 0.6, 0.5)]]);
     sin.anim.reach('R', null, { rate: 3 });
     sin.bl.hold('R', false);
     // the colour of fear, up him from his feet
@@ -1010,7 +1010,7 @@ export class Exile extends Probation {
     sin.rig.u.uGlow.value = 0.7;
     director.move(sinAt.clone().addScaledVector(fwd, 3.0).add(V(0.8, 1.6, 0)), sinAt.clone().add(V(0, 1.55, 0)), 2.2, ease.inOut, 36);
     sin.anim.gesture('chin', 1.2, 0.5);
-    await this.sinSay('sinQ3', [['throat', () => sin.anim.gesture('beat', 0.6, 0.5)]]);
+    await this.sinSay('sinQw3', [['throat', () => sin.anim.gesture('beat', 0.6, 0.5)]]);
     // Hal, at the edge
     choir.level(0.02, 1);
     director.cut(player.position.clone().add(V(1.0, 1.65, 1.8)), player.position.clone().add(V(0, 1.6, -3)), 40);
@@ -1022,7 +1022,7 @@ export class Exile extends Probation {
     await tween(0.8, (k) => { sin.yaw = sy + wrap(s1 - sy) * ease.inOut(k); sin.place(sinAt, sin.yaw); });
     sin.bl.lookHome = () => this.headOf(player.rig);
     await this.sinClose(1.1);
-    await this.sinSay('sinQ4', [['Brave', () => sin.anim.gesture('tilt', 1, 0.4)], ['stupid', 'dismiss']]);
+    await this.sinSay('sinQw4', [['Brave', () => sin.anim.gesture('tilt', 1, 0.4)], ['stupid', 'dismiss']]);
     // a fist of the yellow light, and Hal on his back
     sin.fist.visible = true;
     sin.fist.userData.set('uForm', 1);
@@ -1040,7 +1040,7 @@ export class Exile extends Probation {
     tween(0.5, (k) => sin.fist.userData.set('uForm', 1 - k)).then(() => (sin.fist.visible = false));
     await wait(0.9);
     await this.sinClose(1.0, -1);
-    await this.sinSay('sinQ5', [['mine', () => sin.anim.gesture('chin', 1, 0.4)]]);
+    await this.sinSay('sinQw5', [['mine', () => sin.anim.gesture('chin', 1, 0.4)]]);
     // up the column, into a breach of his own
     const top = F.clone().setY(46);
     const out = this.openRift(q, top, 6, 1, { palette: 'antimatter' });

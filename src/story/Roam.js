@@ -443,7 +443,7 @@ export class Roam extends Exile {
     const rift = this.openRift(this.current, mouth, 4.2, 1, { palette: 'antimatter' });
     rift.open = 0;
     director.cut(p0.clone().addScaledVector(fwd, -4.2).addScaledVector(right, 1.6).add(V(0, 2.2, 0)), mouth, 50);
-    this.ringSay(intoQward ? 'ringBreach' : 'ringBreachHome');
+    this.ringSay(intoQward ? 'ringBreachQward' : 'ringBreachHome');
     audio.rift(true);
     audio.riser(1.6, 0.3);
     this.ringGlow = 5;
@@ -1192,7 +1192,7 @@ export class Roam extends Exile {
       await ui.fade(0, 0.7);
       this.giveControl(this.roamObjective());
       this.bark({ wash: 'halWash', press: 'halPress', movie: 'halMovie', workout: 'halWorkout' }[kind] ?? 'halHaircut');
-    } else this.bark({ record: 'halRecord', flowers: 'halFlowers', oil: 'halOil', tape: 'halTape', drink: 'halBeer', book: 'halBook', jacket: 'halJacket', radio: 'halRadio' }[kind] ?? 'halEat1');
+    } else this.bark({ record: 'halRecord', flowers: 'halFlowers', oil: 'halOil', tape: 'halTape', drink: 'halBeer', book: 'halBook', jacket: 'halJacket', radio: 'halCarRadio' }[kind] ?? 'halEat1');
   }
 
   // Sit on a stool or a bench: walked up to, turned, lowered onto it; up again on E or a step
@@ -1309,7 +1309,7 @@ export class Roam extends Exile {
     await ui.fade(0, 0.6);
     this.busy = false;
     this.giveControl(this.roamObjective());
-    this.bark('halHome');
+    this.bark('halHomeFlat');
   }
 
   async exitFlat() {

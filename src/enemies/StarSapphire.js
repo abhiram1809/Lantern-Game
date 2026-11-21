@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RAPIER } from '../engine/Physics.js';
 import { damp, clamp } from '../engine/Time.js';
-import { makePose, blendInto } from '../characters/Poses.js';
+import { makePose, blendInto, still, POSES } from '../characters/Poses.js';
 import { constructMesh } from '../powers/Constructs.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -33,7 +33,7 @@ const SAP_DIVE = makePose({
   aL: [0.38, -0.6, -0.62], eL: 0.22, aR: [-0.38, -0.6, -0.62], eR: 0.22,
   lLx: 0.12, kL: 0.22, lRx: 0.24, kR: 0.48, fL: 0.9, fR: 0.9,
 });
-function sapFlight(state) {
+export function sapFlight(state) {
   return (out, t) => {
     const k = state.k ?? 0, still = 1 - k;
     blendInto(out, SAP_HOVER, SAP_DIVE, k);
@@ -512,6 +512,278 @@ export class StarSapphire {
     this.physics.dynamics = this.physics.dynamics.filter((d) => d.body !== this.rb);
   }
 }
+
+// Carol on Hal's side (Part Seven, the Predator): Star Sapphire with the gem her own. She keeps to its flank
+// across from him, at his height, and sends her shards into it (a little on its hide, more when it's
+// open); thrown open by his parry, it's hers to hold: crystal chains from her hands onto its neck, stakes
+// from the plaza over it (`pin`), and his blows land. In the air its beam takes her (`tethered`, `pull`):
+// held, drawn up to it, until he breaks it; let it finish and it drinks her light, and she's down a while
+// (`drained`). A kinematic body of no physics: nothing of Hal's hits her.
+const VOLLEY = { every: [2.6, 4.2], count: 3, speed: 26, damage: 4 };
+const CHAIN = { reach: 11, form: 0.35 };
+export class SapphireAlly {
+  constructor({ scene, powers, player, audio, rig, anim, centre, radius = 34, ground = () => 0 }) {
+    Object.assign(this, { scene, powers, player, audio, rig, anim, radius, ground });
+    this.centre = centre.clone();
+    this.object = new THREE.Group();
+    this.pivot = new THREE.Group();
+    this.pivot.position.y = PIVOT;
+    this.object.add(this.pivot);
+    scene.add(this.object);
+    this.root = rig.root;
+    this.object.position.copy(rig.root.getWorldPosition(new THREE.Vector3()));
+    this.pivot.add(rig.root);
+    rig.root.position.set(0, -PIVOT, 0);
+    rig.root.rotation.set(0, 0, 0);
+    this.flyState = { k: 0 };
+    this.anim.play(sapFlight(this.flyState), 0.6);
+    this.yaw = 0;
+    this.vel = new THREE.Vector3();
+    this.goal = new THREE.Vector3();
+    this.body = { pitch: 0, roll: 0 };
+    this.state = 'script'; // script | follow | pin | held | down
+    this.foe = null;
+    this.side = 1;
+    this.next = 2;
+    this.t = 0;
+    this.shards = [];
+    this.shardGeo = new THREE.OctahedronGeometry(1, 0).scale(0.18, 0.18, 0.85);
+    this.chains = [0, 1, 2, 3].map(() => {
+      const m = loveLight(constructMesh(new THREE.CylinderGeometry(0.11, 0.11, 1, 6, 1).translate(0, 0.5, 0), { uPattern: 0, outline: 0.012 }));
+      m.userData.set('uForm', 0);
+      m.visible = false;
+      scene.add(m);
+      return m;
+    });
+    this.onQuip = null;
+  }
+
+  // where she is (her chest), for its beam and the camera
+  get position() { const p = this.object.position.clone(); p.y += 1.25; return p; }
+
+  start(foe) { this.foe = foe; this.state = 'follow'; this.next = 1.6; this.anim.lookAt(() => foe.parts[0].tg.position, 0.6); }
+  stop() { this.state = 'script'; this.endPin(); this.clearShards(); this.anim.reach('L', null); this.anim.reach('R', null); }
+  canTether() { return this.state === 'follow'; }
+
+  update(dt, t) {
+    if (dt <= 0) return;
+    this.t += dt;
+    const foe = this.foe, me = this.object.position, hal = this.player.position;
+    if (this.state === 'follow' && foe) {
+      // on its flank across from him, at his height (or over the plaza), a little way off
+      const c = foe.parts[1].tg.position;
+      _aa.subVectors(hal, c).setY(0);
+      if (_aa.lengthSq() < 1e-3) _aa.set(0, 0, 1);
+      const away = Math.atan2(_aa.x, _aa.z) + this.side * 1.45 + Math.sin(this.t * 0.3) * 0.25;
+      this.goal.set(c.x + Math.sin(away) * 13, Math.max(this.ground(c.x, c.z) + 4.5, hal.y + 2), c.z + Math.cos(away) * 13);
+      if (foe.flying) this.goal.y = Math.max(this.goal.y, foe.root.position.y + 2);
+      if (Math.random() < dt * 0.05) this.side *= -1;
+      this.next -= dt;
+      if (this.next <= 0 && foe.state === 'fight') { this.volley(); this.next = VOLLEY.every[0] + Math.random() * (VOLLEY.every[1] - VOLLEY.every[0]); }
+      // its head thrown open: hers to hold
+      if ((foe.exposed > 0.3 || foe.stagger > 1.2) && foe.pinned <= 0 && foe.state === 'fight' && !foe.action) this.beginPin();
+    } else if (this.state === 'pin' && foe) {
+      const head = foe.parts[0].tg.position;
+      _aa.subVectors(me, head).setY(0);
+      if (_aa.lengthSq() < 1e-3) _aa.set(1, 0, 0);
+      this.goal.copy(head).addScaledVector(_aa.normalize(), 6.5).setY(head.y + 2.6);
+      this.pinT += dt;
+      const near = me.distanceTo(head) < CHAIN.reach;
+      if (near && !this.pinned) { this.pinned = true; this.pinT = 0; foe.pin(); this.audio.glass?.(0.6); this.audio.constructForm?.(1.2); this.onQuip?.('pin'); }
+      if (this.pinned) this.drawChains();
+      if ((this.pinned && foe.pinned <= 0) || this.pinT > 4 || foe.state !== 'fight') { this.endPin(); this.state = 'follow'; this.next = 1.2; }
+    } else if (this.state === 'hold' && foe) {
+      // (the end of it, scripted: over its head, the chains on, for as long as the story says)
+      const head = foe.parts[0].tg.position;
+      this.goal.copy(head).add(_aa.set(Math.cos(foe.yaw) * 5, 5, -Math.sin(foe.yaw) * 5));
+      this.pinT += dt;
+      this.drawChains();
+    } else if (this.state === 'held') {
+      this.goal.copy(me); // (`pull` moves her)
+    } else if (this.state === 'down') {
+      this.downT -= dt;
+      this.goal.copy(me);
+      me.y = damp(me.y, this.ground(me.x, me.z), 3, dt);
+      if (this.downT <= 0) { this.state = 'follow'; this.anim.play(sapFlight(this.flyState), 0.8); this.rig.glowUp?.(1); this.onQuip?.('up'); }
+    }
+    this.fly(dt);
+    this.updateShards(dt);
+    for (const c of this.chains) c.userData.set('uTime', t);
+  }
+
+  fly(dt) {
+    const me = this.object.position;
+    if (this.state !== 'down' && this.state !== 'held') {
+      const fast = this.state === 'pin' || this.state === 'hold';
+      _aa.subVectors(this.goal, me).multiplyScalar(fast ? 2.6 : 1.6);
+      _aa.clampLength(0, fast ? 20 : 11);
+      this.vel.lerp(_aa, Math.min(1, dt * 3));
+      me.addScaledVector(this.vel, dt);
+      const cx = this.centre.x, cz = this.centre.z, r = Math.hypot(me.x - cx, me.z - cz);
+      if (r > this.radius) { me.x = cx + (me.x - cx) * this.radius / r; me.z = cz + (me.z - cz) * this.radius / r; }
+      me.y = Math.max(me.y, this.ground(me.x, me.z) + 0.8);
+    }
+    // facing it (or the way she's going, fast)
+    const foe = this.foe, look = foe ? foe.parts[1].tg.position : this.player.position;
+    const want = this.vel.length() > 7 && this.state !== 'pin' ? Math.atan2(this.vel.x, this.vel.z) : Math.atan2(look.x - me.x, look.z - me.z);
+    this.yaw = wrap(this.yaw + clamp(wrap(want - this.yaw), -4 * dt, 4 * dt));
+    this.object.rotation.set(0, this.yaw, 0);
+    const fwd = this.vel.x * Math.sin(this.yaw) + this.vel.z * Math.cos(this.yaw), side = -this.vel.x * Math.cos(this.yaw) + this.vel.z * Math.sin(this.yaw);
+    const held = this.state === 'held' ? Math.sin(this.t * 13) * 0.08 : 0;
+    this.body.pitch = damp(this.body.pitch, clamp(0.04 + fwd * 0.03, -0.25, 0.5) + held, 5, dt);
+    this.body.roll = damp(this.body.roll, clamp(side * 0.025, -0.35, 0.35) + held * 0.6, 5, dt);
+    this.pivot.quaternion.copy(_qa.setFromAxisAngle(_Z, this.body.roll)).multiply(_qb.setFromAxisAngle(_X, this.body.pitch));
+    this.flyState.k = damp(this.flyState.k, Math.min(0.6, this.vel.length() / 18) + (this.state === 'held' ? 0.4 : 0), 4, dt);
+  }
+
+  // ---- her shards: three out of her right hand, homing on its body
+  volley() {
+    const foe = this.foe;
+    this.reachAt(() => foe.parts[1].tg.position, 'R');
+    for (let i = 0; i < VOLLEY.count; i++) {
+      const m = loveLight(constructMesh(this.shardGeo, { uPattern: 0, outline: 0.012 }));
+      m.userData.set('uForm', 1);
+      this.scene.add(m);
+      this.shards.push({ mesh: m, delay: 0.25 + i * 0.12, pos: null, vel: new THREE.Vector3(), life: 0 });
+    }
+    this.audio.tone?.({ type: 'triangle', freq: 1100, to: 700, attack: 0.01, peak: 0.03, dur: 0.25, wet: 0.5 });
+  }
+  updateShards(dt) {
+    const foe = this.foe;
+    this.shards = this.shards.filter((s) => {
+      s.life += dt;
+      if (s.delay > 0) {
+        s.delay -= dt;
+        this.rig.bonePosition('hand_R', _ab);
+        s.mesh.position.copy(_ab);
+        if (s.delay <= 0) {
+          s.pos = _ab.clone();
+          s.vel.copy(foe ? foe.parts[1].tg.position : this.player.position).sub(s.pos).setLength(VOLLEY.speed);
+          if (s.life > 0.5) this.anim.reach('R', null, { rate: 4 });
+        }
+        return true;
+      }
+      const to = _ab.subVectors(foe.parts[1].tg.position, s.pos);
+      s.vel.lerp(to.setLength(VOLLEY.speed), Math.min(1, dt * 4));
+      s.pos.addScaledVector(s.vel, dt);
+      s.mesh.position.copy(s.pos);
+      s.mesh.lookAt(_ab.copy(s.pos).add(s.vel));
+      if (s.pos.distanceTo(foe.parts[1].tg.position) < 1.6 || s.pos.distanceTo(foe.parts[0].tg.position) < 1.2) {
+        foe.allyHit(VOLLEY.damage, s.pos.clone());
+        foe.sparks?.(s.pos, 10, true);
+        s.mesh.removeFromParent();
+        return false;
+      }
+      if (s.life > 3) { s.mesh.removeFromParent(); return false; }
+      return true;
+    });
+  }
+  clearShards() { for (const s of this.shards) s.mesh.removeFromParent(); this.shards = []; }
+
+  reachAt(fn, side) {
+    const sh = new THREE.Vector3(), out = new THREE.Vector3(), bone = side === 'L' ? 'upperArm_L' : 'upperArm_R';
+    this.anim.reach(side, () => { this.rig.bonePosition(bone, sh); return out.copy(fn()).sub(sh).normalize().multiplyScalar(0.52).add(sh); }, { pole: V(side === 'L' ? 0.6 : -0.6, -0.7, -0.3), rate: 8 });
+  }
+
+  // ---- the pin: both hands out at its neck, the chains on, and two stakes over it from the plaza
+  beginPin() {
+    this.state = 'pin';
+    this.pinned = false;
+    this.pinT = 0;
+    const at = new THREE.Vector3(), neck = () => this.foe.bone('Neck', at);
+    this.reachAt(neck, 'L');
+    this.reachAt(neck, 'R');
+    this.onQuip?.('pinning');
+  }
+  drawChains() {
+    const foe = this.foe, k = Math.min(1, this.pinT / CHAIN.form);
+    const neck = foe.bone('Neck', _an), torso = foe.bone('Torso', _at), pelvis = foe.bone('Pelvis', _apv);
+    this.rig.bonePosition('hand_L', _ab);
+    this.rig.bonePosition('hand_R', _ac);
+    const g = foe.ground(neck.x, neck.z);
+    const lat = _ad.set(Math.cos(foe.yaw), 0, -Math.sin(foe.yaw));
+    const links = [[_ab, neck], [_ac, torso], [_ae.copy(neck).addScaledVector(lat, 4).setY(g), _af.copy(torso).addScaledVector(lat, -0.3)], [_ag.copy(pelvis).addScaledVector(lat, -4).setY(g), _ah.copy(pelvis).addScaledVector(lat, 0.3)]];
+    links.forEach(([a, b], i) => {
+      const m = this.chains[i];
+      m.visible = true;
+      m.userData.set('uForm', k);
+      m.position.copy(a);
+      _ai.subVectors(b, a);
+      const len = _ai.length();
+      m.quaternion.setFromUnitVectors(_Y, _ai.normalize());
+      m.scale.set(1, len * k, 1);
+    });
+  }
+  // the story's own pin, at the end: held until `stop`
+  holdDown() {
+    this.state = 'hold';
+    this.pinned = true;
+    this.pinT = 0;
+    const at = new THREE.Vector3(), neck = () => this.foe.bone('Neck', at);
+    this.reachAt(neck, 'L');
+    this.reachAt(neck, 'R');
+    this.audio.glass?.(0.8);
+    this.audio.constructForm?.(1.4);
+  }
+  endPin() {
+    if (this.pinned) this.audio.glass?.(0.7);
+    this.pinned = false;
+    for (const c of this.chains) c.visible = false;
+    this.anim.reach('L', null, { rate: 4 });
+    this.anim.reach('R', null, { rate: 4 });
+  }
+
+  // ---- its beam: held, drawn up to it, her hands out at it, struggling; then free, or drained
+  tethered() {
+    this.endPin();
+    this.state = 'held';
+    this.vel.set(0, 0, 0);
+    const foe = this.foe;
+    this.reachAt(() => foe.parts[0].tg.position, 'L');
+    this.reachAt(() => foe.parts[0].tg.position, 'R');
+    this.onQuip?.('held');
+  }
+  pull(mouth, dt) {
+    if (this.state !== 'held') return;
+    const me = this.object.position, to = _aa.subVectors(mouth, me), d = to.length();
+    if (d > 5.5) me.addScaledVector(to.normalize(), Math.min(d - 5.5, 1.7 * dt));
+  }
+  untethered() {
+    if (this.state !== 'held') return;
+    this.state = 'follow';
+    this.next = 1.5;
+    this.anim.reach('L', null, { rate: 4 });
+    this.anim.reach('R', null, { rate: 4 });
+    this.onQuip?.('free');
+  }
+  drained() {
+    this.state = 'down';
+    this.downT = 8;
+    this.vel.set(0, 0, 0);
+    this.anim.reach('L', null, { rate: 4 });
+    this.anim.reach('R', null, { rate: 4 });
+    this.anim.play(still(POSES.kneel, 1.4), 0.9);
+    this.rig.glowUp?.(0.35);
+    this.onQuip?.('drained');
+  }
+
+  // her body back to the story, where it is
+  release(scene) {
+    this.stop();
+    this.root.getWorldPosition(_aa);
+    scene.add(this.root);
+    this.root.position.copy(_aa);
+    this.root.rotation.set(0, this.yaw, 0);
+    this.object.removeFromParent();
+  }
+  dispose() {
+    this.stop();
+    for (const c of this.chains) c.removeFromParent();
+    this.object.removeFromParent();
+  }
+}
+const _aa = new THREE.Vector3(), _ab = new THREE.Vector3(), _ac = new THREE.Vector3(), _ad = new THREE.Vector3(), _ae = new THREE.Vector3(), _af = new THREE.Vector3(), _ag = new THREE.Vector3(), _ah = new THREE.Vector3(), _ai = new THREE.Vector3();
+const _an = new THREE.Vector3(), _at = new THREE.Vector3(), _apv = new THREE.Vector3(), _Y = new THREE.Vector3(0, 1, 0);
 
 // bars of crystal in a ring, a band at the foot and the head
 function cageGeometry() {
