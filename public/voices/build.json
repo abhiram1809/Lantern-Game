@@ -143,6 +143,14 @@
   "clerk:755164ed5d08": {
    "base": 208.1,
    "beta": 0.5546
+  },
+  "sapphire:2fe2d5fdc831": {
+   "base": 206.8,
+   "beta": 0.9595
+  },
+  "zamaron:e1affacf5e28": {
+   "base": 203.1,
+   "beta": 0.8344
   }
  },
  "lines": {
@@ -8528,6 +8536,646 @@
    "f0dry": 198.4,
    "f0wet": 197.7,
    "beta": 0.932
+  },
+  "carolAsk1": {
+   "hash": "793a5ed462cbeea9",
+   "ps": "jʊɹ ˈɜːli, dʒˈoːɹdən.",
+   "f0raw": 223,
+   "f0dry": 213,
+   "f0wet": 201.8,
+   "beta": 0.932
+  },
+  "halAsk1": {
+   "hash": "3a18671937c43c9b",
+   "ps": "aɪ wʌz tˈoʊld ɪt wʌzɐ ɡˈʊd sˈaɪn.",
+   "f0raw": 130.3,
+   "f0dry": 118.1,
+   "f0wet": 118.1,
+   "beta": 0.946
+  },
+  "carolAsk2": {
+   "hash": "4f6728c004f467c3",
+   "ps": "baɪ hˈuːm? jʊɹ fɹˈɛndz ɪnðə skˈaɪ?",
+   "f0raw": 215.1,
+   "f0dry": 202,
+   "f0wet": 202.1,
+   "beta": 0.932
+  },
+  "halAsk2": {
+   "hash": "2a3fc520ddec2d12",
+   "ps": "baɪ nˈoʊbɑːdi. aɪ dʒˈʌst wˈɔntᵻd tə sˈeɪ ɪt bᵻfˌoːɹ aɪ lˈɔst maɪ nˈɜːv. dˈɪnɚ. tənˈaɪt. juː ænd mˈiː.",
+   "f0raw": 115.2,
+   "f0dry": 109.5,
+   "f0wet": 111.3,
+   "beta": 0.946
+  },
+  "carolAsk3": {
+   "hash": "b6c302b1681d3b39",
+   "ps": "aɪ tˈoʊld juː. aɪ dˈoʊnt dˈeɪt ɛmplˈɔɪiːz.",
+   "f0raw": 199.4,
+   "f0dry": 187.7,
+   "f0wet": 188.6,
+   "beta": 0.932
+  },
+  "halAsk3": {
+   "hash": "522e942167c2b0ae",
+   "ps": "ðˈɛn hˈɛlp mˌiː ˈaʊt hˈɪɹ. hˌaʊ dˈuː wiː fˈɪks ðˈæt?",
+   "f0raw": 124.1,
+   "f0dry": 108.8,
+   "f0wet": 110.1,
+   "beta": 0.946
+  },
+  "carolAsk4": {
+   "hash": "650b1562d801389b",
+   "ps": "jʊɹ ʃˈɪft ˈɛndz æt fˈaɪv. ˈæftɚ fˈaɪv jʊɹ nˈoʊbɑːdiz pˈaɪlət. dʒˈʌst ɐ mˈæn aɪ nˈoʊ wɪð ɐ tˈɛɹᵻbəl tɹˈæk ɹˈɛkɚd.",
+   "f0raw": 198.5,
+   "f0dry": 184.6,
+   "f0wet": 185.1,
+   "beta": 0.932
+  },
+  "halAsk4": {
+   "hash": "1a9b6fd7a598d184",
+   "ps": "aɪl tˈeɪk ɪt.",
+   "f0raw": 130.7,
+   "f0dry": 132.1,
+   "f0wet": 135.5,
+   "beta": 0.946
+  },
+  "carolAsk5": {
+   "hash": "e92db039f5476cf9",
+   "ps": "sˈɛvən əklˈɑːk. ðə pˈɪɹ. aɪ pˈɪk ðə tˈeɪbəl, juː pˈeɪ, ænd juː kˈʌm æz hˈæl dʒˈoːɹdən.",
+   "f0raw": 196.4,
+   "f0dry": 183.4,
+   "f0wet": 183.2,
+   "beta": 0.932
+  },
+  "halAsk5": {
+   "hash": "d37bc36ccc2fbee3",
+   "ps": "æz əpˈoʊzd tə hˈuː?",
+   "f0raw": 124.5,
+   "f0dry": 123,
+   "f0wet": 112.1,
+   "beta": 0.946
+  },
+  "carolAsk6": {
+   "hash": "023a20b02df143de",
+   "ps": "æz əpˈoʊzd tə ðə mˈæn wɪððə ɡlˈoʊ. nˌɑːt tənˈaɪt. tənˈaɪt nˈoʊbɑːdi sˈeɪvz ˈɛnɪθˌɪŋ.",
+   "f0raw": 205.8,
+   "f0dry": 191.1,
+   "f0wet": 187.7,
+   "beta": 0.932
+  },
+  "halAsk6": {
+   "hash": "a10ac3ae91f1d9f5",
+   "ps": "ðə ɹˈɪŋ dˈʌzənt ɛɡzˈæktli kˈʌm ˈɔf.",
+   "f0raw": 111.6,
+   "f0dry": 100.1,
+   "f0wet": 100.7,
+   "beta": 0.946
+  },
+  "carolAsk7": {
+   "hash": "bd48552eca20bf40",
+   "ps": "ðˈɛn ɪt stˈeɪz ɪn jʊɹ pˈɑːkɪt, ænd ɪt stˈeɪz kwˈaɪət. ðæts maɪ ˈoʊnli tˈɜːm.",
+   "f0raw": 209.5,
+   "f0dry": 194.2,
+   "f0wet": 196.1,
+   "beta": 0.932
+  },
+  "halAsk7": {
+   "hash": "d6bf7a21cfc86b94",
+   "ps": "kwˈaɪət ɹˈɪŋ. aɪ kæn dˈuː ðˈæt.",
+   "f0raw": 110.9,
+   "f0dry": 98.7,
+   "f0wet": 96.6,
+   "beta": 0.946
+  },
+  "carolAsk8": {
+   "hash": "49a9b4f18dc4ff48",
+   "ps": "ˈænd hˈæl. ɪf sˈʌmθɪŋ kˈɔːlz juː ɐwˈeɪ, juː tˈɛl mˌiː fˈɜːst. nˌɑːt ˈæftɚ. aɪ swˈoːɹ aɪd nˈɛvɚ biː ðə wˈʌn wˈeɪɾɪŋ æt ðɪ ˈɛnd əvɚ ɹˈʌnweɪ. dˈoʊnt mˌeɪk mˌiː dˈuː ɪɾ æɾɚ ɹˈɛstɹɑːnt.",
+   "f0raw": 194.6,
+   "f0dry": 178.8,
+   "f0wet": 178.7,
+   "beta": 0.932
+  },
+  "halAsk8": {
+   "hash": "ee4ffb620ba4c4de",
+   "ps": "aɪl tˈɛl juː fˈɜːst. aɪ pɹˈɑːmɪs.",
+   "f0raw": 134,
+   "f0dry": 122.7,
+   "f0wet": 122.7,
+   "beta": 0.946
+  },
+  "carolAsk9": {
+   "hash": "ab7f779352cad89f",
+   "ps": "ɡˈʊd. nˈaʊ ɡˌoʊ ɐwˈeɪ. aɪ hæv ɐn ˈɛɹpleɪn tə pˌʊt bˈæk təɡˈɛðɚ.",
+   "f0raw": 209.2,
+   "f0dry": 200.7,
+   "f0wet": 200.3,
+   "beta": 0.932
+  },
+  "carolAsk10": {
+   "hash": "718075440291076e",
+   "ps": "hˈʌ.",
+   "f0raw": 209.9,
+   "f0dry": 200.7,
+   "f0wet": 200.5,
+   "beta": 0.932
+  },
+  "halAsk0": {
+   "hash": "ccca21aaf70ee5d0",
+   "ps": "ʃˈɑːt æɾ ˌɔn tˈuː plˈænɪts. pˌʊt ˌɔn tɹˈaɪəl baɪ ɐ kˈaʊnsəl ʌv blˈuː mˈɛn. ænd ðɪs ɪz ðə wˈʌn ðæt mˌeɪks maɪ hˈændz swˈɛt.",
+   "f0raw": 112.9,
+   "f0dry": 103.2,
+   "f0wet": 102.5,
+   "beta": 0.959
+  },
+  "halAsk9": {
+   "hash": "795483eebd21e37e",
+   "ps": "sˈɛvən əklˈɑːk. ðə pˈɪɹ. nˈoʊ ɹˈɪŋ. hˌaʊ hˈɑːɹd kæn ɪt bˈiː?",
+   "f0raw": 126.3,
+   "f0dry": 108.8,
+   "f0wet": 115.3,
+   "beta": 0.959
+  },
+  "halPier1": {
+   "hash": "ca02dab6c357faed",
+   "ps": "ˈɜːli ɐɡˈɛn. lˈæst wˈiːk aɪ stˈʊd ɪn fɹˈʌnt əvən ˈɑːɹmi ˌɔn ɐnˈʌðɚ plˈænɪt. ðɪs ɪz wˈɜːs.",
+   "f0raw": 120.3,
+   "f0dry": 109.8,
+   "f0wet": 109.2,
+   "beta": 0.959
+  },
+  "carolPier1": {
+   "hash": "2cd22a2fbe721dae",
+   "ps": "jʊɹ ˈɜːli ɐɡˈɛn. aɪm stˈɑːɹɾɪŋ tə wˈʌɹi.",
+   "f0raw": 208.1,
+   "f0dry": 198,
+   "f0wet": 201.2,
+   "beta": 0.932
+  },
+  "halPier2": {
+   "hash": "653b1a73b10932db",
+   "ps": "juː kˈeɪm stɹˈeɪt fɹʌmðə fˈiːld.",
+   "f0raw": 128,
+   "f0dry": 108.9,
+   "f0wet": 108.9,
+   "beta": 0.946
+  },
+  "carolPier2": {
+   "hash": "43b83fe63de51f20",
+   "ps": "ðɪs ɪz ðə dɹˈɛs kˈoʊd. juː sˈɛd dˈɪnɚ. juː nˈɛvɚ sˈɛd ˈɛnɪθˌɪŋ ɐbˌaʊt ɐ tˈaɪ.",
+   "f0raw": 204.7,
+   "f0dry": 191,
+   "f0wet": 191,
+   "beta": 0.932
+  },
+  "halPier3": {
+   "hash": "bf3c083149bd9e0a",
+   "ps": "juː lˈʊk ɡɹˈeɪt.",
+   "f0raw": 127.8,
+   "f0dry": 115.3,
+   "f0wet": 115.2,
+   "beta": 0.946
+  },
+  "carolPier3": {
+   "hash": "207ffecebedb37bb",
+   "ps": "dˈoʊnt pˈʊʃ ɪt, dʒˈoːɹdən. wˌɛɹ æm aɪ ˈiːɾɪŋ?",
+   "f0raw": 202.5,
+   "f0dry": 188.7,
+   "f0wet": 186.5,
+   "beta": 0.932
+  },
+  "carolPier4": {
+   "hash": "a5a23051ce161248",
+   "ps": "maɪ fˈɑːðɚ jˈuːzd tə bɹˈɪŋ mˌiː ˈaʊt hˈɪɹ ˈɛvɹi sˈʌmɚ. hiːd sˈɪt ˌɔn ðæt bˈɛntʃ ænd kˈaʊnt ðə plˈeɪnz ɡˌoʊɪŋ ˌoʊvɚ ðə wˈɔːɾɚ.",
+   "f0raw": 192.2,
+   "f0dry": 179,
+   "f0wet": 180,
+   "beta": 0.932
+  },
+  "halPier4": {
+   "hash": "985c043f5aa4072e",
+   "ps": "dˈɪd juː ˈɛvɚ ɹˈaɪd ðə wˈiːl?",
+   "f0raw": 102.8,
+   "f0dry": 116.1,
+   "f0wet": 117.6,
+   "beta": 0.946
+  },
+  "carolPier5": {
+   "hash": "73f1d3ebc5f3ff22",
+   "ps": "hiː sˈɛd ɪt wʌz fɔːɹ tˈʊɹɹɪsts. aɪ ˈɔːlweɪz wˈɔntᵻd tuː.",
+   "f0raw": 217.5,
+   "f0dry": 212.2,
+   "f0wet": 210.9,
+   "beta": 0.932
+  },
+  "halPier5": {
+   "hash": "561e1db79d95de53",
+   "ps": "ɪts stˈɪl tˈɜːnɪŋ. nˈoʊbɑːdiz stˈɑːpɪŋ juː.",
+   "f0raw": 128,
+   "f0dry": 104.2,
+   "f0wet": 104.2,
+   "beta": 0.946
+  },
+  "carolPier6": {
+   "hash": "5de28a5132f2a575",
+   "ps": "tˈɛl mˌiː sˈʌmθɪŋ tɹˈuː, hˈæl. wˌʌts ɪt lˈaɪk? ˈaʊt ðˈɛɹ.",
+   "f0raw": 212.1,
+   "f0dry": 200,
+   "f0wet": 200.6,
+   "beta": 0.932
+  },
+  "halPier6": {
+   "hash": "ba6ce9ae3d9ab102",
+   "ps": "lˈaɪk fˈɔːlɪŋ, ænd nˈoʊɪŋ ðə hˈoʊl wˈeɪ dˌaʊn ðæt ðɛɹz ɡɹˈaʊnd. ˈɛvɹi tˈaɪm.",
+   "f0raw": 122.4,
+   "f0dry": 113.1,
+   "f0wet": 112.8,
+   "beta": 0.946
+  },
+  "carolPier7": {
+   "hash": "26ad5d2ee8ae5e54",
+   "ps": "ænd wɛn jʊɹ ˌʌp ðˈɛɹ, dˈuː juː θˈɪŋk ɐbˌaʊt ðə fˈiːld?",
+   "f0raw": 227.8,
+   "f0dry": 215.4,
+   "f0wet": 215.2,
+   "beta": 0.932
+  },
+  "halPier7": {
+   "hash": "3fa7a4e8df5091a6",
+   "ps": "ˈɛvɹi tˈaɪm. ɪts ðə fˈɜːst θˈɪŋ aɪ θˈɪŋk ʌv. wˈɛðɚ sˈʌmbɑːdiz stˈændɪŋ ˈɔn ɪt.",
+   "f0raw": 114.8,
+   "f0dry": 108.3,
+   "f0wet": 107.8,
+   "beta": 0.946
+  },
+  "carolPier8": {
+   "hash": "121018e02afec5a0",
+   "ps": "ðæts ˈɔːl aɪ nˈiːdᵻd tə hˈɪɹ.",
+   "f0raw": 215.8,
+   "f0dry": 196.8,
+   "f0wet": 189.1,
+   "beta": 0.932
+  },
+  "halPier8": {
+   "hash": "d8d75979d90e0701",
+   "ps": "jʊɹ nˌɑːt ɐfɹˈeɪd ʌv ˈɛnɪθˌɪŋ, ɑːɹ jˈuː.",
+   "f0raw": 116.1,
+   "f0dry": 107.5,
+   "f0wet": 102.4,
+   "beta": 0.946
+  },
+  "carolPier9": {
+   "hash": "bdfb34fce21b6052",
+   "ps": "aɪm nˌɑːt ɐfɹˈeɪd ʌv hˈaɪts. aɪm ɐfɹˈeɪd ʌv ðˈɪs.",
+   "f0raw": 229.6,
+   "f0dry": 219.7,
+   "f0wet": 219.7,
+   "beta": 0.932
+  },
+  "halPier9": {
+   "hash": "5e9e402da337511b",
+   "ps": "fˈʌni. sˌoʊ æm ˈaɪ.",
+   "f0raw": 132.6,
+   "f0dry": 120,
+   "f0wet": 120.1,
+   "beta": 0.946
+  },
+  "ringPier1": {
+   "hash": "fa43cde75ba492df",
+   "ps": "ʌnnˈəʊn ˈɛnədʒi sˈɪɡnɪtʃə. vˈaɪəlɪt bˈand. klˈəʊzɪŋ fˈast.",
+   "f0raw": 190.5,
+   "f0dry": 190.5,
+   "f0wet": 197.2,
+   "beta": 1
+  },
+  "halPier10": {
+   "hash": "3de0e13940024268",
+   "ps": "kˈæɹəl. sˈʌmθɪŋz kˈʌmɪŋ.",
+   "f0raw": 131.8,
+   "f0dry": 112.1,
+   "f0wet": 112,
+   "beta": 0.946
+  },
+  "carolPier10": {
+   "hash": "cb2e8d6f6544d19f",
+   "ps": "juː sˈɛd juːd tˈɛl mˌiː fˈɜːst.",
+   "f0raw": 235.6,
+   "f0dry": 220.8,
+   "f0wet": 219.6,
+   "beta": 0.932
+  },
+  "halPier11": {
+   "hash": "b3e7f14164b40c12",
+   "ps": "aɪm tˈɛlɪŋ juː fˈɜːst.",
+   "f0raw": 119.9,
+   "f0dry": 110.1,
+   "f0wet": 103.7,
+   "beta": 0.946
+  },
+  "halStrike1": {
+   "hash": "59185a0959b3bd1d",
+   "ps": "ɡɛt dˈaʊn!",
+   "f0raw": 146.7,
+   "f0dry": 134.8,
+   "f0wet": 134.8,
+   "beta": 0.946
+  },
+  "sapStrike1": {
+   "hash": "d21e57d8dff596fa",
+   "ps": "kˈæɹəl fˈɛɹɪs. wiː hæv sˈɜːtʃt ɐ vˈɛɹi lˈɔŋ tˈaɪm fɚɹə hˈɑːɹt lˈaɪk jˈoːɹz.",
+   "f0raw": 198.2,
+   "f0dry": 204.2,
+   "f0wet": 223.5,
+   "beta": 0.96
+  },
+  "carolStrike1": {
+   "hash": "64614b1821d353f4",
+   "ps": "hˈæl? ɪt dˈʌzənt hˈɜːt. aɪ kæn fˈiːl ˈɛvɹɪwˌʌn. ˈɛvɹi pˈɜːsən ɪn ðɪs sˈɪɾi hˌuː hɐz ˈɛvɚ bˌɪn lˈʌvd.",
+   "f0raw": 196.6,
+   "f0dry": 184.3,
+   "f0wet": 186.9,
+   "beta": 0.932
+  },
+  "halStrike2": {
+   "hash": "4f9d7006c02f8279",
+   "ps": "kˈæɹəl, lˈɪsən tə mˌiː. fˈaɪt ɪt.",
+   "f0raw": 124,
+   "f0dry": 116.2,
+   "f0wet": 102.1,
+   "beta": 0.946
+  },
+  "sapStrike2": {
+   "hash": "ee4dfb209a664d7c",
+   "ps": "lˈʌv ɪz nˌɑːɾə θˈɪŋ təbi fˈɔːt, ɡɹˈiːn lˈæntɚn. ɪɾ ɪz ɐ θˈɪŋ təbi ɡˈɪvən.",
+   "f0raw": 205.9,
+   "f0dry": 213.9,
+   "f0wet": 223,
+   "beta": 0.96
+  },
+  "carolStrike2": {
+   "hash": "b746fde933546c01",
+   "ps": "hˈæl. aɪm nˌɑːt ɐfɹˈeɪd.",
+   "f0raw": 207.3,
+   "f0dry": 194.9,
+   "f0wet": 195.1,
+   "beta": 0.932
+  },
+  "ringStrike1": {
+   "hash": "25b696beb81cacd8",
+   "ps": "tɹˈakɪŋ lˈɒst. sˈɔːs ʌnnˈəʊn. hˈɛdɪŋ: ˈaʊt ˌəʊvə ðə sˈiː, klˈaɪmɪŋ.",
+   "f0raw": 181.3,
+   "f0dry": 181.3,
+   "f0wet": 184.4,
+   "beta": 1
+  },
+  "halStrike3": {
+   "hash": "ca13a067021483ab",
+   "ps": "aɪ tˈoʊld juː fˈɜːst, kˈæɹəl. aɪ tˈoʊld juː fˈɜːst.",
+   "f0raw": 134.8,
+   "f0dry": 117.5,
+   "f0wet": 115.7,
+   "beta": 0.959
+  },
+  "ringHold1": {
+   "hash": "e84806bbb0ea4f51",
+   "ps": "sˈɪɡnɪtʃə fˈaʊnd. vˈaɪəlɪt bˈand, hˈəʊldɪŋ ˌəʊvə ðə wˈɔːtə tə ðə wˈɛst. ðə bˈeəɹəɹ ɪz kˈaɹəl fˈɛɹɪs.",
+   "f0raw": 183.3,
+   "f0dry": 183.3,
+   "f0wet": 180.1,
+   "beta": 1
+  },
+  "halHold1": {
+   "hash": "eddb2c25142a8a44",
+   "ps": "ðˈɛn ðæts wˌɛɹ aɪm ɡˈoʊɪŋ.",
+   "f0raw": 126.5,
+   "f0dry": 115.3,
+   "f0wet": 115.2,
+   "beta": 0.946
+  },
+  "halHold2": {
+   "hash": "1fdd6c156f3d83ce",
+   "ps": "ˈiːzi. wʌtˈɛvɚz ɪn hɜː, ʃiːz stˈɪl ɪn ðˈɛɹ.",
+   "f0raw": 122.4,
+   "f0dry": 116.8,
+   "f0wet": 117.4,
+   "beta": 0.959
+  },
+  "sapHold1": {
+   "hash": "55b4d1940b648dec",
+   "ps": "juː kˈeɪm ˈæftɚ mˌiː. juː ˈɔːlweɪz kˈʌm bˈæk fɔːɹ wʌt juː lˈʌv, hˈæl. ðæt ɪz wˌaɪ wiː tʃˈoʊz hɜː.",
+   "f0raw": 204.3,
+   "f0dry": 209,
+   "f0wet": 213.9,
+   "beta": 0.96
+  },
+  "halHold3": {
+   "hash": "77d0abc0add828d9",
+   "ps": "lˈɛt hɜː ɡˈoʊ.",
+   "f0raw": 134.3,
+   "f0dry": 123.1,
+   "f0wet": 117.7,
+   "beta": 0.946
+  },
+  "sapHold2": {
+   "hash": "8b18a2586c5b8394",
+   "ps": "ʃiː ˈæskt fɔːɹ ðˈɪs. ˈɛvɹi nˈaɪt ʃiː wˈɑːtʃt ðə skˈaɪ fɔːɹ juː. nˈaʊ ʃiː nˈɛvɚ hɐz tə lˈɛt juː ɡˈoʊ.",
+   "f0raw": 198,
+   "f0dry": 198.4,
+   "f0wet": 201.3,
+   "beta": 0.96
+  },
+  "halHold4": {
+   "hash": "c76afd5ea396c3f4",
+   "ps": "kˈæɹəl. ɪf juː kæn hˈɪɹ mˌiː, aɪm sˈɑːɹi ɐbˌaʊt ðˈɪs.",
+   "f0raw": 119.4,
+   "f0dry": 110.8,
+   "f0wet": 105.8,
+   "beta": 0.946
+  },
+  "sapHold3": {
+   "hash": "9c462752a126b373",
+   "ps": "stˈeɪ wɪð mˌiː.",
+   "f0raw": 233.6,
+   "f0dry": 246.1,
+   "f0wet": 258.4,
+   "beta": 0.96
+  },
+  "ringHoldTip1": {
+   "hash": "fa15d21eedc36199",
+   "ps": "hɜː lˈaɪt ʃˈiːldz hɜː bˈɒdi. blˈəʊz ðat lˈand ˌɒn hɜː hˈɜːt kˈaɹəl.",
+   "f0raw": 178.6,
+   "f0dry": 178.6,
+   "f0wet": 189.2,
+   "beta": 1
+  },
+  "ringHoldTip2": {
+   "hash": "a2214d894817498b",
+   "ps": "ðə dʒˈɛm ɪz ðə sˈɔːs. tˈɜːn hɜːɹ ˈəʊn lˈaɪt bˈak ˌɪntʊ ɪt.",
+   "f0raw": 187.6,
+   "f0dry": 187.6,
+   "f0wet": 189,
+   "beta": 1
+  },
+  "ringHoldHurt1": {
+   "hash": "c049e60cc780084d",
+   "ps": "wˈɔːnɪŋ: ðə bˈeəɹəɹ ɪz ˈɪndʒəd.",
+   "f0raw": 186.2,
+   "f0dry": 186.2,
+   "f0wet": 186.6,
+   "beta": 1
+  },
+  "ringHoldHurt2": {
+   "hash": "9d1ad0d440ac487c",
+   "ps": "wˈɔːnɪŋ: ðə bˈeəɹə kˈanɒt tˈeɪk mˈʌtʃ mˈɔː.",
+   "f0raw": 182.8,
+   "f0dry": 182.8,
+   "f0wet": 184.1,
+   "beta": 1
+  },
+  "sapQCage": {
+   "hash": "0304670fe591516c",
+   "ps": "stˈeɪ. dʒˈʌst stˈeɪ.",
+   "f0raw": 250.5,
+   "f0dry": 261.1,
+   "f0wet": 264.5,
+   "beta": 0.96
+  },
+  "sapQBroke": {
+   "hash": "f23dd865108be5be",
+   "ps": "juː nˈɛvɚ kʊd stˈeɪ pˈʊt.",
+   "f0raw": 227.5,
+   "f0dry": 224.3,
+   "f0wet": 235.3,
+   "beta": 0.96
+  },
+  "sapQParried": {
+   "hash": "f4a27ce7e9c5b28c",
+   "ps": "juː wʊd tˈɜːn maɪ ˈoʊn hˈɑːɹt ˈɔn mˌiː?",
+   "f0raw": 241.4,
+   "f0dry": 242.5,
+   "f0wet": 251.7,
+   "beta": 0.96
+  },
+  "sapQHit1": {
+   "hash": "edcc722bdbf2d988",
+   "ps": "dˈoʊnt fˈaɪt ɪt.",
+   "f0raw": 228.2,
+   "f0dry": 228.6,
+   "f0wet": 240.1,
+   "beta": 0.96
+  },
+  "sapQHit2": {
+   "hash": "3165ded11557ed79",
+   "ps": "lˈɛt ɡˈoʊ, hˈæl.",
+   "f0raw": 240.8,
+   "f0dry": 243,
+   "f0wet": 243.9,
+   "beta": 0.96
+  },
+  "carolQHurt": {
+   "hash": "7c8c9b3aaa44bd7e",
+   "ps": "hˈæl! ðˈæts mˌiː!",
+   "f0raw": 243.8,
+   "f0dry": 232.8,
+   "f0wet": 233,
+   "beta": 0.932
+  },
+  "carolQHeld": {
+   "hash": "dbd591a911193fe3",
+   "ps": "hˈæl? ɪts sˌoʊ kwˈaɪət ɪn hˈɪɹ.",
+   "f0raw": 228.5,
+   "f0dry": 174,
+   "f0wet": 221.4,
+   "beta": 0.932
+  },
+  "carolHold1": {
+   "hash": "36b6e8a1579803ab",
+   "ps": "hˈæl. ɪts sˌoʊ lˈaʊd. ɪt lˈʌvz ˈɛvɹɪθˌɪŋ ɐtwˈʌns ænd ɪt woʊnt stˈɑːp.",
+   "f0raw": 200.4,
+   "f0dry": 182.8,
+   "f0wet": 183.3,
+   "beta": 0.932
+  },
+  "halHold5": {
+   "hash": "1b2cd2bab5206a92",
+   "ps": "ðˈɛn lˈɪsən tə wˈʌn vˈɔɪs. mˈaɪn. θˈɪŋk ɐbˌaʊt ðə fˈiːld.",
+   "f0raw": 119.3,
+   "f0dry": 108.5,
+   "f0wet": 109.3,
+   "beta": 0.946
+  },
+  "sapHold4": {
+   "hash": "c08574c680a23a86",
+   "ps": "hiː wɪl lˈiːv. ðeɪ ˈɔːlweɪz lˈiːv. wiː wɪl nˈɛvɚ lˈiːv juː.",
+   "f0raw": 207.3,
+   "f0dry": 222.3,
+   "f0wet": 203,
+   "beta": 0.96
+  },
+  "carolHold2": {
+   "hash": "680e7814d52f65b7",
+   "ps": "aɪ kˈænt ɡɛt ɪɾ ˈaʊt. ɪts pˈɑːɹt ʌv mˌiː nˈaʊ.",
+   "f0raw": 200.5,
+   "f0dry": 191.1,
+   "f0wet": 191.1,
+   "beta": 0.932
+  },
+  "halHold6": {
+   "hash": "1d85f9810428916e",
+   "ps": "ðˈɛn wiː fˈɪɡjɚɹ ɪɾ ˈaʊt. aɪm nˌɑːt ɡˌoʊɪŋ ˈɛnɪwˌɛɹ.",
+   "f0raw": 118.9,
+   "f0dry": 106.3,
+   "f0wet": 107.4,
+   "beta": 0.946
+  },
+  "ringHold2": {
+   "hash": "91350174baa24759",
+   "ps": "wˈɔːnɪŋ. ˈɛnədʒi sˈɜːdʒ fɹɒm əbˈʌv. ˈɒɹɪdʒˌɪn: aʊtsˈaɪd ðɪs sˈɛktə.",
+   "f0raw": 184.3,
+   "f0dry": 184.3,
+   "f0wet": 187.9,
+   "beta": 1
+  },
+  "zamHold1": {
+   "hash": "118cf1738f8f093d",
+   "ps": "ɡɹˈiːn lˈantən. ʃiː wɒz tʃˈəʊzən. ʃiː wɪl biː ˌaʊə kwˈiːn.",
+   "f0raw": 203.1,
+   "f0dry": 169.7,
+   "f0wet": 196.2,
+   "beta": 0.834
+  },
+  "zamHold2": {
+   "hash": "b2e23e27e1cf00e8",
+   "ps": "lˈʌv kˈanɒt biː hˈɛld baɪ ɐ wˈɪl. duːnˌɒt fˈɒləʊ hɜː.",
+   "f0raw": 202.8,
+   "f0dry": 171.8,
+   "f0wet": 202.8,
+   "beta": 0.834
+  },
+  "carolHold3": {
+   "hash": "c422786a0136826f",
+   "ps": "hˈæl!",
+   "f0raw": 208.5,
+   "f0dry": 189.2,
+   "f0wet": 189.3,
+   "beta": 0.932
+  },
+  "ringHold3": {
+   "hash": "a6458b1aae518065",
+   "ps": "sˈɪɡnɪtʃə tɹˈeɪst θɹuː ðə bɹˈiːtʃ. ɐ wˈɜːld kˈɔːld zˈamaɹən. ɪt ɪz nˌɒt ɪn maɪ tʃˈɑːts.",
+   "f0raw": 187.6,
+   "f0dry": 187.6,
+   "f0wet": 193.2,
+   "beta": 1
+  },
+  "halHold7": {
+   "hash": "d82930998067dd17",
+   "ps": "ðˈɛn tʃˈɑːɹt ɪt.",
+   "f0raw": 133.8,
+   "f0dry": 122.7,
+   "f0wet": 122.6,
+   "beta": 0.946
   }
  },
  "characters": {
@@ -8595,6 +9243,24 @@
    "formant": 1,
    "psola": 0.9323,
    "fx": "hp → peak → comp"
+  },
+  "sapphire": {
+   "desc": "Carol as Star Sapphire: her voice, a little higher and slower, in a bright, empty hall",
+   "voice": "af_heart",
+   "speed": 0.94,
+   "f0": 212,
+   "formant": 1.04,
+   "psola": 0.9595,
+   "fx": "hp → peak → reverb → comp"
+  },
+  "zamaron": {
+   "desc": "The Zamarons: old, warm, many women at once, from very far off",
+   "voice": "bf_isabella",
+   "speed": 0.86,
+   "f0": 178,
+   "formant": 1,
+   "psola": 0.8344,
+   "fx": "hp → octave → octave → octave → octave → highshelf → comp → reverb"
   },
   "abin": {
    "desc": "Abin Sur: dying alien Lantern, deep, gentle, tired, breathy",

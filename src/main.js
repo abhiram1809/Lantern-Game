@@ -8,7 +8,7 @@ import { tick } from './engine/Time.js';
 import { UI } from './ui/UI.js';
 import { loadCharacters, PART_SCANS } from './characters/Characters.js';
 import { Story, chapterMenu } from './story/Story.js';
-import { Save, CorpsSave, CoastSave, PrisonerSave, ProbationSave, ExileSave, PARTS, partOf, takeResume, latestCheckpoint } from './engine/Save.js';
+import { Save, CorpsSave, CoastSave, PrisonerSave, ProbationSave, ExileSave, SapphireSave, PARTS, partOf, takeResume, latestCheckpoint } from './engine/Save.js';
 
 const POSTERS = ['airforce', 'jets', 'testpilot', 'flightseat', 'sidewall', 'squadron', 'whitejet'];
 // the loading screen's stages after the title, [key, what it says, its share of the bar] (the shares
@@ -16,7 +16,10 @@ const POSTERS = ['airforce', 'jets', 'testpilot', 'flightseat', 'sidewall', 'squ
 const LOAD_PLANS = {
   world: [['code', 'Loading the story', 1], ['props', 'Loading Coast City', 3], ['scene', 'Building the valley and Hal’s blocks', 6], ['city', 'Building the streets round him', 3], ['shaders', 'Getting the light right', 3]],
   chapter: [['code', 'Loading the story', 1], ['props', 'Loading the scene', 3], ['scene', 'Building the scene', 4], ['shaders', 'Getting the light right', 1]],
+  // Part Seven's pier: the valley, then the city's blocks round the pier's head
+  pier: [['code', 'Loading the story', 1], ['props', 'Loading Coast City', 3], ['scene', 'Building the valley', 4], ['city', 'Building the waterfront', 3], ['shaders', 'Getting the light right', 3]],
 };
+LOAD_PLANS.strike = LOAD_PLANS.hold = LOAD_PLANS.pier;
 // each part's code, loaded when it's chosen (Part Six's brings the whole valley and its town with it)
 const PART_CODE = {
   corps: () => import('./story/Corps.js').then((m) => m.Corps),
@@ -24,6 +27,7 @@ const PART_CODE = {
   prisoner: () => import('./story/Prisoner.js').then((m) => m.Prisoner),
   probation: () => import('./story/Probation.js').then((m) => m.Probation),
   exile: () => import('./story/Roam.js').then((m) => m.Roam),
+  sapphire: () => import('./story/Sapphire.js').then((m) => m.Sapphire),
 };
 
 // (dev only: every main-thread stall over 50 ms, for finding what freezes the page while it loads)
@@ -107,7 +111,7 @@ async function boot() {
 
 // Title card: Begin, or Continue (the checkpoint played last, in whichever part) / Parts / Chapters
 // / New game once there's a save; Part Two once Part One is finished, Part Three once Part Two is, and
-// so on to Part Six. A restart from the pause menu reloads the page and lands here with the
+// so on to Part Seven. A restart from the pause menu reloads the page and lands here with the
 // checkpoint to resume. Resolves with { part, id }.
 async function titleFlow(ui) {
   const resume = takeResume();
@@ -119,7 +123,7 @@ async function titleFlow(ui) {
     return r;
   }
   for (;;) {
-    const save = Save.load(), corps = CorpsSave.load(), coast = CoastSave.load(), prisoner = PrisonerSave.load(), probation = ProbationSave.load(), exile = ExileSave.load();
+    const save = Save.load(), corps = CorpsSave.load(), coast = CoastSave.load(), prisoner = PrisonerSave.load(), probation = ProbationSave.load(), exile = ExileSave.load(), sapphire = SapphireSave.load();
     // Part One's end card went on to Part Two before `free` was saved, so those saves still read
     // "The ring's power" (the user, 2026-11-18: "stuck at the ring's power chapter"). Part One is done.
     if (save.checkpoint === 'powers' && corps.reached.length && !save.reached.includes('free')) Save.update((d) => { d.checkpoint = 'free'; d.reached.push('free'); });
@@ -130,6 +134,7 @@ async function titleFlow(ui) {
       ...(coast.reached.includes('grave') || prisoner.reached.length ? [PrisonerSave] : []),
       ...(prisoner.reached.includes('trial') || probation.reached.length ? [ProbationSave] : []),
       ...(probation.reached.includes('report') || exile.reached.length ? [ExileSave] : []),
+      ...(exile.reached.includes('yellow') || sapphire.reached.length ? [SapphireSave] : []),
     ];
     const short = (p) => p.label.split(' · ')[0], last = short(parts.at(-1)).replace('Part ', '');
     const latest = latestCheckpoint();

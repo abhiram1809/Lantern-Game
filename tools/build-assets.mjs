@@ -2,12 +2,14 @@
 // orient (Y-up, facing +Z), scale, simplify, rig with a procedural humanoid skeleton, and shrink the
 // textures. Optional per-model `keepSide` splits a two-figure sheet (Kilowog), `rig` passes landmark
 // overrides to autoRig (Kilowog), and `head` transplants another scan's head (headswap.mjs; only the
-// older casual scan used it, kept commented out below).
+// older casual scan used it, kept commented out below). A model with `merge` is not one scan but a
+// set of parts (Star Sapphire Carol: 50 meshes): they're joined into one mesh with a primitive for each
+// material, each material's share cut down to its own ratio, then rigged like the rest.
 //
 //   node tools/build-assets.mjs            build everything
 //   ONLY=abin_sur node tools/...           build one model
 //   DEBUG_DIR=/some/dir node tools/...     also write rig preview PNGs
-import { NodeIO } from '@gltf-transform/core';
+import { NodeIO, Document } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { simplify, weld, textureCompress, prune } from '@gltf-transform/functions';
 import { MeshoptDecoder, MeshoptSimplifier } from 'meshoptimizer';
@@ -40,6 +42,25 @@ const MODELS = [
   // Her long hair hides the neck, so the narrowest slice lands at her mouth: the neck is given. She
   // stands in an A-pose (hands at 0.32 H out, the bag at her hip), so the arm axis band is moved in.
   { name: 'carol', src: 'assets/raw/Carol.glb', keepSide: 1, facing: 1, tris: 90000, height: 1.7, rig: { neckMid: 0.86, armLo: 0.13, armTipIn: 0.05, armMinY: 0.6 } },
+  // Star Sapphire Carol (the user's model, 2026-11-20), for Part Seven: her scan's face and hair (the
+  // same geometry as `carol`, 58k triangles) with a suit, hands and armour made as 50 separate parts
+  // (187k triangles in all, A-pose, 1.74 m, already facing +Z, so no `facing`). `merge` says how hard
+  // each material is cut, by name: the face and the suit stay close to whole, the armour (shin guards,
+  // pauldrons, the chest star) goes to about a third, and anything small is left as it is. About 110k.
+  // The emissive strengths (up to 4.9) and the three lights are left behind with the extensions: the
+  // bloom turns anything over about 1.5 into a blob. Rigged as Carol is (long hair hides the neck).
+  // The armour is kept whole (at a third its thin plates came out as jagged shards: the user's "the
+  // hand... looks messy", 2026-11-21) and each piece of it rides one bone (`rigid`): blended between
+  // the forearm and the hand like skin, a vambrace bent and tore at the wrist. About 168k.
+  {
+    name: 'sapphire', src: 'assets/raw/Star_Sapphire_Carol.glb', merge: { ratios: [[/^Carol/, 0.82], [/^Suit/, 0.8]], rest: 1, keepBelow: 1500 }, height: 1.7,
+    rigid: /^(Hardware|Power|Gem|Star|Tiara)/,
+    // The arm joints are given (measured on the suit's own cross-sections, shoulder to fingertip): fitted, the
+    // armour on her forearms and the hair behind her shoulders pulled the arm's axis back, the shoulders landed
+    // 30 and 67 cm behind her and the elbows 13 and 32, so the upper arms were weighted to the chest and the
+    // forearms swung about a point behind her back: her arms hung off her in every pose.
+    rig: { neckMid: 0.86, arms: [[0.177, 1.335, -0.05], [0.337, 1.142, -0.072], [0.471, 1.023, -0.026]] },
+  },
   // Hector Hammond (the user's model, 2026-11-11), for the end of Part Three: one figure in a
   // T-pose, facing +X, lab coat, glasses. His skull swells in the shader (createHammond).
   { name: 'hammond', src: 'assets/raw/Hector.glb', facing: 1, tris: 90000, height: 1.78 },
@@ -113,6 +134,85 @@ async function readScan(file, opts, height) {
   return { doc, buffer, meshNode, prim };
 }
 
+// A model made of parts (see `merge` above): every part's triangles into world space, joined by
+// material, each material cut to its own ratio (`decimate`), then scaled to HEIGHT with its feet on y = 0
+// and its pelvis on the origin, as `normalizeGeometry` does for a scan. The originals are dropped.
+async function readMerged(file, opts, H) {
+  const doc = await io.read(file);
+  for (const ext of doc.getRoot().listExtensionsUsed()) ext.dispose();
+  const root = doc.getRoot(), buffer = root.listBuffers()[0], scene = root.listScenes()[0];
+  const groups = new Map();
+  const parts = root.listNodes().filter((nd) => nd.getMesh());
+  for (const node of parts) {
+    const M = node.getWorldMatrix();
+    for (const p of node.getMesh().listPrimitives()) {
+      const mat = p.getMaterial();
+      const g = groups.get(mat) ?? groups.set(mat, { pos: [], nrm: [], uv: [], idx: [], n: 0 }).get(mat);
+      const P = p.getAttribute('POSITION'), N = p.getAttribute('NORMAL'), T = p.getAttribute('TEXCOORD_0'), I = p.getIndices();
+      if (!N) throw new Error(`${node.getName()} has no normals`);
+      const e3 = [0, 0, 0], e2 = [0, 0];
+      for (let i = 0; i < P.getCount(); i++) {
+        P.getElement(i, e3);
+        g.pos.push(M[0] * e3[0] + M[4] * e3[1] + M[8] * e3[2] + M[12], M[1] * e3[0] + M[5] * e3[1] + M[9] * e3[2] + M[13], M[2] * e3[0] + M[6] * e3[1] + M[10] * e3[2] + M[14]);
+        N.getElement(i, e3);
+        const nx = M[0] * e3[0] + M[4] * e3[1] + M[8] * e3[2], ny = M[1] * e3[0] + M[5] * e3[1] + M[9] * e3[2], nz = M[2] * e3[0] + M[6] * e3[1] + M[10] * e3[2], nl = Math.hypot(nx, ny, nz) || 1;
+        g.nrm.push(nx / nl, ny / nl, nz / nl);
+        if (T) { T.getElement(i, e2); g.uv.push(e2[0], e2[1]); } else g.uv.push(0, 0); // (the armour has none)
+      }
+      const count = I ? I.getCount() : P.getCount();
+      for (let k = 0; k < count; k++) g.idx.push((I ? I.getScalar(k) : k) + g.n);
+      g.n += P.getCount();
+    }
+  }
+  const total = [...groups.values()].reduce((a, g) => a + g.idx.length / 3, 0);
+  for (const [mat, g] of groups) {
+    const name = mat.getName(), tris = g.idx.length / 3;
+    const ratio = tris < opts.merge.keepBelow ? 1 : (opts.merge.ratios.find(([re]) => re.test(name))?.[1] ?? opts.merge.rest);
+    const m = await decimate({ pos: Float32Array.from(g.pos), nrm: Float32Array.from(g.nrm), uv: Float32Array.from(g.uv), idx: Uint32Array.from(g.idx) }, ratio);
+    Object.assign(g, m);
+    console.log(`  ${name.padEnd(46)} ${String(tris).padStart(6)} -> ${String(m.idx.length / 3).padStart(6)}`);
+  }
+  // scale and centre the whole figure, not each material
+  let minY = Infinity, maxY = -Infinity, minX = Infinity, maxX = -Infinity;
+  for (const g of groups.values()) for (let i = 0; i < g.pos.length; i += 3) { minY = Math.min(minY, g.pos[i + 1]); maxY = Math.max(maxY, g.pos[i + 1]); minX = Math.min(minX, g.pos[i]); maxX = Math.max(maxX, g.pos[i]); }
+  const s = H / (maxY - minY), cx = (minX + maxX) / 2;
+  let zs = 0, zc = 0;
+  for (const g of groups.values()) for (let i = 0; i < g.pos.length; i += 3) {
+    const h = (g.pos[i + 1] - minY) / (maxY - minY);
+    if (h > 0.45 && h < 0.6 && Math.abs(g.pos[i] - cx) < 0.1 * (maxY - minY)) { zs += g.pos[i + 2]; zc++; }
+  }
+  const cz = zs / zc;
+  for (const g of groups.values()) for (let i = 0; i < g.pos.length; i += 3) {
+    g.pos[i] = (g.pos[i] - cx) * s; g.pos[i + 1] = (g.pos[i + 1] - minY) * s; g.pos[i + 2] = (g.pos[i + 2] - cz) * s;
+  }
+  // the parts out, one mesh in
+  for (const node of parts) node.dispose();
+  for (const mesh of root.listMeshes()) mesh.dispose();
+  const mesh = doc.createMesh(opts.name), meshNode = doc.createNode(opts.name).setMesh(mesh);
+  scene.addChild(meshNode);
+  const prims = [];
+  for (const [mat, g] of groups) {
+    const prim = doc.createPrimitive().setMaterial(mat);
+    setArrays(doc, buffer, prim, g);
+    mesh.addPrimitive(prim);
+    prims.push(prim);
+  }
+  console.log(`${opts.name}: ${total} -> ${prims.reduce((a, p) => a + p.getIndices().getCount() / 3, 0)} tris in ${prims.length} materials`);
+  return { doc, buffer, meshNode, prims };
+}
+
+// One material's triangles cut to `ratio` of themselves: welded and simplified in a document of their
+// own (the transform works on a whole document, and each material wants its own ratio).
+async function decimate(m, ratio) {
+  if (ratio >= 1) return m;
+  const d = new Document(), b = d.createBuffer();
+  const prim = d.createPrimitive();
+  setArrays(d, b, prim, m);
+  d.createScene().addChild(d.createNode().setMesh(d.createMesh().addPrimitive(prim)));
+  await d.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio, error: 0.01 }));
+  return { pos: prim.getAttribute('POSITION').getArray().slice(), nrm: prim.getAttribute('NORMAL').getArray().slice(), uv: prim.getAttribute('TEXCOORD_0').getArray().slice(), idx: prim.getIndices().getArray().slice() };
+}
+
 const arrays = (prim) => ({
   pos: prim.getAttribute('POSITION').getArray().slice(),
   nrm: prim.getAttribute('NORMAL').getArray().slice(),
@@ -131,12 +231,20 @@ for (const model of MODELS) {
   if (ONLY && ONLY !== model.name) continue;
   const t0 = Date.now();
   const H = model.height;
-  const { doc, buffer, meshNode, prim } = await readScan(model.src, model, H);
-  meshNode.setName(model.name);
-  const trisBefore = prim.getIndices().getCount() / 3;
-  await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio: model.tris / trisBefore, error: 0.01 }));
-  console.log(`${model.name}: ${trisBefore} -> ${prim.getIndices().getCount() / 3} tris`);
-  const prims = [prim];
+  let doc, buffer, meshNode, prims;
+  if (model.merge) {
+    ({ doc, buffer, meshNode, prims } = await readMerged(model.src, model, H));
+  } else {
+    const scan = await readScan(model.src, model, H);
+    ({ doc, buffer, meshNode } = scan);
+    const prim = scan.prim;
+    meshNode.setName(model.name);
+    const trisBefore = prim.getIndices().getCount() / 3;
+    await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio: model.tris / trisBefore, error: 0.01 }));
+    console.log(`${model.name}: ${trisBefore} -> ${prim.getIndices().getCount() / 3} tris`);
+    prims = [prim];
+  }
+  const prim = prims[0];
 
   if (model.head) {
     const suit = await readScan(model.head.src, model.head, H);
@@ -183,6 +291,7 @@ for (const model of MODELS) {
   if (process.env.GRID) { await gridRender(model, prims, pos, Uint32Array.from(idx)); continue; }
   const rig = autoRig(pos, Uint32Array.from(idx), H, model.rig);
   console.log('  landmarks', Object.fromEntries(Object.entries(rig.landmarks).map(([k, v]) => [k, +v.toFixed(3)])));
+  if (model.rigid) rigidPieces(prims, parts, rig, model.rigid);
   addSkin(doc, buffer, meshNode, prims, rig);
 
   if (DEBUG_DIR) await debugRender(model, prims, pos, Uint32Array.from(idx), rig);
@@ -305,6 +414,61 @@ function addSkin(doc, buffer, meshNode, prims, rig) {
   }
 }
 
+// Hard-surface parts move as pieces, not as skin: every connected piece of a `rigid` material (welded by
+// position, and joined to any piece whose bounds it sits inside, as a lit inlay sits in its plate) is
+// weighted wholly to the bone that carries most of it.
+function rigidPieces(prims, parts, rig, re) {
+  const J = rig.skinIndex, W = rig.skinWeight, verts = [], local = new Map(), byPos = new Map();
+  let off = 0;
+  prims.forEach((prim, k) => {
+    const n = parts[k].pos.length / 3;
+    if (re.test(prim.getMaterial()?.getName() ?? '')) for (let i = 0; i < n; i++) { local.set(off + i, verts.length); verts.push({ g: off + i, k, i }); }
+    off += n;
+  });
+  const up = Int32Array.from(verts, (_, i) => i);
+  const find = (a) => { while (up[a] !== a) a = up[a] = up[up[a]]; return a; };
+  const join = (a, b) => { a = find(a); b = find(b); if (a !== b) up[b] = a; };
+  off = 0;
+  prims.forEach((prim, k) => {
+    const n = parts[k].pos.length / 3, P = parts[k].pos, I = parts[k].idx;
+    if (re.test(prim.getMaterial()?.getName() ?? '')) {
+      for (let t = 0; t < I.length; t += 3) { join(local.get(off + I[t]), local.get(off + I[t + 1])); join(local.get(off + I[t]), local.get(off + I[t + 2])); }
+      for (let i = 0; i < n; i++) {
+        const key = `${Math.round(P[i * 3] * 1e4)},${Math.round(P[i * 3 + 1] * 1e4)},${Math.round(P[i * 3 + 2] * 1e4)}`;
+        const at = byPos.get(key);
+        if (at === undefined) byPos.set(key, local.get(off + i)); else join(at, local.get(off + i));
+      }
+    }
+    off += n;
+  });
+  const boxOf = (list) => {
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const v of list) for (let c = 0; c < 3; c++) { const x = parts[v.k].pos[v.i * 3 + c]; lo[c] = Math.min(lo[c], x); hi[c] = Math.max(hi[c], x); }
+    return { lo, hi, vol: (hi[0] - lo[0]) * (hi[1] - lo[1]) * (hi[2] - lo[2]) };
+  };
+  const pieces = () => { const m = new Map(); verts.forEach((v, i) => { const r = find(i); (m.get(r) ?? m.set(r, []).get(r)).push(v); }); return m; };
+  // an inlay inside its plate's bounds goes with the plate
+  const first = [...pieces().entries()].map(([r, list]) => ({ r, ...boxOf(list) })).sort((a, b) => b.vol - a.vol);
+  const pad = 0.004;
+  for (let s = first.length - 1; s > 0; s--) {
+    const a = first[s];
+    for (let b = 0; b < s; b++) {
+      const B = first[b];
+      if ([0, 1, 2].every((c) => a.lo[c] >= B.lo[c] - pad && a.hi[c] <= B.hi[c] + pad)) { join(B.r, a.r); break; }
+    }
+  }
+  let count = 0;
+  for (const list of pieces().values()) {
+    const acc = new Float32Array(rig.joints.length);
+    for (const v of list) for (let c = 0; c < 4; c++) acc[J[v.g * 4 + c]] += W[v.g * 4 + c];
+    let best = 0;
+    for (let j = 1; j < acc.length; j++) if (acc[j] > acc[best]) best = j;
+    for (const v of list) { J.set([best, 0, 0, 0], v.g * 4); W.set([1, 0, 0, 0], v.g * 4); }
+    count++;
+  }
+  console.log(`  rigid: ${verts.length} vertices in ${count} pieces, each on one bone`);
+}
+
 async function gridRender(model, prims, pos, idx) {
   const colors = await textureColors(prims[0].getAttribute('TEXCOORD_0').getArray(), prims[0].getMaterial().getBaseColorTexture().getImage());
   const size = 1100, file = `${process.env.GRID}/${model.name}_grid.png`;
@@ -336,7 +500,9 @@ async function debugRender(model, prims, pos, idx, rig) {
   let off = 0;
   for (const prim of prims) {
     const uv = prim.getAttribute('TEXCOORD_0').getArray();
-    tex.set(await textureColors(uv, prim.getMaterial().getBaseColorTexture().getImage()), off);
+    const map = prim.getMaterial().getBaseColorTexture();
+    if (map) tex.set(await textureColors(uv, map.getImage()), off);
+    else { const f = prim.getMaterial().getBaseColorFactor(); for (let i = 0; i < uv.length / 2; i++) tex.set([f[0], f[1], f[2]], off + i * 3); } // (the armour: a colour, no texture)
     off += uv.length / 2 * 3;
   }
   const bones = boneColors(rig.skinIndex, rig.skinWeight);

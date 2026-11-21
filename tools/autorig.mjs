@@ -148,7 +148,7 @@ export function autoRig(pos, idx, H, opts = {}) {
   // then re-centred inside the limb.
   const arm = (s) => {
     if (o.arms) {
-      const given = Array.isArray(o.arms) ? o.arms.map(([x, y]) => [s * x, y]) : o.arms[s > 0 ? 'L' : 'R'];
+      const given = Array.isArray(o.arms) ? o.arms.map(([x, y, z]) => [s * x, y, z]) : o.arms[s > 0 ? 'L' : 'R'];
       // z: the middle of the limb's column there (wider if the column is thin there)
       const zAt = (x, y) => {
         for (const r of [0.03, 0.06, 0.1]) { try { return centroid((xx, yy) => Math.abs(xx - x) < r && Math.abs(yy - y) < r)[2]; } catch { /* wider */ } }

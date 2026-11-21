@@ -192,6 +192,9 @@ export class CityStream {
 
   // ---------------------------------------------------------------------------- streaming
   reach(c) { return (c.reach ??= c.specs.some((s) => s.kind === 'tower') ? 950 : c.core ? 280 : 220); }
+  // `keep` ({ x, z, r }, the lot's frame): blocks within r of that point stay built whatever the camera's
+  // distance (Part Seven's pier: the waterfront across the water was the far boxes from the pier's head)
+  kept(c) { const k = this.keep; return !!k && rectDist(c, k.x, k.z) < k.r; }
 
   update(dt, camera) {
     this.t += dt;
@@ -207,7 +210,7 @@ export class CityStream {
     }
     // what's out of reach put away, one a frame (a block's bodies and items: tens of milliseconds at once)
     const gone = this.leaving?.shift();
-    if (gone && gone.state === 'built' && gone.d > this.reach(gone) * 1.25 + 40) this.disposeCell(gone);
+    if (gone && gone.state === 'built' && gone.d > this.reach(gone) * 1.25 + 40 && !this.kept(gone)) this.disposeCell(gone);
     this.waterfront?.update(dt);
   }
 
@@ -215,7 +218,7 @@ export class CityStream {
   plan(x, z) {
     let near = Infinity;
     for (const c of this.index.cells) {
-      const d = (c.d = rectDist(c, x, z)), r = this.reach(c);
+      const d = (c.d = rectDist(c, x, z)), r = this.kept(c) ? Math.max(this.reach(c), d + 50) : this.reach(c);
       if (!c.state && d < r) { c.state = 'queued'; this.queue.push(c); }
       else if (c.state === 'queued' && d > r * 1.2 + 30) c.state = null;
       else if (c.state === 'built' && d > r * 1.25 + 40 && !(this.leaving ??= []).includes(c)) this.leaving.push(c);

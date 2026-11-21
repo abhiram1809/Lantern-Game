@@ -1,4 +1,4 @@
-# Green Lantern — Awakening · The Corps · Coast City · The Prisoner · Probation · Exile
+# Green Lantern — Awakening · The Corps · Coast City · The Prisoner · Probation · Exile · Sapphire
 
 A Three.js story game. **Part One, Awakening:** test pilot Hal Jordan comes home, falls asleep,
 relives his father's crash, is visited by the ring's light, refuses to be afraid, and is carried
@@ -27,9 +27,14 @@ ring, and Hal follows them back into the dark, where the Weaponers give Sinestro
 He returns to Korugar as the Yellow Lantern and asks Hal the question the light asked him on his
 first night: are you afraid? Then free roam: everywhere the story has been, Earth's valley and the
 lake, Oa, Korugar, Ysmault and Qward, by the ring's star chart; Hal in the suit or in his clothes,
-with his car (and a ring-made key); Part Seven's marker on Hangar Two. Coast City is four kilometres
+with his car (and a ring-made key). Coast City is four kilometres
 square now: Hal's blocks with their shops and people, the streets round them, downtown's towers, and
 the waterfront (the beach, the promenade, the pier and its Ferris wheel), built as you come near.
+**Part Seven, Sapphire** (begun: four chapters so far; talk to Carol in Hangar Two in free roam, or pick it
+from the title): Hal asks Carol to dinner again, and she sets her terms; the pier at night, the ring quiet;
+a violet light out of the sky that has been looking for a heart like hers; and the fight over the water, where
+what Hal has to break is the gem's hold, not Carol. (After *Green Lantern* #16, 1962, and
+Geoff Johns's "Mystery of the Star Sapphire", 2007.)
 
 ## Run
 
@@ -137,8 +142,8 @@ fallback. Each part has its own save (`gl_awakening_v1`, `gl_corps_v1`, `gl_coas
 learned in any carry over. The title screen offers **Continue**, **New game** and **Chapters** (any
 checkpoint reached so far), **Part Two: The Corps** once Part One is finished, and **Part Three:
 Coast City** once Part Two is, **Part Four: The Prisoner** once Part Three is, **Part Five:
-Probation** once Part Four is, and **Part Six: Exile** once Part Five is (each part's end card
-also offers the next). The pause menu can resume, restart the current checkpoint, jump to a
+Probation** once Part Four is, **Part Six: Exile** once Part Five is, and **Part Seven: Sapphire** once Part Six
+has reached the yellow light (each part's end card also offers the next). The pause menu can resume, restart the current checkpoint, jump to a
 chapter, toggle voices, or quit to the title.
 
 | Checkpoint | Where it puts you |
@@ -221,6 +226,15 @@ Part Six:
 | `qward` | Qward: through the breach, the Thunderers on the way, the Weaponers' forge |
 | `yellow` | The yellow light: Sinestro back on Korugar, the fight (the end card) |
 | `world` | Free roam: at Ferris in the suit; **E** high in flight for the star chart, **M** for the travel menu, **T** to change |
+
+Part Seven:
+
+| Checkpoint | Where it puts you |
+| --- | --- |
+| `ask` | Dinner: Hangar Two in the morning, Hal and Carol |
+| `pier` | The pier: the waterfront at dusk, then the night, the Ferris wheel overhead |
+| `strike` | The violet light: the pier, the gem, Star Sapphire |
+| `hold` | The gem's hold: over the water, her fight, the Zamarons' light (the end card, for now) |
 
 For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#lantern`.
 
@@ -496,6 +510,31 @@ block debris, bolts and Hal.
    they call the **Broken Chain** (the keeper, his regulars, spiced tea and stew); at the market, a fruit
    seller, a baker and a carver at their stalls. Nothing costs the Lantern who freed them.
    **No air**: out of the uniform on Oa, Ysmault or Qward, Hal suffocates in seconds. Press **T**.
+
+### Part Seven: Sapphire (begun)
+
+1. **Dinner:** a morning in Hangar Two, a few days on. Carol is working on the second airframe. Hal
+   asks again; she doesn't date employees, so: after five he isn't her pilot, just a man she knows. Seven
+   o'clock, the pier, she picks the table and he pays, and he comes as Hal Jordan, with the ring in his
+   pocket and quiet. If something calls him away, he tells her first, not after. When he's gone, a violet
+   light in the cockpit, once.
+2. **The pier:** the head of the pier at dusk, the Ferris wheel over it. He's early; she comes along the
+   deck in what she wore to work. Dinner at the Crab Shack, off the page. After it, at the rail: her
+   father and the wheel she never rode, what it's like out there, and what each of them is afraid of.
+   The ring, which was meant to be quiet.
+3. **The violet light:** a star over the sea that isn't one. It comes in low across the water and into her;
+   Hal is thrown back, and she is lifted in a column of violet light, her clothes swept off her from the
+   feet up as the Star Sapphire's suit forms. The gem speaks; she says she isn't afraid; she goes, out over
+   the sea.
+4. **The gem's hold:** the ring finds her over the water to the west, and he suits up on the pier and goes
+   after her. Her light guards her body, so **blows that land on her hurt Carol** (too many and it's over:
+   try again). What there is to break is the gem. Three ways in: her **shards** (a fan of violet crystal)
+   sent back into it by a shield raised just as they arrive; her **dive** with her arms open, parried the
+   same way, throws her open; or the **bubble** (`4`, then aim) round her, with the gem open to your hooks
+   while it holds. A **ring of light** under you is a cage: move out of it, or break its bars with two
+   hooks. Halfway, Carol's own voice gets through for a moment. At a quarter of the gem's hold she comes down
+   on the pier, herself; then the Zamarons' light from above takes her up through a breach, and the ring
+   names the world it came from: Zamaron. (The rest of the part is still to be written.)
 
 ## Characters and movement
 

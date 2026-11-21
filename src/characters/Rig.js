@@ -225,6 +225,12 @@ export class Animator {
   // `rate` is how fast the arm blends in and out (higher snaps, e.g. for a punch).
   reach(side, target, { weight = 1, pole = null, keepHand = false, rate = 5 } = {}) {
     const arm = this.arms[side];
+    // a new target for an arm already up (a gesture taking over from a stance, a stance from a point) is
+    // crossfaded from where the hand was going: the target switched in a frame and the hand snapped
+    // across at 17 m/s (Carol's point at the bench on the pier)
+    // (not a fast reach: a punch or a cut, rate 18, wants its snap)
+    if (target && arm.target && target !== arm.target && arm.w > 0.05 && arm.last && rate <= 12) { (arm.from ??= new THREE.Vector3()).copy(arm.last); arm.blend = 0; }
+    else if (rate > 12) arm.blend = 1;
     Object.assign(arm, { weight: target ? weight : 0, pole: target ? pole : arm.pole, keepHand, rate });
     if (target) arm.target = target; // released arms keep their target while they ease out
   }
@@ -304,8 +310,13 @@ export class Animator {
     for (const side of ['L', 'R']) {
       const arm = this.arms[side];
       if (arm.w < 0.002 || !arm.target) continue;
-      const target = typeof arm.target === 'function' ? arm.target() : arm.target;
+      let target = typeof arm.target === 'function' ? arm.target() : arm.target;
       if (!target) continue;
+      if (arm.from && arm.blend < 1) {
+        if (primary) arm.blend = Math.min(1, arm.blend + dt / ARM_BLEND);
+        target = (arm.mixed ??= new THREE.Vector3()).copy(arm.from).lerp(target, ease.inOut(arm.blend));
+      }
+      if (primary) (arm.last ??= new THREE.Vector3()).copy(target);
       const pole = _v2.copy(arm.pole ?? (side === 'L' ? _polL : _polR)).applyQuaternion(_q3);
       root.updateMatrixWorld(true);
       solveTwoBone(b[`upperArm_${side}`], b[`foreArm_${side}`], b[`hand_${side}`], target, pole, arm.w, arm.keepHand);
@@ -369,3 +380,4 @@ export class Animator {
   }
 }
 const _polL = new THREE.Vector3(0.45, -0.55, -0.7), _polR = new THREE.Vector3(-0.45, -0.55, -0.7); // elbows out, down, back
+const ARM_BLEND = 0.4; // seconds a hand takes from one target to the next

@@ -103,11 +103,13 @@ export function* buildWaterfront(stream) {
   piles.castShadow = true;
   piles.receiveShadow = true;
   // railings: posts, a top rail and a middle one, either side (and round the head)
+  // (a weathered white: brilliant white under the night's lamps, the bloom drew the far rail as a neon line)
+  const RAIL_PAINT = 0xc9c3b5;
   const rail = (xa, za, xb, zb, ya, yb) => {
     const L = Math.hypot(xb - xa, zb - za), n = Math.max(1, Math.round(L / 2.4));
-    for (let i = 0; i <= n; i++) { const x = xa + ((xb - xa) * i) / n, z = za + ((zb - za) * i) / n, y = ya + ((yb - ya) * i) / n; batch.add('paint', box(x - 0.07, y, z - 0.07, x + 0.07, y + 1.1, z + 0.07), I, 0xf2efe6); }
+    for (let i = 0; i <= n; i++) { const x = xa + ((xb - xa) * i) / n, z = za + ((zb - za) * i) / n, y = ya + ((yb - ya) * i) / n; batch.add('paint', box(x - 0.07, y, z - 0.07, x + 0.07, y + 1.1, z + 0.07), I, RAIL_PAINT); }
     const seg = new THREE.Matrix4().makeTranslation((xa + xb) / 2, (ya + yb) / 2, (za + zb) / 2).multiply(new THREE.Matrix4().makeRotationY(-Math.atan2(zb - za, xb - xa))).multiply(new THREE.Matrix4().makeRotationZ(Math.atan2(yb - ya, L)));
-    for (const h of [1.05, 0.55]) batch.add('paint', box(-L / 2, h - 0.04, -0.05, L / 2, h + 0.04, 0.05), seg, 0xf2efe6);
+    for (const h of [1.05, 0.55]) batch.add('paint', box(-L / 2, h - 0.04, -0.05, L / 2, h + 0.04, 0.05), seg, RAIL_PAINT);
     const c = V((xa + xb) / 2, (ya + yb) / 2 + 0.6, (za + zb) / 2).add(ORIGIN);
     bodies.push(P.fixedBox(c, V(L / 2, 0.6, 0.06), _q.setFromAxisAngle(_Y, -Math.atan2(zb - za, xb - xa)).clone()));
   };
@@ -140,6 +142,8 @@ export function* buildWaterfront(stream) {
   for (const s of ctx.solids) bodies.push(P.fixedBox(s.c.clone().add(ORIGIN), s.half, s.q));
   for (const s of ctx.parapets) bodies.push(P.fixedBox(s.c.clone().add(ORIGIN), s.half, s.q));
   yield;
+  // (its paint an old white: under its own bulbs and the pier's lamps a bright white burned out in the bloom)
+  const WHEEL_PAINT = 0xcdc9c0;
   // ---- the Ferris wheel at the head: two rims on spokes, sixteen cars hanging between them, on A-frame
   // legs; it turns, the cars keeping level
   const wc = V(headAt - 34, deck + 18, pz - 6), R = 15;
@@ -147,17 +151,17 @@ export function* buildWaterfront(stream) {
   for (const s of [-1, 1]) for (const dz of [-5, 5]) {
     const foot = V(wc.x + s * 3.2, deck, wc.z + dz * 0.9), hub = V(wc.x + s * 1.4, wc.y, wc.z), L = foot.distanceTo(hub); // (its axle east-west: the beach sees the whole round of it)
     const M = new THREE.Matrix4().lookAt(foot, hub, _Y).setPosition(foot.clone().add(hub).multiplyScalar(0.5));
-    legs.add('metal', new THREE.BoxGeometry(0.5, 0.5, L), M, 0xf2f2ee);
+    legs.add('metal', new THREE.BoxGeometry(0.5, 0.5, L), M, WHEEL_PAINT);
     bodies.push(P.fixedBox(foot.clone().add(hub).multiplyScalar(0.5).add(ORIGIN), V(0.3, 0.3, L / 2), new THREE.Quaternion().setFromRotationMatrix(M)));
   }
   legs.add('metal', new THREE.CylinderGeometry(0.6, 0.6, 3.6, 12).rotateZ(Math.PI / 2).translate(wc.x, wc.y, wc.z), I, 0xd8d8d4);
   const wheel = new Batch(), WM = new THREE.Matrix4();
   for (const s of [-1, 1]) {
-    wheel.add('metal', new THREE.TorusGeometry(R, 0.16, 6, 96).translate(0, 0, s * 1.2), WM, 0xf2f2ee);
-    wheel.add('metal', new THREE.TorusGeometry(R * 0.55, 0.1, 6, 64).translate(0, 0, s * 1.2), WM, 0xf2f2ee);
+    wheel.add('metal', new THREE.TorusGeometry(R, 0.16, 6, 96).translate(0, 0, s * 1.2), WM, WHEEL_PAINT);
+    wheel.add('metal', new THREE.TorusGeometry(R * 0.55, 0.1, 6, 64).translate(0, 0, s * 1.2), WM, WHEEL_PAINT);
     for (let i = 0; i < 16; i++) {
       const a = (i / 16) * Math.PI * 2;
-      wheel.add('metal', new THREE.BoxGeometry(0.12, R, 0.12).translate(0, R / 2, s * 1.2).applyMatrix4(new THREE.Matrix4().makeRotationZ(a)), WM, 0xf2f2ee);
+      wheel.add('metal', new THREE.BoxGeometry(0.12, R, 0.12).translate(0, R / 2, s * 1.2).applyMatrix4(new THREE.Matrix4().makeRotationZ(a)), WM, WHEEL_PAINT);
     }
   }
   for (let i = 0; i < 48; i++) { const a = (i / 48) * Math.PI * 2; wheel.add('lamp', new THREE.SphereGeometry(0.16, 6, 4).translate(Math.cos(a) * R, Math.sin(a) * R, 0), WM, 0xfff0cc); }

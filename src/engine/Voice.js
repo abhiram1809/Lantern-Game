@@ -29,19 +29,22 @@ export class Voice {
     this.who = null; // who is speaking now
     this.mouth = 0; // how open their mouth is now, 0..1
     this.current = null;
+    this.synthOn = (() => { try { return localStorage.getItem('SYNTH') === '1'; } catch { return false; } })();
     if (this.supported) {
       const load = () => (this.voices = speechSynthesis.getVoices().filter((v) => v.lang.startsWith('en')));
       load();
       speechSynthesis.addEventListener?.('voiceschanged', load);
     }
-    fetch('/voices/manifest.json').then((r) => (r.ok ? r.json() : null)).then((m) => {
+    // (never the browser's copy: an old manifest served by the service worker left every new line without
+    // its clip, spoken in the Mac's own voice; the query keeps an old worker from matching it in its cache)
+    this.ready = fetch(`/voices/manifest.json?v=${Date.now()}`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((m) => {
       if (!m) return;
       for (const line of Object.values(m.lines)) {
         const raw = atob(line.mouth ?? ''), mouth = new Uint8Array(raw.length);
         for (let i = 0; i < raw.length; i++) mouth[i] = raw.charCodeAt(i);
         this.clips.set(`${line.who}|${line.text}`, { ...line, mouth });
       }
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => (this.loaded = true));
   }
 
   has(text, who) { return this.clips.has(`${who}|${text}`); }
@@ -69,9 +72,12 @@ export class Voice {
   // Resolves when the line finishes. onWord(charIndex) follows the words as they're spoken.
   speak(text, who = 'hal', onWord) {
     if (!this.enabled) return Promise.resolve();
+    if (!this.loaded) return this.ready.then(() => this.speak(text, who, onWord)); // (a line asked for before the manifest is in)
     const clip = this.clips.get(`${who}|${text}`);
     if (clip && this.audio?.ctx) return this.play(clip, who, onWord);
-    if (who === 'thought' || !this.supported || !this.voices.length) return Promise.resolve();
+    // A line without a clip is read, not spoken: the browser's synthesiser is nobody in the cast (the user,
+    // 2026-11-21: "these are not the original voices"). `synth` is kept for `SYNTH = 1` in localStorage.
+    if (who === 'thought' || !this.supported || !this.voices.length || !this.synthOn) return Promise.resolve();
     return this.synth(text, who, onWord);
   }
 

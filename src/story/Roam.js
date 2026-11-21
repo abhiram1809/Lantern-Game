@@ -14,7 +14,7 @@ import { Bedroom } from '../scenes/Bedroom.js';
 import { CityLife } from './CityLife.js';
 import { createSky } from '../fx/Sky.js';
 import { DayCycle } from '../scenes/DayCycle.js';
-import { LifeSave } from '../engine/Save.js';
+import { LifeSave, SapphireSave } from '../engine/Save.js';
 import { Life, STATS, MAX_STAT, money } from './Life.js';
 import { Traffic } from '../city/Traffic.js';
 import { Emergencies } from './Emergencies.js';
@@ -42,7 +42,7 @@ const _air = new THREE.Vector3();
 // Where free roam goes. `world` is the ring's (the voyage's route); `jump` is how high Hal must fly
 // for the ring to open the star chart there (over the city's towers in the valley, over Korugar's).
 const PLACES = {
-  ferris: { world: 'earth', name: 'Ferris Aircraft', sub: 'The field · Hangar Two, where Part Seven starts', jump: 110 },
+  ferris: { world: 'earth', name: 'Ferris Aircraft', sub: 'The field · Hangar Two: Carol, and Part Seven', jump: 110 },
   coast: { world: 'earth', name: 'Coast City', sub: 'Hal’s street and the boulevard', jump: 110 },
   lake: { world: 'earth', name: 'The lake', sub: 'Abin Sur’s ship', jump: 26 },
   oa: { world: 'oa', name: 'Oa', sub: 'Sector 0 · Kilowog’s range, the Guardians’ hall', jump: 30 },
@@ -621,15 +621,18 @@ export class Roam extends Exile {
       player.control = false;
       player.turnTo(Math.atan2(CAROL_IN.x - player.position.x, CAROL_IN.z - player.position.z));
       carol.root.rotation.y = Math.atan2(player.position.x - CAROL_IN.x, player.position.z - CAROL_IN.z);
+      // the first time he walks up to her: Part Seven (it starts with him asking her something)
+      if (!told) {
+        told = true;
+        this.takeControl();
+        const go = await this.ui.screen({ kicker: 'Part Seven', title: 'SAPPHIRE', body: 'Hal has something to ask Carol, and a morning to ask it in. It starts here, in Hangar Two.', buttons: ['Begin Part Seven', 'Back to free roam'] });
+        if (go === 0) { SapphireSave.newGame(); SapphireSave.resumeAfterReload('ask'); return; }
+        player.control = false;
+      }
       // as Hal by day she puts him on the schedule (a shift once a day, story/Life.js), else tells him to go home
       const shift = this.civilian && this.shiftOpen(), done = this.civilian && this.life?.d.worked === this.dayCycle?.day;
       const key = this.civilian ? (shift ? 'carolShift0' : done ? 'carolShiftDone' : ['carolRoamHal1', 'carolRoamHal2'][hal++ % 2]) : ['carolRoamGL1', 'carolRoamGL2'][gl++ % 2];
       await this.carolSay(key, [['', 'open']], { skip: false });
-      if (!told) {
-        told = true;
-        this.takeControl();
-        await this.ui.screen({ kicker: 'Part Seven', title: 'COMING NEXT', body: 'Carol has something to tell you. Part Seven begins here, in Hangar Two, when it’s written.', buttons: ['Back to free roam'] });
-      }
       if (shift && await this.offerShift()) return;
       this.giveControl(this.roamObjective());
     } });

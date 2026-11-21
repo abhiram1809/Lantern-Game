@@ -11,6 +11,8 @@ import { Particles } from './Particles.js';
 const PALETTES = {
   pocket: { stars: 60, sharp: 900, void: [0.0, 0.02, 0.012], arm: [0.05, 0.55, 0.24], core: [0.7, 1.6, 1.0], star: [0.8, 1.4, 1.0], band: [0.6, 2.4, 1.2], halo: [0.12, 0.8, 0.35], light: 0x55ff8a, mote: [[0.6, 3.2, 1.4, 1], [0.15, 1.2, 0.45, 0]] },
   antimatter: { stars: 150, sharp: 4000, void: [0.01, 0.0, 0.026], arm: [0.24, 0.15, 0.44], core: [0.55, 0.45, 1.0], star: [1.3, 1.2, 1.7], band: [0.8, 0.62, 1.2], halo: [0.22, 0.12, 0.46], light: 0xb08cff, mote: [[1.6, 1.4, 2.6, 1], [0.4, 0.2, 0.9, 0]] },
+  // the Zamarons' way (Part Seven): a rose-violet void, warm arms, a pink-white rim
+  love: { stars: 90, sharp: 2200, void: [0.03, 0.0, 0.03], arm: [0.5, 0.08, 0.38], core: [1.3, 0.55, 1.2], star: [1.5, 1.1, 1.5], band: [1.5, 0.45, 1.25], halo: [0.42, 0.08, 0.34], light: 0xd46bff, mote: [[2.4, 0.8, 2.2, 1], [0.7, 0.1, 0.55, 0]] },
 };
 export class Rift {
   constructor(radius = 0.5, { palette = 'pocket' } = {}) {

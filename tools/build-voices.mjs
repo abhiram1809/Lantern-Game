@@ -91,6 +91,20 @@ const CHARACTERS = {
     voice: 'af_heart', speed: 1.04, f0: 195, formant: 1.0,
     fx: [['hp', 90], ['peak', 3500, 1.5, 1], ['comp', { thr: -18, ratio: 3 }]],
   },
+  sapphire: {
+    desc: 'Carol as Star Sapphire: her voice, a little higher and slower, in a bright, empty hall',
+    voice: 'af_heart', speed: 0.94, f0: 212, formant: 1.04,
+    fx: [['hp', 90], ['peak', 3800, 1.5, 1.5], ['reverb', { rt: 1.8, pre: 0.025, wet: 0.24, damp: 0.35 }], ['comp', { thr: -18, ratio: 3 }]],
+    tail: 0.7,
+  },
+  zamaron: {
+    desc: 'The Zamarons: old, warm, many women at once, from very far off',
+    voice: 'bf_isabella', speed: 0.86, f0: 178, formant: 1.0,
+    fx: [['hp', 120], ['octave', 0.5, 0.16, 0.008], ['octave', 1.014, 0.32, 0.015], ['octave', 0.986, 0.26, 0.024], ['octave', 2.0, 0.07, 0.011],
+      ['highshelf', 6500, -2], ['comp', { thr: -20, ratio: 2.5 }],
+      ['reverb', { rt: 3.4, pre: 0.04, wet: 0.3, damp: 0.4, er: 0.2 }]],
+    tail: 1.0,
+  },
   abin: {
     desc: 'Abin Sur: dying alien Lantern, deep, gentle, tired, breathy',
     voice: 'bm_lewis', speed: 0.86, f0: 90, formant: 0.93,

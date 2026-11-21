@@ -148,11 +148,12 @@ export function cityOcean() {
   const mat = new THREE.MeshStandardMaterial({ color: 0x1d4c60, roughness: 0.09, metalness: 0.0, envMapIntensity: 0.9 });
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = cityU.uTime;
+    sh.uniforms.uNight = cityU.uNight;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vOw;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvOw = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
       varying vec3 vOw;
-      uniform float uTime;
+      uniform float uTime; uniform float uNight;
       float oH(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 15731.7); }
       float oN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(oH(i), oH(i + vec2(1, 0)), f.x), mix(oH(i + vec2(0, 1)), oH(i + vec2(1, 1)), f.x), f.y); }`)
       .replace('#include <map_fragment>', `#include <map_fragment>
@@ -180,7 +181,16 @@ export function cityOcean() {
         float fade = 1.0 - smoothstep(60.0, 900.0, length(vOw - cameraPosition)); // (far off, smooth: the chop would only shimmer)
         vec3 nW = normalize(vec3(-g.x * fade, 1.0, -g.y * fade));
         normal = normalize((viewMatrix * vec4(nW, 0.0)).xyz);
-      }`);
+        // specular anti-aliasing: where the chop changes faster than a pixel, rougher, so the moon's
+        // glint is a soft path on the water and not pixel-sized highlights the bloom turns into blocks
+        vec3 dn = fwidth(nW);
+        // (by night less: a rough lobe spreads the moon over a whole sheet of the sea)
+        roughnessFactor = clamp(sqrt(roughnessFactor * roughnessFactor + 2.2 * dot(dn, dn)), roughnessFactor, mix(0.55, 0.26, uNight));
+      }`)
+      // and never brighter than a white wall (by night than moonlit foam): the moon's path on the water stays a
+      // glint, not a sheet the bloom spreads over the screen (the night fight over the sea looks down on it)
+      .replace('#include <opaque_fragment>', `#include <opaque_fragment>
+      gl_FragColor.rgb = min(gl_FragColor.rgb, mix(vec3(0.9), vec3(0.26, 0.3, 0.36), uNight));`);
   };
   mat.customProgramCacheKey = () => 'cityOcean';
   // the bay and well out past it (the airspace's sea takes over from altitude beyond)

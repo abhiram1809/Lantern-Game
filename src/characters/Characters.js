@@ -3,14 +3,19 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { Rig } from './Rig.js';
 import { MocapSource } from './Mocap.js';
+import { glowTexture } from '../fx/Textures.js';
 
 // The scans. Hal's two and Abin Sur's (and the mocap) at boot, which every part needs; the others with
 // the part that needs them (`more`), after the title: decoding all nine scans' textures at once was what
 // froze the page behind the loading screen, and a part without Kilowog shouldn't hold his 48 MB.
-const SCANS = { kilowog: 'kilowog', carol: 'carol', hammond: 'hammond', atrocitus: 'atrocitus', katma: 'katma', korCrowd: 'kor_crowd' };
+const SCANS = { kilowog: 'kilowog', carol: 'carol', hammond: 'hammond', atrocitus: 'atrocitus', katma: 'katma', korCrowd: 'kor_crowd', sapphire: 'sapphire' };
+// A rebuilt scan's number, added to its address: the service worker (public/sw.js) hands out the copy it
+// holds for one more visit otherwise (her arms were re-rigged and the old model kept showing).
+const SCAN_VERSION = { sapphire: 3 };
 export const PART_SCANS = {
   awakening: [], corps: ['kilowog'], coast: ['carol', 'hammond'], prisoner: ['carol', 'hammond', 'atrocitus', 'kilowog'],
   probation: ['carol', 'katma', 'korCrowd', 'kilowog'], exile: ['carol', 'katma', 'korCrowd', 'kilowog', 'atrocitus'],
+  sapphire: ['carol', 'sapphire', 'katma', 'korCrowd', 'kilowog', 'atrocitus'], // (Part Seven: her violet self too; the rest for the free roam it ends in)
 };
 export async function loadCharacters(manager) {
   const loader = new GLTFLoader(manager);
@@ -21,10 +26,10 @@ export async function loadCharacters(manager) {
     loader.loadAsync('/anims/xbot.glb'),
   ]);
   for (const g of [casual, lantern, abin]) prepScan(g);
-  const out = { casual, lantern, abin, kilowog: null, carol: null, hammond: null, atrocitus: null, katma: null, korCrowd: null, mocap: new MocapSource(xbot) };
+  const out = { casual, lantern, abin, kilowog: null, carol: null, hammond: null, atrocitus: null, katma: null, korCrowd: null, sapphire: null, mocap: new MocapSource(xbot) };
   const pending = {};
   // the given scans loaded (once each; one that's missing stays null: Kilowog is optional)
-  out.more = (names = []) => Promise.all(names.map((n) => (pending[n] ??= new GLTFLoader().loadAsync(`/models/${SCANS[n]}.glb`).then((g) => { if (n !== 'korCrowd') prepScan(g); out[n] = g; }).catch(() => { out[n] = null; })))).then(() => out);
+  out.more = (names = []) => Promise.all(names.map((n) => (pending[n] ??= new GLTFLoader().loadAsync(`/models/${SCANS[n]}.glb${SCAN_VERSION[n] ? `?v=${SCAN_VERSION[n]}` : ''}`).then((g) => { if (n !== 'korCrowd') prepScan(g); out[n] = g; }).catch(() => { out[n] = null; })))).then(() => out);
   return out;
 }
 // Tripo packs occlusion into the red channel of the ORM texture
@@ -50,6 +55,9 @@ export const JAW = {
   atrocitus: { seam: 1.945, chin: 1.895, front: 0.15, width: 0.045, hinge: [1.99, 0.03] },
   hammond: { seam: 1.531, chin: 1.487, front: 0.075, width: 0.022, hinge: [1.556, -0.005] },
   katma: { seam: 1.5445, chin: 1.502, front: 0.14, width: 0.021, hinge: [1.572, 0.052] },
+  // Star Sapphire Carol: her scan's face again, built 2.8 cm further forward of her pelvis (the nose tip
+  // measured at z 0.140 against 0.112, its height within 2 mm), so Carol's seam and chin and the depths + 0.028
+  sapphire: { seam: 1.496, chin: 1.45, front: 0.12, width: 0.02, hinge: [1.523, 0.032] },
 };
 
 // Adds suit glow, a sweep dissolve for the transformation, a tint, an optional hidden bone, and the
@@ -202,6 +210,35 @@ export function createCarol(gltf) {
     };
     mat.customProgramCacheKey = () => 'gl-carol';
   }
+  return rig;
+}
+
+// Star Sapphire Carol (Part Seven), from the user's model (2026-11-20): her scan's face and hair with a
+// hot-pink bodysuit, black-violet panels and armour built as 50 parts, joined into one rigged mesh
+// (tools/build-assets.mjs, `merge`). Glossy: the suit is meant to look like lacquered cloth, so no
+// roughness floor. The gem's light lives in the materials named `Power`, `Gem` and `Star` (their
+// emissive, kept under 1 by the build): `glowUp(k)` scales it, 1 at rest, for the moments it surges.
+// The same UV-less armour has plain colours, so only the suit and the face carry maps.
+export function createSapphire(gltf) {
+  const rig = createCharacter(gltf, { jaw: JAW.sapphire });
+  const lit = [];
+  for (const m of rig.meshes) {
+    const mat = m.material, name = mat.name;
+    // the face and hair take Carol's matte skin; everything else keeps the glossiness it came with
+    if (/^Carol/.test(name)) mat.roughness = Math.max(mat.roughness, 0.55);
+    if (/^Hardware/.test(name)) mat.roughness = Math.max(mat.roughness, 0.5); // (the polished chamfers on her forearm lit a white bar under a lamp)
+    if (/^(Power|Gem|Star \| luminous)/.test(name)) lit.push({ mat, base: mat.emissiveIntensity });
+    mat.envMapIntensity = /^(Carol|Suit)/.test(name) ? 0.7 : 0.9;
+  }
+  const REST = 0.45; // (at its model's own strength the star and the knee lights burn out under the bloom)
+  rig.glowUp = (k) => { for (const { mat, base } of lit) mat.emissiveIntensity = base * REST * k; };
+  rig.glowUp(1);
+  // her eyes lit violet, two small additive points on the head bone, a bit in front of her scan's eyes
+  // (0 off .. 1 full): the eyes' place is her nose tip (y 1.53, z 0.14) less 4.5 cm, as her face's are
+  const head = rig.bones.head, rest = rig.restPos.head;
+  const eyeMat = new THREE.SpriteMaterial({ map: glowTexture('rgba(255,255,255,1)', 'rgba(190,90,255,0.45)'), color: 0xc27bff, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 });
+  const eyes = [-1, 1].map((s) => { const sp = new THREE.Sprite(eyeMat); sp.scale.setScalar(0.1); sp.position.set(s * 0.031, 1.577 - rest.y, 0.11 - rest.z); sp.visible = false; head.add(sp); return sp; });
+  rig.eyeGlow = (k) => { eyeMat.opacity = Math.min(1, k); for (const e of eyes) e.visible = k > 0.01; };
   return rig;
 }
 

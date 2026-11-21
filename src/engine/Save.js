@@ -88,6 +88,17 @@ export const EXILE_CHECKPOINTS = [
   { id: 'world', label: 'Free roam', clock: 'SECTOR 2814' },
 ];
 
+// Part Seven, "Sapphire": Hal asks Carol to dinner and she sets her terms, the pier at night, and a
+// violet light out of the sky that has been looking for someone who loves like she does (Green
+// Lantern #16, 1962; Johns' "Mystery of the Star Sapphire", 2007). More follow it: the fight over
+// Coast City, the Zamarons' world, getting her back.
+export const SAPPHIRE_CHECKPOINTS = [
+  { id: 'ask', label: 'Dinner', clock: '8:40 AM' },
+  { id: 'pier', label: 'The pier', clock: '7:12 PM' },
+  { id: 'strike', label: 'The violet light', clock: '8:47 PM' },
+  { id: 'hold', label: 'The gem’s hold', clock: '8:58 PM' },
+];
+
 function readCookie(key) {
   const m = document.cookie.match(new RegExp(`(?:^|; )${key}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : null;
@@ -169,7 +180,8 @@ export const CoastSave = createSave({ part: 'coast', key: 'gl_coast_v1', checkpo
 export const PrisonerSave = createSave({ part: 'prisoner', key: 'gl_prisoner_v1', checkpoints: PRISONER_CHECKPOINTS, label: 'Part Four · The Prisoner', first: 'pilot' });
 export const ProbationSave = createSave({ part: 'probation', key: 'gl_probation_v1', checkpoints: PROBATION_CHECKPOINTS, label: 'Part Five · Probation', first: 'rent' });
 export const ExileSave = createSave({ part: 'exile', key: 'gl_exile_v1', checkpoints: EXILE_CHECKPOINTS, label: 'Part Six · Exile', first: 'dawn' });
-export const PARTS = { awakening: Save, corps: CorpsSave, coast: CoastSave, prisoner: PrisonerSave, probation: ProbationSave, exile: ExileSave };
+export const SapphireSave = createSave({ part: 'sapphire', key: 'gl_sapphire_v1', checkpoints: SAPPHIRE_CHECKPOINTS, label: 'Part Seven · Sapphire', first: 'ask' });
+export const PARTS = { awakening: Save, corps: CorpsSave, coast: CoastSave, prisoner: PrisonerSave, probation: ProbationSave, exile: ExileSave, sapphire: SapphireSave };
 
 export const checkpointIndex = Save.index;
 export const checkpointInfo = Save.info;

@@ -141,6 +141,8 @@ export class Player {
     this.speed = 0;
     this.flying = false;
     this.vel.set(0, 0, 0);
+    this.vy = 0; // (a fall in progress is over: placed over the sea after dropping out of flight, he went through the pier's deck at 900 m/s)
+    this.fall = 0;
     if (this.kcc) this.groundMode();
   }
 
