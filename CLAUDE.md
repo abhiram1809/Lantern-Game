@@ -35,8 +35,8 @@ story class with its own save store and checkpoints. Checkpoint ids are unique a
 - **Part Seven is in progress.** Built: `trail` (the breach's wake flown through space: `scenes/Wake.js`),
   `zamaron` (the valley, the Kept, the wardens, Carol over the dais: `scenes/Zamaron.js`) and, ahead of
   `queen`, `predator` (the boss on the citadel's plaza, Carol fighting beside him: `enemies/Predator.js`,
-  `SapphireAlly` in `enemies/StarSapphire.js`; reached only from `#predator` until `queen` replaces
-  `zamEnd`'s card, and its start assumes `queen`'s end: Carol free, the gem hers). Agreed next
+  `SapphireAlly` in `enemies/StarSapphire.js`; played on into from `zamEnd`'s card, "On to the Predator",
+  until `queen` goes between them; its start assumes `queen`'s end: Carol free, the gem hers). Agreed next
   (2026-11-21): `queen` (Aga'po; Hal sealed in crystal; Carol frees him by mastering the gem), `home` (the pier, the dinner finished),
   `hand` (sting: William Hand with Atrocitus's device). Carol comes home keeping the gem and her own
   mind. The user is making Aga'po in Tripo; the other Star Sapphires are `createStarSapphire` (Carol's

@@ -1676,8 +1676,14 @@ export class Sapphire extends Roam {
     await this.perform(b.body, 'ward4');
     await wait(0.8);
     await ui.fade(1, 1.6);
-    const pick = await ui.screen({ kicker: 'Part Seven · Sapphire', title: 'ZAMARON', subtitle: 'Part Seven so far', body: 'Hal has followed the Zamarons to their world and found Carol under their great crystal. Their queen is waiting for him. The rest of Part Seven is still to come.', buttons: ['Free roam', 'Quit to title'] });
-    if (pick === 0) { ExileSave.resumeAfterReload('world'); await new Promise(() => {}); return; }
+    // (the queen's chapter, between this and the Predator, waits on her model: until it's built, this card
+    // goes on to the fight after it, saying what's skipped; returning plays on into `predator`)
+    const pick = await ui.screen({ kicker: 'Part Seven · Sapphire', title: 'ZAMARON', subtitle: 'Part Seven so far', body: 'Hal has followed the Zamarons to their world and found Carol under their great crystal. Their queen is waiting for him: that chapter, where Carol frees him by mastering the gem, is still to come. The fight after it is ready: Carol beside him, herself, the gem hers.', buttons: ['On to the Predator', 'Free roam', 'Quit to title'] });
+    if (pick === 0) {
+      ui.loadStart('Part Seven · The Predator', [['creature', 'Waking the Predator', 2], ['shaders', 'Getting the light right', 2]]);
+      return;
+    }
+    if (pick === 1) { ExileSave.resumeAfterReload('world'); await new Promise(() => {}); return; }
     location.hash = '';
     location.reload();
     await new Promise(() => {});

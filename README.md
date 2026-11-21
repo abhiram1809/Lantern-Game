@@ -37,7 +37,7 @@ what Hal has to break is the gem's hold, not Carol. Then after her: the breach's
 charted stars (stay inside its light or the ring loses it), through a field of the breach's light gone to
 crystal and a nebula where the ring marks the way; and Zamaron, the Zamarons' world, a valley of violet
 crystal where the Star Sapphires keep the ones they love asleep in crystal, and Carol waits in their light.
-And, ahead of the queen's chapter (still to come; start it at `#predator`), the Predator: love's entity out
+And, ahead of the queen's chapter (still to come: Zamaron's end card goes on to it), the Predator: love's entity out
 of the Zamarons' battery, fought on the citadel's plaza with Carol beside him. (After *Green Lantern* #16,
 1962, and Geoff Johns's "Mystery of the Star Sapphire", 2007; the Predator is the comics' violet entity.)
 
@@ -241,7 +241,7 @@ Part Seven:
 | `strike` | The violet light: the pier, the gem, Star Sapphire |
 | `hold` | The gem's hold: over the water, her fight, the Zamarons' light |
 | `trail` | The wake: out after her, flying the breach's wake through space |
-| `zamaron` | Zamaron: the Zamarons' valley, the garden of the Kept, the citadel (an end card, for now) |
+| `zamaron` | Zamaron: the Zamarons' valley, the garden of the Kept, the citadel (an end card that goes on to the Predator, for now) |
 | `predator` | The Predator: the citadel's plaza, Carol beside him, the boss fight (built ahead of the queen's chapter) |
 
 For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#lantern`.
