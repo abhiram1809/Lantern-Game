@@ -105,6 +105,49 @@ const CHARACTERS = {
       ['reverb', { rt: 3.4, pre: 0.04, wet: 0.3, damp: 0.4, er: 0.2 }]],
     tail: 1.0,
   },
+  // Aga'po, queen of the Zamarons (Part Seven): ageless, slow, sure; a little of their many voices under hers
+  agapo: {
+    desc: 'Aga’po, queen of the Zamarons: ageless, regal, slow, tender and cold at once',
+    voice: 'bf_emma', speed: 0.84, f0: 168, formant: 0.98,
+    fx: [['hp', 90], ['octave', 0.992, 0.2, 0.012], ['octave', 1.01, 0.14, 0.02], ['lowshelf', 200, 1.5], ['highshelf', 6500, -2], ['comp', { thr: -20, ratio: 3 }],
+      ['reverb', { rt: 2.2, pre: 0.03, wet: 0.2, damp: 0.4 }]],
+    tail: 0.8,
+  },
+  // the gem's own voice, in Carol's head: everyone who ever loved, whispering at once
+  gem: {
+    desc: 'The gem in Carol’s head: many voices whispering at once, close',
+    voice: { mix: [['bf_isabella', 0.6], ['af_sky', 0.4]] }, speed: 0.82, f0: 190, formant: 1.02,
+    fx: [['hp', 160], ['octave', 0.5, 0.18, 0.01], ['octave', 1.02, 0.3, 0.017], ['octave', 0.98, 0.3, 0.026], ['lp', 6000, 0.6],
+      ['comp', { thr: -22, ratio: 3 }], ['reverb', { rt: 1.6, pre: 0.01, wet: 0.3, damp: 0.5 }]],
+    tail: 0.6, level: -3,
+  },
+  // Carol's inner voice (as Hal's `thought`): close, soft, no room
+  carolThought: {
+    desc: 'Carol’s inner voice: close, soft, steady',
+    base: 'carol', speed: 0.96, f0: 190,
+    fx: [['hp', 80], ['lowshelf', 220, 2], ['lp', 5600, 0.6], ['highshelf', 3600, -3], ['comp', { thr: -22, ratio: 2.5 }]],
+    level: -5,
+  },
+  // William Hand (Part Seven's sting): quiet, flat, careful, in a tiled room under a house
+  hand: {
+    desc: 'William Hand: young man, quiet, flat, unhurried, faintly tender to things that are dead',
+    voice: 'am_echo', speed: 0.88, f0: 104, formant: 0.97,
+    fx: [['hp', 70], ['lowshelf', 180, 1.5], ['peak', 2600, 1, 1], ['comp', { thr: -20, ratio: 3 }], ['reverb', { rt: 0.6, pre: 0.006, wet: 0.12, damp: 0.3 }]],
+    tail: 0.3,
+  },
+  // his father, upstairs, through the floor
+  handDad: {
+    desc: 'William Hand’s father, calling down the basement stairs: older, tired',
+    voice: 'am_adam', speed: 0.95, f0: 96, formant: 0.95,
+    fx: [['hp', 120], ['lp', 1800, 0.7], ['comp', { thr: -20, ratio: 3 }], ['reverb', { rt: 0.9, pre: 0.02, wet: 0.25, damp: 0.5 }]],
+    tail: 0.4, level: -4,
+  },
+  // the hot dog man on the pier, packing up at one in the morning
+  vendor: {
+    desc: 'A hot dog vendor on the pier at one in the morning: older, gruff, kind',
+    voice: 'am_santa', speed: 1.0, f0: 98, formant: 0.95,
+    fx: [['hp', 80], ['peak', 2800, 1.5, 1], ['comp', { thr: -18, ratio: 3 }]],
+  },
   // Star Sapphires of Zamaron (Part Seven): women of other worlds, sure of themselves, in the open air of
   // a crystal valley (a little shimmer: their light in the voice)
   warden: {

@@ -85,13 +85,20 @@ export const EXILE_CHECKPOINTS = [
   { id: 'firstnight', label: 'Her first night', clock: 'KORUGAR · 11:40 PM' },
   { id: 'qward', label: 'Qward', clock: 'QWARD · THE ANTIMATTER UNIVERSE' },
   { id: 'yellow', label: 'The yellow light', clock: 'KORUGAR · 1:15 AM' },
+];
+
+// Free roam: not a part's chapter but the game's open world, opened by Part Six's end and carried on by every
+// part after it (each ending goes back to it, with whatever that part added: Zamaron, after Part Seven). Its own
+// store, so the title, the pause menu and Continue call it free roam, not the part that opened it.
+export const ROAM_CHECKPOINTS = [
   { id: 'world', label: 'Free roam', clock: 'SECTOR 2814' },
 ];
 
 // Part Seven, "Sapphire": Hal asks Carol to dinner and she sets her terms, the pier at night, and a
 // violet light out of the sky that has been looking for someone who loves like she does (Green
 // Lantern #16, 1962; Johns' "Mystery of the Star Sapphire", 2007). More follow it: the fight over
-// Coast City, the Zamarons' world, getting her back.
+// Coast City, the Zamarons' world and their queen, the Predator, the way home and the pier finished;
+// then the sting: William Hand, and what Atrocitus left behind.
 export const SAPPHIRE_CHECKPOINTS = [
   { id: 'ask', label: 'Dinner', clock: '8:40 AM' },
   { id: 'pier', label: 'The pier', clock: '7:12 PM' },
@@ -99,7 +106,12 @@ export const SAPPHIRE_CHECKPOINTS = [
   { id: 'hold', label: 'The gem’s hold', clock: '8:58 PM' },
   { id: 'trail', label: 'The wake', clock: 'DEEP SPACE · UNCHARTED' },
   { id: 'zamaron', label: 'Zamaron', clock: 'ZAMARON · UNCHARTED' },
+  { id: 'queen', label: 'The queen', clock: 'ZAMARON · THE CITADEL' },
   { id: 'predator', label: 'The Predator', clock: 'ZAMARON · THE CITADEL' },
+  { id: 'return', label: 'The way home', clock: 'SECTOR 2814' },
+  { id: 'wheel', label: 'The wheel', clock: '12:58 AM' },
+  { id: 'hangar', label: 'The morning after', clock: '9:04 AM' },
+  { id: 'hand', label: 'Black Hand', clock: '2:12 AM' },
 ];
 
 function readCookie(key) {
@@ -184,7 +196,18 @@ export const PrisonerSave = createSave({ part: 'prisoner', key: 'gl_prisoner_v1'
 export const ProbationSave = createSave({ part: 'probation', key: 'gl_probation_v1', checkpoints: PROBATION_CHECKPOINTS, label: 'Part Five · Probation', first: 'rent' });
 export const ExileSave = createSave({ part: 'exile', key: 'gl_exile_v1', checkpoints: EXILE_CHECKPOINTS, label: 'Part Six · Exile', first: 'dawn' });
 export const SapphireSave = createSave({ part: 'sapphire', key: 'gl_sapphire_v1', checkpoints: SAPPHIRE_CHECKPOINTS, label: 'Part Seven · Sapphire', first: 'ask' });
-export const PARTS = { awakening: Save, corps: CorpsSave, coast: CoastSave, prisoner: PrisonerSave, probation: ProbationSave, exile: ExileSave, sapphire: SapphireSave };
+export const RoamSave = createSave({ part: 'roam', key: 'gl_roam_v1', checkpoints: ROAM_CHECKPOINTS, label: 'Free roam', first: 'world' });
+export const PARTS = { awakening: Save, corps: CorpsSave, coast: CoastSave, prisoner: PrisonerSave, probation: ProbationSave, exile: ExileSave, sapphire: SapphireSave, roam: RoamSave };
+
+// Free roam is open once Part Six is finished.
+export const freeRoamOpen = () => ExileSave.load().reached.includes('yellow') || RoamSave.load().reached.length > 0;
+// Saves from when free roam was Part Six's last checkpoint (`world` in its store): over to free roam's own.
+export function moveFreeRoam() {
+  const ex = ExileSave.load();
+  if (ex.checkpoint !== 'world') return;
+  RoamSave.update((d) => { d.checkpoint = 'world'; d.playedAt = ex.playedAt ?? Date.now(); if (!d.reached.includes('world')) d.reached.push('world'); d.unlocks = [...new Set([...d.unlocks, ...ex.unlocks])]; });
+  ExileSave.update((d) => { d.checkpoint = 'yellow'; d.reached = d.reached.filter((r) => r !== 'world'); d.playedAt = (ex.playedAt ?? 1) - 1; });
+}
 
 export const checkpointIndex = Save.index;
 export const checkpointInfo = Save.info;

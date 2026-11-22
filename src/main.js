@@ -8,7 +8,7 @@ import { tick } from './engine/Time.js';
 import { UI } from './ui/UI.js';
 import { loadCharacters, PART_SCANS } from './characters/Characters.js';
 import { Story, chapterMenu } from './story/Story.js';
-import { Save, CorpsSave, CoastSave, PrisonerSave, ProbationSave, ExileSave, SapphireSave, PARTS, partOf, takeResume, latestCheckpoint } from './engine/Save.js';
+import { Save, CorpsSave, CoastSave, PrisonerSave, ProbationSave, ExileSave, SapphireSave, RoamSave, PARTS, partOf, takeResume, latestCheckpoint, freeRoamOpen, moveFreeRoam } from './engine/Save.js';
 
 const POSTERS = ['airforce', 'jets', 'testpilot', 'flightseat', 'sidewall', 'squadron', 'whitejet'];
 // the loading screen's stages after the title, [key, what it says, its share of the bar] (the shares
@@ -24,6 +24,11 @@ LOAD_PLANS.strike = LOAD_PLANS.hold = LOAD_PLANS.pier;
 LOAD_PLANS.trail = [['code', 'Loading the story', 1], ['props', 'Loading the crystal', 2], ['scene', 'Following the wake', 3], ['shaders', 'Getting the light right', 2]];
 LOAD_PLANS.zamaron = [['code', 'Loading the story', 1], ['props', 'Loading the crystal', 3], ['scene', 'Building the valley', 4], ['shaders', 'Getting the light right', 2]];
 LOAD_PLANS.predator = [['code', 'Loading the story', 1], ['props', 'Loading the crystal', 3], ['scene', 'Building the valley', 4], ['creature', 'Waking the Predator', 2], ['shaders', 'Getting the light right', 2]];
+LOAD_PLANS.queen = LOAD_PLANS.zamaron;
+// and home: the pier (the flight in from orbit, the wheel), the field the morning after; and the sting's room
+LOAD_PLANS.return = LOAD_PLANS.wheel = LOAD_PLANS.pier;
+LOAD_PLANS.hangar = [['code', 'Loading the story', 1], ['props', 'Loading Coast City', 3], ['scene', 'Building the valley', 4], ['shaders', 'Getting the light right', 2]];
+LOAD_PLANS.hand = [['code', 'Loading the story', 1], ['props', 'Loading the room', 2], ['scene', 'Building the room', 1], ['shaders', 'Getting the light right', 1]];
 // each part's code, loaded when it's chosen (Part Six's brings the whole valley and its town with it)
 const PART_CODE = {
   corps: () => import('./story/Corps.js').then((m) => m.Corps),
@@ -32,6 +37,7 @@ const PART_CODE = {
   probation: () => import('./story/Probation.js').then((m) => m.Probation),
   exile: () => import('./story/Roam.js').then((m) => m.Roam),
   sapphire: () => import('./story/Sapphire.js').then((m) => m.Sapphire),
+  roam: () => import('./story/Roam.js').then((m) => m.FreeRoam), // (free roam: its own, every part's after Six)
 };
 
 // (dev only: every main-thread stall over 50 ms, for finding what freezes the page while it loads)
@@ -87,6 +93,7 @@ async function boot() {
     input.endFrame();
   });
   ui.loaded();
+  moveFreeRoam(); // (a save from when free roam was Part Six's last checkpoint)
   // while the title's up, the part played last fetched: its code and its scans (Continue is then quick)
   const guess = (location.hash.length > 1 && partOf(location.hash.slice(1))) || latestCheckpoint()?.part;
   if (guess) { PART_CODE[guess]?.().catch(() => {}); characters.more(PART_SCANS[guess] ?? []); }
@@ -142,7 +149,8 @@ async function titleFlow(ui) {
     ];
     const short = (p) => p.label.split(' · ')[0], last = short(parts.at(-1)).replace('Part ', '');
     const latest = latestCheckpoint();
-    const buttons = latest ? [{ label: 'Continue', sub: `${short(latest.save)} · ${latest.save.info(latest.id).label}` }] : ['Begin'];
+    const buttons = latest ? [{ label: 'Continue', sub: latest.save === RoamSave ? 'Free roam' : `${short(latest.save)} · ${latest.save.info(latest.id).label}` }] : ['Begin'];
+    if (freeRoamOpen()) buttons.push({ label: 'Free roam', sub: 'Every world the story has charted' });
     if (parts.length > 1) buttons.push('Parts');
     if (latest || save.reached.length > 1) buttons.push('Chapters');
     if (latest) buttons.push('New game');
@@ -158,6 +166,7 @@ async function titleFlow(ui) {
     });
     const label = typeof buttons[pick] === 'string' ? buttons[pick] : buttons[pick].label;
     if (label === 'Continue') return { part: latest.part, id: latest.id };
+    if (label === 'Free roam') return { part: 'roam', id: 'world' };
     if (label === 'Begin' || label === 'New game') { Save.newGame(); return { part: 'awakening', id: 'home' }; }
     if (label === 'Parts') {
       const data = parts.map((p) => p.load());

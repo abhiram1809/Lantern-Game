@@ -11,6 +11,7 @@ export const WORLDS = [
   { id: 'korugar', name: 'Korugar', sector: 'Sector 1417', note: 'Sinestro’s world. Its capital keeps his order.', at: [-0.52, 0.28] },
   { id: 'ysmault', name: 'Ysmault', sector: 'Sector 666', note: 'Uncharted.', at: [0.16, -0.7] },
   { id: 'mogo', name: 'Mogo', sector: 'Sector 2261', note: 'Uncharted.', at: [-0.6, -0.42] },
+  { id: 'zamaron', name: 'Zamaron', sector: 'Past the old charts', note: 'The Zamarons’ world. The Kept, and their queen.', at: [-0.82, 0.7] },
   // (not in this universe: the ring tears a breach to it, as Sinestro did; off the chart's edge)
   { id: 'qward', name: 'Qward', sector: 'Antimatter universe', note: 'The Weaponers’ world, through a breach. The Thunderers.', at: [0.82, -0.8], anti: true },
 ];

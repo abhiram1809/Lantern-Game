@@ -25,23 +25,35 @@ story class with its own save store and checkpoints. Checkpoint ids are unique a
 | Three, Coast City | `Coast` (`Coast.js`) | `gl_coast_v1` | morning drive ferris carol after wreck test catch hector grave |
 | Four, The Prisoner | `Prisoner` (`Prisoner.js`) | `gl_prisoner_v1` | pilot cell site ysmault trial |
 | Five, Probation | `Probation` (`Probation.js`) | `gl_probation_v1` | rent commute advance testflight pickup korugar patrol rebels report |
-| Six, Exile | `Exile` (`Exile.js`), run as `Roam` (`Roam.js`) | `gl_exile_v1` | dawn palace tribunal firstnight qward yellow world |
-| Seven, Sapphire | `Sapphire` (`Sapphire.js`) | `gl_sapphire_v1` | ask pier strike hold trail zamaron predator |
+| Six, Exile | `Exile` (`Exile.js`), run as `Roam` (`Roam.js`) | `gl_exile_v1` | dawn palace tribunal firstnight qward yellow |
+| Seven, Sapphire | `Sapphire` (`Sapphire.js`) | `gl_sapphire_v1` | ask pier strike hold trail zamaron queen predator return wheel hangar hand |
+| Free roam (after Six) | `FreeRoam` (`Roam.js`) | `gl_roam_v1` | world |
 
-- `world` is **free roam**: every world the story has visited (Earth's valley and Coast City, the
+- `world` is **free roam**, a feature of the game, not a part's chapter: opened by Part Six's end and there for every
+  part after it, with what each one adds (Zamaron, after Seven). **Every part's ending sends the player to it
+  (`RoamSave.resumeAfterReload('world')`), never back into the part that introduced it** (it used to be Part Six's
+  last checkpoint: finishing Part Seven landed you "in Part Six"). It has its own store (`RoamSave`) and its own
+  title button; it runs as `FreeRoam`, which is `Roam` (so what a new part adds to `Roam`, free roam has). A new
+  part's hook in free roam (Carol in Hangar Two, for Seven) stops offering it once that part is finished.
+  Free roam covers every world the story has visited (Earth's valley and Coast City, the
   lake, Oa, Korugar, Ysmault, Qward), travel by star chart or menu, Hal in the suit or his clothes,
   his car, a job at Ferris, money, XP, public opinion, traffic, emergencies, a day and weather cycle.
   `range` and `earth` are Part Two's free flight.
-- **Part Seven is in progress.** Built: `trail` (the breach's wake flown through space: `scenes/Wake.js`),
-  `zamaron` (the valley, the Kept, the wardens, Carol over the dais: `scenes/Zamaron.js`) and, ahead of
-  `queen`, `predator` (the boss on the citadel's plaza, Carol fighting beside him: `enemies/Predator.js`,
-  `SapphireAlly` in `enemies/StarSapphire.js`; played on into from `zamEnd`'s card, "On to the Predator",
-  until `queen` goes between them; its start assumes `queen`'s end: Carol free, the gem hers). Agreed next
-  (2026-11-21): `queen` (Aga'po; Hal sealed in crystal; Carol frees him by mastering the gem), `home` (the pier, the dinner finished),
-  `hand` (sting: William Hand with Atrocitus's device). Carol comes home keeping the gem and her own
-  mind. The user is making Aga'po in Tripo; the other Star Sapphires are `createStarSapphire` (Carol's
-  Sapphire scan, recoloured). `home` and `hand` wait for the user's map and graphics rework (not
-  started), which the pier chapters (`PIER`, the day presets) also need checking after.
+- **Part Seven is built**, end to end: `trail` (the breach's wake flown through space: `scenes/Wake.js`),
+  `zamaron` (the valley, the Kept, the wardens, Carol over the dais: `scenes/Zamaron.js`), `queen` (Aga'po, the
+  user's model, comes down out of the battery's light; Hal crosses her light on foot, the shield up for each
+  wave; she seals him in crystal at the dais's foot; Carol, played, holds on to one voice and frees him),
+  `predator` (the boss on the plaza, Carol beside him: `enemies/Predator.js`, `SapphireAlly`; then the queen's
+  farewell: the gem becomes a violet ring on Carol's hand, the Kept are to be asked, the ring charts Zamaron),
+  `return` (Earth's night side, the race to the pier, both out of their light on the deck), `wheel` (the pier at
+  one in the morning: the hot dog stand, her father's bench, the wheel turned by one construct and ridden to the
+  top), `hangar` (the morning after: he's fired, seven o'clock, rehired Monday) and `hand` (the sting: William
+  Hand, the user's model, in the basement of his family's funeral home, `scenes/Mortuary.js`, with the heart of
+  Atrocitus's machine; then the end card). Part Eight (Black Hand's story) isn't planned yet: discuss its beats
+  first. Free roam has Zamaron once Part Seven charts it (`Roam.zamaronRoam`: two of the Kept gone home, the
+  queen over her dais); the Zamaron scene's people are built in `Roam` for both (`setupZamaron`, `keptFigures`,
+  `zamSapphires`; `Sapphire.zamSapphires` adds Carol and hides the queen till `queen`). The user's map and
+  graphics rework (not started) will need the pier chapters (`PIER`, the day presets) checked after.
 - **Story rules:** take beats from the comics (*Green Lantern: Secret Origin* first, modern
   continuity: no yellow weakness). When proposing beats, say which come from the comics and which
   are ours. Discuss a new part's beats with the user before building it.
@@ -133,7 +145,7 @@ src/characters/    Rig + Animator, IK, Mocap, Poses, Player (walk + flight), Cha
 src/powers/        RingPowers (charge, health, wheel, aim, guard, constructs), Constructs (list, shaders, geometry)
 src/scenes/        Bedroom, Dream, Hyperspace, CrashSite (the lake), Space, Oa + Hall, Ferris (the field, the
                    road, Coast City's host scene), Site, Ysmault, Korugar + KorugarSigns + Statue, Qward, Wake
-                   (Part Seven's flight through space), Zamaron, DayCycle
+                   (Part Seven's flight through space), Zamaron, Mortuary (Part Seven's sting), DayCycle
 src/city/          Coast City: Kit, Building, Signs, HalsBlock, Interiors, Shops, Office, Lod, Lamps, Traffic,
                    Plan, Tower, Stream, Ground, Waterfront, Landmarks
 src/props/         Props (load, clone, helpers), Car (makeCar, planDrive), Smash (every prop touchable)
@@ -143,7 +155,7 @@ src/story/         one file per part (table above), Voyage, Roam (free roam), Ci
                    Life, Work, Emergencies, Pressure, Trap, Album, lines.js (all dialogue)
 src/ui/            UI (HUD, subtitles, cards, pause, loading), PowerHud, TravelHud, VehicleHud, Phone, CityMap
 tools/             asset, prop, people and voice builders, autorig, debug renderers, propview.html,
-                   voices.html, fight-bots.js, sapphire-bot.js, story-monitor.js, people-test.js
+                   voices.html, fight-bots.js, sapphire-bot.js, sapphire-end-bot.js, story-monitor.js, people-test.js
 ```
 
 ### Boot and loading
@@ -329,6 +341,7 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   `/#id` is a hash change, not a reload: use `/?r=1#id`.
 - `#screen button` also finds the last card's buttons: click `#screen.show button`.
 - Only POST to `/__shot`: a GET with no body crashes the dev server.
+- `ui.loading` is a method (the boot bar): the loading screen's state is `ui.load` (null when it's gone).
 - A service worker left from earlier sessions on 127.0.0.1:5180 can break new model files: unregister
   it and delete its caches from the page.
 - `shot(name, 0)` renders the camera from before a `director.cut()`; step a few frames after a cut.
@@ -341,6 +354,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   the rest of it.
 
 **Story flow**
+- The loading screen stays up until a fade up, `giveControl()` or a card: a chapter that opens on a cut with no fade
+  (the way home's orbit) plays out behind it. End it (`ui.loadEnd()`) on the first picture.
 - A chapter method can't share a name with a story field (`site`, `pilot`, `trail`): the field wins. The
   `site` step's method is `atrocitus()`; `trail`'s is `followWake()`; the flight-suit rig is `pilotRig`.
 - A part's end card that starts the next part must save this part's last checkpoint first.
@@ -355,6 +370,10 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Camera helpers in absolute heights break on raised floors (the pier's deck is 4.2 m up); work
   relative to the player or a head bone. Cameras placed by offset can land inside crowds and buildings.
 - Spawn enemies relative to the player, not the arena.
+- The guard needs `powers.enabled.constructs`: turning constructs off takes the shield too. `player.knock` is the
+  Predator's; the player's own push is `player.dash(dir, speed, dur)`.
+- A view turned by yaw and pitch: `(d.z, 0, -d.x)` is the *left* of `d`, so pitching about it turns the wrong way
+  (Carol's hold had the mouse and W/S inverted).
 
 **Physics**
 - A sensor collider blocks the character controller unless its filter skips it (`Player.filter` does):
@@ -393,7 +412,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - The sign atlas fills quietly (`signs.more` adds pages). `glowTexture()`'s default mid-tone is green.
 - A camera inside a translucent construct tints the frame. A glow tube the camera flies inside is seen
   edge-on and vanishes under a view-angle falloff: draw a thin core faded near the camera (`Wake`).
-- A bright point light on glossy pale stone blooms into a white sun: roughness 0.6 or more under it.
+- A bright point light on glossy pale stone (or polished steel: the mortuary's drawers) blooms into a white sun:
+  roughness 0.6 or more under it.
 
 **Models and props**
 - Tripo sheets can hold several figures (`keepSide`, `figure`); a scanned bow or weapon can be a sheet.
@@ -408,6 +428,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   point behind her back (her arms hung off her in every pose). Measure the limb and give `rig.arms`.
 - A cluster scaled up into a spire is as wide as it's tall: one beside the citadel's stair swallowed the
   stair's head and the camera. Check what's within a spire's width of a path.
+- Check a downloaded prop's size by a part you know (the hot dog cart's counter was 65 cm high: its umbrellas came
+  at head height). A set of pieces (the autopsy lab) isn't centred on its main one: hide the rest by their bounds
+  in the prop's own frame (`Mortuary.buildFixtures`).
 - A downloaded prop may be two objects, turned, off its origin, or bounded far past its shape: look
   at its parts and ground contact (`piece(..., { root: true })`) and give non-boxes triangle colliders.
 - Loaded vertex positions may be interleaved: use `getX/Y/Z` and a plain attribute before moving them.
@@ -428,6 +451,10 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   own scratch objects.
 - An arm held near full reach shakes, or its elbow swings out (Carol's at the pier's rail went out sideways):
   hold it short of straight, in the body's frame (`steadyHand`); a shorter body needs its own lean.
+- Arm IK set in one scene stays on into the next (Hal walked into the hangar the morning after with his arms still
+  pulled to his lap from the Ferris wheel): take every `reach` off when its scene ends, and clear both arms at a
+  chapter's start. A hand's IK target must sit within the arm's reach (`Sapphire.handsOnLap` slides it down the
+  thigh only as far as 88% of the arm): out of reach the arm goes straight and the hand lands inside the body.
 - A scripted move outside the player's update needs something to run the animator (`onFrame`).
   Seated poses need `player.autoAnim` off.
 - Turn a body about its hips, not the object's origin (which is at the feet). Point with the arm on
@@ -443,6 +470,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Disposing a scene disposes everything in it: take Hal out first. `input.consume()` a key that opens
   another interface, or it's read twice. Audio starts only after a user gesture.
 - Spoken text written outside `lines.js` gets no clip.
+- The voice builder's per-line hash includes `LEXICON` and `RESPELL`: one new entry re-renders every clip (and
+  changes them). Render new lines with `ONLY=`; leave the tables alone, or restore `public/voices` from git.
 - A key defined twice in `lines.js` silently replaces the earlier line, so an earlier part plays a later
   part's text (Part One's "Core breach." played the Qward breach). `npm run voices` refuses to run until
   one is renamed; grep the key's callers to see which moment each means.
@@ -453,6 +482,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   (built on my defaults while they slept).
 - Star Sapphire's model: weak feet and tiara, a pale fin on each forearm; the night sea's moon glint
   shows as pixelated patches. No Zamaron models yet (the Guardian generator starts from a male scan).
+- Part Seven's last six chapters (`queen` to `hand`) have been run by `tools/sapphire-end-bot.js` and checked in
+  captures, not played by hand or reviewed by the user. The hot dog man is a Rocketbox avatar; the pier's Ferris
+  wheel cars are built (open bench cars); the funeral home's shelf is Coast Liquor's, its bottles and all.
 - The Predator fight hasn't been played by hand: balanced by bots and staged tests (the scripted player
   manages the ground phase, not the air one). Carol held in its beam hangs stiffly.
 - The derived Star Sapphires all have Carol's face (other skins, hair, markings); the Korugarians kept

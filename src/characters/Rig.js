@@ -209,6 +209,8 @@ export class Animator {
     this.states.push(st);
     rig.applyQ(st.cur);
   }
+  // (one of the added ones taken off again: Carol out of her violet light)
+  removeRig(rig) { if (this.states.length > 1) this.states = this.states.filter((s) => s.rig !== rig); }
 
   play(gen, fadeTime = 0.45) {
     if (gen === this.gen) return;
@@ -240,6 +242,7 @@ export class Animator {
   gesture(kind, duration = 1.1, amount = 1) { this.gestures.push({ kind, t: 0, duration, amount }); }
 
   update(dt) {
+    if (this.freeze) return; // (held as it is: sealed in crystal)
     this.t += dt;
     if (!this.gen) return;
     let param = null;

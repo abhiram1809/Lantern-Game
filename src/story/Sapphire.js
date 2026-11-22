@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { wait, waitFor, tween, ease, onFrame } from '../engine/Time.js';
-import { SapphireSave, ExileSave } from '../engine/Save.js';
+import { SapphireSave, RoamSave } from '../engine/Save.js';
 import { Roam } from './Roam.js';
 import { CAROL_IN, HANGAR_MOUTH } from './Exile.js';
-import { loadProps } from '../props/Props.js';
+import { loadProps, prop, hasProp } from '../props/Props.js';
 import { FERRIS_PROPS, LOT, coastX } from '../scenes/Ferris.js';
-import { createRing, createSapphire, createStarSapphire, createKorugarian, createKatma } from '../characters/Characters.js';
+import { createRing, createSapphire, createStarSapphire, createKorugarian, createKatma, createAgapo, createWilliamHand } from '../characters/Characters.js';
 import { makePose, still, POSES } from '../characters/Poses.js';
 import { Animator } from '../characters/Rig.js';
 import { Locomotion } from '../characters/Mocap.js';
@@ -18,9 +18,12 @@ import { Zamaron, ZAMARON_PROPS, ARRIVE, LANDING, COURT, STAIR, PLAZA, BATTERY, 
 import { glowTexture } from '../fx/Textures.js';
 import { createShaft } from '../fx/GreenLight.js';
 import { sliced, breath } from '../engine/Slice.js';
-import { StarSapphire, SapphireAlly, YIELD_AT } from '../enemies/StarSapphire.js';
+import { StarSapphire, SapphireAlly, YIELD_AT, sapFlight } from '../enemies/StarSapphire.js';
 import { Predator, loadPredator, PRED } from '../enemies/Predator.js';
 import { RAPIER } from '../engine/Physics.js';
+import { Mortuary, MORTUARY_PROPS, ROOM, TABLE as MORT_TABLE, TABLE_TOP as MORT_TABLE_TOP, HAND_AT as MORT_HAND_AT, STAIRS as MORT_STAIRS } from '../scenes/Mortuary.js';
+import { constructMesh } from '../powers/Constructs.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -69,6 +72,9 @@ const SAP_WAIT = V(-1596, 34, LOT.z + 330), ARENA = V(-1556, 0, LOT.z + 338);
 const LAND = PIER_HAL.clone(), LAND_HAL = PIER_CAROL.clone();
 // the Predator's fight on the citadel's plaza: Hal and Carol toward its south side (the gate behind them, the
 // battery and the dais ahead), it comes down on the plaza's middle, between them and the dais
+// the queen's place in her light: over the dais's front, off its middle (Carol is over the middle, and comes down
+// past it to him)
+const QUEEN_AT = THRONE.clone().add(V(2.8, 1.6, 4.0));
 const PRED_HAL = PLAZA.clone().add(V(0, 0, 22)), PRED_CAROL = PRED_HAL.clone().add(V(-2.3, 0, 0.6)), PRED_AT = PLAZA.clone().add(V(0, 0, -2));
 // floating, her arms open and her head back: the light holding her (parameter pose, as the voyage's)
 const RAPTURE = makePose({
@@ -94,16 +100,21 @@ export class Sapphire extends Roam {
       hold: () => this.hold(),
       trail: () => this.followWake(),
       zamaron: () => this.toZamaron(),
+      queen: () => this.queenOfZamaron(),
       predator: () => this.predatorFight(),
+      return: () => this.flyHome(),
+      wheel: () => this.pierAtMidnight(),
+      hangar: () => this.morningAfter(),
+      hand: () => this.blackHand(),
     };
   }
 
   async prepare(id) {
     const { ui, player } = this;
     // (off Earth: no valley to build, only the place itself, which its chapter builds)
-    const away = id === 'trail' || id === 'zamaron' || id === 'predator';
-    await loadProps(away ? (id === 'trail' ? WAKE_PROPS : ZAMARON_PROPS) : FERRIS_PROPS, (k) => ui.loadStage('props', k));
-    if (!away) await this.setupFerrisAsync(); // (in slices, under the loading screen)
+    const away = id === 'trail' || id === 'zamaron' || id === 'queen' || id === 'predator', room = id === 'hand';
+    await loadProps(away ? (id === 'trail' ? WAKE_PROPS : ZAMARON_PROPS) : room ? MORTUARY_PROPS : FERRIS_PROPS, (k) => ui.loadStage('props', k));
+    if (!away && !room) await this.setupFerrisAsync(); // (in slices, under the loading screen)
     else this.engine.gradeUniforms.uFlash.value = 1; // (each begins out of the flash of arriving)
     ui.clock(this.save.info(id).clock);
     this.ring = createRing();
@@ -114,7 +125,7 @@ export class Sapphire extends Roam {
     player.setTired(0);
     this.learn('hammer', false);
     this.learn('staff', false);
-    if (id === 'pier' || id === 'strike' || id === 'hold') await this.prepPier();
+    if (id === 'pier' || id === 'strike' || id === 'hold' || id === 'return' || id === 'wheel') await this.prepPier();
   }
 
   // The pier: the city's blocks round its head built, and the night's materials compiled (under the loading
@@ -258,9 +269,9 @@ export class Sapphire extends Roam {
     this.pierLamps(mode);
   }
 
-  // (how far on the town's lamps and lit rooms are: part on at dusk, all on by night)
+  // (how far on the town's lamps and lit rooms are: part on at dusk, all on by night, off by day)
   pierLamps(mode) {
-    const f = this.ferrisScene, k = mode === 'dusk' ? [0.3, 0.3, 0.55] : [1, 1, 1];
+    const f = this.ferrisScene, k = mode === 'dusk' ? [0.3, 0.3, 0.55] : mode === 'day' ? [0, 0, 0] : [1, 1, 1];
     f.block?.setNight(k[0]); f.office?.setNight(k[1]); f.city?.setNight(k[2]);
   }
 
@@ -659,9 +670,9 @@ export class Sapphire extends Roam {
   }
 
   // The comet's flight, and the light it throws on the pier as it comes.
-  makeGem(at) {
-    const f = this.ferrisScene, tex = (this.gemTex ??= glowTexture('rgba(255,255,255,1)', 'rgba(170,80,255,0.4)'));
-    const mk = () => { const m = new THREE.SpriteMaterial({ map: tex, color: 0xb36bff, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 }); const sp = new THREE.Sprite(m); f.scene.add(sp); return sp; };
+  makeGem(at, scene = this.ferrisScene.scene) {
+    const tex = (this.gemTex ??= glowTexture('rgba(255,255,255,1)', 'rgba(170,80,255,0.4)'));
+    const mk = () => { const m = new THREE.SpriteMaterial({ map: tex, color: 0xb36bff, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 }); const sp = new THREE.Sprite(m); scene.add(sp); return sp; };
     const head = mk(), trail = Array.from({ length: 16 }, mk), hist = [];
     head.position.copy(at);
     const tick = onFrame(() => {
@@ -673,7 +684,7 @@ export class Sapphire extends Roam {
       head,
       set: (op) => (head.material.opacity = op),
       scale: (v) => head.scale.setScalar(v),
-      dispose: () => { tick(); for (const sp of [head, ...trail]) { f.scene.remove(sp); sp.material.dispose(); } },
+      dispose: () => { tick(); for (const sp of [head, ...trail]) { sp.removeFromParent(); sp.material.dispose(); } },
     };
   }
 
@@ -1402,134 +1413,13 @@ export class Sapphire extends Roam {
     await this.zamEnd();
   }
 
-  async setupZamaron() {
-    if (this.zam) return this.zam;
-    const { ui } = this;
-    ui.loadStage('scene', 0.1);
-    await breath();
-    const z = (this.zam = new Zamaron({ engine: this.engine }).build());
-    ui.loadStage('scene', 0.6);
-    await this.keptFigures(z);
-    ui.loadStage('scene', 0.85);
-    this.zamSapphires(z);
-    ui.loadStage('scene', 1);
-    return z;
-  }
-
-  enterZamaron(at, yaw) {
-    const { player, audio, powers } = this, z = this.zam;
-    this.world = 'zamaron';
-    this.show(z);
-    this.playerActive = true;
-    player.spawn(z.physics, z.scene, at, yaw);
-    player.ground = (x, zz) => z.ground(x, zz);
-    player.surface = 'stone';
-    powers.attach({ scene: z.scene, physics: z.physics, ...z.airBounds() });
-    powers.regen = 0.6;
-    player.boostScale = 1.4;
-    this.ambience(audio.wind(0.05), audio.pad([55, 69.3, 82.4], 0.025, { cutoff: 620 }));
-    z.updaters.push(() => z.focus(player.position));
-    // a blow on one of the Kept: it sparks and holds (and the ring says why, once)
-    const smash = z.smash, blow = smash.blow.bind(smash);
-    let told = false;
-    smash.blow = (item, ...args) => {
-      if (item?.kept && !told) { told = true; wait(0.4).then(() => this.ringSay('ringKeptHit')); }
-      return blow(item, ...args);
-    };
-  }
-
-  // The ones kept in the garden's crystals: people of Korugar (from Abin Sur's scan and Katma Tui's), and
-  // near-humans from worlds the ring knows by number (Rocketbox people), each asleep standing, the head
-  // bowed. The ring reads eight of them.
-  async keptFigures(z) {
-    const ch = this.assets.characters;
-    const WHO = [
-      { kind: 'kor', seed: 3, read: 'ringKept1' }, { kind: 'person', id: 'male-adult-03', read: 'ringKept2' },
-      { kind: 'katma', seed: 2, read: 'ringKept3' }, { kind: 'person', id: 'male-adult-15', read: 'ringKept4' },
-      { kind: 'kor', seed: 7, read: 'ringKept5' }, { kind: 'person', id: 'female-adult-09', read: 'ringKept8' },
-      { kind: 'kor', seed: 11, guard: true, read: 'ringKept6' }, { kind: 'person', id: 'male-adult-07', read: 'ringKept7' },
-      { kind: 'katma', seed: 5 }, { kind: 'person', id: 'female-adult-04' }, { kind: 'kor', seed: 15 }, { kind: 'person', id: 'male-adult-18' },
-    ];
-    const ids = WHO.filter((w) => w.kind === 'person').map((w) => w.id);
-    const gl = new Map((await loadPeople(ids)).map((g, i) => [ids[i], g]));
-    const ASLEEP = makePose({ nx: 0.2, kx: 0.16, sx: 0.02, cx: 0.02, aL: [0.1, -1, 0.1], eL: 0.32, aR: [-0.1, -1, 0.1], eR: 0.32, lLz: 0.02, lRz: -0.02, fL: 0.05, fR: 0.05 });
-    for (const [i, k] of z.kept.entries()) {
-      const w = WHO[i];
-      let rig = null;
-      if (w.kind === 'kor' && ch.abin) rig = createKorugarian(ch.abin, { seed: w.seed, guard: w.guard });
-      else if (w.kind === 'katma' && ch.katma) rig = createKatma(ch.katma, { citizen: true, seed: w.seed });
-      else if (w.kind === 'person' && gl.get(w.id)) {
-        const person = createPerson(gl.get(w.id), { seed: i + 3 });
-        rig = person.rig;
-        person.setShape('blinkL', 1);
-        person.setShape('blinkR', 1);
-      }
-      if (!rig) continue;
-      rig.apply(ASLEEP);
-      rig.root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });
-      k.hold(rig);
-      const look = k.at.clone().setY(1.6);
-      z.interact({ position: k.at.clone().add(V(-k.side * 2.4, 0, 0)), radius: 2.0, look, label: 'Read the crystal', action: async () => {
-        this.player.lookAt(look, 0.9);
-        this.ringGlow = 2;
-        this.audio.ringChime?.();
-        await this.ringSay(w.read ?? 'ringKeptQuiet');
-        this.ringGlow = 1.2;
-        this.player.lookAt(null);
-      } });
-    }
-  }
-
-  // The Star Sapphires: two tending their crystals in the garden, who'll answer him; two wardens waiting
-  // at the court; and Carol, over the dais in the citadel, in their light. Each from Carol's model but Carol.
+  // The Zamarons as free roam has them (Roam.zamSapphires), and the story's: the queen out of sight till she comes
+  // down (`queen`), and Carol, over the dais in the citadel, in their light.
   zamSapphires(z) {
-    const gl = this.assets.characters.sapphire, mocap = this.mocap;
+    super.zamSapphires(z);
+    const gl = this.assets.characters.sapphire;
+    if (this.queen) { this.queen.rig.root.visible = false; this.queen.hover = false; }
     if (!gl) return;
-    const make = (seed, at, yaw) => {
-      const rig = createStarSapphire(gl, { seed });
-      rig.root.position.copy(at);
-      rig.root.rotation.y = yaw;
-      z.scene.add(rig.root);
-      const anim = new Animator(rig), loco = new Locomotion(mocap);
-      loco.scale = rig.hipsHeight / mocap.hipsHeight;
-      loco.relax.adduct = 0.1;
-      anim.play(loco, 0);
-      anim.look.maxYaw = 0.8;
-      const body = new BodyLanguage(rig, anim, { lookHome: null, scale: 1, reach: 0.55, shift: null, gestures: undefined });
-      z.updaters.push((dt) => { body.update(dt); anim.update(dt); });
-      return { rig, anim, loco, body };
-    };
-    // the keepers: a hand on the crystal, her head to it
-    this.keepers = [[0, 'keep1a', 'halKeep1', 'keep1b', 21], [6, 'keep2a', 'halKeep2', 'keep2b', 33]].map(([ki, a, h, b, seed]) => {
-      const k = z.kept[ki], toPath = V(-k.side, 0, 0);
-      const at = k.at.clone().setY(0).addScaledVector(toPath, 1.95).add(V(0, 0, 0.9));
-      const sp = make(seed, at, Math.atan2(k.at.x - at.x, k.at.z - at.z));
-      const touch = k.at.clone().setY(1.45).addScaledVector(toPath, 0.92).add(V(0, 0, 0.3));
-      sp.anim.reach('R', () => touch, { rate: 3, pole: V(0.5, -0.8, -0.3) });
-      sp.anim.lookAt(() => k.at.clone().setY(1.7), 0.6);
-      let n = 0;
-      z.interact({ position: at, radius: 2.4, look: () => sp.rig.bonePosition('head', V(0, 0, 0)), label: 'Speak to her', action: async () => {
-        this.takeControl();
-        const P = this.player.position;
-        this.player.turnTo(Math.atan2(at.x - P.x, at.z - P.z));
-        sp.anim.lookAt(() => this.player.rig.bonePosition('head', V(0, 0, 0)), 0.7);
-        this.player.lookAt(() => sp.rig.bonePosition('head', V(0, 0, 0)), 0.8);
-        this.npcClose(sp.rig, 1.2);
-        if (n++ === 0) {
-          await this.perform(sp.body, a);
-          await this.halClose(0.9);
-          await this.say(h);
-          await this.npcClose(sp.rig, 0.9, -1);
-          await this.perform(sp.body, b);
-        } else await this.perform(sp.body, b);
-        sp.anim.lookAt(() => k.at.clone().setY(1.7), 0.6);
-        this.player.lookAt(null);
-        this.giveControl('Find Carol');
-      } });
-      return sp;
-    });
-    // the wardens, at the court's north side, facing the garden
-    this.wardensAt = [make(44, COURT.clone().add(V(-1.6, 0, -9.2)), 0), make(57, COURT.clone().add(V(1.6, 0, -9.4)), 0)];
     // Carol, over the dais, in their light: her head back, her arms open
     const c = (this.zamCarol = createSapphire(gl));
     c.root.position.copy(THRONE).add(V(0, 1.2 + 2.4, 0));
@@ -1543,13 +1433,6 @@ export class Sapphire extends Roam {
     const shaft = (this.zamShaft = createShaft({ from: THRONE.clone().add(V(0, 1.2, 0)), to: BATTERY.clone().add(V(0, -8, 0)), radiusFrom: 1.4, radiusTo: 2.4, color: new THREE.Color(0.6, 0.14, 0.7) }));
     shaft.userData.uniforms.uOpacity.value = 0.16;
     z.scene.add(shaft);
-  }
-
-  // a close shot of someone who isn't Carol (the keepers, the wardens): from their front, to one side
-  npcClose(rig, duration = 1.2, side = 1, fov = 32, yaw = rig.root.rotation.y) {
-    const h = rig.bonePosition('head', V(0, 0, 0));
-    const f = V(Math.sin(yaw), 0, Math.cos(yaw)), r = V(f.z, 0, -f.x);
-    return this.director.move(h.clone().addScaledVector(f, 1.7).addScaledVector(r, 0.45 * side).add(V(0, -0.06, 0)), h.clone().add(V(0, -0.04, 0)), duration, ease.inOut, fov);
   }
 
   // Their light sets him down at the garden's mouth: a pulse out of the battery, the air thick with it, and
@@ -1675,18 +1558,450 @@ export class Sapphire extends Roam {
     await this.npcClose(b.rig, 0.9, -1);
     await this.perform(b.body, 'ward4');
     await wait(0.8);
-    await ui.fade(1, 1.6);
-    // (the queen's chapter, between this and the Predator, waits on her model: until it's built, this card
-    // goes on to the fight after it, saying what's skipped; returning plays on into `predator`)
-    const pick = await ui.screen({ kicker: 'Part Seven · Sapphire', title: 'ZAMARON', subtitle: 'Part Seven so far', body: 'Hal has followed the Zamarons to their world and found Carol under their great crystal. Their queen is waiting for him: that chapter, where Carol frees him by mastering the gem, is still to come. The fight after it is ready: Carol beside him, herself, the gem hers.', buttons: ['On to the Predator', 'Free roam', 'Quit to title'] });
-    if (pick === 0) {
-      ui.loadStart('Part Seven · The Predator', [['creature', 'Waking the Predator', 2], ['shaders', 'Getting the light right', 2]]);
-      return;
+    await ui.fade(1, 1.2); // (and on into `queen`, in the dark)
+  }
+
+  // ---------------------------------------------------------------- 7. the queen
+  // (Ours, round the comics' Zamarons, who choose Carol Ferris to be their queen.) Aga'po comes down out of the
+  // battery's light onto the dais and lets him try: her light comes across the plaza in waves, and he crosses
+  // it on foot, the shield up as each one reaches him (a wave that catches him throws him back and the crystal
+  // climbs him). At the dais's foot she seals him in crystal, one of the Kept; and Carol, alone in the gem's
+  // noise, holds on to one voice (the player, as her: keep him in sight, hold on) and comes down and frees him.
+  async queenOfZamaron() {
+    const { ui, director, audio, player, powers, engine } = this, g = engine.gradeUniforms;
+    this.takeControl();
+    ui.objective(null);
+    ui.clock(this.save.info('queen').clock);
+    this.lanternUp();
+    for (const id of ['hammer', 'staff', 'bubble']) this.learn(id, false);
+    await loadProps(ZAMARON_PROPS, (k) => ui.loadStage('props', k));
+    const z = await this.setupZamaron();
+    const fresh = this.current !== z;
+    if (fresh) {
+      this.enterZamaron(GATE.clone().add(V(0, 0, 0.4)), Math.PI);
+      await this.warmUp(z.scene, null, [z.scene], (k) => ui.loadStage('shaders', k), { near: PLAZA, radius: 220 });
+      g.uFlash.value = 0;
+      g.uFlashColor.value.setRGB(0.55, 1.6, 0.75);
     }
-    if (pick === 1) { ExileSave.resumeAfterReload('world'); await new Promise(() => {}); return; }
-    location.hash = '';
-    location.reload();
-    await new Promise(() => {});
+    powers.enabled.flight = false; // (their light holds the air over the citadel: ringZam3)
+    powers.choose(0);
+    const q = this.queen, c = this.zamCarol, ca = this.zamCarolAnim;
+    // where it stands: him at the stair's head between the wardens, Carol over the dais, and the queen not yet
+    player.place(GATE.clone().add(V(0, 0, 0.4)), Math.PI);
+    player.lookAt(() => c.bonePosition('head', _h), 0.6);
+    const [w1, w2] = this.wardensAt;
+    for (const [w, x] of [[w1, -3.4], [w2, 3.4]]) {
+      w.rig.root.position.set(x, PLAZA.y, GATE.z - 0.6);
+      w.rig.root.rotation.y = Math.PI + x * 0.06;
+      Object.assign(w.anim.feet, { ground: (xx, zz) => z.ground(xx, zz), offL: 0, offR: 0, drop: 0 });
+      w.anim.lookAt(() => q.rig.bonePosition('head', _r), 0.5);
+    }
+    if (this.zamShaft) this.zamShaft.visible = true;
+    // she comes down out of the battery's light onto the dais
+    q.rig.root.visible = true;
+    q.rig.root.position.copy(BATTERY).add(V(0, -6, 0));
+    q.rig.root.rotation.y = 0;
+    q.hover = true;
+    q.rig.glowUp(2.4);
+    director.cut(GATE.clone().add(V(2.6, 1.4, 4.2)), BATTERY.clone().add(V(0, -6, 0)), 50);
+    await ui.fade(0, 1.0);
+    audio.shimmer?.(1.2);
+    audio.rumble?.(2.5, 0.25);
+    const down = QUEEN_AT.clone();
+    const from = q.rig.root.position.clone();
+    director.move(GATE.clone().add(V(1.6, 1.6, 2.6)), down.clone().add(V(0, 1.4, 0)), 5.2, ease.inOut, 44);
+    await tween(5.0, (k) => { q.rig.root.position.lerpVectors(from, down, ease.inOut(k)); q.rig.glowUp(2.4 - 1.4 * k); }, ease.linear);
+    q.base = down.y;
+    // close on her; and him
+    q.anim.lookAt(this.headOf(player.rig), 0.6);
+    player.lookAt(() => q.rig.bonePosition('head', _r), 0.7);
+    for (const w of [w1, w2]) w.anim.lookAt(this.headOf(player.rig), 0.5);
+    await this.queenClose(1.4, 1, 6, 26);
+    await this.perform(q.body, 'agQ1', [['one', 'open']]);
+    await this.halClose(1.0);
+    await this.say('halQn1');
+    await this.queenClose(1.0, -1, 5, 28);
+    await this.perform(q.body, 'agQ2', [['kept', 'open'], ['found', () => q.anim.gesture('nod', 1, 0.3)]]);
+    await this.halClose(0.9, -1);
+    await this.say('halQn2');
+    await this.queenClose(0.9, 1, 4.6, 26);
+    await this.perform(q.body, 'agQ3', [['window', () => q.anim.gesture('tilt', 1, 0.35)]]);
+    await this.halClose(0.9);
+    player.animator.gesture('nod', 0.8, 0.3);
+    await this.say('halQn3');
+    await this.queenClose(1.0, -1, 5.4, 30);
+    await this.perform(q.body, 'agQ4', [['take', 'open']]);
+    // across her light, on foot
+    await this.queenCrossing(z);
+    await this.queenSeal(z);
+    await this.carolHolds(z);
+    await this.carolFrees(z);
+  }
+
+  // the queen from in front, at her eyes' height, `dist` off, from her west always (`side` only how far: from her
+  // east, from below, the battery's light shone off the crystal wall behind the dais as a white sun beside her)
+  queenClose(duration = 1.2, side = 1, dist = 5, fov = 28) {
+    const q = this.queen.rig, h = q.bonePosition('head', V(0, 0, 0)).add(V(0, 0.1, 0));
+    return this.director.move(h.clone().add(V(side > 0 ? -1.1 : -1.7, -0.12, dist)), h.clone().add(V(0, -0.12, 0)), duration, ease.inOut, fov);
+  }
+
+  // The crossing: waves of her light out from the dais across the plaza, a beat apart and closer together as he
+  // nears. Each wave, met with the shield, holds (raised just as it reaches him, it breaks round him: a parry);
+  // one that catches him throws him back and the crystal climbs him; four, and it throws him back to the gate.
+  async queenCrossing(z) {
+    const { ui, player, powers, hud, audio, director } = this, q = this.queen;
+    const GOAL = 8.8, START = THRONE.distanceTo(GATE);
+    const crystal = this.crossCrystal(z);
+    const waves = [];
+    const waveMat = () => new THREE.ShaderMaterial({
+      uniforms: { uK: { value: 0 } }, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      vertexShader: 'varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: `uniform float uK; varying vec2 vU;
+        void main(){ float a = pow(1.0 - vU.y, 2.2) * (0.55 + 0.45 * sin(vU.x * 180.0)); gl_FragColor = vec4(vec3(0.85, 0.26, 1.15) * a * uK, 1.0); }`,
+    });
+    const band = new THREE.CylinderGeometry(1, 1, 2.2, 96, 1, true).translate(0, 1.1, 0);
+    const ringGeo = new THREE.RingGeometry(0.97, 1.0, 96).rotateX(-Math.PI / 2);
+    const spawn = () => {
+      const m = waveMat(), mesh = new THREE.Mesh(band, m), ring = new THREE.Mesh(ringGeo, m);
+      mesh.renderOrder = ring.renderOrder = 21;
+      const gp = new THREE.Group();
+      gp.add(mesh, ring);
+      gp.position.set(THRONE.x, PLAZA.y + 0.03, THRONE.z);
+      z.scene.add(gp);
+      const w = { gp, m, r: 6.4, done: false };
+      waves.push(w);
+      audio.whoosh?.(1.1, 0.25);
+      return w;
+    };
+    const dist = () => Math.hypot(player.position.x - THRONE.x, player.position.z - THRONE.z);
+    let held = 0, nextAt = 2.2, clock = 0, said = new Set(), fails = 0, tell = 0, stopped = false, failing = false;
+    this.crossState = { waves, dist: () => dist(), get held() { return held; }, get fails() { return fails; } }; // (for tools/sapphire-end-bot.js)
+    const once = (key, fn) => { if (said.has(key)) return; said.add(key); fn(key); };
+    hud.tutorial({ kicker: 'The queen', n: 1, of: 1, title: 'Cross her light', html: 'Walk to the dais. Her light comes across the plaza in <b>waves</b>: <b>raise the shield</b> (<kbd>Right-click</kbd> or <kbd>F</kbd>) as each one reaches you. Raised <b>just as it arrives</b>, it breaks round you; held up too long, it still pushes you back.<br><span class="dim">A wave that catches you throws you back, and their crystal takes hold.</span>' });
+    powers.markerTarget = { pos: THRONE.clone().add(V(0, 4.2, 0)), label: 'Carol' };
+    this.giveControl('Reach Carol');
+    wait(1.2).then(() => this.ringSay('ringQn1'));
+    await new Promise((resolve) => {
+      const stop = onFrame((dt) => {
+        if (this.paused) return;
+        clock += dt;
+        const d = dist(), k = 1 - Math.min(1, Math.max(0, (d - GOAL) / (START - GOAL)));
+        // the tell: her hands come up and her light gathers on the dais, then it goes
+        if (clock > nextAt - 0.75 && tell === 0) { tell = 1; q.body.play('open'); q.rig.glowUp(2.2); audio.shimmer?.(0.4); }
+        if (clock > nextAt) {
+          tell = 0;
+          q.rig.glowUp(1);
+          spawn();
+          // a second close behind it, now and then, once he's well in (a held shield takes both; a parry needs two)
+          if (k > 0.35 && Math.random() < 0.35 + 0.3 * k) wait(0.7).then(() => { if (!stopped) spawn(); });
+          nextAt = clock + 3.0 - 1.1 * k + Math.random() * 0.5;
+        }
+        for (const w of waves) {
+          const r0 = w.r;
+          w.r += dt * 15;
+          w.gp.scale.set(w.r, 1, w.r);
+          w.m.uniforms.uK.value = Math.min(1, (w.r - 6.4) / 3) * Math.max(0, 1 - (w.r - 26) / 22);
+          if (!w.done && !failing && r0 < d && w.r >= d) {
+            w.done = true;
+            const toHal = V(player.position.x - THRONE.x, 0, player.position.z - THRONE.z).normalize();
+            const at = player.rig.bonePosition('chest', V(0, 0, 0)).addScaledVector(toHal, -0.4);
+            const res = powers.guardHit(at.clone().addScaledVector(toHal, -1.5), at);
+            if (res === 'parry') {
+              once('halQw2p', () => {});
+            } else if (res === 'block') {
+              player.dash?.(toHal.clone(), 3.2, 0.25);
+            } else {
+              player.dash?.(toHal.clone(), 9, 0.4);
+              director.shake(0.35, 0.35);
+              audio.impact?.(0.6);
+              held = Math.min(1, held + 0.27);
+              crystal.set(held);
+              once('ringQnHeld', (key) => this.ringSay(key));
+            }
+          }
+        }
+        for (let i = waves.length - 1; i >= 0; i--) if (waves[i].r > 48) { waves[i].gp.removeFromParent(); waves[i].m.dispose(); waves.splice(i, 1); }
+        held = Math.max(0, held - dt * 0.035);
+        crystal.set(held);
+        crystal.follow(player.position);
+        // what's said on the way, once each
+        if (k > 0.2) once('agQw1', (key) => this.perform(q.body, key, [], { skip: false }));
+        if (k > 0.42) once('halQw1', (key) => this.bark(key));
+        if (k > 0.55) once('agQw2', (key) => this.perform(q.body, key, [], { skip: false }));
+        if (k > 0.7) once('sapQw1', (key) => this.say(key, { skip: false }));
+        if (k > 0.8) once('agQw3', (key) => this.perform(q.body, key, [], { skip: false }));
+        if (k > 0.9) once('halQw2', (key) => this.bark(key));
+        // four waves taken: thrown back to the gate (the crystal shatters off him)
+        if (held >= 0.999 && !failing) {
+          held = 0;
+          fails++;
+          failing = true;
+          (async () => {
+            this.takeControl();
+            audio.glass?.(0.9);
+            crystal.set(0);
+            this.perform(q.body, 'agQwFail', [], { skip: false });
+            await ui.fade(1, 0.5);
+            for (const w of waves) w.r = 99;
+            player.place(GATE.clone().add(V(0, 0, 0.4)), Math.PI);
+            player.lookAt(null);
+            clock = 0; nextAt = 2.6; said.delete('ringQnBack');
+            await ui.fade(0, 0.5);
+            this.giveControl('Reach Carol');
+            this.ringSay('ringQnBack');
+            failing = false;
+          })().catch(console.warn);
+        }
+        if (d < GOAL && !failing) { stopped = true; stop(); resolve(); }
+      });
+    });
+    for (const w of waves) { w.gp.removeFromParent(); w.m.dispose(); }
+    band.dispose();
+    ringGeo.dispose();
+    hud.tutorialDone?.();
+    hud.tutorial(null);
+    powers.markerTarget = null;
+    this.crystalOnHal = crystal;
+    this.crossFails = fails;
+  }
+
+  // Their crystal on him, rising from his feet: `set(k)` 0 none .. 1 to his collarbones, `seal()` all of him.
+  crossCrystal(z) {
+    const g = new THREE.Group();
+    let c = null;
+    if (hasProp('crystal_shard')) {
+      c = prop('crystal_shard');
+      c.traverse((m) => { if (m.isMesh) { m.material = z.keptMat; m.castShadow = false; m.renderOrder = 2; } });
+      c.position.y = -0.85;
+      g.add(c);
+    }
+    g.visible = false;
+    z.scene.add(g);
+    let k = 0;
+    const apply = () => {
+      g.visible = k > 0.01;
+      // (the Kept's crystal is 1.24 tall-scaled over a 3 m shard: at 1 it closes over the head)
+      g.scale.set(0.82 + 0.2 * k, Math.max(0.01, 1.24 * k), 0.82 + 0.2 * k);
+    };
+    return {
+      group: g,
+      set(v) { k = v * 0.8; apply(); },
+      seal(v) { k = v; apply(); },
+      follow(p) { g.position.set(p.x, p.y, p.z); },
+      remove() { g.removeFromParent(); },
+    };
+  }
+
+  // At the dais's foot: Carol, and the queen's answer: the crystal closes over him, one of the Kept.
+  async queenSeal(z) {
+    const { director, player, audio, engine } = this, g = engine.gradeUniforms, q = this.queen, c = this.zamCarol, ca = this.zamCarolAnim;
+    this.takeControl();
+    const crystal = this.crystalOnHal;
+    const stand = THRONE.clone().add(V(0, 0, 8.6));
+    stand.y = z.ground(stand.x, stand.z);
+    if (player.position.distanceTo(stand) > 0.6) { player.walkTo(stand, 1.6); await Promise.race([waitFor(() => player.position.distanceTo(stand) < 0.5), wait(3)]); }
+    player.turnTo(Math.PI);
+    const cHead = () => c.bonePosition('head', _h);
+    player.lookAt(cHead, 0.8);
+    // up at her, from behind him
+    director.cut(stand.clone().add(V(-1.2, 1.2, 3.2)), cHead().clone().add(V(0, -0.4, 0)), 44);
+    await wait(0.6);
+    await this.say('halQn4');
+    // her, from below: her head comes down a little from the light, her eyes on him
+    ca.lookAt(this.headOf(player.rig), 0.4);
+    const h = cHead().clone();
+    director.cut(h.clone().add(V(0.6, -1.4, 2.6)), h.clone(), 30);
+    director.move(h.clone().add(V(0.5, -1.2, 2.2)), h.clone(), 3, ease.inOut, 28);
+    await this.say('sapQn1');
+    await this.queenClose(1.0, 1, 4.4, 28);
+    await this.perform(q.body, 'agQ5', [['stay', 'open']]);
+    // the crystal: up from his feet and over him, his hand out to her
+    const sh = V(0, 0, 0);
+    player.autoAnim = false;
+    player.animator.reach('R', () => { player.rig.bonePosition('upperArm_R', sh); return sh.add(cHead().clone().sub(sh).normalize().multiplyScalar(0.6)); }, { pole: V(-0.4, -0.85, -0.3), rate: 3 });
+    crystal.follow(stand);
+    director.cut(stand.clone().add(V(-2.4, 1.5, 3.4)), stand.clone().add(V(0, 1.3, 0)), 40);
+    audio.glass?.(0.5);
+    audio.shimmer?.(1.6);
+    const k0 = Math.max(0.05, crystal.group.scale.y / 1.24);
+    const say = wait(1.0).then(() => this.say('halQn5', { skip: false }));
+    await tween(2.4, (k) => crystal.seal(k0 + (1 - k0) * ease.inOut(k)), ease.linear);
+    await say;
+    g.uFlashColor.value.setRGB(1.2, 0.5, 1.6);
+    tween(0.8, (k) => (g.uFlash.value = 0.35 * (1 - k)), ease.out).then(() => { g.uFlash.value = 0; g.uFlashColor.value.setRGB(0.55, 1.6, 0.75); });
+    this.ringGlow = 0.4;
+    await this.say('ringQn2', { name: 'The ring' });
+    // (frozen in it: the animator holds where it is)
+    player.animator.freeze = true;
+    await wait(0.8);
+  }
+
+  // Carol, in the gem's noise: over her shoulder, him in the crystal below, the view pulled away from him and
+  // the whispers of everyone she can feel; the player keeps him in the ring and holds on.
+  async carolHolds(z) {
+    const { ui, director, input, hud, engine, audio } = this, g = engine.gradeUniforms, c = this.zamCarol;
+    const halAt = this.player.rig.bonePosition('head', V(0, 0, 0)).clone();
+    const head = () => c.bonePosition('head', _h);
+    const cam = () => head().clone().add(V(0.5, 0.6, -1.55));
+    // the view: the direction to him, turned by how far the gem has pulled it (yaw, pitch)
+    // (its state on the story while it lasts: tools/sapphire-end-bot.js plays it)
+    const st = (this.holdState = { ay: 0.2, ap: 0.12, k: 0 });
+    let t = 0, still = 0, phase = 0, next = 2.5, w = 0, quietTill = 0;
+    const WH = ['gemW1', 'gemW2', 'gemW3', 'gemW4', 'gemW5'];
+    const aim = () => {
+      const from = cam(), d = halAt.clone().sub(from).normalize();
+      d.applyAxisAngle(V(0, 1, 0), st.ay); // (+ay: to the left)
+      const right = V(-d.z, 0, d.x).normalize();
+      d.applyAxisAngle(right, st.ap); // (+ap: up)
+      return { from, at: from.clone().addScaledVector(d, 10) };
+    };
+    // the ring at the middle of the frame, filling as she holds on
+    const el = document.createElement('div');
+    el.style.cssText = 'position:fixed;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;pointer-events:none;z-index:6;opacity:0;transition:opacity .6s';
+    el.innerHTML = '<svg viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,190,255,.35)" stroke-width="2"/><circle id="hk" cx="60" cy="60" r="52" fill="none" stroke="rgba(255,150,255,.95)" stroke-width="4" stroke-linecap="round" stroke-dasharray="326.7" stroke-dashoffset="326.7" transform="rotate(-90 60 60)"/></svg>';
+    document.body.appendChild(el);
+    const arc = el.querySelector('#hk');
+    // into her: the light, and her
+    await ui.fade(1, 0.6);
+    const v = aim();
+    director.cut(v.from, v.at, 36);
+    g.uFlashColor.value.setRGB(1.1, 0.45, 1.5);
+    g.uFlash.value = 0.08;
+    await ui.fade(0, 0.8);
+    el.style.opacity = '1';
+    hud.tutorial({ kicker: 'Carol', n: 1, of: 1, title: 'One voice', html: 'The gem pulls her eyes away from him. <b>Keep Hal inside the ring</b> (move the mouse, or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>) and <b>hold on</b> (hold the <kbd>left button</kbd> or <kbd>Space</kbd>).' });
+    ui.cinematic(false);
+    this.freeLook = true;
+    input.setLook(true);
+    ui.objective('Hold on to him');
+    await new Promise((resolve) => {
+      const stop = onFrame((dt, tt, real) => {
+        if (this.paused) return;
+        t += dt;
+        // the pull: a slow wander, stronger as she gets closer, and up toward the battery's light
+        const s = 0.22 + 0.5 * st.k;
+        st.ay += (Math.sin(t * 0.61) * 0.7 + Math.sin(t * 1.37 + 1.3) * 0.5) * s * dt;
+        st.ap += (Math.sin(t * 0.47 + 0.6) * 0.6 + 0.35) * s * dt * 0.8;
+        const look = input.lookEnabled ? input.look : input.mouse, ax = input.moveAxis();
+        st.ay -= look.dx * 0.0021 + ax.x * 0.9 * dt;
+        st.ap -= look.dy * 0.0021 - ax.z * 0.9 * dt;
+        st.ay = Math.max(-0.7, Math.min(0.7, st.ay));
+        st.ap = Math.max(-0.45, Math.min(0.6, st.ap));
+        const off = Math.hypot(st.ay, st.ap), inside = off < 0.085, hold = input.down('Mouse0') || input.down('Space');
+        // (a thought of hers takes its time: she doesn't get past the next one till it's said)
+        const cap = t < quietTill ? [0.33, 0.66, 0.92, 1][phase] - 0.005 : 1;
+        if (inside && hold) { st.k = Math.min(cap, st.k + dt / 8); still = 0; } else { st.k = Math.max(0, st.k - dt / 11); still += dt; }
+        const k = st.k;
+        arc.setAttribute('stroke-dashoffset', String(326.7 * (1 - k)));
+        arc.style.stroke = inside ? 'rgba(255,150,255,.95)' : 'rgba(255,150,255,.45)';
+        const v2 = aim();
+        director.cut(v2.from, v2.at, 36 - 4 * k);
+        g.uFlash.value = 0.08 * (1 - k) + 0.03 * Math.sin(t * 2.1);
+        // the whispers, and her own thoughts as she gets hold of him
+        if (t > next && w < WH.length) { this.say(WH[w++], { skip: false }); next = t + 3.6 + Math.random(); }
+        if (k > 0.33 && phase === 0) { phase = 1; this.say('carolTh1', { skip: false }); quietTill = t + 2.2; next = Math.max(next, t + 3.2); }
+        if (k > 0.66 && phase === 1) { phase = 2; this.say('carolTh2', { skip: false }); quietTill = t + 3.4; next = Math.max(next, t + 4.2); }
+        if (k > 0.92 && phase === 2) { phase = 3; this.say('carolTh3', { skip: false }); quietTill = t + 2.4; next = t + 99; }
+        if (still > 14 && phase < 3) { still = 0; this.say('carolTh5', { skip: false }); }
+        if (k >= 1) { stop(); resolve(); }
+      });
+    });
+    this.freeLook = false;
+    input.setLook(false);
+    ui.objective(null);
+    hud.tutorialDone?.();
+    hud.tutorial(null);
+    ui.cinematic(true);
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), 800);
+    audio.ringChime?.();
+    await this.say('carolTh4');
+  }
+
+  // She comes down out of the light, herself; her hand on the crystal and it breaks; to the queen.
+  async carolFrees(z) {
+    const { director, player, audio, engine } = this, g = engine.gradeUniforms, q = this.queen, c = this.zamCarol, ca = this.zamCarolAnim;
+    const stand = player.position.clone();
+    // the light round her breaks up; the gem's light steadies in her
+    g.uFlashColor.value.setRGB(1.4, 0.55, 1.8);
+    g.uFlash.value = 0.55;
+    audio.sonicBoom?.(0.4);
+    tween(1.0, (k) => (g.uFlash.value = 0.55 * (1 - k) ** 2), ease.linear).then(() => { g.uFlash.value = 0; g.uFlashColor.value.setRGB(0.55, 1.6, 0.75); });
+    if (this.zamShaft) tween(1.2, (k) => (this.zamShaft.userData.uniforms.uOpacity.value = 0.16 * (1 - k)), ease.inOut).then(() => (this.zamShaft.visible = false));
+    this.zamCarolFree = true;
+    c.eyeGlow(0.3);
+    ca.play(still(POSES.hover), 1.0);
+    // down to him: in front of the crystal, on the dais's side
+    const land = stand.clone().add(V(-0.75, 0, -1.25));
+    land.y = z.ground(land.x, land.z);
+    const cFrom = c.root.position.clone();
+    director.cut(stand.clone().add(V(3.6, 1.5, 1.6)), stand.clone().lerp(cFrom, 0.5).add(V(0, 0.8, 0)), 46);
+    director.move(stand.clone().add(V(3.0, 1.5, 0.8)), land.clone().add(V(0, 1.2, 0)), 3.0, ease.inOut, 42);
+    await tween(2.8, (k) => { c.root.position.lerpVectors(cFrom, land, ease.inOut(k)); c.root.rotation.y = yawTo(c.root.position, stand); }, ease.linear);
+    ca.play(still(POSES.stand), 0.6);
+    ca.feet.ground = (x, q2) => z.ground(x, q2);
+    // her hand on the crystal; it breaks
+    const touch = stand.clone().add(V(-0.4, 1.35, -0.45));
+    ca.reach('R', () => touch, { rate: 3, pole: V(-0.4, -0.85, -0.3) });
+    director.cut(land.clone().add(V(1.7, 1.45, 1.6)), touch.clone().lerp(c.bonePosition('head', _h), 0.4), 36);
+    c.glowUp(1.8);
+    audio.shimmer?.(0.8);
+    await wait(1.4);
+    audio.glass?.(1.3);
+    director.shake(0.25, 0.4);
+    const crystal = this.crystalOnHal;
+    await tween(0.35, (k) => { crystal.group.scale.multiplyScalar(1 + k * 0.06); crystal.group.traverse((m) => { if (m.isMesh) m.visible = k < 0.7; }); }, ease.linear);
+    crystal.remove();
+    this.crystalOnHal = null;
+    this.powers.sparks?.emit(90, (p, vv) => {
+      p[0] = stand.x + (Math.random() - 0.5) * 1.2; p[1] = stand.y + Math.random() * 2.2; p[2] = stand.z + (Math.random() - 0.5) * 1.2;
+      vv[0] = (Math.random() - 0.5) * 6; vv[1] = Math.random() * 3; vv[2] = (Math.random() - 0.5) * 6;
+    }, { life: 0.9, size: [0.07, 0], color: [[2.4, 1.0, 3.0, 1], [0.6, 0.2, 1.0, 0]] });
+    c.glowUp(1);
+    ca.reach('R', null, { rate: 3 });
+    // him out of it, down on a knee, and up
+    player.animator.freeze = false;
+    player.animator.reach('R', null, { rate: 4 });
+    player.animator.play(still(POSES.land, 0.25), 0.1);
+    this.ringGlow = 0.6;
+    await wait(0.9);
+    player.animator.play(player.locomotion ?? player.groundGen ?? still(POSES.stand), 0.8);
+    player.autoAnim = true;
+    player.lookAt(() => c.bonePosition('head', _h), 0.8);
+    player.turnTo(yawTo(stand, land));
+    ca.lookAt(this.headOf(player.rig), 0.7);
+    const cb = (this.zamCarolBody ??= new BodyLanguage(c, ca, { lookHome: null, scale: 1, reach: 0.55, shift: null, gestures: undefined }));
+    const cbTick = (dt) => cb.update(dt);
+    z.updaters.push(cbTick);
+    await wait(0.6);
+    await this.npcClose(c, 1.0, 1, 30, yawTo(land, stand));
+    await this.perform(cb, 'carolQn1', [['me', () => ca.gesture('nod', 1, 0.35)]]);
+    await this.halClose(0.9);
+    await this.say('halQn6');
+    await this.npcClose(c, 0.9, -1, 30, yawTo(land, stand));
+    await this.perform(cb, 'carolQn2', [['quiet', () => ca.gesture('tilt', 1, 0.35)]]);
+    // to the queen
+    const qHead = () => q.rig.bonePosition('head', _r);
+    ca.lookAt(qHead, 0.7);
+    player.lookAt(qHead, 0.6);
+    const cy0 = c.root.rotation.y, cy1 = yawTo(land, THRONE);
+    await tween(0.8, (k) => (c.root.rotation.y = cy0 + wrap(cy1 - cy0) * ease.inOut(k)));
+    director.move(land.clone().add(V(1.1, 1.5, 2.2)), qHead().clone().lerp(c.bonePosition('head', _h), 0.55), 1.4, ease.inOut, 40);
+    await this.perform(cb, 'carolQn3', [['queen', 'stop']]);
+    await this.queenClose(1.0, 1, 4.2, 28);
+    await this.perform(q.body, 'agQ6');
+    await this.npcClose(c, 1.0, 1, 30, cy1);
+    await this.perform(cb, 'carolQn4');
+    // and over them all, the battery: something in it moved when she took the gem back
+    z.updaters = z.updaters.filter((u) => u !== cbTick);
+    tween(2.5, (k) => (z.unrest = 0.6 * k), ease.inOut);
+    audio.rumble?.(2.5, 0.35);
+    q.anim.lookAt(BATTERY.clone(), 0.6);
+    director.move(land.clone().add(V(-3, 1.4, 6)), BATTERY.clone().add(V(0, -8, 0)), 2.8, ease.inOut, 50);
+    await wait(1.4);
+    await this.perform(q.body, 'agQ7', [['light', () => q.anim.gesture('tilt', 1, 0.3)]]);
+    await wait(0.6);
+    await this.ui.fade(1, 1.0);
   }
 
   // ---------------------------------------------------------------- 8. the Predator
@@ -1731,6 +2046,17 @@ export class Sapphire extends Roam {
       w.rig.root.rotation.y = Math.PI + x * 0.06;
       Object.assign(w.anim.feet, { ground: (xx, q) => z.ground(xx, q), offL: 0, offR: 0, drop: 0 });
       w.anim.lookAt(() => BATTERY, 0.5);
+    }
+    // the queen over the dais, watching it
+    const q = this.queen;
+    if (q) {
+      q.rig.root.visible = true;
+      q.rig.root.position.copy(QUEEN_AT);
+      q.rig.root.rotation.y = 0;
+      q.base = q.rig.root.position.y;
+      q.hover = true;
+      q.rig.glowUp(1);
+      q.anim.lookAt(() => BATTERY, 0.5);
     }
     // the Predator, in the battery's light (small, inside the crystal, till it comes out)
     const foe = (this.pred = new Predator({ scene: z.scene, physics: z.physics, powers, player, audio, director, engine, gltf: gl, ground: (x, q) => z.ground(x, q), centre: PRED_AT.clone().add(V(0, 0, 4)), radius: 33, avoid: [{ x: THRONE.x, z: THRONE.z, r: 12 }] })); // (33: out to the stair's head, where he stood out of its reach)
@@ -2005,10 +2331,1149 @@ export class Sapphire extends Roam {
     await this.say('halPred4');
     await this.npcClose(c, 0.9, -1, 30);
     await this.perform(this.zamCarolBody, 'carolPred5', [['time', () => ca.gesture('nod', 1, 0.4)]]);
-    await wait(1.2);
+    await wait(0.8);
+    z.updaters = z.updaters.filter((u) => u !== cbTick);
+    await this.queenFarewell(z, stand, land);
+  }
+
+  // (Ours.) The queen comes over the plaza to them: the gem is Carol's now, and goes from her chest into a ring on
+  // her hand; Carol asks for the Kept to be asked whether they'd stay; the ring charts the world; and the two of
+  // them go up out of the valley, the wardens and the queen watching.
+  async queenFarewell(z, stand, land) {
+    const { director, player, audio, engine } = this, g = engine.gradeUniforms, q = this.queen, c = this.zamCarol, ca = this.zamCarolAnim;
+    const cb = this.zamCarolBody, cbTick = (dt) => cb.update(dt);
+    z.updaters.push(cbTick);
+    const mid = stand.clone().lerp(land, 0.5);
+    if (q) {
+      // over from the dais, low, to them
+      const to = mid.clone().add(V(Math.sin(player.yaw) * 3.6, 0.6, Math.cos(player.yaw) * 3.6));
+      const from = q.rig.root.position.clone();
+      q.hover = false;
+      q.anim.lookAt(() => mid.clone().add(V(0, 1.6, 0)), 0.6);
+      director.move(mid.clone().add(V(-Math.sin(player.yaw) * 4.5, 1.8, -Math.cos(player.yaw) * 4.5)).add(V(Math.cos(player.yaw) * 2, 0, -Math.sin(player.yaw) * 2)), to.clone().add(V(0, 1.4, 0)), 4.2, ease.inOut, 44);
+      await tween(4.0, (k) => { q.rig.root.position.lerpVectors(from, to, ease.inOut(k)); q.rig.root.rotation.y = yawTo(q.rig.root.position, mid); }, ease.linear);
+      q.base = to.y;
+      q.hover = true;
+      const qHead = () => q.rig.bonePosition('head', _r);
+      player.lookAt(qHead, 0.7);
+      ca.lookAt(qHead, 0.7);
+      player.turnTo(yawTo(stand, to));
+      const cy0 = c.root.rotation.y, cy1 = yawTo(land, to);
+      tween(0.8, (k) => (c.root.rotation.y = cy0 + wrap(cy1 - cy0) * ease.inOut(k)));
+      await this.npcClose(q.rig, 1.1, 1, 28, q.rig.root.rotation.y, 0.13);
+      await this.perform(q.body, 'agF1', [['kept', 'open']]);
+      // she looks at him for that
+      ca.lookAt(this.headOf(player.rig), 0.8);
+      await this.npcClose(c, 0.9, -1, 30, cy1);
+      await this.perform(cb, 'carolF1', [['Two', () => ca.gesture('tilt', 1, 0.3)]]);
+      ca.lookAt(qHead, 0.7);
+      await this.npcClose(q.rig, 1.0, -1, 28, q.rig.root.rotation.y, 0.13);
+      // the gem: out of her chest, into a ring on her right hand
+      const chest = () => c.bonePosition('chest', _h).clone().add(V(0, 0.08, 0)), hand = () => c.bonePosition('hand_R', _h).clone();
+      const say = this.perform(q.body, 'agF2', [['yours', 'open']]);
+      await wait(2.2);
+      director.move(land.clone().add(V(Math.sin(cy1) * 1.5 + Math.cos(cy1) * 0.6, 1.3, Math.cos(cy1) * 1.5 - Math.sin(cy1) * 0.6)), chest().lerp(hand(), 0.5), 1.4, ease.inOut, 34);
+      ca.reach('R', () => chest().add(V(Math.sin(cy1) * 0.38, -0.25, Math.cos(cy1) * 0.38)), { rate: 3, pole: V(-0.4, -0.85, -0.3) });
+      await wait(1.0);
+      const mote = this.makeGem(chest(), z.scene);
+      mote.set(1);
+      mote.scale(0.7);
+      audio.shimmer?.(0.9);
+      await tween(1.1, (k) => { mote.head.position.lerpVectors(chest(), hand(), ease.inOut(k)); mote.scale(0.7 - 0.4 * k); }, ease.linear);
+      mote.dispose();
+      const ring = (this.carolRing ??= this.violetRing());
+      ring.removeFromParent();
+      this.attachRing(ring, c);
+      audio.ringChime?.();
+      g.uFlashColor.value.setRGB(1.2, 0.5, 1.6);
+      tween(0.6, (k) => (g.uFlash.value = 0.18 * (1 - k)), ease.out).then(() => { g.uFlash.value = 0; g.uFlashColor.value.setRGB(0.55, 1.6, 0.75); });
+      await wait(0.7);
+      ca.reach('R', null, { rate: 3 });
+      await say;
+      // the Kept
+      await this.npcClose(c, 1.0, 1, 30, cy1);
+      await this.perform(cb, 'carolF2', [['garden', () => ca.gesture('chin', 1, 0.3)]]);
+      await this.npcClose(q.rig, 0.9, 1, 28, q.rig.root.rotation.y, 0.13);
+      await this.perform(q.body, 'agF3');
+      await this.npcClose(c, 1.0, -1, 30, cy1);
+      await this.perform(cb, 'carolF3', [['Every', 'stop'], ['home', 'open']]);
+      await this.npcClose(q.rig, 1.1, -1, 28, q.rig.root.rotation.y, 0.13);
+      await wait(0.6);
+      await this.perform(q.body, 'agF4', [['asked', () => q.anim.gesture('nod', 1, 0.35)]]);
+    }
+    // the ring: the world, on its charts
+    this.ringGlow = 2.4;
+    audio.ringChime?.();
+    this.save.update((d) => { d.worlds = [...new Set([...(d.worlds ?? []), 'zamaron'])]; });
+    await this.halClose(1.0);
+    await this.say('ringF1', { name: 'The ring' });
+    this.ringGlow = 1.2;
+    player.lookAt(() => c.bonePosition('head', _h), 0.8);
+    await this.say('halF1');
+    ca.lookAt(this.headOf(player.rig), 0.8);
+    { const y0 = c.root.rotation.y, y1 = yawTo(c.root.position, player.position); await tween(0.7, (k) => (c.root.rotation.y = y0 + wrap(y1 - y0) * ease.inOut(k))); }
+    await this.npcClose(c, 1.0, 1, 30, c.root.rotation.y);
+    await this.perform(cb, 'carolF4');
+    await this.halClose(0.9, -1);
+    player.animator.gesture('nod', 0.8, 0.3);
+    await this.say('halF2');
+    z.updaters = z.updaters.filter((u) => u !== cbTick);
+    await this.liftOff(z, stand, land);
+  }
+
+  // Up out of the valley, the two of them, side by side; from the plaza, the queen and the wardens watching
+  async liftOff(z, stand, land) {
+    const { director, player, audio, engine, powers } = this, g = engine.gradeUniforms, c = this.zamCarol, ca = this.zamCarolAnim, q = this.queen;
+    this.playerActive = false;
+    player.lookAt(null);
+    ca.lookAt(null);
+    player.animator.feet.ground = null;
+    ca.feet.ground = null;
+    const animStop = onFrame((dt) => player.animator.update(dt));
+    const o = player.object, p0 = o.position.clone(), c0 = c.root.position.clone();
+    const yaw = player.yaw;
+    o.rotation.set(0, yaw, 0);
+    player.animator.play(still(POSES.hover, 0.4), 0.3);
+    ca.play(still(POSES.hover), 0.5);
+    for (const w of this.wardensAt) w.anim.lookAt(() => o.position.clone().add(V(0, 1.4, 0)), 0.6);
+    if (q) q.anim.lookAt(() => o.position.clone().add(V(0, 1.4, 0)), 0.6);
+    // from behind the queen, low: the two of them going up into the violet sky
+    const cam = (q ? q.rig.root.position.clone() : p0.clone()).add(V(0, -0.2, 0)).lerp(p0, -0.25).add(V(1.4, 0.4, 0));
+    director.cut(cam, p0.clone().lerp(c0, 0.5).add(V(0, 1.4, 0)), 50);
+    audio.riser(1.2, 0.35);
+    this.ringGlow = 3;
+    c.glowUp(1.6);
+    await wait(0.9);
+    powers.takeoffFx?.();
+    audio.whoosh(2.4, 0.6);
+    const look = V(0, 0, 0);
+    await tween(3.2, (k) => {
+      const h = 60 * k * k;
+      o.position.set(p0.x, p0.y + h, p0.z);
+      c.root.position.set(c0.x, c0.y + h * 0.98 + Math.sin(k * 7) * 0.05, c0.z);
+      look.copy(o.position).lerp(c.root.position, 0.5).add(V(0, 1.2, 0));
+      director.look.lerp(look, 0.3);
+      director.fov = 50 - 8 * k;
+      if (k > 0.25) { player.animator.play(still(POSES.flyFast, 0.3), 0.4); }
+    }, ease.linear);
+    await tween(0.5, (k) => (g.uFlash.value = k * k), ease.linear);
+    animStop();
+    director.fov = 55;
+    c.glowUp(1);
+  }
+
+  // Carol's ring: the Zamarons' violet, the gem set in it
+  violetRing() {
+    const r = createRing();
+    const [metal, face] = r.userData.materials;
+    metal.color.setRGB(0.62, 0.25, 0.95); metal.emissive.setRGB(0.5, 0.12, 0.85); metal.emissiveIntensity = 1.2;
+    face.map = null; face.emissiveMap = null; face.color.setRGB(0.9, 0.5, 1); face.emissive.setRGB(0.75, 0.3, 1.0); face.emissiveIntensity = 1.4;
+    face.needsUpdate = true;
+    return r;
+  }
+
+  // ---------------------------------------------------------------- 9. the way home
+  // (Ours.) Over Earth's night side out of the dark, side by side: what she sees up here, and her idea of a race
+  // (the last one to the pier pays). Down over the sea west of Coast City at twenty to one, low over the water
+  // to the pier's head, whoever's first; and on the deck, the light goes off both of them: the clothes they had
+  // dinner in.
+  async flyHome() {
+    const { ui, director, audio, player, powers, engine } = this, g = engine.gradeUniforms;
+    this.takeControl();
+    ui.objective(null);
+    ui.clock(this.save.info('return').clock);
+    // (played on from Zamaron, the valley and the waterfront aren't built yet: under a loading screen)
+    if (!this.ferrisScene || !this.pierReady) {
+      ui.loadStart('Part Seven · The way home', [['props', 'Loading Coast City', 3], ['scene', 'Building the valley', 4], ['city', 'Building the waterfront', 3], ['shaders', 'Getting the light right', 3]]);
+      await loadProps(FERRIS_PROPS, (k) => ui.loadStage('props', k));
+      await this.setupFerrisAsync();
+      await this.prepPier();
+    }
+    const f = this.ferrisScene;
+    this.lanternUp();
+    for (const id of ['hammer', 'staff', 'bubble']) this.learn(id, false);
+    this.pierSet('night');
+    this.pierWheel(false);
+    ui.clock('12:40 AM');
+    // Carol, in her light, her clothes under it for the pier; the gem in its ring on her hand
+    const carol = this.addCarol(), ca = this.carolAnim;
+    if (!carol) return;
+    const sap = this.sapphireOn();
+    sap.eyeGlow(0.3);
+    sap.glowUp(1);
+    carol.root.visible = true;
+    const ring = (this.carolRing ??= this.violetRing());
+    ring.removeFromParent();
+    this.attachRing(ring, sap);
+    const fly = (this.carolFly = { k: 0 });
+    ca.play(sapFlight(fly), 0);
+    ca.lookAt(null);
+    ca.feet.ground = null;
+    // (her root on a pivot at her hips, to lean into the flight: turned about the feet, she'd swing)
+    const pivot = (this.carolPivot ??= new THREE.Group());
+    f.scene.add(pivot);
+    pivot.add(carol.root);
+    carol.root.position.set(0, -carol.hipsHeight, 0);
+    carol.root.rotation.set(0, 0, 0);
+    // ---- over the night side
+    await this.homeOrbit(pivot);
+    // ---- over the sea, west of the city
+    const START = V(-2140, 70, LOT.z + 364), FINISH = V(-1469.7, DECK + 2.2, LOT.z + 352.4);
+    this.show(f);
+    this.world = 'earth';
+    f.scene.add(pivot);
+    this.playerActive = true;
+    powers.attach({ scene: f.scene, physics: f.physics, ground: (x, z) => (f.city?.onPier(x, z) ? DECK : 0), floor: (x, z) => (f.city?.onPier(x, z) ? DECK : 0.6),
+      canLand: (x, z) => !!f.city?.onPier(x, z) || x > coastX(z) + 1, solid: f.city ? (x, y, z) => f.city.solidAt(x, y, z) : undefined, center: V(-1800, 0, LOT.z + 360), radius: 560, ceiling: 220 });
+    f.focus(FINISH);
+    this.ambience(audio.wind(0.06), audio.traffic(0.004));
+    player.boostScale = 1.8;
+    await this.arriveFlying(START, Math.PI / 2, V(16, -2, 0));
+    player.animator.play(player.flightGen, 0.2);
+    const path = new THREE.CatmullRomCurve3([START.clone().add(V(4, 0, 5)), V(-1960, 52, LOT.z + 372), V(-1720, 32, LOT.z + 366), V(-1560, 12, LOT.z + 356), V(-1500, DECK + 3, LOT.z + 353), PIER_CAROL.clone().add(V(0, 0.05, 0))]);
+    const L = path.getLength();
+    let s = 0, v = 6, done = null, t = 0;
+    const place = () => {
+      const u = Math.min(1, s / L), p = path.getPointAt(u), q = path.getPointAt(Math.min(1, u + 0.004));
+      pivot.position.copy(p).add(V(0, carol.hipsHeight, 0));
+      const d = q.sub(p);
+      if (d.lengthSq() > 1e-6) pivot.rotation.set(-Math.atan2(d.y, Math.hypot(d.x, d.z)) * 0.6 + fly.k * 1.2, Math.atan2(d.x, d.z), 0, 'YXZ');
+    };
+    place();
+    ui.fade(0, 0.4);
+    powers.markerTarget = { pos: FINISH, label: 'The pier' };
+    this.giveControl('Race her to the pier');
+    this.hud.tutorial({ kicker: 'The way home', n: 1, of: 1, title: 'Last one pays', html: 'Race Carol to the pier: <b>Shift</b> to boost, the mouse to steer. Land on the pier’s head by the wheel.' });
+    this.ringSay('ringR1');
+    const said = new Set(), once = (k, fn) => { if (!said.has(k)) { said.add(k); fn(k); } };
+    await new Promise((resolve) => {
+      const stop = onFrame((dt) => {
+        if (this.paused) return;
+        t += dt;
+        // her speed: away quick, a cruise he has to boost to beat, slowing to come down on the deck
+        const left = L - s, want = left < 60 ? Math.max(5, left * 0.35) : t < 2.5 ? 18 : 27 + 3 * Math.sin(t * 0.4);
+        v += (want - v) * Math.min(1, dt * 1.6);
+        s = Math.min(L, s + v * dt);
+        fly.k += ((left < 60 ? 0 : 1) - fly.k) * Math.min(1, dt * 1.5);
+        place();
+        const halLeft = player.position.distanceTo(FINISH), herLeft = left;
+        if (t > 3.5) once('carolRq1', (k) => this.perform(this.cb, k, [], { skip: false }));
+        if (t > 9 && herLeft < halLeft) once('halRq1', (k) => this.bark(k));
+        if (t > 14 && herLeft < halLeft) once('carolRq2', (k) => this.perform(this.cb, k, [], { skip: false }));
+        if (t > 19 && halLeft - herLeft > 120) once('carolRq3', (k) => this.perform(this.cb, k, [], { skip: false }));
+        // whoever's first: him within reach of the deck by the wheel, or her down on it
+        if (!done && (halLeft < 22 || (player.grounded && f.city?.onPier(player.position.x, player.position.z)))) done = 'hal';
+        if (!done && s >= L - 0.5) done = 'carol';
+        if (done) { stop(); resolve(); }
+      });
+    });
+    this.hud.tutorialDone?.();
+    this.hud.tutorial(null);
+    powers.markerTarget = null;
+    this.takeControl();
+    this.raceWon = done === 'hal';
+    // both of them down on the deck: in the dark, where they stood before dinner
+    await ui.fade(1, 0.5);
+    player.stopFlying?.(true);
+    player.boostScale = 1;
+    player.place(PIER_HAL.clone().add(V(0, 0.05, 0)), Math.PI / 2);
+    player.ground = (x, z) => (f.city?.onPier(x, z) ? DECK : 0);
+    pivot.remove(carol.root);
+    f.scene.add(carol.root);
+    carol.root.position.copy(PIER_CAROL);
+    carol.root.rotation.set(0, -Math.PI / 2, 0);
+    ca.play(this.carolLoco, 0);
+    ca.feet.ground = (x, z) => (f.city?.onPier(x, z) ? DECK : 0);
+    f.focus(PIER_HAL);
+    await wait(0.4);
+    player.lookAt(() => carol.bonePosition('head', _h), 0.8);
+    ca.lookAt(this.headOf(player.rig), 0.7);
+    this.cb.lookHome = () => this.headOf(player.rig);
+    director.cut(PIER_HAL.clone().add(V(-0.9, 1.75, -1.6)), PIER_CAROL.clone().add(V(0, 1.45, 0)), 38);
+    await ui.fade(0, 0.6);
+    if (this.raceWon) {
+      await this.carolClose(1.0);
+      await this.carolSay('carolRw1', [['off', () => this.carolAnim.gesture('shake', 1, 0.25)]]);
+      await this.halClose(0.9);
+      await this.say('halRw1');
+    } else {
+      await this.carolClose(1.0);
+      await this.carolSay('carolRl1', [['Pay', 'open']]);
+      await this.halClose(0.9);
+      player.animator.gesture('shake', 0.8, 0.25);
+      await this.say('halRl1');
+    }
+    // the light off them both: the suit into his clothes, hers into what she wore to dinner
+    director.move(PIER_HAL.clone().lerp(PIER_CAROL, 0.5).add(V(0.2, 1.55, 3.6)), PIER_HAL.clone().lerp(PIER_CAROL, 0.5).add(V(0, 1.1, 0)), 1.4, ease.inOut, 40);
+    await Promise.all([this.suitOff(1.6), this.sapphireDown(1.8)]);
+    ring.removeFromParent();
+    this.attachRing(ring, carol);
+    await this.halClose(1.0);
+    await this.say('halR3');
+    await this.carolClose(1.0, -1, 30);
+    await this.carolSay('carolR4', [['push', 'stop']]);
+    await wait(0.4); // (and on into `wheel`)
+  }
+
+  // Over Earth's night side, the two of them: what she sees, and the race; then the dive.
+  async homeOrbit(pivot) {
+    const { director, audio, player, powers, engine } = this, g = engine.gradeUniforms, carol = this.carol, ca = this.carolAnim;
+    this.playerActive = false;
+    if (player.rb) player.removeFromPhysics();
+    powers.detach();
+    player.flying = false;
+    player.autoAnim = false;
+    player.lookAt(null);
+    player.animator.reach('R', null);
+    player.animator.reach('L', null);
+    player.animator.lean.pitch = player.animator.lean.roll = player.animator.twist = 0;
+    player.animator.feet.ground = null;
+    player.pivot.quaternion.identity();
+    const animStop = onFrame((dt) => player.animator.update(dt));
+    const carolTick = onFrame((dt) => { this.cb.update(dt); ca.update(dt); }); // (the field's updaters, hers among them, only run while it's shown)
+    const o = player.object;
+    try {
+      const space = (this.space ??= new Space());
+      space.show('earth');
+      for (const p of [space.earth, space.oa, space.ysmault, space.korugar, space.zamaron]) p.position.set(0, 0, 0);
+      space.earth.position.set(0, 40, -120); // (the night side's curve ahead and below, as the voyage arrives)
+      this.show(space);
+      space.scene.add(o, pivot);
+      o.position.set(0, 0, 0);
+      o.rotation.set(0.12, Math.PI, 0, 'YXZ');
+      space.anchor = o.position;
+      space.drift.set(0, 0, -6);
+      pivot.position.set(1.5, 0.95, 0.4);
+      pivot.rotation.set(0.1, Math.PI - 0.12, 0, 'YXZ');
+      this.carolFly.k = 0;
+      player.animator.play(still(POSES.hover, 0.5), 0);
+      director.cut(V(-2.4, 1.9, 4.2), V(0.6, -6, -60), 52);
+      this.ui.loadEnd(); // (the first picture of the chapter: the loading screen goes, the flash fades it up)
+      g.uFlash.value = 1;
+      audio.arrive?.();
+      await tween(1.0, (k) => (g.uFlash.value = 1 - k), ease.out);
+      g.uFlashColor.value.setRGB(0.55, 1.6, 0.75);
+      director.move(V(-1.9, 1.7, 3.4), V(0.6, -7, -60), 6, ease.inOut, 50);
+      await wait(1.6);
+      // her, looking down at it
+      ca.lookAt(V(0, -40, -100), 0.6);
+      const head = () => carol.bonePosition('head', _h);
+      director.cut(head().clone().add(V(-0.5, 0.1, -1.4)), head().clone(), 32);
+      director.move(head().clone().add(V(-0.45, 0.05, -1.25)), head().clone(), 4, ease.inOut, 30);
+      await this.carolSay('carolR1');
+      player.lookAt(() => carol.bonePosition('head', _h), 0.7);
+      director.cut(V(0.6, 1.7, -1.6), V(0, 1.6, 0), 32);
+      await this.say('halR1');
+      ca.lookAt(() => player.rig.bonePosition('head', _r), 0.7);
+      director.cut(head().clone().add(V(-0.6, 0.05, -1.3)), head().clone(), 30);
+      await this.carolSay('carolR2', [['pays', () => ca.gesture('tilt', 1, 0.3)]]);
+      director.cut(V(0.55, 1.7, -1.5), V(0, 1.6, 0), 32);
+      await this.say('halR2');
+      director.cut(head().clone().add(V(-0.55, 0.05, -1.3)), head().clone(), 30);
+      await this.carolSay('carolR3');
+      // the dive: head first at the planet, her a length ahead
+      player.lookAt(null);
+      ca.lookAt(null);
+      player.flightState.k = 1;
+      player.animator.play(player.flightGen, 0.4);
+      director.cut(V(0.3, 1.9, 3.0), V(-12, -25, -60), 52);
+      audio.whoosh(1.6, 0.8);
+      const p0 = space.earth.position.clone(), c0 = pivot.position.clone();
+      await tween(1.6, (k) => {
+        o.rotation.set(0.12 + 1.6 * ease.inOut(Math.min(1, k * 2)), Math.PI, 0, 'YXZ');
+        this.carolFly.k = Math.min(1, k * 2);
+        pivot.position.copy(c0).add(V(0, -2.5 * k * k, -8 * k * k));
+        pivot.rotation.set(0.1 + 1.3 * ease.inOut(Math.min(1, k * 2)), Math.PI - 0.12, 0, 'YXZ');
+        space.earth.position.copy(p0).addScaledVector(V(0, 0.08, 1), k * k * 50);
+        space.drift.set(0, -20 * k, -60 * k);
+        director.fov = 52 + 20 * k * k;
+      }, ease.linear);
+      await tween(0.35, (k) => (g.uFlash.value = k), ease.in);
+    } finally {
+      animStop();
+      carolTick();
+      director.fov = 55;
+      o.removeFromParent();
+      pivot.removeFromParent();
+      player.autoAnim = true;
+    }
+  }
+
+  // Her violet light going off her, from the head down, into the clothes she came in (sapphireUp backwards).
+  async sapphireDown(dur = 1.8) {
+    const { audio } = this, carol = this.carol, sap = this.sap;
+    if (!sap || sap.root.parent !== carol.root) return;
+    const u = carol.u, su = sap.u;
+    for (const m of carol.meshes) m.visible = true;
+    for (const x of [u, su]) x.uEdgeColor.value.setRGB(2.6, 0.7, 3.4);
+    u.uDissolveOn.value = 1; u.uDissolveSign.value = -1;
+    su.uDissolveOn.value = 1; su.uDissolveSign.value = 1;
+    sap.glowUp(2);
+    audio.dissolve?.();
+    await tween(dur, (k) => { u.uDissolve.value = -0.1 + k * 1.25; su.uDissolve.value = -0.1 + k * 1.25; }, ease.inOut);
+    u.uDissolveOn.value = 0; su.uDissolveOn.value = 0;
+    u.uDissolve.value = 0;
+    this.carolAnim.removeRig?.(sap);
+    sap.root.removeFromParent();
+    this.cb.rig = carol;
+    sap.glowUp(1);
+  }
+
+  // The pier's wheel: turning with its bulbs lit (the evening), or stopped and dark for the night
+  pierWheel(on) {
+    const w = this.ferrisScene?.city?.waterfront?.wheel;
+    if (!w) return null;
+    w.speed = on ? 0.045 : 0;
+    w.lit = on ? 1 : 0;
+    return w;
+  }
+
+  // ---------------------------------------------------------------- 10. the wheel
+  // (Ours.) The pier's head at one in the morning: the table cleared, the wheel stopped and dark, the hot dog man
+  // packing up. Two dogs and a pickle; her father's bench, and the rings quiet; and the wheel, which nobody's
+  // there to run: the one construct she allows all night turns it, and they ride it to the top.
+  async pierAtMidnight() {
+    const { ui, director, audio, player, powers } = this;
+    const f = this.setupFerris();
+    this.takeControl();
+    ui.objective(null);
+    ui.clock(this.save.info('wheel').clock);
+    if (!this.pierReady) { ui.loadStart('Part Seven · The pier', [['city', 'Building the waterfront', 3], ['shaders', 'Getting the light right', 3]]); await this.prepPier(); }
+    await loadProps(['hotdog', 'dog']);
+    const played = this.current === f && !!this.carol?.root.parent;
+    if (!played) this.stagePier('night');
+    else this.pierSet('night');
+    ui.clock('12:58 AM');
+    const carol = this.carol, ca = this.carolAnim, cb = this.cb;
+    if (!carol) return;
+    if (this.sap?.root.parent === carol.root) { this.carolAnim.removeRig?.(this.sap); this.sap.root.removeFromParent(); this.cb.rig = carol; }
+    for (const m of carol.meshes) m.visible = true;
+    carol.root.visible = true;
+    const ring = (this.carolRing ??= this.violetRing());
+    if (ring.parent !== carol.bones.hand_R) { ring.removeFromParent(); this.attachRing(ring, carol); }
+    if (player.rig === this.suit) { this.player.setRig(this.hal); this.attachRing(this.ring, this.hal); powers.suited = false; player.speedScale = 1; }
+    Object.assign(powers.enabled, { hud: false, constructs: false, flight: false });
+    this.hud.show(false);
+    player.ground = (x, z) => (f.city?.onPier(x, z) ? DECK : 0);
+    ca.feet.ground = (x, z) => (f.city?.onPier(x, z) ? DECK : 0);
+    // the table cleared, the wheel stopped and dark (a car at its foot), the stand by the wheel
+    const d = this.buildDinner();
+    d.served.visible = false;
+    d.lit(false);
+    d.solid();
+    const wheel = this.pierWheel(false);
+    if (wheel) { wheel.group.rotation.z = 0; for (const c of wheel.cars) c.rotation.z = 0; }
+    const stand = this.hotdogStand();
+    this.ambience(audio.wind(0.05), audio.traffic(0.004));
+    // where they stood before dinner; the pier dark past them, the wheel's shape against the sky
+    if (!played) { player.place(PIER_HAL.clone().add(V(0, 0.05, 0)), Math.PI / 2); carol.root.position.copy(PIER_CAROL); carol.root.rotation.y = -Math.PI / 2; }
+    ca.play(this.carolLoco, 0);
+    cb.stance(null);
+    director.cut(V(-1430, DECK + 2.6, LOT.z + 345), V(-1458, DECK + 7, LOT.z + 368), 46);
+    await ui.fade(0, 1.2);
+    director.move(V(-1436, DECK + 2.2, LOT.z + 347), V(-1460, DECK + 4, LOT.z + 372), 5, ease.inOut, 44);
+    await wait(1.4);
+    // ---- the stand
+    const follow = this.carolFollow();
+    powers.markerTarget = { pos: stand.counter.clone().add(V(0, 0.6, 0)), label: 'The hot dog stand' };
+    this.giveControl('Get something to eat');
+    await new Promise((resolve) => { const it = f.interact({ position: stand.counter, radius: 2.2, look: stand.counter.clone().add(V(0, 0.3, 0)), label: 'Two hot dogs', action: async () => { it.enabled = false; await this.atTheStand(stand, follow); resolve(); } }); });
+    // ---- the bench
+    const BENCH = V(-1434, DECK, LOT.z + 355), seatHal = BENCH.clone().add(V(-0.42, 0, 0.04)), seatCarol = BENCH.clone().add(V(0.42, 0, 0.04));
+    powers.markerTarget = { pos: BENCH.clone().add(V(0, 0.9, 0)), label: 'Her father’s bench' };
+    this.giveControl('Sit with Carol');
+    await new Promise((resolve) => { const it = f.interact({ position: BENCH.clone().add(V(0, 0, -0.9)), radius: 1.8, look: BENCH.clone().add(V(0, 0.5, 0)), label: 'Sit down', action: async () => { it.enabled = false; await this.onTheBench(seatHal, seatCarol, follow); resolve(); } }); });
+    // ---- the wheel
+    const base = wheel ? wheel.centre.clone().setY(DECK).add(V(2.4, 0, -4.6)) : BENCH.clone();
+    follow.on = true;
+    powers.markerTarget = { pos: base.clone().add(V(0, 1.5, 0)), label: 'The wheel' };
+    this.giveControl('Turn the wheel');
+    await new Promise((resolve) => { const it = f.interact({ position: base, radius: 2.4, look: wheel?.centre.clone() ?? base, label: 'Turn the wheel', action: async () => { it.enabled = false; await this.turnTheWheel(wheel, follow); resolve(); } }); });
+    follow.stop();
+  }
+
+  // Hands resting on the thighs of a seated figure, by IK (a seated pose alone left them floating over the lap): the
+  // wrist on top of each thigh nearer the hip than the knee, clear of it (the bone runs through its middle), a
+  // little to the outside. Nearer the knee was out of reach for Carol's arms (43 cm, shoulder to wrist): straight,
+  // they put her hands into her thighs at the hips. `off` takes them away again.
+  handsOnLap(anim, rig, off = false) {
+    for (const [side, sx] of [['L', 1], ['R', -1]]) {
+      if (off) { anim.reach(side, null, { rate: 4 }); continue; }
+      const t = V(0, 0, 0), a = V(0, 0, 0), b = V(0, 0, 0), out = V(0, 0, 0), sh = V(0, 0, 0), el = V(0, 0, 0), wr = V(0, 0, 0);
+      // (as far down the thigh as the arm reaches easily: its length from the bones, 88% of it)
+      rig.bonePosition(`upperArm_${side}`, sh); rig.bonePosition(`foreArm_${side}`, el); rig.bonePosition(`hand_${side}`, wr);
+      const arm = sh.distanceTo(el) + el.distanceTo(wr);
+      anim.reach(side, () => {
+        rig.bonePosition(`thigh_${side}`, a);
+        rig.bonePosition(`shin_${side}`, b);
+        rig.bonePosition(`upperArm_${side}`, sh);
+        out.set(sx, 0, 0).transformDirection(rig.root.matrixWorld);
+        for (let k = 0.68; k >= 0.3; k -= 0.04) {
+          t.copy(a).lerp(b, k).add(V(0, 0.15, 0)).addScaledVector(out, 0.02);
+          if (t.distanceTo(sh) <= arm * 0.88) break;
+        }
+        return t;
+      }, { rate: 6, pole: V(sx * 0.8, -0.3, -0.5) });
+    }
+  }
+
+  // The stand: a cart under two umbrellas by the wheel's north legs, and its man, packing up (a Rocketbox man,
+  // his voice the `vendor`'s). `counter` is where Hal stands to buy.
+  hotdogStand() {
+    if (this.stand) return this.stand;
+    const f = this.ferrisScene, at = V(-1463, DECK, LOT.z + 381);
+    const st = (this.stand = { at, counter: at.clone().add(V(0, 0, -1.05)), vendor: null });
+    if (hasProp('hotdog')) {
+      const cart = prop('hotdog');
+      cart.position.copy(at);
+      cart.rotation.y = Math.PI / 2; // (its long sides north and south: the deck's side to buy at, his to work it from)
+      cart.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+      f.scene.add(cart);
+      f.smash.solid(cart, { stuff: 'metal' });
+      st.cart = cart;
+    }
+    // its bulb, under the umbrellas: the one warm light left on the head
+    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.95, 0.8, 0.55) }));
+    bulb.position.copy(at).add(V(0.3, 2.05, 0));
+    f.scene.add(bulb);
+    st.light = f.lamps?.add(bulb, { color: 0xffc888, power: 6, reach: 9 });
+    (async () => {
+      const [gl] = await loadPeople(['male-adult-21']);
+      if (!gl) return;
+      const person = createPerson(gl, { seed: 9 });
+      const rig = person.rig;
+      rig.root.position.copy(at).add(V(0.2, 0, 0.95));
+      rig.root.rotation.y = Math.PI;
+      f.scene.add(rig.root);
+      const anim = new Animator(rig), loco = new Locomotion(this.mocap);
+      loco.scale = rig.hipsHeight / this.mocap.hipsHeight;
+      anim.play(loco, 0);
+      anim.look.maxYaw = 0.8;
+      const body = new BodyLanguage(rig, anim, { lookHome: null, scale: 1, reach: 0.55, shift: null, gestures: undefined });
+      // wiping the counter down, slowly
+      const wipe = V(0, 0, 0);
+      anim.reach('R', () => wipe.copy(at).add(V(0.1 + Math.sin(this.engine.time * 1.3) * 0.25, 0.97, 0.42)), { rate: 4, pole: V(-0.5, -0.8, -0.2) });
+      f.updaters.push((dt) => { body.update(dt); anim.update(dt); });
+      st.vendor = { rig, anim, body, loco };
+    })().catch(console.warn);
+    return st;
+  }
+
+  // Carol a step behind his left shoulder wherever he walks (`on` false: she stays where she is)
+  carolFollow() {
+    const carol = this.carol, loco = this.carolLoco, player = this.player, f = this.ferrisScene;
+    const ctl = { on: true, stop: null };
+    const want = V(0, 0, 0);
+    ctl.stop = onFrame((dt) => {
+      if (!ctl.on || this.paused) { if (!ctl.on) loco.speed = 0; return; }
+      const yaw = player.yaw, P = player.position;
+      want.set(P.x + Math.cos(yaw) * 1.0 - Math.sin(yaw) * 0.5, carol.root.position.y, P.z - Math.sin(yaw) * 1.0 - Math.cos(yaw) * 0.5);
+      const d = want.clone().sub(carol.root.position).setY(0), dist = d.length();
+      if (dist > 0.6) {
+        const sp = Math.min(1.6, dist * 0.9);
+        carol.root.position.addScaledVector(d.normalize(), sp * dt);
+        const y1 = Math.atan2(d.x, d.z), y0 = carol.root.rotation.y;
+        carol.root.rotation.y = y0 + wrap(y1 - y0) * Math.min(1, dt * 5);
+        loco.speed = sp;
+      } else {
+        loco.speed = Math.max(0, loco.speed - dt * 3);
+        const y0 = carol.root.rotation.y;
+        carol.root.rotation.y = y0 + wrap(yaw - y0) * Math.min(1, dt * 2);
+      }
+      carol.root.position.y = f.city?.onPier(carol.root.position.x, carol.root.position.z) ? DECK : carol.root.position.y;
+    });
+    return ctl;
+  }
+
+  async atTheStand(stand, follow) {
+    const { director, player } = this, carol = this.carol, ca = this.carolAnim, cb = this.cb;
+    this.takeControl();
+    this.powers.markerTarget = null;
+    follow.on = false;
+    const at = stand.counter.clone();
+    if (player.position.distanceTo(at) > 0.5) { player.walkTo(at, 1.3); await Promise.race([waitFor(() => player.position.distanceTo(at) < 0.4), wait(3)]); }
+    player.turnTo(0);
+    // her beside him
+    const cAt = at.clone().add(V(1.0, 0, -0.35));
+    const c0 = carol.root.position.clone();
+    tween(Math.max(0.4, c0.distanceTo(cAt) / 1.2), (k) => { carol.root.position.lerpVectors(c0, cAt, k); this.carolLoco.speed = 1.2 * Math.min(1, k * 6, (1 - k) * 6); }, ease.linear).then(() => { this.carolLoco.speed = 0; carol.root.rotation.y = yawTo(cAt, stand.at); });
+    const v = stand.vendor;
+    const vHead = () => v?.rig.bonePosition('head', _r) ?? stand.at.clone().add(V(0, 1.7, 1));
+    player.lookAt(vHead, 0.8);
+    ca.lookAt(vHead, 0.6);
+    v?.anim.lookAt(this.headOf(player.rig), 0.7);
+    v?.anim.reach('R', null, { rate: 3 });
+    director.cut(at.clone().add(V(-2.2, 1.45, -2.4)), stand.at.clone().add(V(0, 1.35, 0.3)), 42);
+    await wait(0.8);
+    // (the cameras off the cart's ends: from the deck its umbrellas' poles stand in front of whoever's behind it)
+    const vClose = (side, dur = 1.0) => { const h = vHead().clone(); return director.move(h.clone().add(V(side * 1.9, -0.04, -0.75)), h.clone().add(V(0, -0.04, 0)), dur, ease.inOut, 30); };
+    const two = (dur = 1.0) => { const m = player.position.clone().lerp(carol.root.position, 0.5); return director.move(m.clone().add(V(2.3, 1.55, -2.6)), m.clone().add(V(0, 1.45, 0.2)), dur, ease.inOut, 34); };
+    const hClose = (side, dur = 0.9) => { const h = player.rig.bonePosition('head', V(0, 0, 0)); return director.move(h.clone().add(V(side * 1.8, -0.04, 0.75)), h.clone().add(V(0, -0.04, 0)), dur, ease.inOut, 30); };
+    if (v) { await vClose(-1); await this.perform(v.body, 'vend1', [['dogs', 'open']]); } else await this.say('vend1');
+    await hClose(-1);
+    await this.say('halV1');
+    if (v) { await vClose(1, 0.9); await this.perform(v.body, 'vend2'); } else await this.say('vend2');
+    await hClose(1);
+    player.animator.gesture('tilt', 0.8, 0.3);
+    await this.say('halV2');
+    ca.lookAt(this.headOf(player.rig), 0.7);
+    await two(0.9);
+    await this.carolSay('carolV1', [['paying', () => ca.gesture('nod', 1, 0.3)]]);
+    // the dogs: one in his hand, one in hers
+    const dogs = (this.dogs ??= [0, 1].map(() => (hasProp('dog') ? prop('dog') : new THREE.Group())));
+    const hold = (dog, rig) => { const hnd = rig.bones.hand_R; hnd.add(dog); const sc = 1 / rig.root.scale.x; dog.position.copy(rig.arm.R.fore).multiplyScalar(0.07 * sc).add(V(0, -0.03 * sc, 0)); dog.quaternion.setFromUnitVectors(V(0, 0, 1), V(1, 0, 0)); dog.scale.setScalar(sc); };
+    if (v) { await vClose(-1, 0.8); this.perform(v.body, 'vend3'); await wait(1.2); }
+    hold(dogs[0], player.rig);
+    hold(dogs[1], carol);
+    v?.anim.lookAt(null);
+    if (v) { const wipe = V(0, 0, 0); v.anim.reach('R', () => wipe.copy(stand.at).add(V(0.1 + Math.sin(this.engine.time * 1.3) * 0.25, 0.97, 0.42)), { rate: 3, pole: V(-0.5, -0.8, -0.2) }); }
+    player.lookAt(null);
+    ca.lookAt(this.headOf(player.rig), 0.6);
+    follow.on = true;
+  }
+
+  // On the bench, side by side looking out to sea: the first half of dinner, the quiet, the rings; the wheel
+  async onTheBench(seatHal, seatCarol, follow) {
+    const { director, player } = this, carol = this.carol, ca = this.carolAnim, cb = this.cb;
+    this.takeControl();
+    this.powers.markerTarget = null;
+    follow.on = false;
+    await this.ui.fade(1, 0.5);
+    // (hands on their thighs, the dogs on their knees)
+    const BENCH_SIT = (hips) => still(makePose({ hy: 0.44 + 0.06 - hips, sx: 0.06, cx: 0.04, nx: -0.02, lLx: -1.56, kL: 1.5, lRx: -1.58, kR: 1.52, lLz: 0.08, lRz: -0.08, aL: [0.2, -0.75, 0.65], eL: 0.7, aR: [-0.2, -0.75, 0.65], eR: 0.7 }));
+    // (the dogs eaten on the way over: their hands free on the bench)
+    for (const dog of this.dogs ?? []) dog.removeFromParent();
+    player.lookAt(null);
+    player.autoAnim = false;
+    player.place(seatHal.clone(), Math.PI);
+    player.animator.play(BENCH_SIT(player.rig.hipsHeight), 0);
+    this.handsOnLap(player.animator, player.rig);
+    carol.root.position.copy(seatCarol);
+    carol.root.rotation.y = Math.PI;
+    this.carolLoco.speed = 0;
+    cb.stance(null);
+    ca.play(BENCH_SIT(carol.hipsHeight), 0);
+    this.handsOnLap(ca, carol);
+    const sea = V(-1434, DECK + 2, LOT.z + 290);
+    player.lookAt(() => sea, 0.5);
+    ca.lookAt(() => sea, 0.5);
+    cb.lookHome = () => () => sea;
+    const toHim = () => { ca.lookAt(this.headOf(player.rig), 0.75); cb.lookHome = () => this.headOf(player.rig); };
+    const toHer = () => player.lookAt(() => carol.bonePosition('head', _h), 0.8);
+    const front = (rig, dx) => { const h = rig.bonePosition('head', V(0, 0, 0)); return director.move(h.clone().add(V(dx * 0.5, -0.05, -1.6)), h.clone().add(V(0, -0.03, 0)), 1.1, ease.inOut, 31); };
+    // from behind them first: the two of them, the sea and the moon
+    director.cut(seatHal.clone().lerp(seatCarol, 0.5).add(V(0.4, 1.9, 4.2)), seatHal.clone().lerp(seatCarol, 0.5).add(V(0, 0.8, -12)), 44);
+    await this.ui.fade(0, 0.9);
+    director.move(seatHal.clone().lerp(seatCarol, 0.5).add(V(0.3, 1.6, 3.0)), seatHal.clone().lerp(seatCarol, 0.5).add(V(0, 0.9, -12)), 5, ease.inOut, 42);
+    await wait(2.4);
+    await front(carol, 1);
+    await this.carolSay('carolW1', [['first', () => ca.gesture('tilt', 1, 0.3)]]);
+    toHer();
+    await front(player.rig, -1);
+    await this.say('halW1');
+    toHim();
+    await front(carol, 1);
+    await this.carolSay('carolW2', [['me', () => ca.gesture('nod', 1, 0.3)]]);
+    await front(player.rig, -1);
+    await this.say('halW2');
+    ca.lookAt(() => sea, 0.6);
+    await front(carol, 0.6);
+    await this.carolSay('carolW3');
+    // the rings
+    toHim();
+    await this.carolSay('carolW4', [['ring', () => ca.gesture('tilt', 1, 0.3)]]);
+    const ringAt = () => this.ring.getWorldPosition(_r);
+    player.lookAt(ringAt, 0.7);
+    await front(player.rig, -1);
+    this.ringGlow = 1.6;
+    await this.say('halW3');
+    this.ringGlow = 0.15;
+    const cr = this.carolRing?.userData.materials;
+    await front(carol, 1);
+    await this.carolSay('carolW5');
+    if (cr) tween(0.8, (k) => { cr[0].emissiveIntensity = 1.2 * (1 - 0.85 * k); cr[1].emissiveIntensity = 1.4 * (1 - 0.85 * k); });
+    toHer();
+    // the wheel, over her shoulder: stopped, dark
+    const wc = this.ferrisScene.city?.waterfront?.wheel?.centre ?? V(-1454, 22, LOT.z + 366);
+    ca.lookAt(() => wc, 0.7);
+    director.move(seatCarol.clone().add(V(1.3, 1.25, -1.1)), wc.clone().add(V(0, -4, 0)), 1.8, ease.inOut, 44);
+    await wait(0.6);
+    await this.carolSay('carolW6');
+    toHim();
+    await front(player.rig, -1);
+    await this.say('halW4');
+    await front(carol, 1);
+    await this.carolSay('carolW7', [['nobody', () => ca.gesture('shake', 1, 0.25)]]);
+    await front(player.rig, -0.6);
+    await this.say('halW5');
+    await front(carol, 1);
+    await wait(0.5);
+    await this.carolSay('carolW8', [['one', () => ca.gesture('nod', 1, 0.3)]]);
+    // up, the two of them
+    await this.ui.fade(1, 0.4);
+    this.handsOnLap(player.animator, player.rig, true);
+    this.handsOnLap(ca, carol, true);
+    player.lookAt(null);
+    player.place(seatHal.clone().add(V(0, 0, -0.75)), Math.PI);
+    player.animator.play(player.locomotion ?? player.groundGen ?? still(POSES.stand), 0);
+    player.autoAnim = true;
+    carol.root.position.copy(seatCarol).add(V(0, 0, -0.75));
+    ca.play(this.carolLoco, 0);
+    cb.lookHome = () => this.headOf(player.rig);
+    ca.lookAt(this.headOf(player.rig), 0.6);
+    director.mode = 'follow';
+    await this.ui.fade(0, 0.4);
+    this.bark('halW6');
+  }
+
+  // The ring's light up to the wheel's hub: a gear of it there, meshed with the axle; the bulbs come on round the
+  // rim; it brings a car down to them, they get in, and it takes them up, to the top, and holds them there.
+  async turnTheWheel(wheel, follow) {
+    const { director, player, audio, engine, ui } = this, g = engine.gradeUniforms, carol = this.carol, ca = this.carolAnim, cb = this.cb, f = this.ferrisScene;
+    this.takeControl();
+    this.powers.markerTarget = null;
+    follow.on = false;
+    if (!wheel) return;
+    const hub = wheel.centre.clone(), base = player.position.clone();
+    player.turnTo(yawTo(base, hub));
+    player.lookAt(() => hub, 0.7);
+    ca.lookAt(() => hub, 0.6);
+    // his ring hand up at it
+    const sh = V(0, 0, 0);
+    player.animator.reach('R', () => { player.rig.bonePosition('upperArm_R', sh); return sh.add(hub.clone().sub(sh).normalize().multiplyScalar(0.62)); }, { pole: V(-0.4, -0.85, -0.3), rate: 4 });
+    director.cut(base.clone().add(V(2.2, 1.0, 2.6)), hub.clone().add(V(0, -6, 0)), 50);
+    this.ringGlow = 4;
+    audio.riser?.(1.4, 0.3);
+    await wait(1.0);
+    // the gear: a wheel of green light round the hub, its teeth in the spokes
+    const gear = this.wheelGear(hub);
+    f.scene.add(gear.group);
+    audio.constructForm?.();
+    await tween(0.9, (k) => gear.form(k), ease.out);
+    this.ringGlow = 2.2;
+    // it turns: the bulbs come on, a few at a time round the rim
+    director.move(hub.clone().setY(DECK).add(V(11.5, 1.4, -2.5)), hub.clone(), 3, ease.inOut, 54); // (from the east, the wheel's face: clear of its legs)
+    let lit = 0;
+    // (its bulbs at a little over half: a ride in among them at full, each was a sun in the bloom)
+    const spin = onFrame((dt) => { gear.group.rotation.x = wheel.group.rotation.z; lit = Math.min(0.55, lit + dt * 0.3); wheel.lit = lit; });
+    // half a turn, slow to start, to bring the car at the top down to them (car 4: at the top when the wheel's at 0)
+    const k0 = wheel.group.rotation.z, k1 = k0 - Math.PI;
+    await tween(6.5, (k) => { const r = k0 + (k1 - k0) * ease.inOut(k); wheel.group.rotation.z = r; for (const c of wheel.cars) c.rotation.z = -r; }, ease.linear);
+    // the car at the bottom: the one whose angle plus the wheel's turn is straight down
+    const car = wheel.cars.reduce((best, c) => (c.getWorldPosition(_r).y < best.getWorldPosition(_h).y ? c : best), wheel.cars[0]);
+    this.ringGlow = 1.2;
+    player.animator.reach('R', null, { rate: 3 });
+    player.lookAt(null);
+    // in: seated side by side on its bench, facing the city, him on its north end
+    await ui.fade(1, 0.5);
+    this.playerActive = false;
+    player.removeFromPhysics();
+    const animStop = onFrame((dt) => player.animator.update(dt));
+    const o = player.object;
+    // (sat up a little forward, thighs level on the seat, shins down to the floor; the hands on the thighs by IK)
+    const SEAT_POSE = (hips, extra = {}) => makePose({ hy: 0.46 + 0.06 - hips, sx: 0.06, cx: 0.04, nx: -0.04, lLx: -1.56, kL: 1.5, lRx: -1.58, kR: 1.52, lLz: 0.07, lRz: -0.07, aL: [0.2, -0.75, 0.65], eL: 0.7, aR: [-0.2, -0.75, 0.65], eR: 0.7, ...extra });
+    const SEAT = (hips) => still(SEAT_POSE(hips));
+    car.add(o);
+    o.position.set(-0.42, wheel.floor, wheel.seat.z);
+    o.rotation.set(0, 0, 0);
+    player.pivot.quaternion.identity();
+    player.animator.feet.ground = null;
+    player.animator.play(SEAT(player.rig.hipsHeight), 0);
+    this.handsOnLap(player.animator, player.rig);
+    car.add(carol.root);
+    carol.root.position.set(0.42, wheel.floor, wheel.seat.z);
+    carol.root.rotation.set(0, 0, 0);
+    ca.feet.ground = null;
+    ca.play(SEAT(carol.hipsHeight), 0);
+    cb.stance(null);
+    this.handsOnLap(ca, carol);
+    // (riders face the car's +z: east, the city)
+    const city = V(-900, 30, LOT.z + 366);
+    player.lookAt(() => city, 0.4);
+    ca.lookAt(() => city, 0.4);
+    cb.lookHome = () => () => city;
+    const mid = () => car.localToWorld(V(0, wheel.seat.y + 0.9, wheel.seat.z));
+    // up: from the deck, looking up at them going
+    director.cut(hub.clone().setY(DECK).add(V(9, 1.5, -1)), mid(), 50); // (from the deck east of it: under it the cars swing through)
+    await ui.fade(0, 0.6);
+    const look = onFrame(() => director.look.lerp(mid(), 0.2));
+    const r0 = wheel.group.rotation.z, r1 = r0 - Math.PI;
+    const ride = tween(16, (k) => { const r = r0 + (r1 - r0) * ease.inOut(k); wheel.group.rotation.z = r; for (const c of wheel.cars) c.rotation.z = -r; }, ease.linear);
+    await wait(4);
+    // alongside them, the city's lights coming up behind
+    look();
+    const beside = onFrame(() => { const m = mid(); director.pos.copy(m).add(V(4.0, 0.5, 3.2)); director.look.copy(m); });
+    director.fov = 38;
+    await wait(5.5);
+    beside();
+    await ride;
+    spin();
+    // the top: the two of them in profile against the city, from out over the sea
+    const top = mid();
+    director.cut(top.clone().add(V(3.4, 0.25, 1.5)), top.clone().add(V(0, -0.15, 0)), 36);
+    director.move(top.clone().add(V(2.9, 0.2, 1.2)), top.clone().add(V(0, -0.15, 0)), 8, ease.inOut, 34);
+    await wait(2.4);
+    // a plane's lights, far off over the water, going in to land
+    const plane = this.farPlane(top);
+    ca.lookAt(() => plane.position, 0.6);
+    await this.carolSay('carolW9', [['Dad', () => ca.gesture('tilt', 1, 0.3)]]);
+    player.lookAt(() => plane.position, 0.6);
+    await this.say('halW7');
+    await wait(1.0);
+    ca.lookAt(this.headOf(player.rig), 0.7);
+    const hHead = () => player.rig.bonePosition('head', _h), cHead = () => carol.bonePosition('head', _r);
+    director.move(cHead().clone().add(V(1.45, -0.05, -0.45)), cHead().clone(), 1.4, ease.inOut, 30);
+    await this.carolSay('carolW10', [['true', () => ca.gesture('nod', 1, 0.25)], ['afraid', () => ca.gesture('tilt', 1, 0.3)]]);
+    player.lookAt(cHead, 0.8);
+    director.move(hHead().clone().add(V(1.45, -0.05, 0.45)), hHead().clone(), 1.2, ease.inOut, 30);
+    await this.say('halW8');
+    director.move(cHead().clone().add(V(1.45, -0.05, -0.45)), cHead().clone(), 1.0, ease.inOut, 30);
+    await this.carolSay('carolW11');
+    // she leans in to him; and away, the wheel lit over the water, the city behind
+    ca.play(still(SEAT_POSE(carol.hipsHeight, { sz: 0.12, cz: 0.06, kz: 0.22 })), 1.6);
+    const w = top.clone();
+    director.cut(w.clone().add(V(-6, 0.6, -1.5)), w.clone(), 36);
+    await tween(9, (k) => { const e = ease.inOut(k); director.pos.copy(w).add(V(-6 - 140 * e, 0.6 - 10 * e, -1.5 - 30 * e)); director.look.copy(w).add(V(0, -14 * e, 0)); director.fov = 36 + 8 * e; }, ease.linear);
     await ui.fade(1, 1.6);
-    const pick = await ui.screen({ kicker: 'Part Seven · Sapphire', title: 'THE PREDATOR', subtitle: 'Part Seven so far', body: 'Hal and Carol have driven the Predator back into the Zamarons’ light, and she came out of it herself, the gem hers. Home, and what Black Hand took from the building site, are still to come.', buttons: ['Free roam', 'Quit to title'] });
-    if (pick === 0) { ExileSave.resumeAfterReload('world'); await new Promise(() => {}); return; }
+    // (their hands off their laps again: left on, Hal walked into the hangar next morning with his arms pulled to his thighs)
+    this.handsOnLap(player.animator, player.rig, true);
+    this.handsOnLap(ca, carol, true);
+    animStop();
+    plane.removeFromParent();
+    gear.dispose();
+    director.fov = 55;
+  }
+
+  // A gear of green light on the wheel's hub, square to its axle (east-west): its rim, its teeth, its spokes
+  wheelGear(hub) {
+    const parts = [new THREE.TorusGeometry(2.4, 0.16, 8, 48)];
+    for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; parts.push(new THREE.BoxGeometry(0.34, 0.5, 0.3).translate(0, 2.6, 0).applyMatrix4(new THREE.Matrix4().makeRotationZ(a))); }
+    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; parts.push(new THREE.BoxGeometry(0.12, 2.3, 0.12).translate(0, 1.2, 0).applyMatrix4(new THREE.Matrix4().makeRotationZ(a))); }
+    parts.push(new THREE.CylinderGeometry(0.5, 0.5, 0.36, 20).rotateX(Math.PI / 2));
+    const geo = mergeGeometries(parts.map((p) => p.toNonIndexed()), false);
+    const mesh = constructMesh(geo, { outline: 0.03 });
+    const group = new THREE.Group();
+    mesh.rotation.y = Math.PI / 2; // (its face east-west, along the axle)
+    group.add(mesh);
+    group.position.copy(hub).add(V(2.3, 0, 0));
+    return {
+      group,
+      form: (k) => { group.scale.setScalar(Math.max(0.01, k)); mesh.userData.set('uOpacity', 0.85 * k); },
+      dispose: () => { group.removeFromParent(); geo.dispose(); },
+    };
+  }
+
+  // a plane's lights a long way off over the sea, red and white blinking, on a line in toward the airport
+  farPlane(near) {
+    const f = this.ferrisScene, g = new THREE.Group();
+    const tex = glowTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0.2)');
+    const mk = (c) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: c, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false })); sp.scale.setScalar(5); g.add(sp); return sp; };
+    const red = mk(0xff3030), white = mk(0xffffff);
+    red.position.set(-9, 0, 0); white.position.set(9, 0, 0);
+    const from = near.clone().add(V(-900, 120, -1300)), to = near.clone().add(V(-500, 60, 1500));
+    g.position.copy(from);
+    f.scene.add(g);
+    let t = 0;
+    const stop = onFrame((dt) => { t += dt; g.position.lerpVectors(from, to, Math.min(1, t / 60)); white.material.opacity = t % 1.2 < 0.12 ? 1 : 0.05; red.material.opacity = 0.6 + 0.4 * Math.sin(t * 3); });
+    g.userData.stop = stop;
+    const rm = g.removeFromParent.bind(g);
+    g.removeFromParent = () => { stop(); return rm(); };
+    return g;
+  }
+
+  // ---------------------------------------------------------------- 11. the morning after
+  // (Ours.) Hangar Two, the morning after: she's back at the second airframe as if nothing happened, the violet
+  // ring on her hand. She doesn't date employees. So he's fired. Seven o'clock; he's rehired Monday.
+  async morningAfter() {
+    const { ui, director, audio, player, powers } = this;
+    this.takeControl();
+    ui.objective(null);
+    if (!this.ferrisScene) { ui.loadStart('Part Seven · The morning after', [['props', 'Loading Coast City', 3], ['scene', 'Building the valley', 4], ['shaders', 'Getting the light right', 2]]); await loadProps(FERRIS_PROPS, (k) => ui.loadStage('props', k)); await this.setupFerrisAsync(); }
+    const f = this.setupFerris(), cock = this.cockpitOf(f);
+    ui.clock(this.save.info('hangar').clock);
+    f.day?.();
+    this.pierMode = 'day';
+    this.pierLamps('day');
+    this.pierWheel(true);
+    if (player.rig === this.suit) { player.setRig(this.hal); this.attachRing(this.ring, this.hal); powers.suited = false; player.speedScale = 1; }
+    Object.assign(powers.enabled, { hud: false, constructs: false, flight: false });
+    this.hud.show(false);
+    for (const dog of this.dogs ?? []) dog.removeFromParent();
+    // (whatever the night left on their arms, off: a seat's or a rail's IK)
+    for (const side of ['L', 'R']) player.animator.reach(side, null, { rate: 30 });
+    player.animator.freeze = false;
+    player.pivot.quaternion.identity();
+    const carol = this.addCarol(), ca = this.carolAnim, cb = this.cb;
+    if (carol) {
+      for (const side of ['L', 'R']) ca.reach(side, null, { rate: 30 });
+      if (carol.root.parent !== f.scene) f.scene.add(carol.root);
+      carol.root.visible = true;
+      for (const m of carol.meshes) m.visible = true;
+      carol.root.position.copy(CAROL_IN);
+      carol.root.rotation.set(0, yawTo(CAROL_IN, AIRFRAME), 0);
+      ca.play(this.carolLoco, 0);
+      ca.feet.ground = () => 0;
+      ca.lookAt(cock, 0.5);
+      cb.lookHome = () => () => cock;
+      cb.stance('hip');
+      const ring = (this.carolRing ??= this.violetRing());
+      if (ring.parent !== carol.bones.hand_R) { ring.removeFromParent(); this.attachRing(ring, carol); }
+      const cr = ring.userData.materials;
+      cr[0].emissiveIntensity = 0.35; cr[1].emissiveIntensity = 0.45; // (quiet: daylight, a ring)
+    }
+    this.enterFerris(HANGAR_MOUTH.clone().add(V(0, 0, -9)), 0);
+    this.ambience(audio.wind(0.03));
+    f.focus(V(0, 0, 12));
+    await ui.fade(0, 0.9);
+    this.giveControl('Carol’s in Hangar Two');
+    await waitFor(() => player.position.distanceTo(CAROL_IN) < 4.6);
+    this.takeControl();
+    const stand = CAROL_IN.clone().add(V(-0.5, 0, -2.6));
+    if (player.position.distanceTo(stand) > 0.5) await player.walkTo(stand, player.walkSpeed);
+    player.turnTo(yawTo(stand, CAROL_IN));
+    f.focus(CAROL_IN);
+    if (!carol) return;
+    player.lookAt(() => carol.bonePosition('head', _h), 0.8);
+    ca.lookAt(this.headOf(player.rig), 0.6);
+    cb.lookHome = () => this.headOf(player.rig);
+    await this.overHal(1.6);
+    await this.carolSay('carolAsk1');
+    { const y0 = carol.root.rotation.y, y1 = yawTo(CAROL_IN, stand); await tween(1.0, (k) => (carol.root.rotation.y = y0 + wrap(y1 - y0) * ease.inOut(k))); }
+    await this.halClose(1.0);
+    player.animator.gesture('tilt', 0.8, 0.3);
+    await this.say('halAsk1');
+    await this.carolClose(1.1);
+    cb.stance(null);
+    await this.carolSay('carolM1');
+    await this.halClose(0.9, -1);
+    await this.say('halM1');
+    await this.carolClose(1.1, -1, 30);
+    await this.carolSay('carolM2', [['thinking', () => ca.gesture('tilt', 1, 0.3)], ['employees', 'stop']]);
+    await this.halClose(0.9);
+    player.animator.gesture('nod', 0.8, 0.3);
+    await this.say('halM2');
+    await this.carolClose(1.0, 1, 30);
+    await this.carolSay('carolM3', [['fired', () => ca.gesture('nod', 1, 0.3)]]);
+    await this.halClose(0.8, -1);
+    await this.say('halM3');
+    await this.carolClose(1.1, 1, 28);
+    await this.carolSay('carolM4', [['Seven', 'open'], ['Monday', () => ca.gesture('chin', 1, 0.3)]]);
+    await this.halClose(0.9);
+    player.animator.gesture('nod', 0.8, 0.35);
+    await this.say('halM4');
+    // he goes; and her, back at her work, the ring on her hand catching the light from the hangar door
+    ca.lookAt(cock, 0.5);
+    cb.lookHome = () => () => cock;
+    player.lookAt(null);
+    director.cut(CAROL_IN.clone().add(V(-2.4, 1.45, -3.4)), HANGAR_MOUTH.clone().add(V(0, 1.3, 1)), 38);
+    const out = HANGAR_MOUTH.clone().add(V(0, 0, -2.5));
+    const leave = player.walkTo(out, player.walkSpeed);
+    await leave;
+    { const y0 = carol.root.rotation.y, y1 = yawTo(CAROL_IN, AIRFRAME); await tween(0.9, (k) => (carol.root.rotation.y = y0 + wrap(y1 - y0) * ease.inOut(k))); }
+    const handAt = () => carol.bonePosition('hand_R', _r);
+    const held = V(0, 0, 0);
+    ca.reach('R', () => held.copy(carol.bonePosition('chest', _h)).add(V(Math.sin(carol.root.rotation.y) * 0.4, -0.02, Math.cos(carol.root.rotation.y) * 0.4)), { rate: 2.5, pole: V(-0.4, -0.85, -0.3) });
+    ca.lookAt(handAt, 0.85);
+    const c = carol.bonePosition('head', _h).clone(), to = V(Math.sin(carol.root.rotation.y), 0, Math.cos(carol.root.rotation.y)), side = V(to.z, 0, -to.x);
+    director.cut(c.clone().addScaledVector(to, 1.4).addScaledVector(side, 0.45).add(V(0, -0.28, 0)), c.clone().add(V(0, -0.3, 0)), 38);
+    await wait(1.2);
+    const cr = this.carolRing.userData.materials;
+    audio.ringChime?.();
+    await tween(1.6, (k) => { const e = Math.sin(Math.PI * k); cr[0].emissiveIntensity = 0.35 + 1.4 * e; cr[1].emissiveIntensity = 0.45 + 1.6 * e; }, ease.linear);
+    await this.carolSay('carolAsk10');
+    ca.reach('R', null, { rate: 2 });
+    await wait(1.0);
+    await ui.fade(1, 1.2);
+  }
+
+  // ---------------------------------------------------------------- 12. Black Hand
+  // The sting (Secret Origin's William Hand picks up the weapon Atrocitus left behind; his family's mortuary is the
+  // comics'; the room and what he says are ours): two in the morning under the Hand family's funeral home, the
+  // heart of Atrocitus's machine on the steel table, and it drinks the room's lamps one at a time, until the only
+  // light left is on his hand. His father calls down the stairs. Then the end of Part Seven.
+  async blackHand() {
+    const { ui, director, audio, player, engine } = this, g = engine.gradeUniforms;
+    this.takeControl();
+    ui.objective(null);
+    ui.clock('COAST CITY · 2:12 AM');
+    await loadProps(MORTUARY_PROPS, (k) => ui.loadStage('props', k));
+    ui.loadStage('scene', 0.3);
+    const m = (this.mortuary ??= new Mortuary({ engine }).build());
+    ui.loadStage('scene', 1);
+    this.show(m);
+    this.world = 'earth';
+    this.playerActive = false;
+    player.spawn(m.physics, m.scene, V(0, 0, -30), 0);
+    player.object.visible = false;
+    this.ambience(audio.hum?.(0.03) ?? audio.wind(0.005));
+    // him, at the table, over it; his hands on its edge
+    const gl = this.assets.characters.hand;
+    let hand = null, ha = null, hb = null;
+    if (gl) {
+      hand = createWilliamHand(gl);
+      hand.root.position.copy(MORT_HAND_AT);
+      hand.root.rotation.y = -Math.PI / 2; // (facing west, over the table)
+      m.scene.add(hand.root);
+      hand.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      ha = new Animator(hand);
+      const loco = new Locomotion(this.mocap);
+      loco.scale = hand.hipsHeight / this.mocap.hipsHeight;
+      loco.relax.adduct = 0.08;
+      ha.look.maxYaw = 0.8;
+      hb = new BodyLanguage(hand, ha, { lookHome: null, scale: 1, reach: 0.55, shift: null, gestures: undefined });
+      this.william = { rig: hand, anim: ha, body: hb, loco };
+      // leaning over the table on his hands, its edge under them, his head down to the heart (standing straight, his
+      // arms reached down to a table at his thighs). Facing west his left is north: +z
+      ha.play(still(makePose({ sx: 0.3, cx: 0.2, nx: 0.12, kx: 0.14, lLx: 0.04, lRx: 0.06, kL: 0.04, kR: 0.06, lLz: 0.03, lRz: -0.03 }), 0.6), 0);
+      const L = V(0, 0, 0), R = V(0, 0, 0);
+      ha.reach('L', () => L.set(MORT_HAND_AT.x - 0.5, MORT_TABLE_TOP + 0.03, MORT_HAND_AT.z + 0.27), { rate: 30, pole: V(0.7, -0.6, -0.4) });
+      ha.reach('R', () => R.set(MORT_HAND_AT.x - 0.5, MORT_TABLE_TOP + 0.03, MORT_HAND_AT.z - 0.27), { rate: 30, pole: V(-0.7, -0.6, -0.4) });
+      ha.lookAt(() => m.heart.position, 0.7);
+      m.updaters.push((dt) => { hb.update(dt); ha.update(dt); });
+    }
+    await this.warmUp(m.scene, null, [m.scene], (k) => ui.loadStage('shaders', k));
+    g.uFlash.value = 0;
+    g.uFlashColor.value.setRGB(0.55, 1.6, 0.75);
+    const face = () => hand?.bonePosition('head', _h) ?? MORT_HAND_AT.clone().add(V(0, 1.6, 0));
+    // the room from the door: the hum, the drawers, the table under its lights, him over it
+    director.cut(MORT_STAIRS.clone().add(V(-0.3, 1.85, -0.5)), MORT_TABLE.clone().add(V(0, 0.9, 0)), 50);
+    await ui.fade(0, 1.6);
+    director.move(MORT_STAIRS.clone().add(V(-0.7, 1.75, -1.2)), MORT_TABLE.clone().add(V(-0.2, 1.0, 0)), 6, ease.inOut, 46);
+    await wait(3.2);
+    // the heart, between his hands
+    director.cut(m.heart.position.clone().add(V(-0.55, 0.32, 0.5)), m.heart.position.clone(), 30);
+    director.move(m.heart.position.clone().add(V(-0.42, 0.26, 0.4)), m.heart.position.clone(), 4, ease.inOut, 28);
+    await wait(1.8);
+    // him, from across the table
+    const across = () => { const h = face(); return director.move(h.clone().add(V(-1.3, 0.04, -0.4)), h.clone().add(V(0, -0.06, 0)), 1.2, ease.inOut, 30); };
+    await across();
+    if (hb) await this.perform(hb, 'handW1', [['paper', () => ha.gesture('tilt', 1, 0.25)]]); else await this.say('handW1');
+    // the drawers, over his shoulder
+    ha?.lookAt(() => V(ROOM.x1 - 0.5, 1.2, 0.1), 0.6);
+    director.move(face().clone().add(V(-0.85, 0.1, 0.55)), V(ROOM.x1 - 0.5, 1.1, 0.1), 1.4, ease.inOut, 40);
+    if (hb) await this.perform(hb, 'handW2'); else await this.say('handW2');
+    ha?.lookAt(() => m.heart.position, 0.7);
+    // it wakes: a beat in it, and the first light goes, drawn down into it
+    const drink = async (i, dur = 1.6) => {
+      const l = m.lamps[i];
+      audio.buzz?.(0.4);
+      // the flicker
+      await tween(0.9, (k) => m.setLamp(i, Math.sin(k * 40) > 0.2 ? 1 - 0.4 * k : 0.15), ease.linear);
+      // its light in a stream down into the heart
+      const motes = this.lightStream(m, l.at, m.heart.position, dur);
+      await tween(dur, (k) => { m.setLamp(i, (1 - k) * 0.6); m.drink(Math.min(1, (m.drunk ?? 0) + 0.004)); }, ease.inOut);
+      m.setLamp(i, 0);
+      await motes;
+      audio.heartbeat?.(0.5);
+      m.heartLight.intensity = 3.2;
+      tween(0.8, (k) => (m.heartLight.intensity = 3.2 - 1.6 * k), ease.out);
+    };
+    director.cut(m.heart.position.clone().add(V(-0.9, -0.05, -0.9)), m.lamps[0].at.clone().lerp(m.heart.position, 0.35), 44);
+    audio.heartbeat?.(0.3);
+    await drink(0);
+    m.drink(0.35);
+    await across();
+    if (hb) await this.perform(hb, 'handW3', [['like', () => ha.gesture('tilt', 1, 0.3)]]); else await this.say('handW3');
+    // the second, the room half dark
+    director.cut(MORT_TABLE.clone().add(V(-2.4, 1.6, 2.2)), MORT_TABLE.clone().add(V(0, 1.2, 0)), 46);
+    await drink(1, 1.4);
+    m.drink(0.7);
+    await across();
+    if (hb) await this.perform(hb, 'handW4'); else await this.say('handW4');
+    // the desk lamp, last
+    director.cut(m.heart.position.clone().add(V(-1.2, 0.6, 1.7)), m.lamps[2].at.clone().lerp(m.heart.position, 0.5), 44);
+    await drink(2, 1.2);
+    m.drink(1);
+    // he takes it up: in his right hand, palm up, the only light in the room; up off the table, his left hand
+    // from its edge
+    if (ha) {
+      const held = V(0, 0, 0);
+      ha.reach('R', () => held.copy(m.heart.position).add(V(0.02, 0.03, 0)), { rate: 3, pole: V(-0.7, -0.6, -0.4) });
+      await wait(1.0);
+      const cup = this.palmUp(hand, ha, 'R', 0.08);
+      const w0 = m.heart.position.clone(), to = V(0, 0, 0);
+      await tween(0.5, (k) => { cup.at(to); m.heart.position.lerpVectors(w0, to, ease.inOut(k)); }, ease.linear);
+      cup.hold(m.heart);
+      ha.reach('L', null, { rate: 3 });
+      ha.play(this.william.loco, 1.2);
+      const up = V(0, 0, 0);
+      ha.reach('R', () => up.copy(MORT_HAND_AT).add(V(-0.34, 1.12, -0.12)), { rate: 2, pole: V(-0.7, -0.7, -0.3) });
+      ha.lookAt(() => m.heart.getWorldPosition(_r), 0.8);
+    }
+    m.heartLight.intensity = 1.4;
+    await wait(0.6);
+    // his face, from below, by it
+    const lowFace = () => { const h = face(); return director.move(h.clone().add(V(-0.85, -0.42, 0.3)), h.clone(), 1.6, ease.inOut, 32); };
+    await lowFace();
+    await wait(1.4);
+    // upstairs, the door: his father
+    m.stairLight.material.color.setRGB(1.1, 0.85, 0.5);
+    audio.door?.(0.3);
+    await this.say('handDad1');
+    m.stairLight.material.color.setRGB(0.55, 0.42, 0.26);
+    ha?.lookAt(() => MORT_STAIRS.clone().add(V(0, 1.8, 0)), 0.5);
+    if (hb) await this.perform(hb, 'handW5'); else await this.say('handW5');
+    ha?.lookAt(() => m.heart.getWorldPosition(_r), 0.8);
+    await wait(0.8);
+    { const hp = m.heart.getWorldPosition(V(0, 0, 0)); director.move(hp.clone().lerp(face(), 0.5).add(V(-1.15, -0.05, 0.4)), hp.clone().lerp(face(), 0.5), 2.4, ease.inOut, 30); }
+    if (hb) await this.perform(hb, 'handW6'); else await this.say('handW6');
+    // and out: the last of it, black
+    await tween(1.4, (k) => { m.heartLight.intensity = 1.4 * (1 - k); m.heartGlow.material.opacity = 0.5 * (1 - k); }, ease.inOut);
+    await ui.fade(1, 0.6);
+    await wait(1.2);
+    await this.partSevenEnd();
+  }
+
+  // A hand turned palm up (after its arm's IK, each frame: Coast.holdInHand's way, the scans having no finger bones),
+  // fingers along where the body faces; `at(out)` is the world point `lift` above the palm, `hold(obj)` sets obj
+  // there in the hand
+  palmUp(rig, anim, side, lift) {
+    const hand = rig.bones[`hand_${side}`], palm = rig.palm(side);
+    const Lt = new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(palm.along, palm.normal), palm.along, palm.normal).transpose();
+    const N = V(0, 1, 0), A = V(0, 0, 0), C = V(0, 0, 0), mm = new THREE.Matrix4(), qw = new THREE.Quaternion(), qp = new THREE.Quaternion();
+    const w = { k: 0 };
+    tween(0.4, (k) => (w.k = k), ease.inOut);
+    anim.post = () => {
+      const yaw = rig.root.rotation.y;
+      A.set(Math.sin(yaw), 0, Math.cos(yaw)).addScaledVector(V(Math.cos(yaw), 0, -Math.sin(yaw)), side === 'R' ? 0.35 : -0.35).normalize(); // (fingers forward, a little in)
+      C.crossVectors(A, N);
+      qw.setFromRotationMatrix(mm.makeBasis(C, A, N).multiply(Lt));
+      hand.parent.getWorldQuaternion(qp).invert();
+      hand.quaternion.slerp(qp.multiply(qw), w.k);
+      hand.updateMatrixWorld(true);
+    };
+    // (Rig.palm's normal points out of the palm, so the palm's face is `surface` along it)
+    return {
+      at: (out) => out.copy(palm.centre).addScaledVector(palm.normal, palm.surface + lift).applyMatrix4(hand.matrixWorld),
+      hold: (obj) => { hand.add(obj); obj.position.copy(palm.centre).addScaledVector(palm.normal, palm.surface + lift); obj.quaternion.identity(); obj.scale.setScalar(1 / rig.root.scale.x); },
+      release: () => { anim.post = null; },
+    };
+  }
+
+  // the light out of a lamp, a stream of motes down into the heart
+  lightStream(m, from, to, dur) {
+    const tex = (this.moteTex ??= glowTexture('rgba(255,255,255,1)', 'rgba(220,230,255,0.3)'));
+    const motes = Array.from({ length: 22 }, (_, i) => {
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0xeef2ff, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 }));
+      sp.scale.setScalar(0.06);
+      m.scene.add(sp);
+      return { sp, d: i / 22, wob: V(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.25) };
+    });
+    return tween(dur + 0.6, (k) => {
+      for (const o of motes) {
+        const u = Math.min(1, Math.max(0, k * 1.6 - o.d * 0.6));
+        o.sp.position.lerpVectors(from, to, u * u).addScaledVector(o.wob, Math.sin(Math.PI * u));
+        o.sp.material.opacity = Math.sin(Math.PI * u) * 0.9;
+        o.sp.material.color.setRGB(0.93 + 0.07 * (1 - u), 0.95 - 0.7 * u, 1 - 0.75 * u);
+      }
+    }, ease.linear).then(() => { for (const o of motes) { o.sp.removeFromParent(); o.sp.material.dispose(); } });
+  }
+
+  // The end of Part Seven (Part Eight, Black Hand's, is still to come)
+  async partSevenEnd() {
+    const { ui } = this;
+    const pick = await ui.screen({ kicker: 'Part Seven · Sapphire', title: 'THE END', subtitle: 'of Part Seven', body: 'Carol came home herself, the gem hers, and nobody’s queen. Zamaron is on the star chart now. And under a funeral home in Coast City, William Hand has found a use for what Atrocitus left behind. Part Eight, his story, is still to come.', buttons: ['Free roam', 'Quit to title'] });
+    if (pick === 0) { RoamSave.resumeAfterReload('world'); await new Promise(() => {}); return; }
     location.hash = '';
     location.reload();
     await new Promise(() => {});

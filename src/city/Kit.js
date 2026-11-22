@@ -267,7 +267,7 @@ export class Batch {
         const mesh = new THREE.Mesh(geo, mats[key]);
         mesh.name = `city_${key}`;
         mesh.userData.cell = k;
-        mesh.castShadow = shadows && key !== 'glass' && key !== 'lamp';
+        mesh.castShadow = shadows && key !== 'glass' && key !== 'lamp' && key !== 'wheelLamp';
         mesh.receiveShadow = true;
         group.add(mesh);
         yield;

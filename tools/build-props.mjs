@@ -192,6 +192,18 @@ export const PROPS = [
     title: 'Barbers Pole', author: 'HPrendering', uid: 'e5eb506d8d5c4cd5a775028a4a3e1d58' },
   { name: 'cart', src: 'assets/props/cart.glb', forward: '+z', height: 1.0, tex: 512,
     title: 'Shopping Cart', author: 'adrianxy', uid: 'b96f896453b240ae804d0399f1faf027' },
+  // Part Seven: the hot dog stand on the pier's head, packing up at one in the morning
+  { name: 'hotdog', src: 'assets/props/hotdog.glb', forward: '+z', height: 2.97, tex: 1024, // (modelled at 0.68 of a real one: its counter was 65 cm high)
+    title: 'New York Hot Dog Cart', author: 'outlier_spa', uid: 'd363905ab6db442789acf06e031e2b21' },
+  { name: 'dog', src: 'assets/props/dog.glb', forward: '+x', length: 0.19, tex: 512,
+    title: 'Hotdog lowpoly (7k tris) 3D scan', author: 'Xeverian', uid: '091345bcc34f4e95a85843e551eadbe7' },
+  // Part Seven's sting: the preparation room under the Hand family's funeral home (scenes/Mortuary.js)
+  { name: 'autopsy', src: 'assets/props/autopsy.glb', forward: '+z', scale: 1, tex: 1024,
+    title: 'Autopsy Lab - Assets', author: 'Evan Petrov', uid: '5ceaaa4482a84774b9922366cfb228e7' },
+  { name: 'fluoro', src: 'assets/props/fluoro.glb', forward: '+z', length: 1.22, tex: 512,
+    title: 'Old Fluorescent Light', author: 'andrej.lit', uid: 'd01f22878869428192044f7ff297090a' },
+  { name: 'desklamp', src: 'assets/props/desklamp.glb', forward: '+z', height: 0.46, tex: 512,
+    title: 'Vintage Electric Desk Lamp', author: 'Oleksandr Tserkovniy', uid: '9f8471ec5e3a460b8384e43cca716ae7' },
   // inside Rosie's Diner and Coast Liquor (src/city/Interiors.js)
   { name: 'booth', src: 'assets/props/booth.glb', forward: '+z', height: 1.1, tex: 1024,
     title: 'Diner Booth', author: 'izrafan', uid: '00110b996d944a658db8f24c6ccf36ec' },

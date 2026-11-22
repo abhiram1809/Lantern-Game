@@ -26,20 +26,22 @@ the oath and the two of them pull his statue down; Qward's Thunderers come throu
 ring, and Hal follows them back into the dark, where the Weaponers give Sinestro the yellow ring.
 He returns to Korugar as the Yellow Lantern and asks Hal the question the light asked him on his
 first night: are you afraid? Then free roam: everywhere the story has been, Earth's valley and the
-lake, Oa, Korugar, Ysmault and Qward, by the ring's star chart; Hal in the suit or in his clothes,
+lake, Oa, Korugar, Ysmault and Qward, and Zamaron once Part Seven has charted it, by the ring's star chart; Hal in the suit or in his clothes,
 with his car (and a ring-made key). Coast City is four kilometres
 square now: Hal's blocks with their shops and people, the streets round them, downtown's towers, and
 the waterfront (the beach, the promenade, the pier and its Ferris wheel), built as you come near.
-**Part Seven, Sapphire** (begun: seven chapters so far; talk to Carol in Hangar Two in free roam, or pick it
-from the title): Hal asks Carol to dinner again, and she sets her terms; the pier at night, the ring quiet;
+**Part Seven, Sapphire** (talk to Carol in Hangar Two in free roam, or pick it from the title): Hal asks Carol to dinner again, and she sets her terms; the pier at night, the ring quiet;
 a violet light out of the sky that has been looking for a heart like hers; and the fight over the water, where
 what Hal has to break is the gem's hold, not Carol. Then after her: the breach's wake, flown out past the
 charted stars (stay inside its light or the ring loses it), through a field of the breach's light gone to
 crystal and a nebula where the ring marks the way; and Zamaron, the Zamarons' world, a valley of violet
 crystal where the Star Sapphires keep the ones they love asleep in crystal, and Carol waits in their light.
-And, ahead of the queen's chapter (still to come: Zamaron's end card goes on to it), the Predator: love's entity out
-of the Zamarons' battery, fought on the citadel's plaza with Carol beside him. (After *Green Lantern* #16,
-1962, and Geoff Johns's "Mystery of the Star Sapphire", 2007; the Predator is the comics' violet entity.)
+Their queen, Aga'po, lets him try to cross her light, seals him in crystal at the foot of her dais, and Carol,
+alone with the gem, holds on to one voice and frees him. Then the Predator: love's entity out of the
+Zamarons' battery, fought on the citadel's plaza with Carol beside him; the way home, a race to the pier; the
+date finished at one in the morning on the pier, and the Ferris wheel; the morning after; and a sting under a
+funeral home in Coast City. (After *Green Lantern* #16, 1962, and Geoff Johns's "Mystery of the Star
+Sapphire", 2007; the Predator is the comics' violet entity, William Hand is *Secret Origin*'s.)
 
 ## Run
 
@@ -122,7 +124,7 @@ in front of you. Beside it, **E** recharges the ring (or puts it away when the r
 
 | Key | Action |
 | --- | --- |
-| E (flying high) | The star chart: Earth, Oa, Korugar, Ysmault, or Qward through a breach |
+| E (flying high) | The star chart: Earth, Oa, Korugar, Ysmault, Zamaron (after Part Seven), or Qward through a breach |
 | M | The ring's travel menu: every place by name (Coast City, Ferris, the lake, Oa, Korugar, Ysmault, Qward) |
 | T | Change: Green Lantern to Hal Jordan, or back (the suit needs a little charge) |
 | G (on the ground) | Hal's phone: messages (What Up), photos, the map, his bank, the paper, the weather |
@@ -230,6 +232,11 @@ Part Six:
 | `firstnight` | Her first night: Korugar's plaza at night, Katma's oath, the statue, the Thunderers |
 | `qward` | Qward: through the breach, the Thunderers on the way, the Weaponers' forge |
 | `yellow` | The yellow light: Sinestro back on Korugar, the fight (the end card) |
+
+Free roam (its own, from the title's **Free roam** or any part's end card after Six):
+
+| Checkpoint | Where it puts you |
+| --- | --- |
 | `world` | Free roam: at Ferris in the suit; **E** high in flight for the star chart, **M** for the travel menu, **T** to change |
 
 Part Seven:
@@ -241,8 +248,13 @@ Part Seven:
 | `strike` | The violet light: the pier, the gem, Star Sapphire |
 | `hold` | The gem's hold: over the water, her fight, the Zamarons' light |
 | `trail` | The wake: out after her, flying the breach's wake through space |
-| `zamaron` | Zamaron: the Zamarons' valley, the garden of the Kept, the citadel (an end card that goes on to the Predator, for now) |
-| `predator` | The Predator: the citadel's plaza, Carol beside him, the boss fight (built ahead of the queen's chapter) |
+| `zamaron` | Zamaron: the Zamarons' valley, the garden of the Kept, the citadel |
+| `queen` | The queen: Aga'po comes down; across her light; sealed in crystal; Carol frees him |
+| `predator` | The Predator: the citadel's plaza, Carol beside him, the boss fight; the queen's farewell |
+| `return` | The way home: over Earth's night side, then the race to the pier |
+| `wheel` | The wheel: the pier at one in the morning, the hot dog stand, her father's bench, the ride |
+| `hangar` | The morning after: Hangar Two |
+| `hand` | Black Hand: the room under the Hand family's funeral home (the end card) |
 
 For testing, a URL hash starts at any checkpoint, e.g. `http://localhost:5173/#lantern`.
 
@@ -456,7 +468,8 @@ block debris, bolts and Hal.
    asks: **are you afraid?** This time **yes** is the answer that wins. Beaten, he tears his way back
    into the dark; on Oa, something stirs inside the Central Power Battery. The end card offers free
    roam.
-7. **Free roam:** the end card offers it. Everywhere the story has been is open. Fly high and press
+7. **Free roam:** the end card offers it (and from then on the title's **Free roam**, and every later part's end
+   card: it's the game's open world, not a chapter of Part Six). Everywhere the story has been is open. Fly high and press
    **E** for the star chart (the voyage to Oa, Korugar or Ysmault, or a breach into Qward), or press
    **M** for the ring's travel menu. On Earth: the valley from Ferris Aircraft to Coast City (fly it, or
    drive it), and the lake where Abin Sur's ship came down. Coast City has people on every street, traffic,
@@ -519,7 +532,7 @@ block debris, bolts and Hal.
    seller, a baker and a carver at their stalls. Nothing costs the Lantern who freed them.
    **No air**: out of the uniform on Oa, Ysmault or Qward, Hal suffocates in seconds. Press **T**.
 
-### Part Seven: Sapphire (begun)
+### Part Seven: Sapphire
 
 1. **Dinner:** a morning in Hangar Two, a few days on. Carol is working on the second airframe. Hal
    asks again; she doesn't date employees, so: after five he isn't her pilot, just a man she knows. Seven
@@ -546,16 +559,32 @@ block debris, bolts and Hal.
 5. **The wake:** after her, out past the charted stars along the breach's wake: stay inside its light or the
    ring loses it.
 6. **Zamaron:** the valley, the garden of the Kept, two wardens and the stair up to the citadel, and Carol in
-   their light over the queen's dais. (The queen's chapter, where Carol frees him by mastering the gem, is
-   still to come.)
-7. **The Predator:** the battery stutters, and what the Zamarons have kept in its light comes out of it, the
+   their light over the queen's dais.
+7. **The queen:** Aga'po comes down out of the battery's light and lets him try. Her light comes across the
+   plaza in **waves**: walk to the dais with the **shield** up as each one reaches you (raised just as it
+   arrives, it breaks round you; held too long, it still pushes you back). A wave that catches you throws you
+   back, and their crystal climbs you: four, and you're back at the gate. At the dais she seals him in crystal,
+   one of the Kept. Then **Carol**: the gem pulls her eyes away from him; keep him inside the ring (the
+   mouse, or **WASD**) and **hold on** (left button or **Space**), and she comes down and breaks it.
+8. **The Predator:** the battery stutters, and what the Zamarons have kept in its light comes out of it, the
    thing that was speaking to Carol through the gem. Its hide turns most blows; each attack has a **tell**
    (it rears with its mouth lit before a bite; its tail lifts and rattles; its wings rise before a gust that
    tears a held shield away). **Raise the shield just as it strikes** and it's thrown open, and **Carol pins
    it** with crystal: then your blows land, hardest on its head. Below 60% it takes to the air, dives at
    you (parried, it crashes onto the plaza) and **reaches for Carol** with a beam: get between them with the
    shield up, or break it with three blows; let it finish and it drinks her light. At a fifth, Carol holds
-   it and the battery takes it back. (The rest of the part is still to be written.)
+   it and the battery takes it back. The queen comes to them: the gem is Carol's, a violet ring on her hand;
+   Carol asks for the Kept to be asked whether they'd stay; and the ring charts Zamaron (it's on the star
+   chart in free roam after this).
+9. **The way home:** over Earth's night side, side by side, and Carol's idea: the last one to the pier pays.
+   Race her in over the sea (**Shift** to boost); on the deck, the light goes off them both.
+10. **The wheel:** the pier at one in the morning, the table cleared, the wheel stopped and dark. Two hot dogs
+    from the stand, her father's bench, the rings quiet. The wheel has nobody to run it: one construct, the
+    only one she allows all night, turns it, and they ride it to the top.
+11. **The morning after:** Hangar Two. She doesn't date employees, so he's fired. Seven o'clock; he's rehired
+    Monday.
+12. **Black Hand:** under the Hand family's funeral home, William Hand and what Atrocitus left at the
+    building site. Then the end of Part Seven (Part Eight, his story, is still to come).
 
 ## Characters and movement
 

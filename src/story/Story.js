@@ -303,7 +303,7 @@ export class Story {
     this.ui.closePause();
     this.audio.ctx?.resume();
     this.voice.resume();
-    this.input.setLook(look && this.player.control);
+    this.input.setLook(look && (this.player.control || this.freeLook));
   }
 
   // Menu of this part's checkpoints reached so far; resolves with an id or null (back).

@@ -6,7 +6,13 @@ import { voyage } from './Voyage.js';
 import { StreetLife } from './KorugarLife.js';
 import { POWER_KEYS } from './Story.js';
 import { POSES, still, makePose } from '../characters/Poses.js';
-import { createKatma } from '../characters/Characters.js';
+import { createKatma, createKorugarian, createStarSapphire, createAgapo } from '../characters/Characters.js';
+import { Animator } from '../characters/Rig.js';
+import { Locomotion } from '../characters/Mocap.js';
+import { BodyLanguage } from '../characters/BodyLanguage.js';
+import { loadPeople, createPerson } from '../characters/People.js';
+import { Zamaron, ZAMARON_PROPS, ARRIVE as ZAM_ARRIVE, COURT, THRONE } from '../scenes/Zamaron.js';
+import { breath } from '../engine/Slice.js';
 import { loadProps } from '../props/Props.js';
 import { LOT, coastX } from '../scenes/Ferris.js';
 import { sliced } from '../engine/Slice.js';
@@ -14,7 +20,7 @@ import { Bedroom } from '../scenes/Bedroom.js';
 import { CityLife } from './CityLife.js';
 import { createSky } from '../fx/Sky.js';
 import { DayCycle } from '../scenes/DayCycle.js';
-import { LifeSave, SapphireSave } from '../engine/Save.js';
+import { LifeSave, SapphireSave, RoamSave, allWorlds } from '../engine/Save.js';
 import { Life, STATS, MAX_STAT, money } from './Life.js';
 import { Traffic } from '../city/Traffic.js';
 import { Emergencies } from './Emergencies.js';
@@ -42,26 +48,39 @@ const _air = new THREE.Vector3();
 // Where free roam goes. `world` is the ring's (the voyage's route); `jump` is how high Hal must fly
 // for the ring to open the star chart there (over the city's towers in the valley, over Korugar's).
 const PLACES = {
-  ferris: { world: 'earth', name: 'Ferris Aircraft', sub: 'The field · Hangar Two: Carol, and Part Seven', jump: 110 },
+  ferris: { world: 'earth', name: 'Ferris Aircraft', sub: 'The field · Hangar Two: Carol', jump: 110 },
   coast: { world: 'earth', name: 'Coast City', sub: 'Hal’s street and the boulevard', jump: 110 },
   lake: { world: 'earth', name: 'The lake', sub: 'Abin Sur’s ship', jump: 26 },
   oa: { world: 'oa', name: 'Oa', sub: 'Sector 0 · Kilowog’s range, the Guardians’ hall', jump: 30 },
   korugar: { world: 'korugar', name: 'Korugar', sub: 'Sector 1417 · the capital, after Sinestro', jump: 75 },
   ysmault: { world: 'ysmault', name: 'Ysmault', sub: 'Sector 666 · Atrocitus in his chains', jump: 36 },
   qward: { world: 'qward', name: 'Qward', sub: 'The antimatter universe · the Thunderers', jump: 45 },
+  zamaron: { world: 'zamaron', name: 'Zamaron', sub: 'The Zamarons’ world · the Kept, and their queen', jump: 60 },
   home: { world: 'earth', name: 'Hal’s apartment', sub: 'Up the stairs, behind the lot', jump: Infinity }, // (indoors: no star chart; not on the travel menu)
 };
 const CHART_NOTES = {
   earth: 'Home. Coast City, Ferris Aircraft, the lake where Abin Sur fell.',
   korugar: 'Sinestro’s world. His statue is down; Katma Tui keeps it now.',
   ysmault: 'The dead world of the Inversions. Atrocitus, back in his chains.',
+  zamaron: 'The Zamarons’ world, past the old charts. Carol asked them to let the Kept choose.',
 };
+// the queen in her light: upright, her arms a little open at her sides, her feet together and pointed
+const QUEEN_FLOAT = makePose({
+  sx: -0.03, cx: -0.05, nx: 0.04,
+  aL: [0.32, -0.92, 0.12], eL: 0.32, aR: [-0.32, -0.92, 0.12], eR: 0.32,
+  lLx: -0.02, kL: 0.06, lRx: 0.04, kR: 0.12, lLz: 0.02, lRz: -0.02, fL: 0.55, fR: 0.5,
+});
+// Part Seven played to its end (free roam stops offering it)
+const sevenDone = () => SapphireSave.load().reached.includes('hand');
+// Zamaron, once Part Seven has charted it
+const zamaronOpen = () => allWorlds().includes('zamaron');
+const charted = () => ['earth', 'oa', 'korugar', 'ysmault', 'qward', ...(zamaronOpen() ? ['zamaron'] : [])];
 const EARTH = ['coast', 'ferris', 'lake'], AWAY = ['oa', 'korugar', 'ysmault', 'qward'];
 const AIRLESS = new Set(['oa', 'ysmault', 'qward']);
 // a shopkeeper's thanks by their voice (Roam.shopBuy)
 const THANKS = { townm1: 'thxM1', townm2: 'thxM2', townm3: 'thxM3', townf1: 'thxF1', townf2: 'thxF2', townf3: 'thxF3' };
 const TAKES = { wash: 0.75, haircut: 0.5, shave: 0.3, press: 1.0, movie: 2.0, workout: 1.0 }; // (hours: what a purchase takes)
-const SECTORS = { oa: 'SECTOR 0', korugar: 'SECTOR 1417', ysmault: 'SECTOR 666', qward: 'QWARD' }; // (off Earth the clock's place shows where he is) // (no air for a man out of the uniform; Korugar has its people's)
+const SECTORS = { oa: 'SECTOR 0', korugar: 'SECTOR 1417', ysmault: 'SECTOR 666', qward: 'QWARD', zamaron: 'ZAMARON' }; // (off Earth the clock's place shows where he is) // (no air for a man out of the uniform; Korugar has its people's)
 const CIVILIAN_KEYS = '<b>T</b> Green Lantern &nbsp; <b>L</b> lantern &nbsp; <b>M</b> travel &nbsp; <b>G</b> phone &nbsp; <b>N</b> map';
 const LANTERN_KEYS = `${POWER_KEYS} &nbsp; <b>T</b> Hal Jordan &nbsp; <b>M</b> travel &nbsp; <b>G</b> phone &nbsp; <b>N</b> map &nbsp; <b>E</b> high up: star chart`;
 
@@ -80,7 +99,7 @@ const LANTERN_KEYS = `${POWER_KEYS} &nbsp; <b>T</b> Hal Jordan &nbsp; <b>M</b> t
 // world; beside it, E recharges the ring (the whole oath when it's low).
 const _hp = new THREE.Vector3();
 export class Roam extends Exile {
-  steps() { return { ...super.steps(), world: () => this.openWorld() }; }
+  steps() { return { ...super.steps(), world: () => this.openWorld() }; } // (FreeRoam's: Part Six's own list ends at `yellow`)
 
   update(dt, t, real) {
     super.update(dt, t, real);
@@ -247,7 +266,7 @@ export class Roam extends Exile {
     const { ui } = this;
     this.lanternUp();
     ui.clock(this.save.info('world').clock);
-    this.chartWorlds(['earth', 'oa', 'korugar', 'ysmault', 'qward']);
+    this.chartWorlds(charted());
     this.roam = { where: null, lastEarth: 'ferris' };
     this.civilian = false;
     this.life = new Life(this);
@@ -269,7 +288,8 @@ export class Roam extends Exile {
   roamObjective() {
     const w = this.roam?.where, P = PLACES[w];
     if (!P) return 'Free roam';
-    const extra = { ferris: 'Part Seven: Carol, in Hangar Two', coast: 'Part Seven: Carol, at Ferris', oa: 'Kilowog has another round', ysmault: 'Atrocitus, at his obelisk', qward: 'Call the Thunderers at the circle', korugar: 'Katma Tui, by the statue', lake: 'Abin Sur’s ship' }[w];
+    const seven = !sevenDone();
+    const extra = { ferris: seven ? 'Part Seven: Carol, in Hangar Two' : 'Carol, in Hangar Two', coast: seven ? 'Part Seven: Carol, at Ferris' : 'Carol, at Ferris', oa: 'Kilowog has another round', ysmault: 'Atrocitus, at his obelisk', qward: 'Call the Thunderers at the circle', korugar: 'Katma Tui, by the statue', lake: 'Abin Sur’s ship' }[w];
     // where the work is (story/Work.js), on the field as Hal
     const h = this.dayCycle?.hour ?? 0, work = w === 'ferris' && this.civilian && this.life ? (this.work ? 'On the clock: the prototype on the apron' : h >= 9 && h < 17 ? 'Work: the time clock in Hangar Two, or the prototype' : null) : null;
     return `Free roam · ${P.name}${work ? ` · ${work}` : extra ? ` · ${extra}` : ''}`;
@@ -318,7 +338,7 @@ export class Roam extends Exile {
     this.takeControl();
     this.powers.holster?.();
     const here = this.roam.where;
-    const opts = [...EARTH, ...AWAY].filter((id) => id !== here);
+    const opts = [...EARTH, ...AWAY, ...(zamaronOpen() ? ['zamaron'] : [])].filter((id) => id !== here);
     const pick = await this.ui.screen({ kicker: 'The ring', title: 'TRAVEL', body: this.civilian ? 'Where to? Off Earth, the ring forms the uniform first.' : 'Where to? (Or fly high and press E for the star chart.)', stack: true, buttons: [...opts.map((id) => ({ label: PLACES[id].name, sub: PLACES[id].sub })), 'Stay here'] });
     this.menuOpen = false;
     if (pick < opts.length) await this.goTo(opts[pick]);
@@ -357,7 +377,7 @@ export class Roam extends Exile {
     this.busy = true;
     powers.freeze = true;
     player.inputBlocked = true;
-    const id = await this.chart.open({ charted: ['earth', 'oa', 'korugar', 'ysmault', 'qward'], here: PLACES[this.roam.where].world, notes: CHART_NOTES });
+    const id = await this.chart.open({ charted: charted(), here: PLACES[this.roam.where].world, notes: CHART_NOTES });
     powers.freeze = false;
     player.inputBlocked = false;
     this.busy = false;
@@ -383,6 +403,7 @@ export class Roam extends Exile {
     try {
       if (id === 'ysmault') await loadProps(YSMAULT_PROPS);
       if (id === 'qward') { await loadProps(QWARD_PROPS); await loadThunderers(); }
+      if (id === 'zamaron') { await loadProps(ZAMARON_PROPS); await this.assets.characters.more(['sapphire', 'agapo', 'katma']); }
       let sky = false, breach = false;
       if (fromWorld && P.world !== fromWorld) {
         breach = P.world === 'qward' || fromWorld === 'qward';
@@ -525,6 +546,13 @@ export class Roam extends Exile {
       player.boostScale = 1.6;
       this.qwardRoam(q);
       air = [RIFT_AT.clone(), Math.PI, V(0, -2, -12)];
+    } else if (id === 'zamaron') {
+      this.zamAsked = true;
+      const z = await this.setupZamaron();
+      this.enterZamaron(COURT.clone().add(V(0, 0, 20)), Math.PI);
+      await this.warmUp(z.scene, null, [z.scene], (k) => this.ui.loadStage('shaders', k), { near: COURT, radius: 260 });
+      this.zamaronRoam(z);
+      air = [ZAM_ARRIVE.clone(), Math.PI, V(0, -5, -14)];
     }
     this.roam.where = id;
     if (PLACES[id].world === 'earth') this.roam.lastEarth = id;
@@ -547,6 +575,7 @@ export class Roam extends Exile {
   arrived(id, fromSpace) {
     if (id === 'oa' && fromSpace) wait(2.2).then(() => this.quip('kwBack', 1, [['back', 'beckon']]));
     if (id === 'qward') wait(1.2).then(() => this.ringSay('ringQwardHere'));
+    if (id === 'zamaron' && fromSpace) wait(1.6).then(() => this.ringSay('ringZam1'));
     if (id === 'oa') wait(5).then(() => { if (this.roam.where === 'oa' && this.powers.charge < 99) this.ringSay('ringBattery'); });
   }
 
@@ -613,9 +642,9 @@ export class Roam extends Exile {
     const p = V(0, 0, 0), halHead = () => this.player.rig.bonePosition('head', p);
     this.cb.lookHome = () => halHead;
     this.carolAnim.lookAt(halHead, 0.5);
-    this.powers.markerTarget = { pos: CAROL_IN.clone().setY(2.4), label: 'Part Seven · Carol' };
+    if (!sevenDone()) this.powers.markerTarget = { pos: CAROL_IN.clone().setY(2.4), label: 'Part Seven · Carol' };
     if (this.carolIt) return;
-    let gl = 0, hal = 0, told = false;
+    let gl = 0, hal = 0, told = sevenDone(); // (Part Seven played to its end: she's just Carol)
     this.carolIt = f.interact({ position: CAROL_IN, radius: 2.6, look: CAROL_IN.clone().setY(1.6), label: 'Talk to Carol', action: async () => {
       const { player } = this;
       player.control = false;
@@ -1043,6 +1072,184 @@ export class Roam extends Exile {
     } });
   }
 
+  // ---------------------------------------------------------------- Zamaron
+  // (After Part Seven.) The Zamarons' world on the chart: the garden of the Kept (asked, as Carol wanted: two of
+  // them gone home), the keepers at their crystals, the wardens, and the queen over the dais, who'll say so.
+  // The scene and its people are built here for both (Part Seven's chapters add Carol and the queen's coming).
+  async setupZamaron() {
+    if (this.zam) return this.zam;
+    const { ui } = this;
+    ui.loadStage('scene', 0.1);
+    await breath();
+    const z = (this.zam = new Zamaron({ engine: this.engine }).build());
+    ui.loadStage('scene', 0.6);
+    await this.keptFigures(z);
+    ui.loadStage('scene', 0.85);
+    this.zamSapphires(z);
+    ui.loadStage('scene', 1);
+    return z;
+  }
+
+  enterZamaron(at, yaw) {
+    const { player, audio, powers } = this, z = this.zam;
+    this.world = 'zamaron';
+    this.show(z);
+    this.playerActive = true;
+    player.spawn(z.physics, z.scene, at, yaw);
+    player.ground = (x, zz) => z.ground(x, zz);
+    player.surface = 'stone';
+    powers.attach({ scene: z.scene, physics: z.physics, ...z.airBounds() });
+    powers.regen = 0.6;
+    player.boostScale = 1.4;
+    this.ambience(audio.wind(0.05), audio.pad([55, 69.3, 82.4], 0.025, { cutoff: 620 }));
+    z.updaters.push(() => z.focus(player.position));
+    // a blow on one of the Kept: it sparks and holds (and the ring says why, once)
+    const smash = z.smash, blow = smash.blow.bind(smash);
+    let told = false;
+    smash.blow = (item, ...args) => {
+      if (item?.kept && !told) { told = true; wait(0.4).then(() => this.ringSay('ringKeptHit')); }
+      return blow(item, ...args);
+    };
+  }
+
+  // The ones kept in the garden's crystals: people of Korugar (from Abin Sur's scan and Katma Tui's), and
+  // near-humans from worlds the ring knows by number (Rocketbox people), each asleep standing, the head
+  // bowed. The ring reads eight of them.
+  async keptFigures(z) {
+    const ch = this.assets.characters;
+    const WHO = [
+      { kind: 'kor', seed: 3, read: 'ringKept1' }, { kind: 'person', id: 'male-adult-03', read: 'ringKept2' },
+      { kind: 'katma', seed: 2, read: 'ringKept3' }, { kind: 'person', id: 'male-adult-15', read: 'ringKept4' },
+      { kind: 'kor', seed: 7, read: 'ringKept5' }, { kind: 'person', id: 'female-adult-09', read: 'ringKept8' },
+      { kind: 'kor', seed: 11, guard: true, read: 'ringKept6' }, { kind: 'person', id: 'male-adult-07', read: 'ringKept7' },
+      { kind: 'katma', seed: 5 }, { kind: 'person', id: 'female-adult-04' }, { kind: 'kor', seed: 15 }, { kind: 'person', id: 'male-adult-18' },
+    ];
+    const ids = WHO.filter((w) => w.kind === 'person').map((w) => w.id);
+    const gl = new Map((await loadPeople(ids)).map((g, i) => [ids[i], g]));
+    const ASLEEP = makePose({ nx: 0.2, kx: 0.16, sx: 0.02, cx: 0.02, aL: [0.1, -1, 0.1], eL: 0.32, aR: [-0.1, -1, 0.1], eR: 0.32, lLz: 0.02, lRz: -0.02, fL: 0.05, fR: 0.05 });
+    for (const [i, k] of z.kept.entries()) {
+      const w = WHO[i];
+      let rig = null;
+      if (w.kind === 'kor' && ch.abin) rig = createKorugarian(ch.abin, { seed: w.seed, guard: w.guard });
+      else if (w.kind === 'katma' && ch.katma) rig = createKatma(ch.katma, { citizen: true, seed: w.seed });
+      else if (w.kind === 'person' && gl.get(w.id)) {
+        const person = createPerson(gl.get(w.id), { seed: i + 3 });
+        rig = person.rig;
+        person.setShape('blinkL', 1);
+        person.setShape('blinkR', 1);
+      }
+      // (in free roam the Kept have been asked, as Carol wanted: these two went home, their crystals empty)
+      if (this.zamAsked && (i === 3 || i === 4)) rig = null;
+      if (!rig) {
+        if (this.zamAsked && (i === 3 || i === 4)) z.interact({ position: k.at.clone().add(V(-k.side * 2.4, 0, 0)), radius: 2.0, look: k.at.clone().setY(1.6), label: 'Read the crystal', action: async () => { this.audio.ringChime?.(); await this.ringSay('ringKeptGone'); } });
+        continue;
+      }
+      rig.apply(ASLEEP);
+      rig.root.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } });
+      k.hold(rig);
+      const look = k.at.clone().setY(1.6);
+      z.interact({ position: k.at.clone().add(V(-k.side * 2.4, 0, 0)), radius: 2.0, look, label: 'Read the crystal', action: async () => {
+        this.player.lookAt(look, 0.9);
+        this.ringGlow = 2;
+        this.audio.ringChime?.();
+        await this.ringSay(w.read ?? 'ringKeptQuiet');
+        this.ringGlow = 1.2;
+        this.player.lookAt(null);
+      } });
+    }
+  }
+
+  // The Star Sapphires: two tending their crystals in the garden, who'll answer him; two wardens waiting
+  // at the court; and the queen over the dais (Part Seven adds Carol in their light: Sapphire.zamSapphires).
+  // Each Sapphire from Carol's model but Carol.
+  zamSapphires(z) {
+    const gl = this.assets.characters.sapphire, mocap = this.mocap;
+    if (!gl) return;
+    const make = (seed, at, yaw) => {
+      const rig = createStarSapphire(gl, { seed });
+      rig.root.position.copy(at);
+      rig.root.rotation.y = yaw;
+      z.scene.add(rig.root);
+      const anim = new Animator(rig), loco = new Locomotion(mocap);
+      loco.scale = rig.hipsHeight / mocap.hipsHeight;
+      loco.relax.adduct = 0.1;
+      anim.play(loco, 0);
+      anim.look.maxYaw = 0.8;
+      const body = new BodyLanguage(rig, anim, { lookHome: null, scale: 1, reach: 0.55, shift: null, gestures: undefined });
+      z.updaters.push((dt) => { body.update(dt); anim.update(dt); });
+      return { rig, anim, loco, body };
+    };
+    // the keepers: a hand on the crystal, her head to it
+    this.keepers = [[0, 'keep1a', 'halKeep1', 'keep1b', 21], [6, 'keep2a', 'halKeep2', 'keep2b', 33]].map(([ki, a, h, b, seed]) => {
+      const k = z.kept[ki], toPath = V(-k.side, 0, 0);
+      const at = k.at.clone().setY(0).addScaledVector(toPath, 1.95).add(V(0, 0, 0.9));
+      const sp = make(seed, at, Math.atan2(k.at.x - at.x, k.at.z - at.z));
+      const touch = k.at.clone().setY(1.45).addScaledVector(toPath, 0.92).add(V(0, 0, 0.3));
+      sp.anim.reach('R', () => touch, { rate: 3, pole: V(0.5, -0.8, -0.3) });
+      sp.anim.lookAt(() => k.at.clone().setY(1.7), 0.6);
+      let n = 0;
+      z.interact({ position: at, radius: 2.4, look: () => sp.rig.bonePosition('head', V(0, 0, 0)), label: 'Speak to her', action: async () => {
+        this.takeControl();
+        const P = this.player.position;
+        this.player.turnTo(Math.atan2(at.x - P.x, at.z - P.z));
+        sp.anim.lookAt(() => this.player.rig.bonePosition('head', V(0, 0, 0)), 0.7);
+        this.player.lookAt(() => sp.rig.bonePosition('head', V(0, 0, 0)), 0.8);
+        this.npcClose(sp.rig, 1.2);
+        if (n++ === 0) {
+          await this.perform(sp.body, a);
+          await this.halClose(0.9);
+          await this.say(h);
+          await this.npcClose(sp.rig, 0.9, -1);
+          await this.perform(sp.body, b);
+        } else await this.perform(sp.body, b);
+        sp.anim.lookAt(() => k.at.clone().setY(1.7), 0.6);
+        this.player.lookAt(null);
+        this.giveControl('Find Carol');
+      } });
+      return sp;
+    });
+    // the wardens, at the court's north side, facing the garden
+    this.wardensAt = [make(44, COURT.clone().add(V(-1.6, 0, -9.2)), 0), make(57, COURT.clone().add(V(1.6, 0, -9.4)), 0)];
+    // the queen, Aga'po, over the dais in her light (the story keeps her out of sight till `queen`)
+    const qgl = this.assets.characters.agapo;
+    if (qgl) {
+      const rig = createAgapo(qgl);
+      rig.root.position.copy(THRONE).add(V(2.8, 1.6, 4.0)); // (over the dais's front, off its middle: Sapphire.QUEEN_AT)
+      z.scene.add(rig.root);
+      const anim = new Animator(rig);
+      anim.play(still(QUEEN_FLOAT), 0);
+      anim.look.maxYaw = 0.8;
+      const body = new BodyLanguage(rig, anim, { lookHome: null, scale: 1, reach: 0.55, shift: null, gestures: undefined });
+      const q = (this.queen = { rig, anim, body, hover: true, base: rig.root.position.y });
+      z.updaters.push((dt, t) => { if (!rig.root.visible) return; body.update(dt); anim.update(dt); if (q.hover) rig.root.position.y = q.base + Math.sin(t * 0.55) * 0.1; });
+    }
+  }
+
+  // a close shot of someone who isn't Carol (the keepers, the wardens): from their front, to one side
+  // (`up`: the face above the head bone, for a figure whose bone sits low under a crown: the queen)
+  npcClose(rig, duration = 1.2, side = 1, fov = 32, yaw = rig.root.rotation.y, up = 0) {
+    const h = rig.bonePosition('head', V(0, 0, 0)).add(V(0, up, 0));
+    const f = V(Math.sin(yaw), 0, Math.cos(yaw)), r = V(f.z, 0, -f.x);
+    return this.director.move(h.clone().addScaledVector(f, 1.7).addScaledVector(r, 0.45 * side).add(V(0, -0.06, 0)), h.clone().add(V(0, -0.04, 0)), duration, ease.inOut, fov);
+  }
+
+  zamaronRoam(z) {
+    const q = this.queen;
+    if (q && !this.queenSpoke) {
+      z.interact({ position: THRONE.clone().add(V(0, 0, 7.5)), radius: 3, look: () => q.rig.bonePosition('head', V(0, 0, 0)), label: 'Speak to the queen', action: async () => {
+        this.takeControl();
+        q.anim.lookAt(this.headOf(this.player.rig), 0.6);
+        this.player.lookAt(() => q.rig.bonePosition('head', V(0, 0, 0)), 0.7);
+        await this.npcClose(q.rig, 1.2, 1, 28, q.rig.root.rotation.y, 0.13);
+        await this.perform(q.body, 'agR1', [['asked', 'open']]);
+        q.anim.lookAt(null);
+        this.player.lookAt(null);
+        this.giveControl(this.roamObjective());
+      } });
+      this.queenSpoke = true;
+    }
+  }
+
   // ---------------------------------------------------------------- Qward
   // The plain of black glass; a circle of violet light at the ambush ground. E in it calls the
   // Thunderers: a wave, each one bigger than the last.
@@ -1399,3 +1606,10 @@ export class Roam extends Exile {
 for (const name of ['wave', 'kwSay', 'kwBark', 'kwPoint', 'addDrillStart']) Roam.prototype[name] ??= Corps.prototype[name];
 // Hal's job at Ferris: clocking in and out, the test cards (story/Work.js)
 Object.assign(Roam.prototype, WORK, ALBUM, TRAP); // (and the pictures on his phone: story/Album.js; the bubble's catches: story/Trap.js)
+
+// Free roam as the game's own, not a part's: Roam's open world with free roam's store (Save.js RoamSave), which
+// every part's ending goes back to. It is whatever Roam is, and Roam is what each part adds to it.
+export class FreeRoam extends Roam {
+  get save() { return RoamSave; }
+  steps() { return { world: () => this.openWorld() }; }
+}

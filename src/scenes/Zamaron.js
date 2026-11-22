@@ -81,9 +81,11 @@ export class Zamaron {
     s.add(key, key.target);
     this.focus(LANDING);
     this.smash = new Smash(this.physics, s);
-    this.crystal = violetCrystal({ glow: 0.5, scale: 0.05 });
+    // (a little rough: mirror-smooth, the flat facets of the citadel's walls showed the battery's light as a white sun
+    // in every shot of the dais)
+    this.crystal = violetCrystal({ glow: 0.5, scale: 0.05, roughness: 0.34 });
     this.darkCrystal = violetCrystal({ color: 0x24122e, deep: 0x0c0412, rim: [0.8, 0.3, 1.0], glow: 0.3, roughness: 0.22, scale: 0.08 });
-    this.paleCrystal = violetCrystal({ color: 0xc89ad8, deep: 0x5a2a74, rim: [1.1, 0.6, 1.2], glow: 0.35, roughness: 0.12, scale: 0.06 });
+    this.paleCrystal = violetCrystal({ color: 0xc89ad8, deep: 0x5a2a74, rim: [1.1, 0.6, 1.2], glow: 0.35, roughness: 0.26, scale: 0.06 });
     this.buildGround();
     this.buildMoons(sunDir);
     this.buildCliffs();

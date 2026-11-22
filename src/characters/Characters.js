@@ -8,14 +8,15 @@ import { glowTexture } from '../fx/Textures.js';
 // The scans. Hal's two and Abin Sur's (and the mocap) at boot, which every part needs; the others with
 // the part that needs them (`more`), after the title: decoding all nine scans' textures at once was what
 // froze the page behind the loading screen, and a part without Kilowog shouldn't hold his 48 MB.
-const SCANS = { kilowog: 'kilowog', carol: 'carol', hammond: 'hammond', atrocitus: 'atrocitus', katma: 'katma', korCrowd: 'kor_crowd', sapphire: 'sapphire' };
+const SCANS = { kilowog: 'kilowog', carol: 'carol', hammond: 'hammond', atrocitus: 'atrocitus', katma: 'katma', korCrowd: 'kor_crowd', sapphire: 'sapphire', agapo: 'agapo', hand: 'william_hand' };
 // A rebuilt scan's number, added to its address: the service worker (public/sw.js) hands out the copy it
 // holds for one more visit otherwise (her arms were re-rigged and the old model kept showing).
 const SCAN_VERSION = { sapphire: 3 };
 export const PART_SCANS = {
   awakening: [], corps: ['kilowog'], coast: ['carol', 'hammond'], prisoner: ['carol', 'hammond', 'atrocitus', 'kilowog'],
   probation: ['carol', 'katma', 'korCrowd', 'kilowog'], exile: ['carol', 'katma', 'korCrowd', 'kilowog', 'atrocitus'],
-  sapphire: ['carol', 'sapphire', 'katma', 'korCrowd', 'kilowog', 'atrocitus'], // (Part Seven: her violet self too; the rest for the free roam it ends in)
+  sapphire: ['carol', 'sapphire', 'agapo', 'hand', 'katma', 'korCrowd', 'kilowog', 'atrocitus'],
+  roam: ['carol', 'katma', 'korCrowd', 'kilowog', 'atrocitus'], // (free roam: Zamaron's Sapphires and queen come when he goes there) // (Part Seven: her violet self, the queen, William Hand; the rest for the free roam it ends in)
 };
 export async function loadCharacters(manager) {
   const loader = new GLTFLoader(manager);
@@ -26,7 +27,7 @@ export async function loadCharacters(manager) {
     loader.loadAsync('/anims/xbot.glb'),
   ]);
   for (const g of [casual, lantern, abin]) prepScan(g);
-  const out = { casual, lantern, abin, kilowog: null, carol: null, hammond: null, atrocitus: null, katma: null, korCrowd: null, sapphire: null, mocap: new MocapSource(xbot) };
+  const out = { casual, lantern, abin, kilowog: null, carol: null, hammond: null, atrocitus: null, katma: null, korCrowd: null, sapphire: null, agapo: null, hand: null, mocap: new MocapSource(xbot) };
   const pending = {};
   // the given scans loaded (once each; one that's missing stays null: Kilowog is optional)
   out.more = (names = []) => Promise.all(names.map((n) => (pending[n] ??= new GLTFLoader().loadAsync(`/models/${SCANS[n]}.glb${SCAN_VERSION[n] ? `?v=${SCAN_VERSION[n]}` : ''}`).then((g) => { if (n !== 'korCrowd') prepScan(g); out[n] = g; }).catch(() => { out[n] = null; })))).then(() => out);
@@ -58,6 +59,8 @@ export const JAW = {
   // Star Sapphire Carol: her scan's face again, built 2.8 cm further forward of her pelvis (the nose tip
   // measured at z 0.140 against 0.112, its height within 2 mm), so Carol's seam and chin and the depths + 0.028
   sapphire: { seam: 1.496, chin: 1.45, front: 0.12, width: 0.02, hinge: [1.523, 0.032] },
+  agapo: { seam: 1.677, chin: 1.643, front: 0.112, width: 0.02, hinge: [1.705, 0.03] },
+  hand: { seam: 1.563, chin: 1.527, front: 0.108, width: 0.022, hinge: [1.593, 0.02] },
 };
 
 // Adds suit glow, a sweep dissolve for the transformation, a tint, an optional hidden bone, and the
@@ -250,6 +253,33 @@ export function createCarol(gltf) {
     mat.customProgramCacheKey = () => 'gl-carol';
   }
   return rig;
+}
+
+// Aga'po, queen of the Zamarons (Part Seven), from the user's model (2026-11-22): violet skin, rose armour,
+// a crown of spikes. Her armour is lacquer, so a roughness floor under it (mirror-smooth, it caught the sky
+// as blobs); `glowUp(k)` lights her as the Sapphires are lit, a rim of their light (0 none, 1 at rest).
+export function createAgapo(gltf) {
+  const rig = createCharacter(gltf, { roughMin: 0.56, jaw: JAW.agapo });
+  const uGlow = { value: 1 };
+  for (const m of rig.meshes) {
+    const mat = m.material, base = mat.onBeforeCompile;
+    mat.onBeforeCompile = (sh, r) => {
+      base(sh, r);
+      sh.uniforms.uQGlow = uGlow;
+      sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform float uQGlow;\nvoid main() {')
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          float qRim = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 3.0);
+          totalEmissiveRadiance += vec3(0.55, 0.16, 0.75) * qRim * 0.7 * uQGlow;`);
+    };
+    mat.customProgramCacheKey = () => 'gl-agapo';
+  }
+  rig.glowUp = (k) => (uGlow.value = k);
+  return rig;
+}
+
+// William Hand (Part Seven's sting, Part Eight), from the user's model (2026-11-22): a dark shirt, jeans, boots.
+export function createWilliamHand(gltf) {
+  return createCharacter(gltf, { roughMin: 0.55, jaw: JAW.hand });
 }
 
 // Star Sapphire Carol (Part Seven), from the user's model (2026-11-20): her scan's face and hair with a

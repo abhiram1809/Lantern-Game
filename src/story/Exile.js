@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { wait, waitFor, tween, ease, onFrame } from '../engine/Time.js';
-import { ExileSave } from '../engine/Save.js';
+import { ExileSave, RoamSave } from '../engine/Save.js';
 import { Probation } from './Probation.js';
 import { voyage } from './Voyage.js';
 import { POSES, still } from '../characters/Poses.js';
@@ -1245,7 +1245,7 @@ export class Exile extends Probation {
     await ui.fade(1, 1.6);
     await this.sting();
     const pick = await ui.screen({ kicker: 'Part Six · Exile', title: 'THE YELLOW LIGHT', subtitle: 'Part Six complete', body: 'Sinestro has the Weaponers’ ring, and somewhere in the dark he is waiting. Katma Tui holds Korugar. The ring is yours to take anywhere.', buttons: ['Free roam', 'Quit to title'] });
-    if (pick === 0) return; // (on into `world`)
+    if (pick === 0) { RoamSave.resumeAfterReload('world'); await new Promise(() => {}); return; } // (free roam: its own, not this part's)
     location.hash = '';
     location.reload();
     await new Promise(() => {});

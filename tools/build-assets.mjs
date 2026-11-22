@@ -117,6 +117,20 @@ const MODELS = [
   },
   { name: 'thunder_woman', src: 'assets/raw/Thunderers.glb', figure: 0.4, facing: 1, tris: 60000, height: 1.85, rig: { arms: [[0.19, 1.42], [0.35, 1.21], [0.42, 1.03]] } },
   { name: 'katma', src: 'assets/raw/Katma-tui.glb', facing: 1, tris: 90000, height: 1.76, rig: { armLo: 0.13, armTipIn: 0.05, armMinY: 0.6, shoulder: [0.1, 0.812] } },
+  // Aga'po, queen of the Zamarons (the user's model, 2026-11-22), for Part Seven's `queen`: one figure in
+  // an A-pose, facing +X, violet-skinned, in rose armour with a long panel skirt, two long tails of hair
+  // behind her and a crown of spikes (the tallest 0.12 of the sheet over her head: `headTop` is where her
+  // head ends, so she's 1.9 m to the crown of her head and the spike rises over it).
+  // The neck is given (the crown's side spikes made the slice search's narrowest neck her eyes) and so are
+  // the arms (measured on her cross-sections: the hair behind her shoulders and the vambraces pull a fit off).
+  {
+    name: 'agapo', src: "assets/raw/Aga'po.glb", facing: 1, tris: 90000, height: 1.9, headTop: 0.37,
+    rig: { neckMid: 0.837, arms: [[0.19, 1.45, -0.045], [0.428, 1.332, -0.06], [0.59, 1.15, 0.033]] },
+  },
+  // William Hand (the user's model, 2026-11-22), for Part Seven's sting and Part Eight: one figure in an
+  // A-pose, facing +X, in a dark shirt with its sleeves rolled, dark jeans and boots.
+  // His hands hang close to his hips, so the arm band found nothing to fit: the arms are given (measured).
+  { name: 'william_hand', src: 'assets/raw/William-Hand.glb', facing: 1, tris: 90000, height: 1.8, rig: { arms: [[0.185, 1.415, -0.015], [0.36, 1.19, -0.058], [0.475, 0.993, 0.026]] } },
 ];
 
 await MeshoptDecoder.ready;

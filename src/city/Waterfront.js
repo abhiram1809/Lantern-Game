@@ -127,6 +127,8 @@ export function* buildWaterfront(stream) {
     const head = V(x, deck + 3.45 * 1.3, pz + s * (w2 - 0.6) - s * 0.95 * 1.3);
     lamps.push({ at: head, street: true });
   }
+  // the bench on the head, facing the sea by the wheel, where Carol's father counted the planes (Part Seven)
+  put('bench', headAt - 14, deck, pz - hw + 5, Math.PI);
   yield;
   // its buildings: the bait shop and the arcade on the run, the seafood house across the end of the head
   const bld = (spec) => building(ctx, { t: 0.25, coping: 'cap', ...spec, at: V(spec.at.x, deck, spec.at.z) });
@@ -164,20 +166,31 @@ export function* buildWaterfront(stream) {
       wheel.add('metal', new THREE.BoxGeometry(0.12, R, 0.12).translate(0, R / 2, s * 1.2).applyMatrix4(new THREE.Matrix4().makeRotationZ(a)), WM, WHEEL_PAINT);
     }
   }
-  for (let i = 0; i < 48; i++) { const a = (i / 48) * Math.PI * 2; wheel.add('lamp', new THREE.SphereGeometry(0.16, 6, 4).translate(Math.cos(a) * R, Math.sin(a) * R, 0), WM, 0xfff0cc); }
+  // (its bulbs their own material, to go dark when it's shut for the night: `wheel.lit`)
+  mats.wheelLamp ??= mats.lamp.clone();
+  for (let i = 0; i < 48; i++) { const a = (i / 48) * Math.PI * 2; wheel.add('wheelLamp', new THREE.SphereGeometry(0.16, 6, 4).translate(Math.cos(a) * R, Math.sin(a) * R, 0), WM, 0xfff0cc); }
   for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2; wheel.add('metal', new THREE.CylinderGeometry(0.07, 0.07, 2.6, 6).rotateX(Math.PI / 2).translate(Math.cos(a) * R, Math.sin(a) * R, 0), WM, 0xd8d8d4); }
   const legGroup = legs.build(mats, { cell: 4000 });
   const wheelGroup = new THREE.Group();
   wheelGroup.position.copy(wc);
   wheelGroup.rotation.y = Math.PI / 2; // (its rims either side of the axle: spun about the axle in its own frame)
   wheelGroup.add(wheel.build(mats, { cell: 4000 }));
-  // the cars: each its own pivot on the rim, turned back each frame to hang level
-  const cars = [], carCols = [0xd0567a, 0x3a6fb0, 0xf2d26a, 0x2f8a8a];
+  // the cars: each its own pivot on the rim, turned back each frame to hang level. Open bench cars under a
+  // canopy: a floor, a back to the west and a bench along it (riders face east, the city), low sides and a
+  // front lip, a bar across; in the car's frame its axle-wise z is east-west (`wheel.seat` is where to sit)
+  const cars = [], carCols = [0xd0567a, 0x3a6fb0, 0xf2d26a, 0x2f8a8a], FL = -2.55;
   for (let i = 0; i < 16; i++) {
-    const b = new Batch(), a = (i / 16) * Math.PI * 2;
-    b.add('paint', box(-1.0, -2.2, -0.95, 1.0, -0.9, 0.95), I, carCols[i % 4]);
-    b.add('paint', box(-1.1, -0.95, -1.0, 1.1, -0.8, 1.0), I, 0xf2efe6);
-    b.add('metal', box(-0.04, -0.9, -0.04, 0.04, 0, 0.04), I, 0xd8d8d4);
+    const b = new Batch(), a = (i / 16) * Math.PI * 2, col = carCols[i % 4];
+    b.add('paint', box(-1.0, FL, -0.95, 1.0, FL + 0.08, 0.95), I, col); // the floor
+    b.add('paint', box(-1.0, FL + 0.08, -0.95, 1.0, FL + 1.05, -0.87), I, col); // the back
+    b.add('paint', box(-0.92, FL + 0.46, -0.87, 0.92, FL + 0.54, -0.37), I, 0xf2efe6); // the bench (46 cm up off the floor: a lower one put a rider's feet through it)
+    b.add('paint', box(-0.92, FL + 0.08, -0.45, 0.92, FL + 0.46, -0.39), I, col); // under it
+    for (const sx of [-1, 1]) b.add('paint', box(sx > 0 ? 0.94 : -1.0, FL + 0.08, -0.95, sx > 0 ? 1.0 : -0.94, FL + 0.72, 0.95), I, col); // the sides
+    b.add('paint', box(-1.0, FL + 0.08, 0.87, 1.0, FL + 0.36, 0.95), I, col); // the front lip
+    b.add('metal', box(-0.94, FL + 0.66, 0.18, 0.94, FL + 0.7, 0.22), I, 0xd8d8d4); // the bar
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.add('metal', box(sx * 0.97 - 0.02, FL + 0.72, sz * 0.92 - 0.02, sx * 0.97 + 0.02, -0.95, sz * 0.92 + 0.02), I, 0xd8d8d4); // the canopy's posts
+    b.add('paint', box(-1.1, -0.95, -1.0, 1.1, -0.8, 1.0), I, 0xf2efe6); // the canopy
+    b.add('metal', box(-0.04, -0.8, -0.04, 0.04, 0, 0.04), I, 0xd8d8d4);
     const car = b.build(mats, { cell: 4000 });
     car.position.set(Math.cos(a) * R, Math.sin(a) * R, 0);
     wheelGroup.add(car);
@@ -200,13 +213,19 @@ export function* buildWaterfront(stream) {
   g.add(night);
   stream.root.add(g);
   g.updateMatrixWorld(true);
+  // the wheel's own controls: `speed` (rad/s; 0.045 is its turn all evening, 0 shut for the night), `lit` (its
+  // bulbs, 0..1), its cars and where to sit in one (in a car's frame: the bench, facing east)
+  const wheelCtl = { group: wheelGroup, cars, speed: 0.045, lit: 1, centre: wc.clone().add(ORIGIN), R, seat: V(0, FL + 0.54, -0.62), floor: FL + 0.08 };
+  let nightK = 0;
   return {
     group: g,
+    wheel: wheelCtl,
     update(dt) {
-      const k = (wheelGroup.rotation.z -= dt * 0.045);
+      const k = (wheelGroup.rotation.z -= dt * wheelCtl.speed);
       for (const c of cars) c.rotation.z = -k;
+      mats.wheelLamp.emissiveIntensity = nightK * 2.2 * wheelCtl.lit;
     },
-    setNight(k) { night.visible = k > 0.01; },
+    setNight(k) { night.visible = k > 0.01; nightK = k; },
   };
 }
 
