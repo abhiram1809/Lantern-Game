@@ -8,11 +8,14 @@
 import * as THREE from 'three';
 
 const _p = new THREE.Vector3();
+// in the scene and drawn (an adopted light's marker: put away with whatever it was on)
+const shown = (o) => { for (; o; o = o.parent) { if (!o.visible) return false; if (o.isScene) return true; } return false; };
 
 export class LampPool {
-  constructor(scene, n = 4) {
+  // (`decay`: how fast its light falls off; 2 is physical, lower reaches further and softer)
+  constructor(scene, n = 4, { decay = 2 } = {}) {
     this.lights = Array.from({ length: n }, () => {
-      const l = new THREE.PointLight(0xffffff, 0, 10, 2);
+      const l = new THREE.PointLight(0xffffff, 0, 10, decay);
       l.userData.src = null;
       scene.add(l);
       return l;
@@ -28,9 +31,23 @@ export class LampPool {
     return src;
   }
 
+  // A point light already made (by a scene, or a fire) taken out of the scene and lit by the pool from now
+  // on: its place (a marker where it stood), colour and reach, and its intensity followed as whatever made
+  // it goes on changing it (a fire's flicker, a room's light put out). (Korugar had seventeen.)
+  adopt(light) {
+    const at = new THREE.Object3D();
+    at.position.copy(light.position);
+    light.parent?.add(at);
+    light.removeFromParent();
+    const src = this.add(at, { color: light.color, power: light.intensity, reach: light.distance || 12 });
+    src.from = light;
+    return src;
+  }
+
   update(dt, camera) {
     this.t += dt;
     const cam = camera.position;
+    for (const s of this.sources) if (s.from) s.power = s.from.visible && shown(s.at) ? s.from.intensity : 0;
     // which ones: those on, nearest to the camera's reach of them (checked ten times a second)
     if (this.t > 0.1) {
       this.t = 0;

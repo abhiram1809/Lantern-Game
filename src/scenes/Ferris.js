@@ -1,13 +1,16 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Physics } from '../engine/Physics.js';
-import { createSky } from '../fx/Sky.js';
+import { createSky, skyColor } from '../fx/Sky.js';
 import { Particles } from '../fx/Particles.js';
 import { noiseTexture, pbrMaterial } from '../fx/Textures.js';
 import { prop, piece, meshes, boundsIn, hasProp } from '../props/Props.js';
 import { Smash } from '../props/Smash.js';
 import { makeCar } from '../props/Car.js';
 import { blockSteps, BLOCK_PROPS } from '../city/HalsBlock.js';
+import { PalmField } from '../city/Palms.js';
+import { ContactShadows } from '../fx/ContactShadows.js';
+import { wearRoad } from '../city/Ground.js';
 import { sliced, runSteps } from '../engine/Slice.js';
 import { buildFerrisOffice } from '../city/Office.js';
 import { LampPool } from '../city/Lamps.js';
@@ -24,7 +27,8 @@ const CITY_GROUND = { x0: -1400, x1: 3000, z0: 5400, z1: 9800 };
 // staff lot behind them, the gate, and the access road running south to the highway. Far down the
 // road, out of sight, the lot behind Hal's apartment building, where his car is parked.
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const _d = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+const _d = new THREE.Vector3(), _x = new THREE.Vector3(), _y = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0), _fw = new THREE.Vector3(), _ahead = new THREE.Vector3();
+const _hz = new THREE.Color();
 export const JET_SPOT = V(14, 0, -26); // the prototype on the apron, nose to the east
 export const CAROL_SPOT = V(19.5, 0, -20.5);
 export const CAR_SPOT = V(36, 0, 54); // Hal's space in the staff lot, nose to the north
@@ -52,7 +56,6 @@ export const KIT = {
   mast: /low_poly_metal_street_props_0$/, signal: /low_poly011_/, lamp: /low_poly012_/, sign: /low_poly008_/, stop: /low_poly005_/,
   hydrant: /low_poly002_/, bin: /low_poly001_/, can: /low_poly007_/, dumpster: /low_poly006_/,
 };
-const PALMS = [/^Palm_tree_001/, /^Palm_tree_002/]; // the two trees in the palms model
 export const BOULEVARD = { x0: 2, x1: 10, z0: -24, z1: -440, cross: -210 }; // in the lot's frame (LOT): the road out of town
 const SOUTH_END = -404; // where the block over the crossing (city/HalsBlock.js) gives the boulevard back
 // The coastline, west of Coast City: x of the shore at a given z (metres; the sea is west of it)
@@ -108,16 +111,29 @@ export class Ferris {
 
   *steps() {
     const s = this.scene;
-    s.fog = new THREE.FogExp2(0xd5dde2, 0.00042);
+    s.fog = new THREE.FogExp2(0xd9d6cc, 0.00042);
+    this.fogBase = s.fog.color.clone(); // (the haze's own colour; update() turns it toward the sky's in view)
+    this.hazeSky = 0.5;
     s.environment = this.engine.envMap;
-    s.environmentIntensity = 0.4;
+    s.userData.skyEnv = true; // (lit and reflected by its own sky: fx/SkyEnv.js)
+    s.environmentIntensity = 0.85; // (the sky's light is dimmer than the studio room's: scenes/DayCycle.js's day)
+    s.userData.grade = { sat: 1.08, contrast: 1.06 };
     s.userData.exposure = 0.82;
     s.userData.far = 2400;
     s.userData.near = 0.1; // outdoors, no shot is closer: 3x the depth precision of the default 3 cm
     this.sky = createSky('desert', 1500);
     s.add(this.sky);
     this.smash = new Smash(this.physics, s); // (everything placed here can be touched: props/Smash.js)
-    this.lamps = new LampPool(s, 4); // (its point lights, pooled: city/Lamps.js)
+    this.lamps = new LampPool(s, 4, { decay: 1.6 }); // (its point lights, pooled: city/Lamps.js; a softer falloff than physical, the street lamps' pools wider)
+    this.palms = new PalmField(s, this.engine.renderer); // (every palm here: the tree near, cards further out: city/Palms.js)
+    // the footprints under the cars and the people (fx/ContactShadows.js): Smash's cars and Hal's own
+    const carHalf = new THREE.Vector3(0.93, 0.65, 2.45);
+    this.contacts = new ContactShadows(s, this.physics, { cars: () => {
+      const list = (this.carList ??= { t: -1, cars: [] });
+      if (this.contactT !== list.t) { list.cars = this.smash.items.filter((it) => it.kind === 'car' && it.half).map((it) => ({ object: it.object, half: it.half })); if (this.car) list.cars.push({ object: this.car, half: carHalf }); list.t = this.contactT; }
+      return list.cars;
+    } });
+    this.contactT = 0;
     this.blockOn = hasProp('ac_units'); // Hal's block is built (city/HalsBlock.js): what stood on its stretch steps aside
     this.cityOn = this.blockOn; // (and the rest of the city round it, streamed: city/Stream.js; free roam's)
     this.buildLight();
@@ -148,7 +164,7 @@ export class Ferris {
     yield;
     // things far from the camera aren't drawn (city/Lod.js): the block's own tiers, and everything else
     // Smash holds by its size (a bin from 160 m, a car from 260, a shed from 600; buildings always)
-    this.lod = new Lod();
+    this.lod = new Lod(s); // (its far cars batched into the scene: city/Lod.js FarCars)
     const drawn = new Set();
     if (this.blockOn) this.block = yield* blockSteps(this, LOT, this.lod, drawn);
     // (with the blocks round Hal's lot built now: every chapter that starts there opens on them, not on their boxes)
@@ -163,9 +179,9 @@ export class Ferris {
     s.add(this.exhaust.points);
     for (const it of this.smash.items) {
       if (drawn.has(it.object) || !it.object.children.length && !it.object.isMesh) continue;
-      if (it.kind === 'car') { this.lod.addCar(it.object, 260, it, { near: 4 }); continue; } // (parked: merged beyond 4 m)
+      if (it.kind === 'car') { this.lod.addCar(it.object, 260, it, { near: 4, far: 16 }); continue; } // (parked: merged beyond 4 m, batched beyond 16)
       const r = it.radius ?? 1;
-      this.lod.add(it.object, r < 1.2 ? 90 : r < 4 ? 200 : r < 12 ? 600 : Infinity, { moves: it.kind !== 'solid', shadow: r < 1.2 ? 35 : r < 4 ? 70 : r < 12 ? 150 : Infinity });
+      this.lod.add(it.object, r < 1.2 ? 55 : r < 4 ? 160 : r < 12 ? 600 : Infinity, { moves: it.kind !== 'solid', shadow: r < 1.2 ? 25 : r < 4 ? 60 : r < 12 ? 120 : Infinity });
     }
     // the prototypes: the one on the apron (it flies: measured where it is), the airframe in Hangar Two
     const onApron = (o) => { for (let a = o; a; a = a.parent) if (a === this.jet) return true; return false; };
@@ -175,14 +191,17 @@ export class Ferris {
   // ------------------------------------------------------------------------------------- light
   buildLight() {
     const s = this.scene;
-    this.hemi = new THREE.HemisphereLight(0xc6d8ec, 0x8c7458, 0.55);
+    this.hemi = new THREE.HemisphereLight(0x6b8fb5, 0x8c7458, 0.65); // (a cooler, deeper sky fill against the warm sun: scenes/DayCycle.js)
     s.add(this.hemi);
-    const sun = (this.sun = new THREE.DirectionalLight(0xffeed6, 2.7));
+    const sun = (this.sun = new THREE.DirectionalLight(0xfff0d6, 2.9));
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
-    Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 260 });
-    sun.shadow.bias = -0.0004;
-    sun.shadow.normalBias = 0.04;
+    // (the polish pass, 2026-11-23: a box 120 m across round the player, not 90, so the street's shadows reach
+    // further before they stop, and softened: three.js's PCF filter samples a disc `radius` texels wide)
+    Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 260 });
+    sun.shadow.radius = 2.5;
+    sun.shadow.bias = -0.0003;
+    sun.shadow.normalBias = 0.05;
     s.add(sun, sun.target);
     this.focus(V(10, 0, -10));
   }
@@ -196,15 +215,43 @@ export class Ferris {
     _y.crossVectors(d, _x);
     const snap = (v) => Math.round(v / texel) * texel;
     sun.target.position.copy(_x).multiplyScalar(snap(at.dot(_x))).addScaledVector(_y, snap(at.dot(_y))).addScaledVector(d, at.dot(d));
-    sun.position.copy(sun.target.position).addScaledVector(d, 120);
+    sun.position.copy(sun.target.position).addScaledVector(d, 60 + cam.right); // (far enough back for a tower's top at the box's edge)
     sun.target.updateMatrixWorld();
   }
 
-  // The shadow box's half-width (45 m by default): wider for a shot whose view is bigger than that,
+  // The shadow box's half-width (60 m by default): wider for a shot whose view is bigger than that,
   // so the box can stay put instead of chasing the car (softer shadows, none popping in at its edge).
-  shadowSpan(half = 45) {
-    Object.assign(this.sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half });
-    this.sun.shadow.camera.updateProjectionMatrix();
+  shadowSpan(half = 60) {
+    this.spanBase = half;
+    this.setSpan(half);
+  }
+  setSpan(half) {
+    const cam = this.sun.shadow.camera;
+    if (cam.right === half) return;
+    Object.assign(cam, { left: -half, right: half, top: half, bottom: -half, far: 140 + half * 2 });
+    cam.updateProjectionMatrix();
+  }
+  // Coarse far shadows (the perf and looks pass, 2026-11-23): with the camera high over the city the box round the
+  // player (120 m across) left all the city it looked out on shadowless, a field of flat lit boxes. Up there the box
+  // widens a step at a time (half again each, to 450 m either way at 260 m up; a step's hysteresis so it doesn't
+  // flicker between two), out ahead of the camera, and the far boxes cast too; the texels grow with it (40 cm at the
+  // widest: sharp enough from that high). Never narrower than the story's own span.
+  spanFor(camera, at) {
+    const base = this.spanBase ?? 60, alt = camera.position.y - Math.max(0, at.y - 20);
+    const kf = THREE.MathUtils.smoothstep(alt, 30, 260) * 5;
+    let k = this.spanStep ?? 0;
+    if (kf > k + 0.6) k = Math.min(5, Math.floor(kf + 0.4));
+    else if (kf < k - 0.6) k = Math.max(0, Math.ceil(kf - 0.4));
+    this.spanStep = k;
+    const half = Math.max(base, Math.round(60 * 1.5 ** k));
+    this.setSpan(half);
+    this.city?.farCast(k >= 2);
+    if (half <= base) return at;
+    camera.getWorldDirection(_fw);
+    _fw.y = 0;
+    const flat = _fw.length();
+    if (flat < 0.05) return at; // (looking straight down: round what's under it)
+    return _ahead.copy(at).addScaledVector(_fw, (half * 0.55) / flat);
   }
 
   // ------------------------------------------------------------------------------------- ground
@@ -282,7 +329,7 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     const pos = bushGeo.attributes.position;
     for (let i = 0; i < pos.count; i++) pos.setXYZ(i, pos.getX(i) * (0.8 + rnd() * 0.4), pos.getY(i) * (0.8 + rnd() * 0.4), pos.getZ(i) * (0.8 + rnd() * 0.4));
     bushGeo.computeVertexNormals();
-    const bushes = new THREE.InstancedMesh(bushGeo, new THREE.MeshStandardMaterial({ color: 0x7d7f5c, roughness: 1, flatShading: true }), 2400);
+    const bushes = (this.bushes = new THREE.InstancedMesh(bushGeo, new THREE.MeshStandardMaterial({ color: 0x7d7f5c, roughness: 1, flatShading: true }), 2400));
     const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), col = new THREE.Color();
     let n = 0;
     for (let i = 0; i < 6000 && n < 2400; i++) {
@@ -523,7 +570,7 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     roadTex.wrapT = THREE.RepeatWrapping;
     const len = LOT.z - 14 - 80; // to the north edge of the apartment lot
     roadTex.repeat.set(1, len / 40);
-    const road = new THREE.Mesh(flat(8, len), pbrMaterial('asphalt_02', { map: roadTex, detailRepeat: [2.7, len / 3] }));
+    const road = new THREE.Mesh(flat(8, len), wearRoad(pbrMaterial('asphalt_02', { map: roadTex, detailRepeat: [2.7, len / 3] }), 6)); // (worn in tyre tracks: city/Ground.js)
     road.position.set(6, 0.012, 80 + len / 2);
     road.receiveShadow = true;
     s.add(road);
@@ -691,7 +738,24 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     // the block, the dumpster and the palms are there to be touched too
     this.smash.solid(block, { stuff: 'stone', mesh: true });
     this.smash.add(bin, { mass: 420 });
-    for (const p of palms) this.smash.solid(p, { stuff: 'wood', mesh: true });
+    // (their colliders from their meshes, then the meshes handed to the palm field to draw)
+    for (const p of palms) {
+      this.smash.solid(p, { stuff: 'wood', mesh: true });
+      p.updateMatrixWorld(true);
+      this.palms.addPair(p.matrixWorld);
+      for (const m of [...p.children]) m.removeFromParent();
+    }
+    // the lawn in front of the block kerbed in concrete where it meets the asphalt (the polish pass: its grass
+    // ran straight into the lot), 15 cm up: Hal steps over it (the controller climbs 25 cm)
+    const kerb = pbrMaterial('concrete_pavement', { repeat: [8, 0.1], tint: new THREE.Color(1.05, 1.02, 0.97) });
+    for (const [x, z, w, d] of [[0, 13.92, 48.9, 0.2], [-24.42, 25.85, 0.2, 23.9], [24.42, 25.85, 0.2, 23.9]]) {
+      const k = new THREE.Mesh(new THREE.BoxGeometry(w, 0.15, d), kerb);
+      k.position.set(x, 0.075, z);
+      k.castShadow = k.receiveShadow = true;
+      g.add(k);
+      k.updateWorldMatrix(true, false);
+      this.smash.solid(k, { stuff: 'stone', shrink: 1, box: new THREE.Box3(V(-w / 2, -0.075, -d / 2), V(w / 2, 0.075, d / 2)) });
+    }
     this.lotCarSpot = L.clone().add(V(-1.6, 0, 4.8)); // nose in, toward the building
     this.physics.fixedGround(120, 0, 12, L.x, L.z); // he walks out to his car here
   }
@@ -707,6 +771,8 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     // (what stands along the street can be driven into and knocked down: palms are solid at the
     // trunk, the lamps' and signals' poles snap; their boxes are the pole, not the arm out over the road)
     const trunk = (o) => this.smash.solid(o, { stuff: 'wood', shrink: 1, box: new THREE.Box3(V(-0.28, 0, -0.28), V(0.28, 7, 0.28)) });
+    // a palm: its trunk's collider here, the tree drawn by the palm field (city/Palms.js)
+    const palm = (kind, x, z, yaw, sc) => { const o = put(new THREE.Object3D(), x, z, yaw, sc); o.updateWorldMatrix(true, false); this.palms.add(kind, o.matrixWorld); trunk(o); };
     const pole = (o, mass, strong) => this.smash.add(o, { kind: 'breaks', mass, strong, shrink: 1, glass: false, box: new THREE.Box3(V(-0.14, 0, -0.14), V(0.14, 6.5, 0.14)) });
     const len = B.z0 - B.z1;
     // pavements, kerbs, the cross street
@@ -777,8 +843,8 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
           // the palms model is two trees 3.5 m apart: stood one by one on their trunks along the kerb
           // (as a pair, turned at random, one could land out on the road in the car's way)
           const yaw = rnd() * 6, sc = 0.62 + rnd() * 0.12;
-          trunk(put(piece('palms', PALMS[0], { root: true }), xk - side * 0.6, z + side * 4 + 1.8, yaw, sc));
-          trunk(put(piece('palms', PALMS[1], { root: true }), xk - side * 0.6, z + side * 4 - 1.8, yaw + 2.1, sc * 0.95));
+          palm(0, xk - side * 0.6, z + side * 4 + 1.8, yaw, sc);
+          palm(1, xk - side * 0.6, z + side * 4 - 1.8, yaw + 2.1, sc * 0.95);
         }
         else pole(put(piece('cityprops', KIT.lamp, { root: true }), xk, z, side < 0 ? 0 : Math.PI, 1, 0.14), 45, 14);
         if (n % 5 === 2) this.smash.add(put(piece('cityprops', rnd() < 0.5 ? KIT.bin : KIT.can, { root: true }), xk + side * 3.6, z + 2, 0, 1, 0.14), { mass: 18, stuff: 'plastic' }); // on the pavement, back from the kerb
@@ -876,12 +942,15 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     s.add(this.sky);
     this.sun.color.set(0xffb27a);
     this.sun.intensity = 1.9;
-    this.hemi.color.set(0x8a98bc);
+    this.hemi.color.set(0x76849f);
     this.hemi.groundColor.set(0x6a4a38);
-    this.hemi.intensity = 0.42;
+    this.hemi.intensity = 0.58;
     s.fog.color.set(0xc49a86);
+    this.fogBase.copy(s.fog.color);
     s.fog.density = 0.00055;
     s.userData.exposure = 0.95;
+    s.environmentIntensity = 0.85;
+    s.userData.grade = { sat: 1.06, contrast: 1.06 };
   }
 
   // Night over the valley and the town (free roam): the night sky, the moon for the key light, the
@@ -892,13 +961,16 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     this.sky = createSky('night', 1500);
     s.add(this.sky);
     this.sun.color.set(0x9fb2d8);
-    this.sun.intensity = 0.22;
-    this.hemi.color.set(0x34405e);
-    this.hemi.groundColor.set(0x1c1a1c);
-    this.hemi.intensity = 0.13;
+    this.sun.intensity = 0.36;
+    this.hemi.color.set(0x5a6c9c);
+    this.hemi.groundColor.set(0x2a282e);
+    this.hemi.intensity = 0.62;
     s.fog.color.set(0x121722);
+    this.fogBase.copy(s.fog.color);
     s.fog.density = 0.0009;
     s.userData.exposure = 1.0;
+    s.environmentIntensity = 1.6;
+    s.userData.grade = { sat: 0.92, contrast: 1.06 };
     this.isNight = true;
     this.block?.setNight(1);
   }
@@ -909,14 +981,17 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     this.sky.removeFromParent();
     this.sky = createSky('desert', 1500);
     s.add(this.sky);
-    this.sun.color.set(0xffeed6);
-    this.sun.intensity = 2.7;
-    this.hemi.color.set(0xc6d8ec);
+    this.sun.color.set(0xfff0d6);
+    this.sun.intensity = 2.9;
+    this.hemi.color.set(0x6b8fb5);
     this.hemi.groundColor.set(0x8c7458);
-    this.hemi.intensity = 0.55;
-    s.fog.color.set(0xd5dde2);
+    this.hemi.intensity = 0.65;
+    s.fog.color.set(0xd9d6cc);
+    this.fogBase.copy(s.fog.color);
     s.fog.density = 0.00042;
     s.userData.exposure = 0.82;
+    s.environmentIntensity = 0.85;
+    s.userData.grade = { sat: 1.08, contrast: 1.06 };
     this.isNight = false;
     this.block?.setNight(0);
   }
@@ -927,14 +1002,17 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     this.sky.removeFromParent();
     this.sky = createSky('dawn', 1500);
     s.add(this.sky);
-    this.sun.color.set(0xffc08e);
-    this.sun.intensity = 1.6;
-    this.hemi.color.set(0x8e9cc4);
+    this.sun.color.set(0xffbc86);
+    this.sun.intensity = 1.7;
+    this.hemi.color.set(0x7f8fb8);
     this.hemi.groundColor.set(0x5e4a40);
-    this.hemi.intensity = 0.5;
-    s.fog.color.set(0xb7a3a2);
+    this.hemi.intensity = 0.56;
+    s.fog.color.set(0xbba4a0);
+    this.fogBase.copy(s.fog.color);
     s.fog.density = 0.0006;
     s.userData.exposure = 0.95;
+    s.environmentIntensity = 0.65;
+    s.userData.grade = { sat: 1.04, contrast: 1.04 };
   }
 
   // The memorial park on the edge of Coast City where Martin Jordan is buried (built when first
@@ -1187,7 +1265,12 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     if (Math.abs(near - camera.near) > 0.02) { camera.near = near; camera.updateProjectionMatrix(); }
     this.sky.position.copy(camera.position); // the dome goes with the camera (the lot is 6 km away)
     this.sky.userData.uniforms.uTime.value = t;
-    if (this.follow) this.focus(this.follow(camera));
+    // the haze the colour of the sky behind what the camera looks at (its horizon where it meets the ground:
+    // gold toward the sun, blue away from it), one colour for the frame, from the camera's heading
+    camera.getWorldDirection(_d);
+    _d.y = 0.03;
+    this.scene.fog.color.copy(this.fogBase).lerp(skyColor(this.sky.userData.uniforms, _d.normalize(), _hz), this.hazeSky);
+    if (this.follow) this.focus(this.spanFor(camera, this.follow(camera)));
     this.exhaust.update(dt, t, camera, renderer);
     if (this.beacon) this.beacon.visible = Math.sin(t * 3) > 0;
     this.block?.update(dt, t, camera);
@@ -1195,6 +1278,14 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     this.office?.update(dt, t, camera);
     this.lamps.update(dt, camera);
     this.lod.update(dt, camera);
+    this.lod.farCars?.update();
+    this.palms.update(camera);
+    // (the desert's shrubs, 2,400 of them, all one draw: not from down in the city's streets, where the blocks hide
+    // them, and they were 192 k triangles in each pass)
+    if (this.bushes) { const c = camera.position, inCity = this.cityOn && c.y < 90 && c.z > LOT.z + CITY.z0 - 40 && c.x > CITY.x0 - 60 && c.x < CITY.x1 + 60; if (this.bushes.visible === inCity) this.bushes.visible = !inCity; }
+    this.contactT = Math.floor(t / 2); // (the cars listed again every two seconds: traffic tows and replaces them)
+    this.contacts.update(camera);
+    this.palms.daylight(Math.min(1, this.sun.intensity / 2.4) * (this.isNight ? 0 : 1));
     for (const fn of this.updaters) fn(dt, t);
   }
 

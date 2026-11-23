@@ -6,6 +6,7 @@ import { Voice } from './engine/Voice.js';
 import { initPhysics } from './engine/Physics.js';
 import { tick } from './engine/Time.js';
 import { UI } from './ui/UI.js';
+import { PerfHud } from './ui/PerfHud.js';
 import { loadCharacters, PART_SCANS } from './characters/Characters.js';
 import { Story, chapterMenu } from './story/Story.js';
 import { Save, CorpsSave, CoastSave, PrisonerSave, ProbationSave, ExileSave, SapphireSave, RoamSave, PARTS, partOf, takeResume, latestCheckpoint, freeRoamOpen, moveFreeRoam } from './engine/Save.js';
@@ -46,6 +47,13 @@ if (import.meta.env.DEV && typeof PerformanceObserver !== 'undefined' && Perform
   new PerformanceObserver((list) => window.__longtasks.push(...list.getEntries().map((e) => ({ at: Math.round(e.startTime), ms: Math.round(e.duration) })))).observe({ type: 'longtask', buffered: true });
 }
 
+// (dev, tests: `localStorage.gl_seed` makes Math.random a seeded sequence, so a benchmark's traffic and people
+// come out the same run to run: tools/perf-probe.js `bench`)
+if (import.meta.env.DEV && Number(globalThis.localStorage?.gl_seed)) {
+  let a = Number(localStorage.gl_seed) | 0;
+  Math.random = () => { a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
 async function boot() {
   // the assets kept in the browser between visits (public/sw.js)
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -56,6 +64,7 @@ async function boot() {
   voice.audio = audio; // clips play through the game's own mix
   const ui = new UI({ input, audio, voice });
   engine.veiled = () => ui.load != null;
+  const perf = new PerfHud(engine); // (` shows it)
 
   const manager = new THREE.LoadingManager();
   manager.onProgress = (_url, loaded, total) => ui.loading(loaded / total);
@@ -76,7 +85,7 @@ async function boot() {
   // The story object depends on the part chosen at the title, so it's made after the title card.
   let story = null;
   window.__game = {
-    engine, ui, input,
+    engine, ui, input, perf,
     get story() { return story; },
     // Debug: step the game and save a capture of the canvas (dev server only).
     async shot(name, seconds = 0) {

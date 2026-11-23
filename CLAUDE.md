@@ -52,8 +52,13 @@ story class with its own save store and checkpoints. Checkpoint ids are unique a
   Atrocitus's machine; then the end card). Part Eight (Black Hand's story) isn't planned yet: discuss its beats
   first. Free roam has Zamaron once Part Seven charts it (`Roam.zamaronRoam`: two of the Kept gone home, the
   queen over her dais); the Zamaron scene's people are built in `Roam` for both (`setupZamaron`, `keptFigures`,
-  `zamSapphires`; `Sapphire.zamSapphires` adds Carol and hides the queen till `queen`). The user's map and
-  graphics rework (not started) will need the pier chapters (`PIER`, the day presets) checked after.
+  `zamSapphires`; `Sapphire.zamSapphires` adds Carol and hides the queen till `queen`). The user's graphics and
+  map rework (2026-11-23, their brief: a GTA-style Coast City peninsula, warm haze, a glowing suit) began with the
+  performance pass (counter, palms, cars, Korugar's lights), the light pass (each scene lit by its own sky,
+  warmer coastal light, Korugar's wet neon nights) and a polish pass measured step by step (softer, wider sun
+  shadows and a cooler fill, contact shadows, worn roads and a kerb, roof silhouettes and wall-foot shade, night
+  emissives and sodium lamps); the map's not started and will need the pier chapters
+  (`PIER`, the day presets) checked after.
 - **Story rules:** take beats from the comics (*Green Lantern: Secret Origin* first, modern
   continuity: no yellow weakness). When proposing beats, say which come from the comics and which
   are ours. Discuss a new part's beats with the user before building it.
@@ -103,7 +108,7 @@ lines are pre-rendered clips (`public/voices/`), with `speechSynthesis` only as 
   click or `F` guard; double-tap Space flies (Space up, C down, Shift boost); `L` stores or summons
   the lantern; `E` interacts, and high in flight opens the star chart; `M` travel menu; `T` Hal or
   Green Lantern; `C` changes the view in the car and the jet (`V` toggles voices); `G` phone; `N` map;
-  `K` ring stats; Esc or `P` pause.
+  `K` ring stats; Esc or `P` pause. (`` ` `` is mine: the performance counter.)
 
 ## Commands
 
@@ -149,15 +154,17 @@ src/scenes/        Bedroom, Dream, Hyperspace, CrashSite (the lake), Space, Oa +
                    road, Coast City's host scene), Site, Ysmault, Korugar + KorugarSigns + Statue, Qward, Wake
                    (Part Seven's flight through space), Zamaron, Mortuary (Part Seven's sting), DayCycle
 src/city/          Coast City: Kit, Building, Signs, HalsBlock, Interiors, Shops, Office, Lod, Lamps, Traffic,
-                   Plan, Tower, Stream, Ground, Waterfront, Landmarks
+                   Plan, Tower, Stream, Ground, Waterfront, Landmarks, Palms (every palm, near or as its picture)
 src/props/         Props (load, clone, helpers), Car (makeCar, planDrive), Smash (every prop touchable)
 src/enemies/       Drones, Sinestro, Hammond, Atrocitus, Thunderers, StarSapphire (+ SapphireAlly), Predator
 src/vehicles/      Drive (the car, raycast vehicle), Jet (flight model, mouse aim)
 src/story/         one file per part (table above), Voyage, Roam (free roam), CityLife, DinerLife, KorugarLife,
                    Life, Work, Emergencies, Pressure, Trap, Album, lines.js (all dialogue)
-src/ui/            UI (HUD, subtitles, cards, pause, loading), PowerHud, TravelHud, VehicleHud, Phone, CityMap
+src/ui/            UI (HUD, subtitles, cards, pause, loading), PowerHud, TravelHud, VehicleHud, Phone, CityMap,
+                   PerfHud (the ` performance counter)
 tools/             asset, prop, people and voice builders, autorig, debug renderers, propview.html,
-                   voices.html, fight-bots.js, sapphire-bot.js, sapphire-end-bot.js, story-monitor.js, people-test.js
+                   voices.html, fight-bots.js, sapphire-bot.js, sapphire-end-bot.js, story-monitor.js, people-test.js,
+                   perf-probe.js (what each draw costs), look-shots.js (the same views at the same hours, to compare)
 ```
 
 ### Boot and loading
@@ -184,9 +191,20 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   `setTimeout`. Game time pauses with the game and `engine.advance(seconds)` steps it.
 - `engine.timeScale = 0` freezes the world while rendering goes on (the wheel, hit-stop). The frame
   callback gets `(dt, t, real)`; anything that moves while time is stopped uses `real`.
-- Post chain: RenderPass → **NaN guard (keep it)** → UnrealBloom → grade → Output. `engine.gradeUniforms`
-  drives the grade (dream sepia, flash, focus, hurt, choke). Resolution adapts to the frame rate;
-  `localStorage.gl_res` fixes it.
+- Post chain: ScenePass → UnrealBloom → grade → Output. `ScenePass` (`Engine.js`, `engine.renderPass`) draws the
+  scene into its own multisampled target (4×; the composer's own targets have no samples), and copies it out with
+  the **NaN guard (keep it)** and the ambient occlusion (`fx/AO.js`, from its depth: `scene.userData.ao` the
+  strength, 0.55 by default, 0 for none). `engine.gradeUniforms` drives the grade (dream sepia, flash, focus, hurt,
+  choke, and a scene's own `uSat` / `uContrast` from `scene.userData.grade`, set by `setScene`). Resolution adapts
+  to the frame rate, the samples going to 2× before any resolution; `localStorage.gl_res` and `gl_msaa` fix them,
+  `gl_ao = '0'` turns the AO off.
+- Each frame's matrices are worked out only where something can be drawn (`Engine.js` `updateDrawn`: hidden
+  subtrees are skipped, marked to update when next seen). Between frames, read a hidden object's place only after
+  `updateWorldMatrix(true, false)` (as `getWorldPosition` does).
+- **Image light:** a scene with `userData.skyEnv` (Ferris, Korugar) is lit and reflected by its own sky dome
+  (`fx/SkyEnv.js`: drawn into a PMREM without the sun's disc, again when the sky has changed, ~1.4 ms, at most
+  twice a second); the rest still use the studio room (`engine.envMap`). The sky's light is dimmer than the
+  room's: such a scene's `environmentIntensity` is about twice what the room needed by day, more at night.
 
 ### Story, checkpoints and saves
 
@@ -221,9 +239,17 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   is the frame for Hal's building, his two detailed blocks (`city/HalsBlock.js`) and the streamed
   city around them (`city/Plan.js` grid, `city/Stream.js` builds blocks near the camera, boxes
   beyond). Traffic keeps right: southbound on the boulevard is its east half (x 6 to 10).
+- Grounding: the sun's shadow box is 120 m across round the player (`shadowSpan(60)`), softened by `shadow.radius`;
+  every Rig's root is in `contactBodies` and gets a footprint under it, as do the scene's cars
+  (`fx/ContactShadows.js`: one instanced draw, a ray down for each). The roads' tyre tracks and ruts are
+  `WEAR_GLSL` / `wearRoad()` in `city/Ground.js` (`cityU.uWear` turns them off). The far city's roofs are
+  `Stream.buildRoofs` (hidden with their block's box in `farShow`).
+- Coast City's haze takes the colour of the sky behind what the camera looks at (`Ferris.update`: `fogBase`
+  turned toward `skyColor()` by `hazeSky`); its presets and `DayCycle` set `fogBase`, not `fog.color`. The
+  palms' fronds glow by an emissive map in daylight only (`palms.daylight(k)`).
 - Other worlds: `CrashSite` (the lake, `terrainHeight`), `Oa` + `Hall`, `Space` (planets from orbit,
   `Voyage.js` routes), `Site` (downtown at night), `Ysmault`, `Korugar` (built, not downloaded;
-  `night(on)`), `Qward`, `Wake` (no ground: Hal can't land; `track(p)` is how far off the line he is),
+  `night(on)`: wet streets, the screens' and neon's light in them, `KorugarWet.js`), `Qward`, `Wake` (no ground: Hal can't land; `track(p)` is how far off the line he is),
   `Zamaron` (downloaded crystal re-skinned by `fx/Crystal.js`; the Kept are `kept[i].hold(rig)`).
 
 ### Dialogue and voices
@@ -292,10 +318,57 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 
 ### Performance rules
 
-- Point lights: four for a whole scene, handed to the nearest sources (`city/Lamps.js`, `LampPool`).
-  Every point light costs every lit pixel, and changing the count recompiles every material.
-- Distance culling, merged statics and car LOD tiers: `city/Lod.js`. Static repeated props are
+- Measure first (2026-11-23 round two: street 11 PM 14.1 → 11.1 ms, Korugar 7.1 → 4.9, serialised CPU + GPU):
+  `` ` `` shows the counter (`ui/PerfHud.js`: frame, GPU time where the browser allows it, draw
+  calls and triangles with the shadow pass's share, lights, buffer sizes); `tools/perf-probe.js` lists what each
+  draw costs (`table()`, `table({ by: 'root' })`) and times a frame (`time()`). `bench(label)` runs the four
+  standard views (downtown 6 PM, the street at 11 PM, a parked car by day, Korugar's plaza) and keeps the numbers
+  in localStorage across reloads; `deltas([...labels])` compares runs. Set `localStorage.gl_seed` first; traffic and
+  people still vary by ±20 draws, so judge by `staticCalls` / `staticShadow`, and time one change on and off in
+  the same session (a uniform or `visible`) rather than across reloads. On Hal's street half the frame was
+  the CPU issuing draw calls (about 6 µs each), so count calls, not only triangles. `time()` waits for the GPU
+  each frame, so it's CPU plus GPU; in play they overlap. The GPU is shared with whatever else is running: for a
+  GPU cost, time the pass alone in a loop inside one timer query, or alternate on and off and take the minimum.
+- Textures are the next budget (2026-11-23: 777 images on the GPU in Coast City, ~2.8 GB as RGBA8 with mips:
+  people ~700 MB, Hal's block's props ~660, cars ~650, the city's surfaces ~410). No KTX2 encoder is installed.
+- Point lights: four for a whole scene, handed to the nearest sources (`city/Lamps.js`, `LampPool`;
+  `adopt(light)` takes over a light something else made and follows its intensity). Every point light
+  costs every lit pixel, and changing the count recompiles every material.
+- Distance culling, merged statics and car LOD tiers: `city/Lod.js` (a car: its parts within 15 m, merged,
+  simplified, then past 75 m `flatCopy`, one vertex-coloured mesh and its lamps). Static repeated props are
   instanced; static matrices frozen; small things and room contents cast no shadows.
+- **Culling and batching** (the perf pass, 2026-11-23; the night street went 1,086 → ~400 static draws, 1.6 M → 0.4 M
+  shadow triangles, 20 → 14 ms):
+  - Occlusion (`engine/Occlusion.js`): a scene's `userData.occlusion` tests big pieces' boxes against the frame's
+    depth with GPU queries, the boxes drawn in the scene's own render after the opaque things (`ask(camera)` before
+    it); the streamed blocks are in it.
+  - Batches (`BatchedMesh`): Hal's block's props and doors one per material (`Lod.js` `BatchSet`; `move(e, M)` for
+    a door swinging, per-copy colours), the streamed blocks' walls, glass, roofs, signs and night light one per
+    material (`Stream.js` `CityBatches`). A batch keeps a copy of all it holds in memory: the trim (barrel tiles,
+    sills) stays in per-block meshes that free theirs once uploaded (batched, the city held 553 MB of it).
+  - Far cars (`Lod.js` `FarCars`): past `far` (24 m, parked 16) every car of a model is one instanced draw, paint per
+    instance (`userData.paint`, `aPaint`), lamps lit from their materials; every car's shadow is its model's shape
+    from a shadow-only copy, its own parts cast none.
+  - Props (`HalsBlock`): what's touchable and not a car or glass is drawn instanced (`Lod.js` `InstanceSet`: each copy
+    within its distance, a shadow-only copy within its shadow distance) until `smash.watch` sees its body move; then
+    it's shown as itself. Hal's block merges by material in 600 m cells.
+  - Shadow-only stand-ins live on layer 1, which every shadow camera sees (`Engine` patches `shadowMap.render`) and
+    the camera never does: scans' simplified twins (`Rig.js` `shadowTwin`, a fifth of the triangles; set a twinned
+    mesh's shadow with `(m.userData.twin ?? m).castShadow`), palms' cards, cars' models.
+  - Characters are frustum-culled by a bind-pose sphere 1.6× wide (they were never culled). Idle particle systems
+    aren't drawn. Coast City's desert shrubs hide from the streets.
+  - Scans draw at their height on screen (`Rig.js` `detailLevels`): all of it over 260 px, then 30%, 10% and 3.5% of
+    the triangles over the same vertices (Korugar's plaza 949 k → 190 k triangles). A figure whose depth is drawn
+    first from its whole shape sets `userData.noLod`. A downloaded prop of many parts goes through `flatten` before
+    it's placed (Zamaron's plants were 3,100 draws: 46 parts a flower).
+  - Far shadows: with the camera high, Ferris widens the sun's box in steps to ±450 m ahead of it (`spanFor`, never
+    under a chapter's `shadowSpan`) and the far boxes cast (`Stream.farCast`).
+- What casts shadows in a city batch is decided in `Kit.js` (`NO_SHADOW`: glass, lamps, signs, glow, road paint,
+  floor tiles, decals, painted trim). A batch piece in a material its block didn't draw before costs a draw in each pass: put
+  small additions in the block's existing materials (`metal`, `roofing`).
+- Palms go through the scene's palm field (`Ferris.palms`, `city/Palms.js`: `add(kind, matrix)`, `addPair`,
+  `remove(id)`), never as meshes of their own: the model within 90 m, its impostor beyond. The collider is
+  still made where the palm's placed.
 - Per-material numbers go in uniforms, not into shader source (or each material gets a program).
 
 ## Testing in the browser
@@ -329,6 +402,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 ## Gotchas
 
 **Testing**
+- Travel sets `roam.where` and leaves control on all through the voyage: wait for the place's own scene
+  (`story.current`, not `Space` or `Hyperspace`) before placing him (`place` threw on a freed controller).
 - Test each step from its hash and played on from the one before; `prepare()` can hide what a step
   forgot to build. Read what a step builds only after building it.
 - Press E with `KeyE` events, not by calling the action: actions run with `story.busy` set, so a
@@ -356,6 +431,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   the rest of it.
 
 **Story flow**
+- A new world goes in every planet table in `Voyage.js` (leaving Zamaron threw: it was missing from the departures,
+  and Hal was left in space).
 - The loading screen stays up until a fade up, `giveControl()` or a card: a chapter that opens on a cut with no fade
   (the way home's orbit) plays out behind it. End it (`ui.loadEnd()`) on the first picture.
 - A chapter method can't share a name with a story field (`site`, `pilot`, `trail`): the field wins. The
@@ -401,6 +478,11 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 
 **Rendering**
 - One NaN pixel becomes black blocks under bloom (keep the guard; don't normalise zero vectors).
+- A half-size pass reading a full-size depth texture at its own pixels' centres reads on the line between two texels:
+  snap to a texel's centre before rebuilding the place (the AO banded flat ground). A depth-weighted blur needs its
+  own texel among its samples, or every weight underflows and an edge comes out black.
+- Multisample only the scene's target: the composer's full-screen passes drew four samples a pixel and resolved
+  each (4.5 ms of 9.4).
 - Bloom whites out bright things: keep constructs under ~1.5 and stars under ~1; dim coloured light
   columns; beware big sprites and close lenses.
 - Huge ground planes z-fight: cut them into tiles (`flat()`), near plane 0.1 outdoors, nothing layered
@@ -419,6 +501,34 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   edge-on and vanishes under a view-angle falloff: draw a thin core faded near the camera (`Wake`).
 - A bright point light on glossy pale stone (or polished steel: the mortuary's drawers) blooms into a white sun:
   roughness 0.6 or more under it.
+- three.js leaves out a shader define whose value is `false` (`#define X false` never appears, and `X ? a : b`
+  doesn't compile): give defines 0 or 1. A shader that fails to compile draws nothing and logs little.
+- An impostor painted into a texture: draw it premultiplied on clear black, and divide by alpha when sampling,
+  or its thin parts fade to the clear colour in the small mips (the palms' cards went dark with distance). Paint
+  the emissive map as well as the colour: two of the palms' frond materials glow by one.
+- A sky-lit scene lights its interiors with the sky too (Korugar's tavern went orange by day, violet at night):
+  damp the image light and turn the hemisphere fill to the room's own colour while the camera's inside
+  (`Korugar.update`, `lightBase`). Code that saves a scene's light values must read the base, not the damped.
+- GLSL in a JS template literal: a backtick in a shader comment ends the string; `half` is a reserved word.
+- three r187 has no `PCFSoftShadowMap` (it warns and uses PCF): softness is `shadow.radius` on `PCFShadowMap`.
+- r187's `vColor` is a vec4: a shader replacing `color_vertex` writes `vColor = vec4(1.0); vColor.rgb *= …`.
+- WebGL answers occlusion (and timer) queries only after control returns to the browser: a test that renders frames
+  back to back never sees them; yield a task between frames (`bench` does).
+- The scans' vertex positions are interleaved (decoded meshopt): copy them out (`getX/Y/Z`) for anything that reads
+  `.array` (meshopt's simplifier).
+- Each car clones its materials and owns its geometry (to be dented), so nothing about two cars is shared by identity:
+  key copies of them by model name and part names (`FarCars.model`).
+- Hal's street's surface isn't the city's ground: the road in from the field (`Ferris.buildRoad`, x 2–10, 1.2 cm
+  up) runs on up to his lot over it. A change to how the city's roads look needs both (`wearRoad`).
+- Derivatives (`dFdx`) inside a branch that differs between neighbouring pixels are undefined: work out a bump's
+  height outside the branch (the roads' ruts).
+- A camera-facing card in the shadow pass faces the sun: its material needs `shadowSide = DoubleSide` (a
+  front-faced material's shadow is drawn from its back) and a `customDepthMaterial` with the same vertex code.
+- An `EffectComposer` given its own render target takes the target's size for the window's and multiplies by the
+  pixel ratio again (the bloom ran at 2.25 times the pixels): `composer.setSize(innerWidth, innerHeight)` after.
+- Two systems setting one object's `visible` fight: `Lod` acted only when its own answer changed, so a traffic
+  car taken out of its pool 300 m away stayed drawn whole (69 draws each, five of them). What shows or hides a
+  Lod-managed object calls `lod.recheck(object)`; `userData.away` keeps it hidden at any distance.
 
 **Models and props**
 - Tripo sheets can hold several figures (`keepSide`, `figure`); a scanned bow or weapon can be a sheet.
@@ -483,6 +593,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 
 ## Known weak spots
 
+- The ambient occlusion has only depth (no normals drawn): what's behind glass or a translucent construct is what
+  darkens it, and it fades out by 120 m. Zamaron's crystals are still ~600 draw calls. Texture memory (above).
+
 - Unreviewed by the user: the flight suit (`FlightSuit.js`), the Weaponers, Part Six's later beats
   (built on my defaults while they slept).
 - Star Sapphire's model: weak feet and tiara, a pale fin on each forearm; the night sea's moon glint
@@ -498,3 +611,12 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - The streamed city has no interiors, wall props or parked cars; Hal's blocks' upper-floor flats can't
   be entered. Tom Kalmaku is a voice only.
 - Scans have no finger bones (hands stay open) and lip sync is a jaw only.
+- Performance still to do: the street is ~400 static draws (the goal was 300): Hal's block's instanced props are ~90
+  (one per shape and material: a BatchedMesh per material would make them ~30), the streamed blocks ~80 where
+  they're seen, doors and neon ~50. Scans have no detail levels in the main pass (a Korugarian is 90 k triangles up
+  close); Korugar's built props are ~370 draws of small boxes. The counter's GPU time
+  hasn't been read in a visible window (a hidden pane's is meaningless).
+- Light: the suit reads dark at night away from lamps (no rim light yet); Coast City's shop and diner
+  interiors are lit by the sky like the street (only Korugar's tavern damps it). Nothing past the sun's 120 m
+  box casts a shadow (downtown from the air is unshadowed). The tyre tracks are faint, and downtown's towers at
+  night glow into a haze under the bloom. The polish pass was checked in captures, not played.

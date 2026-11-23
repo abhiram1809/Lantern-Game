@@ -61,6 +61,8 @@ export function makeCar(name, { paint = 0x8c2a22, primer = false, dust = 0.55 } 
   for (const m of new Set(all.map((o) => o.material))) if (m.transparent) { m.envMapIntensity = 0.35; if (/light/i.test(m.name)) { m.roughness = Math.max(m.roughness, 0.3); m.color.multiplyScalar(0.75); } }
   // paint, faded, with the desert's dust on the lower body
   const paintMat = all.map((m) => m.material).find((m) => PAINT.test(m.name));
+  g.userData.paint = paintMat ?? null; // (the far cars' batch takes its colour per car: city/Lod.js FarCars)
+  g.userData.model = name;
   if (paintMat) {
     paintMat.color.set(paint);
     paintMat.metalness = 0.35;

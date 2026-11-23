@@ -23,6 +23,44 @@ float gEW(float z) {
   return abs(d2) < abs(d) ? d2 : d;
 }`;
 
+// The roads' wear (the polish pass, 2026-11-23), shared by the city's ground and the road in from the field
+// (Ferris.buildRoad, which runs on up Hal's street): two tyre tracks to a lane at `a` and `b` from the road's
+// middle, and the ruts they wear as a bump on the normal (from the height's change across the pixel, so it
+// must be worked out outside any branch).
+export const WEAR_GLSL = /* glsl */`
+float wTracks(float d, float a, float b) { return 2.0 - smoothstep(0.16, 0.36, abs(d - a)) - smoothstep(0.16, 0.36, abs(d - b)); }
+vec3 wBump(vec3 n, vec3 sp, float hgt, float face) {
+  vec3 sx = dFdx(sp), sy = dFdy(sp);
+  vec2 dH = vec2(dFdx(hgt) / max(length(sx), 1e-4), dFdy(hgt) / max(length(sy), 1e-4));
+  vec3 ux = normalize(sx), uy = normalize(sy), r1 = cross(uy, n), r2 = cross(n, ux);
+  float det = dot(ux, r1) * face;
+  return normalize(abs(det) * n - sign(det) * (dH.x * r1 + dH.y * r2));
+}`;
+// The wear on a plain road material running north-south with its middle at world x `mid` (Ferris's road in)
+export function wearRoad(mat, mid) {
+  const prev = mat.onBeforeCompile;
+  mat.onBeforeCompile = (sh, r) => {
+    prev?.call(mat, sh, r);
+    sh.uniforms.uWear = cityU.uWear;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWw;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWw = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vWw; uniform float uWear;
+      ${WEAR_GLSL}`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+      float trk = 0.0, rVar = 1.0;
+      if (uWear > 0.001) {
+        vec4 big = texture2D(roughnessMap, vWw.xz / 41.0), mid = texture2D(roughnessMap, vWw.xz / 13.0);
+        trk = clamp(wTracks(abs(vWw.x - ${mid.toFixed(2)}), 1.45, 3.05), 0.0, 1.0) * clamp(big.g * 1.6 - 0.2, 0.0, 1.0) * uWear;
+        diffuseColor.rgb *= (0.9 + 0.25 * (big.g - 0.5)) * (1.0 - 0.3 * trk);
+        rVar = (0.88 + 0.4 * (mid.g - 0.5)) * mix(1.0, 0.42, trk);
+      }`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor *= rVar;')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\nnormal = wBump(normal, -vViewPosition, -0.006 * trk * (1.0 - smoothstep(25.0, 70.0, length(vViewPosition))), faceDirection);');
+  };
+  mat.customProgramCacheKey = () => `wornRoad${mid}`;
+  return mat;
+}
+
 // which blocks are parks and which the channel (a texel a block: R a park, G the channel), for the
 // shader to paint the parks' grass and paths from anywhere and to open the channel between its bridges
 const NJ = K_MAX - K_MIN, NR = 20;
@@ -48,17 +86,20 @@ export function cityGround() {
     sh.uniforms.uConc = { value: conc };
     sh.uniforms.uSand = { value: sand };
     sh.uniforms.uCells = { value: cellMask() };
+    sh.uniforms.uWear = cityU.uWear; // (the roads' wear: 0 off, for measuring it)
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGp;')
       .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvGp = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
       varying vec3 vGp;
       uniform sampler2D uConc, uSand, uCells;
+      uniform float uWear;
       float rowEdge(float r) { return r < 0.5 ? -404.0 : r < 1.5 ? -210.0 : 70.0 + 200.0 * (r - 2.0); }
       ${GRID_GLSL}
       float gHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float gNoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(gHash(i), gHash(i + vec2(1.0, 0.0)), f.x), mix(gHash(i + vec2(0.0, 1.0)), gHash(i + vec2(1.0, 1.0)), f.x), f.y); }
       // a line from a to b across x, anti-aliased over a pixel (thinner than one, dimmed)
-      float gBand(float x, float a, float b) { float w = fwidth(x); return clamp(min(x - a, b - x) / max(w, 1e-4) + 0.5, 0.0, 1.0); }`)
+      float gBand(float x, float a, float b) { float w = fwidth(x); return clamp(min(x - a, b - x) / max(w, 1e-4) + 0.5, 0.0, 1.0); }
+      ${WEAR_GLSL}`)
       .replace('#include <map_fragment>', `
       vec2 p = vec2(vGp.x, vGp.z - ${LOT_Z.toFixed(1)});
       float shore = ${SHORE_GLSL('p.y')};
@@ -82,6 +123,20 @@ export function cityGround() {
       // the blocks: alleys and lots dark asphalt; downtown's plazas paving
       float plaza = 1.0 - step(300.0, length(p - vec2(${DOWNTOWN.x}.0, ${DOWNTOWN.z}.0)));
       if (max(roadNS, roadEW) < 0.5) col = max(paveNS, paveEW) > 0.5 || plaza > 0.5 ? cc : asph * vec4(0.82, 0.8, 0.78, 1.0);
+      // the roads worn (the polish pass, 2026-11-23): patches of older and newer asphalt, and two tyre tracks to a
+      // lane where the wheels run, darker and glossier (the sun low and the lamps at night streak along them),
+      // a few millimetres worn in (below: the roughness and the normal); not across the junctions
+      // (on the roads' pixels only, and from low-frequency reads of the textures it has rather than noise: the
+      // first version cost the night street 4.7 ms)
+      float onRoad = max(roadNS, roadEW) * step(0.001, uWear), trk = 0.0, rVar = 1.0;
+      if (onRoad > 0.0) {
+        float ax = abs(dx), az = abs(dz);
+        float tNS = wTracks(ax, 1.45, 3.05), tEW = wTracks(az, 1.05, 2.65);
+        vec4 big = texture2D(uSand, p / 41.0), mid = texture2D(uConc, p / 13.0);
+        trk = clamp(tNS * roadNS * (1.0 - roadEW) + tEW * roadEW * (1.0 - roadNS), 0.0, 1.0) * clamp(0.2 + big.r * 1.3, 0.0, 1.0) * uWear;
+        col.rgb *= (0.88 + 0.3 * (big.g - 0.35)) * (1.0 - 0.3 * trk);
+        rVar = (0.86 + 0.5 * (mid.b - 0.45)) * mix(1.0, 0.42, trk);
+      }
       // a park: grass (mown in stripes), a path round it inside the railings, two across it corner to
       // corner, a ring round the fountain's square in the middle
       if (cm.r > 0.5 && max(paveNS, paveEW) < 0.5) {
@@ -130,7 +185,11 @@ export function cityGround() {
       sd.rgb = mix(vec3(dot(sd.rgb, vec3(0.3, 0.59, 0.11))), sd.rgb, 0.5) * vec3(1.42, 1.34, 1.18); // (a pale beach: the desert's gravel is redder)
       sd.rgb = mix(sd.rgb, sd.rgb * vec3(0.62, 0.6, 0.58), 1.0 - smoothstep(0.0, 9.0, p.x - shore));
       col = mix(col, sd, beach);
-      diffuseColor *= col;`);
+      diffuseColor *= col;`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+      roughnessFactor *= rVar;`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+      normal = wBump(normal, -vViewPosition, -0.006 * trk * (1.0 - smoothstep(25.0, 70.0, length(vViewPosition))), faceDirection); // (the ruts; the asphalt's own normal map is the aggregate)`);
   };
   mat.customProgramCacheKey = () => 'cityGround';
   const mesh = new THREE.Mesh(tiled(CITY.x0 - 30, CITY.x1 + 12, CITY.z0 - 8, CITY.z1 + 12, 100), mat);

@@ -11,17 +11,21 @@ import { cityU } from '../city/Kit.js';
 
 const RATE = 1 / 120; // game hours a second
 const RISE = 6.0, SET = 19.6; // (summer on the California coast)
-// the times of day: the sky preset and what Ferris's presets set the lights to
-const NIGHT = { sky: 'night', sun: 0x9fb2d8, sunI: 0.22, hemiSky: 0x34405e, hemiGround: 0x1c1a1c, hemi: 0.13, fog: 0x121722, fogD: 0.0009, exposure: 1.0, night: 1, env: 0.1 };
+// the times of day: the sky preset and what Ferris's presets set the lights to. `env` is the image light from
+// the sky itself (fx/SkyEnv.js: darker than the studio room it replaced, so about twice what it was by day, and
+// the night's moonlit fill from the hemisphere light, bluer and stronger); `sat` and `contrast` the grade. (The
+// graphics rework, 2026-11-23: warmer sun and haze by day, a Californian coast's gold in the afternoon; the polish
+// pass: the sky's fill cooler and deeper, so the warm sun stands out against blue shade.)
+const NIGHT = { sky: 'night', sun: 0x9fb2d8, sunI: 0.36, hemiSky: 0x5a6c9c, hemiGround: 0x2a282e, hemi: 0.62, fog: 0x121722, fogD: 0.0009, exposure: 1.0, night: 1, env: 1.6, sat: 0.92, contrast: 1.06 };
 const KEYS = [
   { h: 0, ...NIGHT },
   { h: 4.9, ...NIGHT },
-  { h: 6.3, sky: 'dawn', sun: 0xffc08e, sunI: 1.6, hemiSky: 0x8e9cc4, hemiGround: 0x5e4a40, hemi: 0.5, fog: 0xb7a3a2, fogD: 0.0006, exposure: 0.95, night: 0.15, env: 0.28 },
-  { h: 7.6, sky: 'morning', sun: 0xfff0d2, sunI: 2.3, hemiSky: 0xb8cce4, hemiGround: 0x7e6a52, hemi: 0.55, fog: 0xc9d3da, fogD: 0.0005, exposure: 0.86, night: 0, env: 0.36 },
-  { h: 10.5, sky: 'desert', sun: 0xffeed6, sunI: 2.7, hemiSky: 0xc6d8ec, hemiGround: 0x8c7458, hemi: 0.55, fog: 0xd5dde2, fogD: 0.00042, exposure: 0.82, night: 0, env: 0.4 },
-  { h: 16.8, sky: 'desert', sun: 0xffe4c4, sunI: 2.6, hemiSky: 0xc0d0e4, hemiGround: 0x8c7054, hemi: 0.53, fog: 0xd8d8d6, fogD: 0.00042, exposure: 0.83, night: 0, env: 0.4 },
-  { h: 18.7, sky: 'sunset', sun: 0xffc48a, sunI: 2.0, hemiSky: 0x9aa4c4, hemiGround: 0x705040, hemi: 0.45, fog: 0xd0a890, fogD: 0.0005, exposure: 0.9, night: 0.1, env: 0.34 },
-  { h: 19.5, sky: 'dusk', sun: 0xffb27a, sunI: 1.3, hemiSky: 0x8a98bc, hemiGround: 0x6a4a38, hemi: 0.38, fog: 0xc49a86, fogD: 0.00055, exposure: 0.95, night: 0.5, env: 0.24 },
+  { h: 6.3, sky: 'dawn', sun: 0xffbc86, sunI: 1.7, hemiSky: 0x7f8fb8, hemiGround: 0x5e4a40, hemi: 0.56, fog: 0xbba4a0, fogD: 0.0006, exposure: 0.95, night: 0.15, env: 0.65, sat: 1.04, contrast: 1.04 },
+  { h: 7.6, sky: 'morning', sun: 0xffecc8, sunI: 2.4, hemiSky: 0x7896bc, hemiGround: 0x7e6a52, hemi: 0.65, fog: 0xcfd3d4, fogD: 0.0005, exposure: 0.86, night: 0, env: 0.8, sat: 1.06, contrast: 1.05 },
+  { h: 10.5, sky: 'desert', sun: 0xfff0d6, sunI: 2.9, hemiSky: 0x6b8fb5, hemiGround: 0x8c7458, hemi: 0.65, fog: 0xd9d6cc, fogD: 0.00042, exposure: 0.82, night: 0, env: 0.85, sat: 1.08, contrast: 1.06 },
+  { h: 16.8, sky: 'desert', sun: 0xffd8a8, sunI: 2.8, hemiSky: 0x6e8cb2, hemiGround: 0x8c7054, hemi: 0.65, fog: 0xe0d0ba, fogD: 0.00045, exposure: 0.83, night: 0, env: 0.85, sat: 1.1, contrast: 1.07 },
+  { h: 18.7, sky: 'sunset', sun: 0xffb878, sunI: 2.1, hemiSky: 0x7c88b0, hemiGround: 0x705040, hemi: 0.58, fog: 0xd6a88a, fogD: 0.0005, exposure: 0.9, night: 0.1, env: 0.92, sat: 1.12, contrast: 1.07 },
+  { h: 19.5, sky: 'dusk', sun: 0xffa86e, sunI: 1.3, hemiSky: 0x76849f, hemiGround: 0x6a4a38, hemi: 0.58, fog: 0xc49a86, fogD: 0.00055, exposure: 0.95, night: 0.5, env: 0.85, sat: 1.06, contrast: 1.06 },
   { h: 21, ...NIGHT },
   { h: 24, ...NIGHT },
 ];
@@ -134,7 +138,13 @@ export class DayCycle {
     f.hemi.color.setHex(A.hemiSky).lerp(_c.setHex(B.hemiSky), t).lerp(grey, w.grey * 0.3);
     f.hemi.groundColor.setHex(A.hemiGround).lerp(_c.setHex(B.hemiGround), t);
     f.hemi.intensity = THREE.MathUtils.lerp(A.hemi, B.hemi, t) * (1 + w.grey * 0.15);
-    s.fog.color.setHex(A.fog).lerp(_c.setHex(B.fog), t).lerp(grey, w.grey * 0.6);
+    // (the haze's own colour: Ferris.update turns it toward the sky's behind what the camera looks at)
+    f.fogBase.setHex(A.fog).lerp(_c.setHex(B.fog), t).lerp(grey, w.grey * 0.6);
+    f.hazeSky = 0.5 * (1 - w.grey * 0.6);
+    const g = (s.userData.grade ??= {});
+    g.sat = THREE.MathUtils.lerp(A.sat, B.sat, t) * (1 - w.grey * 0.08);
+    g.contrast = THREE.MathUtils.lerp(A.contrast, B.contrast, t);
+    if (this.engine && this.engine.scene === s) { this.engine.gradeUniforms.uSat.value = g.sat; this.engine.gradeUniforms.uContrast.value = g.contrast; }
     s.fog.density = THREE.MathUtils.lerp(A.fogD, B.fogD, t) * (f.highAir ? 0.076 * Math.min(w.fog, 2.5) : w.fog);
     if (this.engine && this.engine.scene === s) this.engine.renderer.toneMappingExposure = THREE.MathUtils.lerp(A.exposure, B.exposure, t);
     s.userData.exposure = THREE.MathUtils.lerp(A.exposure, B.exposure, t);

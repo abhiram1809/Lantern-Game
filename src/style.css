@@ -521,3 +521,9 @@ body.chart #hud, body.chart #controls, body.chart #vitals, body.chart #ringhud, 
 #citymap .keys { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); padding: 9px 16px; border-radius: 8px; background: rgba(8,12,16,0.78); font: 600 11px/1 var(--hud-font); letter-spacing: 0.14em; text-transform: uppercase; color: #c9f5e3; white-space: nowrap; pointer-events: none; }
 #citymap .keys b { color: var(--green); }
 #citymap .look { position: absolute; left: 50%; top: calc(50% + 24px); transform: translateX(-50%); padding: 4px 10px; border-radius: 6px; background: rgba(8,12,16,0.7); font: 600 11px/1 var(--hud-font); letter-spacing: 0.16em; text-transform: uppercase; color: #e8fff4; pointer-events: none; white-space: nowrap; }
+
+/* The performance counter (` : ui/PerfHud.js) */
+#perf { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 40; display: none; padding: 7px 10px; border-radius: 6px; background: rgba(0, 0, 0, 0.72); color: #d8ffe6; font: 11px/15px ui-monospace, Menlo, monospace; pointer-events: none; white-space: nowrap; }
+#perf.show { display: block; }
+#perf b { display: inline-block; width: 58px; color: var(--green); font-weight: 600; }
+#perf i { font-style: normal; color: rgba(216, 255, 230, 0.6); }

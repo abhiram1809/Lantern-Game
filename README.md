@@ -62,6 +62,7 @@ Open http://localhost:5173 and click **Begin** (audio starts on that click; head
 | Y / N | Answer the light |
 | V | Toggle spoken voices |
 | Esc / P | Pause menu |
+| ` (backquote) | Performance counter: frame rate and length, draw calls, triangles (the shadow pass's share), lights, resolution |
 
 Once the ring is charged (after the oath):
 
@@ -660,6 +661,23 @@ block debris, bolts and Hal.
   cars dent where they're hit, lose their windows, set off their alarms, smoke, catch fire and blow
   up, throwing and burning what's next to them. Anything thrown into them counts too: Atrocitus's
   beams, a car flung into a lamp post, Atrocitus charging through a fence.
+- **Light** (`src/fx/SkyEnv.js`, `src/scenes/DayCycle.js`): Coast City and Korugar are lit and reflected by
+  their own sky as it changes through the day (cars, glass, the sea and the suit show the real sky, not a
+  studio's lights), with a warmer Californian sun, a haze that takes the sky's colour toward the sun, and a
+  light grade per time of day. Korugar's streets are wet at night, its screens and neon signs shining in them
+  (`src/scenes/KorugarWet.js`). Cars and people stand in soft contact shadows (`src/fx/ContactShadows.js`), the
+  roads are worn in tyre tracks that catch the low sun and the lamps, roofs carry tanks, plant rooms and masts,
+  and at night the street lamps glow sodium-orange and headlights, neon and a few windows bloom. Corners,
+  kerbs, doorways and folds darken with ambient occlusion worked out from the depth buffer (`src/fx/AO.js`), and
+  seen from high over Coast City the sun's shadows reach out across the blocks ahead.
+- **Drawn by distance** (`src/city/Lod.js`, `src/city/Palms.js`): Coast City's palms are the full
+  tree within 90 m of the camera and a picture of it beyond (a card turned to face you, painted at
+  load from eight sides and from above); cars go from all their parts close up to merged copies, a
+  simplified copy, and further out (24 m, parked ones 16) every car of a model is one instanced draw, its paint
+  and lamps per car. Blocks hidden behind the buildings in front of them aren't drawn (GPU occlusion queries),
+  street props and shop doors are drawn in batches (one draw for each material) until something moves them, and
+  characters come in four levels of detail by their size on screen, their shadows from simplified twins. Each
+  scene's point lights are four, handed to the lamps nearest the camera (`src/city/Lamps.js`).
 - Everything else (rooms, ship, terrain, water, sky, fire, ring, lantern, Oa, the hangars' shapes)
   is procedural, and all sound effects are synthesised with WebAudio.
 
@@ -715,7 +733,9 @@ tools/                      asset pipeline (build-assets, autorig, build-props, 
   play is fetched while the title shows), and the models, textures, voices and animations are kept in
   the browser's cache by a service worker (`public/sw.js`), so later visits load them from disk. A hard
   refresh (Cmd+Shift+R) skips the cache. The resolution drops a little when the frame rate does, and
-  comes back when it recovers; `localStorage.gl_res = '1'` (or `'1.5'`) in the console fixes it.
+  comes back when it recovers (the anti-aliasing steps from 4x to 2x first); `localStorage.gl_res = '1'` (or
+  `'1.5'`) in the console fixes the resolution, `gl_msaa = '2'` (or `'4'`, `'0'`) the anti-aliasing, and
+  `gl_ao = '0'` turns the ambient occlusion off.
 - `window.__game` exposes the engine/story for debugging; `__game.shot(name, seconds)` steps the game
   and saves a canvas capture through the dev server (set `SHOT_DIR` to choose the folder).
 

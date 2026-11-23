@@ -17,22 +17,26 @@ import { RAPIER } from '../engine/Physics.js';
 import { pbrMaterial, glowTexture } from '../fx/Textures.js';
 import { Batch, cityMaterials, cityU } from './Kit.js';
 import { building, box, decal, label } from './Building.js';
-import { flatten } from './Lod.js';
+import { flatten, InstanceSet, BatchSet } from './Lod.js';
 import { runSteps } from '../engine/Slice.js';
 import { diner, market, shopRoom, stockShelves, kit } from './Interiors.js';
 import { SignAtlas, neonTexture, muralTexture, ghostTexture } from './Signs.js';
+import { PALM_KINDS } from './Palms.js';
 
 // How far the block's things are drawn (city/Lod.js): the walls, roofs, glass and signs from anywhere
 // (from the air they're the town), the trim and the street's small things only near
-export const DRAW = { detail: 220, street: 200, small: 90, far: Infinity }; // (from the street the block's 380 m long: at 160 m a parking meter is a few pixels)
+export const DRAW = { detail: 220, street: 200, small: 55, far: Infinity }; // (small: 90 drew every meter and bin down the street) // (from the street the block's 380 m long: at 160 m a parking meter is a few pixels)
 const FAR_KEYS = new Set(['stucco', 'pbrick', 'brick', 'roofing', 'roofTile', 'glass', 'sign', 'signLit', 'pavement', 'roadpaint']);
 const STREET = new Set(['car', 'palm', 'lamp', 'busstop', 'dumpster']);
 const ROOM = new Set(['interior', 'booth', 'stool', 'jukebox', 'espresso', 'cooler', 'wallshelf', 'atm', 'magrack', 'oldregister']); // inside: seen through the glass
 const KEEP_PARTS = new Set(['vending', 'busstop']); // (their glass shatters pane by pane)
 const STILL = new Set(['palm', 'decal', 'booth', 'stool', 'cooler', 'wallshelf', 'atm']); // (fixed for good: drawn instanced)
+// (the rest of what's touchable, drawn instanced too until something moves it: then shown as itself, its copy
+// taken out; not what keeps its parts for its glass, nor the cars)
+const UNTIL_MOVED = (kind) => !STILL.has(kind) && !KEEP_PARTS.has(kind) && kind !== 'car';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const _q = new THREE.Quaternion(), _Y = new THREE.Vector3(0, 1, 0), _c = new THREE.Vector3(), _h = new THREE.Vector3(), _o = new THREE.Vector3(), _w = new THREE.Vector3(), _v2 = new THREE.Vector3(), _in = new THREE.Vector3();
+const BAR = new THREE.Color(0xb8bcc0), _dm = new THREE.Matrix4(), _q = new THREE.Quaternion(), _Y = new THREE.Vector3(0, 1, 0), _c = new THREE.Vector3(), _h = new THREE.Vector3(), _o = new THREE.Vector3(), _w = new THREE.Vector3(), _v2 = new THREE.Vector3(), _in = new THREE.Vector3();
 export const BLOCK = { z0: -24, z1: -199, cross: -210, kerbW: -0.4, kerbE: 12.4, frontW: -5.9, frontE: 17.9, pave: 0.14 };
 export const BLOCK_PROPS = ['ac_units', 'ac_window', 'newsbox', 'meter', 'mailbox', 'payphone', 'vending', 'dish', 'neon_palm', 'neon_oil', 'fireescape',
   'elecboxes', 'cabinet', 'wheelie', 'parkbench', 'propane', 'powerpole', 'planter', 'barberpole', 'cart',
@@ -221,11 +225,14 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
   alleys(ctx, g, ALLEYS.south);
   ctx.rnd = rnd;
   yield;
-  const city = yield* ctx.batch.buildSteps(mats);
+  // (600 m cells, not 80: a material's whole stretch one draw; the street's 1,086 draw calls were a quarter
+  // these, forty materials in eight cells; the perf pass, 2026-11-23)
+  const city = yield* ctx.batch.buildSteps(mats, { cell: 600 });
   g.add(city);
   // the props the buildings and the street placed: into the block, and touchable
   for (const [i, { o, kind }] of ctx.objects.entries()) {
     g.add(o);
+    o.userData.kind = kind; // (what it is: tools/perf-probe.js counts draws by it)
     o.traverse((m) => { if (m.isMesh) { m.castShadow = kind !== 'decal'; m.receiveShadow = true; } });
     if (!KEEP_PARTS.has(kind)) flatten(o); // one mesh per material (a pole's 19 parts, a condenser's 12)
     const solid = SOLID[kind];
@@ -241,7 +248,7 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
   const shopSrc = f.lamps?.add(shopLamp, { color: 0xfff0dc, power: 0, reach: 14 });
   // the shops' goods, their doors, the lights in the rooms (on when the camera's near: no recompiles)
   const goods = stockShelves(ctx, g);
-  for (const d of ctx.doors) { flatten(d.pivot); d.pivot.traverse((m) => { if (m.isMesh) m.castShadow = false; }); g.add(d.pivot); } // (a door was a dozen boxes: a draw call each)
+  for (const d of ctx.doors) { flatten(d.pivot); d.pivot.traverse((m) => { if (m.isMesh) m.castShadow = false; }); g.add(d.pivot); } // (a door was a dozen boxes: a draw call each; then batched, below)
   // the diner's and the store's lights, sources in the pool (their PointLights only say where)
   for (const r of ctx.roomLights) { const mk = new THREE.Object3D(); mk.position.copy(r.light.position); g.add(mk); r.src = f.lamps?.add(mk, { color: r.light.color, power: 0, reach: r.light.distance }); }
   // colliders: each building's mass, its parapets, a hip roof as its hull
@@ -266,6 +273,7 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
   }
   // ------------------------------------------------------------------ night
   const night = nightKit(ctx, g, mats, f.lamps);
+  const instSets = []; // (the instanced props, each copy within its distance: city/Lod.js InstanceSet)
   // ------------------------------------------------------------------ drawn by distance
   if (lod) {
     g.updateMatrixWorld(true);
@@ -279,6 +287,24 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
     // copies at once (a draw call each was most of what was left); their colliders and Smash's items
     // stay where they are, without meshes.
     const inst = new Map(), inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), _ic = V(0, 0, 0);
+    const itemOf = new Map(smash.items.map((it) => [it.object, it]));
+    // a prop's meshes into the instanced sets (`ref`: the prop, for when it's moved)
+    const instance = (o, dist, shadow, ref = null) => {
+      o.updateMatrixWorld(true);
+      const parts = [];
+      o.traverseVisible((m) => { if (m.isMesh && !m.isSkinnedMesh && !m.isInstancedMesh && !Array.isArray(m.material)) parts.push(m); });
+      const out = [];
+      for (const m of parts) {
+        const M = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
+        _ic.setFromMatrixPosition(M);
+        const key = `${m.geometry.uuid}|${m.material.uuid}|${Math.floor(_ic.x / 600)},${Math.floor(_ic.z / 600)}|${dist}|${shadow}`;
+        const e = inst.get(key) ?? inst.set(key, { geo: m.geometry, mat: m.material, list: [], dist, shadow, cast: m.castShadow }).get(key);
+        const entry = { M, pos: new THREE.Vector3().setFromMatrixPosition(m.matrixWorld), gone: false, set: null };
+        e.list.push(entry);
+        out.push({ entry, e });
+      }
+      return { parts, out };
+    };
     for (const { o, kind } of ctx.objects) {
       const r = new THREE.Box3().setFromObject(o).getSize(V(0, 0, 0)).length() / 2;
       const dist = kind === 'wallshelf' || kind === 'cooler' ? 45 : ROOM.has(kind) ? 50 : kind === 'small' ? 35 : STREET.has(kind) ? DRAW.street : kind === 'decal' && r > 2 ? DRAW.detail : DRAW.small;
@@ -286,38 +312,65 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
       // (none from what's small or indoors: the sun hardly reaches it, and each was a draw call more)
       const shadow = STREET.has(kind) || r > 2 ? 70 : ROOM.has(kind) || kind === 'small' || kind === 'wallshelf' || kind === 'cooler' ? 0 : kind === 'plant' ? 15 : 35;
       drawn.add(o);
-      if (STILL.has(kind)) {
+      if (kind === 'palm' && f.palms) { // (drawn by the scene's palm field: city/Palms.js)
         o.updateMatrixWorld(true);
-        const parts = [];
-        o.traverseVisible((m) => { if (m.isMesh && !m.isSkinnedMesh && !m.isInstancedMesh && !Array.isArray(m.material)) parts.push(m); });
-        for (const m of parts) {
-          const M = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
-          _ic.setFromMatrixPosition(M);
-          const key = `${m.geometry.uuid}|${m.material.uuid}|${Math.floor(_ic.x / 80)},${Math.floor(_ic.z / 80)}|${dist}|${shadow}`;
-          const e = inst.get(key) ?? inst.set(key, { geo: m.geometry, mat: m.material, list: [], dist, shadow, cast: m.castShadow }).get(key);
-          e.list.push(M);
-          m.removeFromParent();
-        }
+        f.palms.add(o.userData.palm, o.matrixWorld);
+        for (const m of [...o.children]) m.removeFromParent();
+        continue;
+      }
+      if (STILL.has(kind)) {
+        for (const m of instance(o, dist, shadow).parts) m.removeFromParent();
+        continue;
+      }
+      const item = itemOf.get(o);
+      if (item && UNTIL_MOVED(kind)) {
+        // drawn instanced until it's moved: then itself again, drawn by distance as the rest
+        const { out } = instance(o, dist, shadow, o);
+        o.visible = false;
+        smash.watch(item, () => {
+          for (const { entry, e } of out) { entry.gone = true; e.set.dirty = true; }
+          o.visible = true;
+          lod.add(o, dist, { moves: true, shadow });
+        });
         continue;
       }
       lod.add(o, dist, { moves: true, shadow });
     }
-    for (const e of inst.values()) {
-      const im = new THREE.InstancedMesh(e.geo, e.mat, e.list.length);
-      e.list.forEach((M, i) => im.setMatrixAt(i, M));
-      im.computeBoundingSphere();
-      im.computeBoundingBox();
-      im.castShadow = e.cast;
-      im.receiveShadow = true;
-      g.add(im);
-      im.updateMatrixWorld(true);
-      lod.add(im, e.dist, { box: im.boundingBox.clone().applyMatrix4(im.matrixWorld), shadow: e.shadow });
+    // the doors' merged parts in the batches too, moved there as they swing (update): a door's four were a draw
+    // call each, 28 in Hal's street; the frames one material, each copy its own colour
+    const frames = new Set(ctx.doorMats?.values()), doorMetal = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.38, metalness: 0.75 });
+    for (const d of ctx.doors) {
+      d.pivot.updateMatrixWorld(true);
+      const pinv = new THREE.Matrix4().copy(d.pivot.matrixWorld).invert();
+      d.parts = [];
+      d.pivot.traverse((m) => {
+        if (!m.isMesh || Array.isArray(m.material)) return;
+        // (the push bars wore the kit's metal, coloured in its vertices, and had no colours: drawn black)
+        const bars = m.material.vertexColors && !m.geometry.attributes.color, mat = frames.has(m.material) || bars ? doorMetal : m.material, key = `door|${m.geometry.uuid}|${mat.uuid}`;
+        const e = inst.get(key) ?? inst.set(key, { geo: m.geometry, mat, list: [], dist: 60, shadow: 0, cast: false }).get(key);
+        const entry = { M: new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld), pos: new THREE.Vector3().setFromMatrixPosition(m.matrixWorld), gone: false, set: null, color: bars ? BAR : mat === doorMetal ? m.material.color : null };
+        e.list.push(entry);
+        d.parts.push({ entry, e, rel: new THREE.Matrix4().multiplyMatrices(pinv, m.matrixWorld) });
+      });
+      for (const c of [...d.pivot.children]) d.pivot.remove(c);
+    }
+    // (one batch per material, all its shapes: city/Lod.js BatchSet; a shader of its own (the glass with its rooms)
+    // instanced as before)
+    const byMat = new Map();
+    for (const e of inst.values()) (byMat.get(e.mat) ?? byMat.set(e.mat, []).get(e.mat)).push(e);
+    for (const [mat, list] of byMat) {
+      if (mat.isShaderMaterial || Array.isArray(mat)) {
+        for (const e of list) { e.set = new InstanceSet(g, e.geo, e.mat, e.list, { dist: e.dist, shadow: e.shadow, cast: e.cast }); instSets.push(e.set); }
+        continue;
+      }
+      const set = new BatchSet(g, mat, list);
+      for (const e of list) e.set = set;
+      instSets.push(set);
     }
     // (a parked car its own 54 parts only within 4 m: its merged copy is made again when it's dented or
     // a pane goes, and it doesn't move; traffic keeps its spinning wheels to 15 m)
-    for (const car of ctx.cars ?? []) { lod.addCar(car, DRAW.street, smash.items.find((i) => i.object === car), { near: 4 }); drawn.add(car); }
+    for (const car of ctx.cars ?? []) { lod.addCar(car, DRAW.street, smash.items.find((i) => i.object === car), { near: 4, far: 16 }); drawn.add(car); }
     for (const m of goods) { m.castShadow = false; lod.add(m, 50, { box: new THREE.Box3().setFromObject(m), shadow: 0 }); } // (shelves of goods cast no shadow worth drawing)
-    for (const d of ctx.doors) lod.add(d.pivot, 60);
     lod.add(night.group, DRAW.detail, { box: new THREE.Box3().setFromObject(night.group) });
   }
   // what never moves keeps the matrices it has (three.js works out every object's every frame: 22,000
@@ -331,8 +384,8 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
     group: g, ctx, mats,
     setNight(k) {
       cityU.uNight.value = k;
-      for (const m of litMats) m.emissiveIntensity = 0.08 + k * 0.5; // (brighter, a white lightbox clips to white and its letters go)
-      mats.lamp.emissiveIntensity = k * 2.2;
+      for (const m of litMats) m.emissiveIntensity = 0.08 + k * 1.1; // (brighter still, a white lightbox clips to white and its letters go)
+      mats.lamp.emissiveIntensity = k * 1.8; // (sodium: Kit.js lamp)
       night.set(k);
     },
     // (`hal`: the player's position, set by the story when he's free to walk in: the doors open for him)
@@ -347,7 +400,14 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
     },
     update(dt, t, camera) {
       cityU.uTime.value = t;
+      if (camera) for (const set of instSets) set.update(camera.position);
       swingDoors(ctx.doors, g.position, dt, this);
+      for (const d of ctx.doors) {
+        if (!d.parts || d.drawn === d.open) continue;
+        d.drawn = d.open;
+        d.pivot.updateMatrix(); // (a child of the block's group: its matrix is its place in the batches' frame)
+        for (const p of d.parts) p.e.set?.move(p.entry, _dm.multiplyMatrices(d.pivot.matrix, p.rel));
+      }
       if (camera) for (const r of ctx.roomLights) if (r.src) r.src.power = r.light.position.distanceToSquared(_c.copy(camera.position).sub(g.position)) < 4900 ? r.power : 0;
       // the other shops' one lamp (city/Shops.js), in whichever the camera's in or nearest to (inside 18 m)
       if (camera && ctx.shopLights?.length) {
@@ -601,7 +661,8 @@ function street(ctx, g, L) {
   for (const { side, x, s } of kerbs) {
     for (let z = L.trees[0], n = 0; z > L.trees[1]; z -= 15, n++) {
       if (n % 2 === 0) {
-        const p = piece('palms', n % 4 === 0 ? /^Palm_tree_001/ : /^Palm_tree_002/, { root: true });
+        const p = piece('palms', PALM_KINDS[n % 4 === 0 ? 0 : 1], { root: true });
+        p.userData.palm = n % 4 === 0 ? 0 : 1;
         p.position.set(x - s * 1.1, B.pave, z);
         p.rotation.y = ctx.rnd() * 6;
         p.scale.setScalar(0.62 + ctx.rnd() * 0.12);
@@ -674,6 +735,39 @@ function alleys(ctx, g, L) {
 }
 
 // ---------------------------------------------------------------------------------- night
+// lamps' halos: additive quads turned to the camera (one instanced mesh for a block's), fogged
+function haloMaterial(map, color) {
+  return new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { map: { value: map }, uColor: { value: color }, uOpacity: { value: 0 } }]),
+    fog: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      #include <fog_pars_vertex>
+      void main() {
+        vUv = uv;
+        vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+        mvPosition.xy += position.xy * length(instanceMatrix[0].xyz);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader: /* glsl */`
+      uniform sampler2D map; uniform vec3 uColor; uniform float uOpacity;
+      varying vec2 vUv;
+      #include <fog_pars_fragment>
+      void main() {
+        vec4 t = texture2D(map, vUv);
+        gl_FragColor = vec4(uColor * t.rgb, t.a * uOpacity);
+        #ifdef USE_FOG // (faded by the haze: mixed toward its colour, an added glow would brighten with distance)
+          #ifdef FOG_EXP2
+            gl_FragColor.a *= exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+          #else
+            gl_FragColor.a *= 1.0 - smoothstep(fogNear, fogFar, vFogDepth);
+          #endif
+        #endif
+      }`,
+  });
+}
+
 // The lamps' pools of light on the pavements, a few real lights, the light from the shop windows
 // across the pavement, the window neon; all faded in with `set(k)`
 function nightKit(ctx, block, mats, lamps) {
@@ -686,7 +780,10 @@ function nightKit(ctx, block, mats, lamps) {
   const glow = glowTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0.3)');
   const pool = new THREE.MeshBasicMaterial({ map: glow, color: new THREE.Color(0.62, 0.46, 0.28), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4 });
   const spill = new THREE.MeshBasicMaterial({ map: glow, color: new THREE.Color(0.5, 0.45, 0.36), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4 });
-  const halo = new THREE.SpriteMaterial({ map: glow, color: new THREE.Color(1.6, 1.15, 0.7), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+  // (a wide, faint warm-sodium glow round each lamp's head, not a white flare: the polish pass, 2026-11-23; all of
+  // them one instanced draw, each quad turned to the camera in its shader: a sprite each was a draw call each)
+  const halo = haloMaterial(glowTexture('rgba(255,255,255,0.9)', 'rgba(255,255,255,0.12)'), new THREE.Color(1.15, 0.62, 0.26));
+  const haloAt = [];
   const lights = [];
   let n = 0;
   // (the pools and the shops' spill each one mesh: a plane each was 52 draw calls at night)
@@ -694,10 +791,7 @@ function nightKit(ctx, block, mats, lamps) {
   for (const l of ctx.lamps) {
     if (!l.street) continue;
     pools.push(new THREE.PlaneGeometry(10, 10).rotateX(-Math.PI / 2).translate(l.at.x, BLOCK.pave + 0.01, l.at.z));
-    const sp = new THREE.Sprite(halo);
-    sp.position.copy(l.at);
-    sp.scale.setScalar(0.9);
-    g.add(sp);
+    haloAt.push(l.at.clone());
     // a real light under every third, in the scene's pool (city/Lamps.js): the nearest are lit
     if (n++ % 3 === 0 && lamps) { const mk = new THREE.Object3D(); mk.position.copy(l.at).add(V(0, -0.6, 0)); group.add(mk); lights.push(lamps.add(mk, { color: 0xffc98a, power: 0, reach: 20 })); }
   }
@@ -706,6 +800,13 @@ function nightKit(ctx, block, mats, lamps) {
     spills.push(new THREE.PlaneGeometry(w + 1, 4.5).rotateX(-Math.PI / 2).rotateY(Math.atan2(N.x, N.z)).translate(c.x, BLOCK.pave + 0.012, c.z));
   }
   for (const [list, mat] of [[pools, pool], [spills, spill]]) if (list.length) g.add(new THREE.Mesh(mergeGeometries(list, false), mat));
+  if (haloAt.length) {
+    const halos = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), halo, haloAt.length);
+    haloAt.forEach((p, i) => halos.setMatrixAt(i, new THREE.Matrix4().compose(p, new THREE.Quaternion(), V(2.6, 2.6, 2.6))));
+    halos.frustumCulled = false;
+    halos.renderOrder = 3;
+    g.add(halos);
+  }
   const neonMats = [];
   for (const nn of ctx.neon) {
     const m = new THREE.MeshBasicMaterial({ map: neonTexture(nn.text, nn.color ?? '#ff3b3b', '#3bb8ff'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: new THREE.Color(0.5, 0.5, 0.5) });
@@ -716,20 +817,26 @@ function nightKit(ctx, block, mats, lamps) {
     g.add(p);
   }
   // the neon props: their tubes glow
-  const tubes = [];
+  // (one glowing copy of each material, shared: a copy for every mesh kept them from being instanced, 36 draws)
+  const tubes = [], glowing = new Map();
   for (const { o, kind } of ctx.objects) if (kind === 'decal') o.traverse((m) => {
     if (!m.isMesh || !/neon|Sonata|wire/i.test(`${m.material?.name}`)) return;
-    m.material = m.material.clone();
-    m.material.emissive = (m.material.color ?? new THREE.Color(1, 1, 1)).clone();
-    tubes.push(m.material);
+    let gm = glowing.get(m.material);
+    if (!gm) {
+      gm = m.material.clone();
+      gm.emissive = (gm.color ?? new THREE.Color(1, 1, 1)).clone();
+      glowing.set(m.material, gm);
+      tubes.push(gm);
+    }
+    m.material = gm;
   });
   return {
     group,
     set(k) {
       g.visible = k > 0.01;
-      pool.opacity = k; spill.opacity = k * 0.8; halo.opacity = k;
-      for (const l of lights) l.power = k * 26;
-      for (const m of neonMats) m.color.setScalar(0.35 + k * 0.9);
+      pool.opacity = k; spill.opacity = k * 0.8; halo.uniforms.uOpacity.value = k * 0.42;
+      for (const l of lights) l.power = k * 18; // (with a gentler falloff: Ferris's LampPool)
+      for (const m of neonMats) m.color.setScalar(0.35 + k * 1.6); // (past the bloom's threshold: its halo)
       for (const m of tubes) m.emissiveIntensity = 0.4 + k * 1.6;
     },
   };

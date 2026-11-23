@@ -3314,7 +3314,7 @@ export class Sapphire extends Roam {
       hand.root.position.copy(MORT_HAND_AT);
       hand.root.rotation.y = -Math.PI / 2; // (facing west, over the table)
       m.scene.add(hand.root);
-      hand.root.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+      hand.root.traverse((o) => { if (o.isMesh) { o.castShadow = !o.userData.twin; o.receiveShadow = true; } }); // (a scan's shadow is its twin's: characters/Rig.js)
       ha = new Animator(hand);
       const loco = new Locomotion(this.mocap);
       loco.scale = hand.hipsHeight / this.mocap.hipsHeight;

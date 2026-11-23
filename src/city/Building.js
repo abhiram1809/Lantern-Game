@@ -533,7 +533,22 @@ function flatRoof(ctx, M, s, H, t, top) {
   };
   const roof = s.rooftop ?? {};
   const n = roof.condensers ?? Math.max(1, Math.round(s.w / 12));
-  for (let i = 0; i < n; i++) place('ac_units', 1.6 + rnd() * (s.w - 3.2), -2 - rnd() * (s.d - 4), Math.floor(rnd() * 4) * Math.PI / 2);
+  for (let i = 0; i < n; i++) {
+    const u = 1.6 + rnd() * (s.w - 3.2), z = -2 - rnd() * (s.d - 4);
+    if (ctx.props) place('ac_units', u, z, Math.floor(rnd() * 4) * Math.PI / 2);
+    else { // (the streamed blocks', in the batch: a condenser's box and its fan; the polish pass, 2026-11-23)
+      batch.add('metal', box(u - 0.55, H, z - 0.4, u + 0.55, H + 0.85, z + 0.4), M, 0xb4b4ae);
+      batch.add('metal', cyl(0.32, 0.03, u, H + 0.85, z, 12), M, 0x2a2a2a); // (the batches every roof already has: no draw more)
+    }
+  }
+  // a water tank on its legs, on some of the older and taller (the skyline's breaks, seen from the street and the air)
+  if ((s.floors ?? 1) >= 4 && rnd() < 0.4 && s.w > 9 && s.d > 9) {
+    const u = 2.6 + rnd() * (s.w - 5.2), z = -2.6 - rnd() * (s.d - 5.2), legs = 2.2;
+    for (const [a, b] of [[-0.9, -0.9], [0.9, -0.9], [-0.9, 0.9], [0.9, 0.9]]) batch.add('metal', cyl(0.07, legs, u + a, H, z + b, 6), M, 0x3a3634);
+    batch.add('roofing', box(u - 1.25, H + legs, z - 1.25, u + 1.25, H + legs + 0.12, z + 1.25), M, 0x4e4236);
+    batch.add('roofing', metreUV(new THREE.CylinderGeometry(1.2, 1.2, 2.6, 14).translate(u, H + legs + 0.12 + 1.3, z)), M, 0x8a6a4c); // (weathered staves: the roofing's grain under a brown)
+    batch.add('roofing', metreUV(new THREE.ConeGeometry(1.32, 0.8, 14).translate(u, H + legs + 0.12 + 2.6 + 0.4, z)), M, 0x4a4844);
+  }
   if (roof.dish ?? rnd() < 0.5) place('dish', 0.8 + rnd() * 1.5, -s.d + 1.2, Math.PI * (0.7 + rnd() * 0.6));
   // vent stacks and a roof hatch, the plumbing's vents
   for (let i = 0; i < 3 + Math.floor(rnd() * 4); i++) {

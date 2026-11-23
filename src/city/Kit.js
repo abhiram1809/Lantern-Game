@@ -16,6 +16,7 @@ export const cityU = {
   uSkyHor: { value: new THREE.Color(0xd9e4ec) },
   uGround: { value: new THREE.Color(0x6b6660) },
   uDayLight: { value: new THREE.Color(1, 0.97, 0.92) },
+  uWear: { value: 1 }, // (the roads' tyre tracks and bump: city/Ground.js)
 };
 
 const NOISE = /* glsl */`
@@ -30,15 +31,18 @@ float cNoise(vec3 x) {
 // under the coping where rain runs off, and broad sun-faded patches.
 function weather(mat, { base = 0.3, fade = 0.1 } = {}) {
   mat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vCWorld;')
-      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvCWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vCWorld;\n${NOISE}`)
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vCWorld; varying float vCUp;')
+      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvCWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvCUp = normalize(mat3(modelMatrix) * objectNormal).y;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>\nvarying vec3 vCWorld; varying float vCUp;\n${NOISE}`)
       .replace('#include <map_fragment>', `#include <map_fragment>
       {
         float n = cNoise(vCWorld * vec3(0.9, 1.6, 0.9)), n2 = cNoise(vCWorld * 0.23 + 7.0);
         float grime = (1.0 - smoothstep(0.12, 1.25 + 0.5 * n, vCWorld.y)) * ${base.toFixed(2)};
         diffuseColor.rgb *= 1.0 - grime * (0.55 + 0.45 * n);
         diffuseColor.rgb *= 1.0 - ${fade.toFixed(2)} + ${(fade * 2).toFixed(2)} * n2;
+        // the ground's shade up the foot of a wall (the light the street and the pavement don't send back up:
+        // ambient occlusion, as a gradient), on walls only, not the tops of sills and parapets
+        diffuseColor.rgb *= mix(1.0, mix(0.62, 1.0, smoothstep(0.1, 3.2, vCWorld.y)), 1.0 - smoothstep(0.5, 0.8, abs(vCUp)));
       }`);
   };
   mat.customProgramCacheKey = () => `cityWeather${base}${fade}`;
@@ -76,7 +80,7 @@ export function cityMaterials() {
   m.glow = new THREE.MeshBasicMaterial({ vertexColors: true, color: new THREE.Color(0.95, 0.95, 0.95) }); // (brighter, the bloom hazes a room white)
   m.canvas = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide, map: awningTexture() });
   m.canvas.map.colorSpace = THREE.SRGBColorSpace;
-  m.lamp = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, emissive: new THREE.Color(1, 0.8, 0.55), emissiveIntensity: 0 });
+  m.lamp = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, emissive: new THREE.Color(1, 0.66, 0.34), emissiveIntensity: 0 }); // (a sodium lamp's orange-white)
   return m;
 }
 
@@ -155,13 +159,24 @@ function glassMaterial() {
         if (diner && face < 0.5) { if (h.y < 0.32) col = vec3(0.6, 0.08, 0.08) * (0.8 + 0.2 * step(0.26, h.y)); if (abs(h.y - 0.34) < 0.02) col = vec3(0.8); }
         // light: the daylight through the window, less of it deeper in; at night a ceiling lamp, or the TV
         float day = 1.0 - uNight;
+        // (the polish pass, 2026-11-23: a city at 11 PM is mostly dark; whole floors lit together or not at all,
+        // a building's floors told apart by where the pane is (its block frame) and its floor's height. Homes
+        // and offices about 23% lit; shops and the diner by their own share, as built)
         float lit = step(r6, vRoom.w);
+        if (!shop && !diner) {
+          float fl = fract(sin(dot(vec3(floor(vP.x / 26.0), floor(vCell.y / max(vCell.w, 2.5) + 0.5), floor(vP.z / 26.0)), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+          float pf = fl < 0.4 ? 0.04 : fl < 0.7 ? 0.15 : fl < 0.9 ? 0.45 : 0.8;
+          lit = step(r6, pf);
+        }
         float dk = h.z;
         vec3 light = day * uDayLight * mix(0.5, 0.14, dk) * (shop || diner ? 0.75 : 0.85);
         if ((shop || office || diner) && face > 2.5) light += vec3(0.9, 0.95, 1.0) * step(0.86, fract(h.z * 3.0 + 0.2)) * step(abs(h.x - 0.5), 0.36) * (shop ? 0.9 : 0.6); // fluorescent tubes
         vec2 c2 = h.xz - vec2(0.5, 0.45);
-        float lamp = lit * uNight * (face > 2.5 ? 1.6 * (1.0 - smoothstep(0.0, 0.55, length(c2))) + 0.25 : 0.55 + 0.45 * (1.0 - h.z * 0.6));
-        vec3 lampC = shop || office ? vec3(0.95, 0.98, 1.0) : vec3(1.0, 0.76, 0.48);
+        // (kept under the bloom's threshold: a lit room reads as a room, crisp; the bloom is for the ring, neon, lamps
+        // and cars. Its light warm amber, a softer tungsten, or an office's cool white)
+        float lamp = lit * uNight * (face > 2.5 ? 0.85 * (1.0 - smoothstep(0.0, 0.55, length(c2))) + 0.18 : 0.34 + 0.26 * (1.0 - h.z * 0.6));
+        float rc = h1(sd + 13.7);
+        vec3 lampC = office ? (rc < 0.5 ? vec3(0.82, 0.9, 1.0) : rc < 0.85 ? vec3(1.0, 0.86, 0.66) : vec3(1.0, 0.74, 0.46)) : shop ? vec3(0.95, 0.97, 1.0) : (rc < 0.55 ? vec3(1.0, 0.7, 0.4) : rc < 0.92 ? vec3(1.0, 0.82, 0.6) : vec3(0.85, 0.9, 1.0));
         vec3 inside = col * (light + lampC * lamp * (shop || diner ? 1.1 : 0.85));
         if (!shop && !diner && lit < 0.5 && r7 < 0.12) inside += uNight * vec3(0.12, 0.18, 0.34) * (0.6 + 0.4 * sin(uTime * 7.0 + sd * 30.0) * sin(uTime * 2.3)); // a television
         // blinds and curtains, in the window's own plane
@@ -267,7 +282,7 @@ export class Batch {
         const mesh = new THREE.Mesh(geo, mats[key]);
         mesh.name = `city_${key}`;
         mesh.userData.cell = k;
-        mesh.castShadow = shadows && key !== 'glass' && key !== 'lamp' && key !== 'wheelLamp';
+        mesh.castShadow = shadows && !NO_SHADOW.test(key);
         mesh.receiveShadow = true;
         group.add(mesh);
         yield;
@@ -277,3 +292,8 @@ export class Batch {
   }
 }
 export { GLASS_ATTR };
+// what the batches draw that casts no shadow worth its draw: glass and lamps (light comes through, or from them),
+// and what's flat on a wall or the ground (signs and their lit faces, glow planes, road paint, floor tiles and
+// decals: the polish pass, 2026-11-23, when the sun's wider box took in another 50 of them; and the painted trim,
+// frames, sills and fascias, a street's worth of them 116 k shadow triangles: the walls' shadows are what show)
+const NO_SHADOW = /^(glass|clearGlass|lamp|wheelLamp|sign\d*|signLit\d*|glow|roadpaint|patio|checker|decal|paint)$/;

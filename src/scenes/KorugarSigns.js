@@ -319,6 +319,7 @@ export function tickerBand(scene, { x, z, w, d, yaw, y, h = 2.2 }) {
 // A neon blade sign: a slab standing out from a facade, its glyphs down both faces. Static (no
 // flicker: the user's note on the palace scene).
 const NEON = ['#ff8a3a', '#ffcf6a', '#ff4d4d', '#6ae0c8', '#c88aff'];
+export const NEON_COLORS = NEON; // (a sign's is NEON[seed % 5]: its streak in the wet street, KorugarWet.js)
 const SIGN_WORDS = ['MARKET', 'BREAD', 'ORDER', 'TEA', 'LAMPS', 'CLOTH', 'OBEY', 'METALS', 'SPICE', 'GLORY', 'SAFE', 'WATER'];
 export function bladeSign(scene, at, yaw, seed) {
   const word = SIGN_WORDS[seed % SIGN_WORDS.length], col = NEON[seed % NEON.length];

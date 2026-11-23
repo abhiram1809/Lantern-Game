@@ -24,6 +24,7 @@ import { cityGround } from './Ground.js';
 import { buildWaterfront } from './Waterfront.js';
 import { buildLandmarks } from './Landmarks.js';
 import { broadleaf, foliageMaterial, forest } from '../fx/Trees.js';
+import { Occlusion } from '../engine/Occlusion.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const ORIGIN = V(0, 0, LOT_Z);
@@ -42,9 +43,57 @@ const TOUCH = {
   palm0: { kind: 'solid', r: 0.28, h: 7 }, palm1: { kind: 'solid', r: 0.28, h: 7 },
   bench: { kind: 'solid', stuff: 'wood', box: new THREE.Box3(new THREE.Vector3(-0.9, 0, -0.3), new THREE.Vector3(0.9, 0.85, 0.3)) }, // (bolted down on the promenade)
 };
+const PALM = { palm0: 0, palm1: 1 }; // (the palm field's kinds)
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = V(1, 1, 1), _p = V(0, 0, 0), _Y = V(0, 1, 0);
 function freeArray() { this.array = null; }
 const rectDist = (c, x, z) => Math.hypot(Math.max(c.x0 - x, 0, x - c.x1), Math.max(c.z0 - z, 0, z - c.z1));
+
+// The built blocks' merged walls, glass, roofs, signs and night light, one BatchedMesh for each material: a block's pieces are a
+// geometry and an instance each in their material's (the instance's matrix the identity: the blocks are all built
+// in the lot's frame, so even the glass's own shader draws them right), hidden and shown as the block is (behind
+// others, its night), deleted when it's put away; the batches start small, grow as they need and are compacted
+// when what's been deleted is most of them. (The trim isn't batched: a batch keeps a copy of all it holds in
+// memory, and the barrel tiles alone are 150 k vertices a block. Its meshes free theirs once they're uploaded.) Culled piece by piece against the camera and the sun's
+// shadow box (a few hundred pieces: cheap), so a block's walls cast only where the shadows are drawn.
+class CityBatches {
+  constructor(root) { this.root = root; this.map = new Map(); }
+  add(key, material, geo, castShadow) {
+    let b = this.map.get(key);
+    const nv = geo.attributes.position.count, ni = geo.index ? geo.index.count : 0;
+    if (!b) {
+      const mesh = new THREE.BatchedMesh(16, Math.max(nv * 3, 1 << 11), ni ? Math.max(ni * 3, 1 << 12) : 0, material);
+      mesh.name = `cityBatch ${key}`;
+      mesh.position.copy(ORIGIN);
+      mesh.perObjectFrustumCulled = true;
+      mesh.sortObjects = !material.transparent; // (front to back: what's behind is rejected before it's shaded)
+      mesh.frustumCulled = false;
+      mesh.castShadow = castShadow;
+      mesh.receiveShadow = true;
+      this.root.add(mesh);
+      b = { mesh, dead: 0 };
+      this.map.set(key, b);
+    }
+    const m = b.mesh;
+    // room for it: compacted first if much of it's been deleted, else grown
+    if (m._nextVertexStart + nv > m._maxVertexCount || (ni && m._nextIndexStart + ni > m._maxIndexCount)) {
+      if (b.dead > 0) { m.optimize(); b.dead = 0; }
+      if (m._nextVertexStart + nv > m._maxVertexCount || (ni && m._nextIndexStart + ni > m._maxIndexCount)) {
+        m.setGeometrySize(Math.max(Math.ceil(m._maxVertexCount * 1.5), m._nextVertexStart + nv), ni ? Math.max(Math.ceil(m._maxIndexCount * 1.5), m._nextIndexStart + ni) : 0);
+      }
+    }
+    if (m.instanceCount >= m.maxInstanceCount) m.setInstanceCount(m.maxInstanceCount * 2);
+    const gid = m.addGeometry(geo), iid = m.addInstance(gid);
+    m.setVisibleAt(iid, false);
+    return { b, gid, iid, nv, on: false };
+  }
+  show(h, on) { if (h.on !== on) { h.on = on; h.b.mesh.setVisibleAt(h.iid, on); } }
+  remove(h) {
+    const m = h.b.mesh;
+    m.deleteInstance(h.iid);
+    m.deleteGeometry(h.gid);
+    h.b.dead += h.nv;
+  }
+}
 
 export class CityStream {
   constructor(f) {
@@ -53,6 +102,9 @@ export class CityStream {
     this.root = new THREE.Group();
     this.root.name = 'city';
     f.scene.add(this.root);
+    // (a built block hidden while the buildings in front of it cover it: engine/Occlusion.js)
+    this.occlusion = f.scene.userData.occlusion = new Occlusion(f.engine.renderer, f.scene);
+    this.batches = new CityBatches(this.root); // (every block's merged pieces, one batch per material: below)
     this.queue = [];
     this.job = null;
     this.t = 1;
@@ -162,8 +214,13 @@ export class CityStream {
           vec3 wall = tower > 0.5 ? diffuseColor.rgb * 0.55 : diffuseColor.rgb * 0.74 * (0.88 + 0.12 * fH(vec3(floor(vFw.xz / 9.0), 1.0))); // (a plain colour reads paler than the textured walls it stands in for)
           diffuseColor.rgb = mix(wall, glass, win);
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.29, 0.28), 1.0 - side); // the roofs
-          diffuseColor.rgb *= mix(1.0, 0.82, step(y, 0.9) * side); // (grime at the foot)
-          fLit = vec3(1.0, 0.78, 0.5) * win * step(cell, 0.34) * uNight * 1.3;
+          diffuseColor.rgb *= mix(1.0, mix(0.6, 1.0, smoothstep(0.1, 4.0, y)), side); // (the ground's shade up the foot, as the near walls' have it: Kit.js weather)
+          // lit windows at night: whole floors together (about 23% of them), each warm amber, tungsten or an office's
+          // cool white, under the bloom's threshold (the towers went to a white haze in it)
+          float fl = fH(vec3(floor(vInfo.w), row, 3.0)), pf = fl < 0.4 ? 0.04 : fl < 0.7 ? 0.15 : fl < 0.9 ? 0.45 : 0.8;
+          float tint = fH(vec3(floor(u / cw), row, floor(vInfo.w) + 7.0));
+          vec3 litC = tower > 0.5 ? (tint < 0.5 ? vec3(0.78, 0.86, 1.0) : vec3(1.0, 0.82, 0.6)) : (tint < 0.55 ? vec3(1.0, 0.68, 0.38) : tint < 0.92 ? vec3(1.0, 0.8, 0.56) : vec3(0.82, 0.88, 1.0));
+          fLit = litC * win * step(cell, pf) * uNight * 0.8;
         }`)
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += fLit;');
     };
@@ -184,10 +241,82 @@ export class CityStream {
     mesh.receiveShadow = true;
     mesh.name = 'cityFar';
     this.root.add(mesh);
+    this.buildRoofs(boxes);
+  }
+
+  // The far boxes' roofs broken up (the polish pass, 2026-11-23: from the air the city was a field of plain
+  // boxes): a stair hut on each building, a water tank on legs on some of the taller, a plant room on each
+  // tower and a mast on some of the tallest; one instanced draw, each one hidden with its building's box
+  // while its block is built (`farShow`). Only what's a few pixels across from far off: no condensers.
+  buildRoofs(boxes) {
+    const top = new Map();
+    for (const b of boxes) { const t = top.get(b.spec); if (!t || b.y1 > t.y1) top.set(b.spec, b); }
+    const list = [], rnd = seeded(0x5eed1);
+    for (const b of top.values()) {
+      const w = b.x1 - b.x0, d = b.z1 - b.z0, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2, H = b.y1, s = b.spec;
+      const add = (x, y, z, sx, sy, sz, col) => list.push({ x, y, z, sx, sy, sz, col, fi: b.fi });
+      const at = (k) => [cx + (rnd() - 0.5) * (w - k), cz + (rnd() - 0.5) * (d - k)];
+      if (s.kind === 'tower') {
+        add(cx, H, cz, w * 0.42, 5.2, d * 0.42, 0x85837e);
+        if (H > 70 && rnd() < 0.55) add(cx + w * 0.1, H + 5.2, cz - d * 0.08, 0.6, 8 + rnd() * 14, 0.6, 0xb4b8bc);
+        continue;
+      }
+      if (w < 6 || d < 6) continue;
+      const [hx, hz] = at(5);
+      add(hx, H, hz, 2.2, 2.4, 2.8, 0x8b8a85); // the stair hut
+      if ((s.floors ?? 1) >= 4 && rnd() < 0.4) { const [tx, tz] = at(6); add(tx, H, tz, 0.5, 2.3, 0.5, 0x3a3634); add(tx, H + 2.3, tz, 2.5, 2.8, 2.5, 0x6c4e34); }
+      if (rnd() < 0.5) { const [ax, az] = at(4); add(ax, H, az, 1.6, 1.0, 1.1, 0xb4b4ae); } // (a big condenser block)
+    }
+    const geo = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+    const show = (this.roofShow = new Float32Array(list.length).fill(1));
+    geo.setAttribute('aShow', new THREE.InstancedBufferAttribute(show, 1));
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.05 });
+    mat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aShow;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\nif (aShow < 0.5) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);');
+    };
+    mat.customProgramCacheKey = () => 'cityRoofs';
+    const mesh = (this.roofs = new THREE.InstancedMesh(geo, mat, list.length));
+    this.roofOf = new Map(); // a far box's index → its roof pieces'
+    list.forEach((r, i) => {
+      _m.compose(_p.set(r.x, r.y, r.z), _q.identity(), _s.set(r.sx, r.sy, r.sz));
+      mesh.setMatrixAt(i, _m);
+      mesh.setColorAt(i, new THREE.Color(r.col));
+      (this.roofOf.get(r.fi) ?? this.roofOf.set(r.fi, []).get(r.fi)).push(i);
+    });
+    mesh.position.copy(ORIGIN);
+    mesh.frustumCulled = false;
+    mesh.castShadow = false;
+    mesh.receiveShadow = true;
+    mesh.name = 'cityRoofs';
+    this.root.add(mesh);
+  }
+  // The far boxes and their roofs casting shadows (from high up, where the sun's box is hundreds of metres wide:
+  // Ferris.spanFor), each as it's shown: a built block's are hidden in the shadow map too.
+  farCast(on) {
+    if (this.farCasting === on) return;
+    this.farCasting = on;
+    for (const m of [this.far, this.roofs]) {
+      if (!m) continue;
+      m.customDepthMaterial ??= (() => {
+        const dm = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+        dm.onBeforeCompile = (sh) => {
+          sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aShow;')
+            .replace('#include <project_vertex>', '#include <project_vertex>\nif (aShow < 0.5) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);');
+        };
+        dm.customProgramCacheKey = () => 'cityFarDepth';
+        return dm;
+      })();
+      m.castShadow = on;
+    }
   }
   farShow(cell, on) {
-    for (const b of cell.boxes) this.show[b.fi] = on ? 1 : 0;
+    for (const b of cell.boxes) {
+      this.show[b.fi] = on ? 1 : 0;
+      for (const i of this.roofOf?.get(b.fi) ?? []) this.roofShow[i] = on ? 1 : 0;
+    }
     this.far.geometry.attributes.aShow.needsUpdate = true;
+    if (this.roofs) this.roofs.geometry.attributes.aShow.needsUpdate = true;
   }
 
   // ---------------------------------------------------------------------------- streaming
@@ -212,6 +341,10 @@ export class CityStream {
     const gone = this.leaving?.shift();
     if (gone && gone.state === 'built' && gone.d > this.reach(gone) * 1.25 + 40 && !this.kept(gone)) this.disposeCell(gone);
     this.waterfront?.update(dt);
+    // the seafront casts shadows only when the camera's near it (its big merged pieces caught the sun's box from a
+    // kilometre off: 141 k shadow triangles in Hal's street)
+    const wf = this.waterfront, cast = x < -700;
+    if (wf && wf.cast !== cast) { wf.cast = cast; wf.group.traverse((m) => { if (m.isMesh) { m.userData.cast ??= m.castShadow; m.castShadow = cast && m.userData.cast; } }); }
   }
 
   // which blocks to build, nearest first, and which to put away
@@ -245,8 +378,12 @@ export class CityStream {
       const b = c.built;
       if (!b) continue;
       const d = rectDist(c, x, z);
-      const near = b.near.visible ? d < 230 : d < 210, kit = b.kit.visible ? d < 185 : d < 165, cast = d < 140;
-      if (near !== b.near.visible) b.near.visible = near;
+      // (shadows within 85 m: the sun's box is 120 m across round the player; at 140 they cast from outside it, 441 k
+      // shadow triangles in the street at night)
+      // (the trim and the street kit within 90 m: further, a sill or a hydrant is a pixel or two, and they were 85 of
+      // the street's draw calls)
+      const near = b.nearOn ? d < 98 : d < 90, kit = b.kit.visible ? d < 98 : d < 90, cast = d < 85;
+      if (near !== b.nearOn) { b.nearOn = near; b.near.visible = near && b.revealed >= b.far.length; }
       if (kit !== b.kit.visible) b.kit.visible = kit;
       if (cast !== b.cast) { b.cast = cast; for (const m of b.casters) m.castShadow = cast; }
     }
@@ -275,28 +412,30 @@ export class CityStream {
     if (c.park) this.park(ctx, c, places, extras);
     yield;
     const merged = yield* ctx.batch.buildSteps(this.mats, { cell: 4000, chunk: 350 });
-    // its groups: what's drawn from anywhere in reach, the trim, the street kit, the night's light
-    const g = new THREE.Group(), far = new THREE.Group(), near = new THREE.Group(), kit = new THREE.Group(), night = new THREE.Group();
+    // its group (the trim, the street kit, the park's trees and hedges) and the rest of its merged pieces in the
+    // city's batches, one per material (the perf pass, 2026-11-23: a block's own meshes were seven or eight draw
+    // calls each)
+    const g = new THREE.Group(), near = new THREE.Group(), kit = new THREE.Group(), extra = new THREE.Group();
     g.name = `block ${c.id}`;
     g.position.copy(ORIGIN);
-    g.add(far, near, kit, night);
-    const towers = c.specs.some((s) => s.kind === 'tower'), casters = [];
-    for (const m of extras) { far.add(m); if (m.castShadow) casters.push(m); }
+    g.add(extra, near, kit);
+    const towers = c.specs.some((s) => s.kind === 'tower'), casters = [], far = [], night = [];
+    const box = new THREE.Box3();
+    for (const m of extras) { extra.add(m); if (m.castShadow) casters.push(m); }
     for (const m of [...merged.children]) {
-      // once on the GPU its arrays aren't needed here (a block's were 16 MB of the page's memory): nothing
-      // reads them back (the colliders are boxes, the rays Rapier's), and its bounds are worked out already
-      // (its bounds first: Box3.setFromObject asked for the box afterwards, found the positions gone, and
-      // threw: going back from Coast City to the field stopped on a black screen)
       m.geometry.computeBoundingBox();
-      m.geometry.computeBoundingSphere();
-      for (const a of [...Object.values(m.geometry.attributes), m.geometry.index]) a?.onUpload(freeArray);
+      box.union(m.geometry.boundingBox);
       const key = m.name.replace('city_', '');
-      (FAR.has(key) || key.startsWith('sign') || (towers && (key === 'metal' || key === 'concrete')) ? far : near).add(m);
-      if (m.castShadow) casters.push(m);
+      const isFar = FAR.has(key) || key.startsWith('sign') || (towers && (key === 'metal' || key === 'concrete'));
+      if (isFar) { far.push(this.batches.add(key, m.material, m.geometry, m.castShadow)); m.geometry.dispose(); continue; }
+      // (the trim, sills and cornices cast no shadow: the walls' are theirs)
+      for (const a of [...Object.values(m.geometry.attributes), m.geometry.index]) a?.onUpload(freeArray);
+      m.castShadow = false;
+      near.add(m);
     }
     // the kit, instanced (placeKit)
-    const items = [], bodies = [];
-    this.placeKit(places, kit, items, casters);
+    const items = [], bodies = [], palms = [];
+    this.placeKit(places, kit, items, casters, palms);
     yield;
     // the colliders: each mass, its parapets, the pavements; a hip roof as its hull
     const P = f.physics;
@@ -315,26 +454,32 @@ export class CityStream {
       const w = s.u1 - s.u0, cc = V((s.u0 + s.u1) / 2, 0, 2.2).applyMatrix4(s.F), N = V(0, 0, 1).transformDirection(s.F);
       spills.push(new THREE.PlaneGeometry(w + 1, 4.5).rotateX(-Math.PI / 2).rotateY(Math.atan2(N.x, N.z)).translate(cc.x, PAVE + 0.012, cc.z));
     }
-    for (const [list, mat] of [[pools, this.pool], [spills, this.spill]]) if (list.length) night.add(new THREE.Mesh(mergeGeometries(list, false), mat));
-    night.visible = this.night > 0.01;
+    for (const [list, mat] of [[pools, this.pool], [spills, this.spill]]) if (list.length) { const geo = mergeGeometries(list, false); night.push(this.batches.add(`night|${mat.uuid}`, mat, geo, false)); geo.dispose(); }
     // what never moves keeps the matrices it has
     g.updateMatrixWorld(true);
     g.traverse((o) => { o.matrixAutoUpdate = false; });
     g.matrixWorldAutoUpdate = false; // (and three.js doesn't walk it every frame)
-    near.visible = false; kit.visible = false;
-    // shown a few meshes a frame (each is uploaded to the GPU the first frame it's drawn: a whole block at
-    // once was a 60 ms frame), then its boxes put away
-    const reveal = [...far.children];
-    for (const m of reveal) m.visible = false;
+    near.visible = kit.visible = false;
     this.root.add(g);
-    c.built = { group: g, far, near, kit, night, items, bodies, casters, cast: true };
-    for (let i = 0; i < reveal.length; i += 3) {
-      for (const m of reveal.slice(i, i + 3)) m.visible = true;
-      this.frameBreak = true;
-      yield;
-    }
+    g.updateMatrixWorld(true);
+    box.union(new THREE.Box3().setFromObject(g)).translate(ORIGIN);
+    const b = { group: g, far, near, kit, night, items, bodies, casters, palms, occ: null, cast: true, shown: true, nearOn: false, revealed: 0 };
+    b.occ = this.occlusion.add(box, (v) => { b.shown = v; g.visible = v; this.showCell(b); });
+    c.built = b;
+    // shown a few pieces a frame (each goes to the GPU the frame it's added: a whole block at once was a 60 ms
+    // frame), then its boxes put away
+    while (b.revealed < far.length) { b.revealed = Math.min(far.length, b.revealed + 3); this.showCell(b); this.frameBreak = true; yield; }
+    this.showCell(b);
+    near.visible = b.nearOn;
     this.farShow(c, false);
     this.built++;
+  }
+
+  // a built block's pieces in the batches shown as it stands: hidden behind others (its group too), its night
+  showCell(b) {
+    const on = b.shown;
+    b.far.forEach((h, i) => this.batches.show(h, on && i < b.revealed));
+    for (const h of b.night) this.batches.show(h, on && this.night > 0.01);
   }
 
   // The street kit's pieces at `places` ({ k, M, s }, M in the lot's frame), instanced: one mesh for
@@ -342,12 +487,14 @@ export class CityStream {
   // (props/Smash.js), a stand-in without meshes, and when a post snaps the real piece is put in its
   // place and its copy taken out of the instanced ones. (`items`: the Smash items made, `casters`: the
   // meshes that cast shadows)
-  placeKit(places, group, items, casters = []) {
+  placeKit(places, group, items, casters = [], palms = []) {
     const f = this.f, byKind = new Map();
     for (const p of places) (byKind.get(p.k) ?? byKind.set(p.k, []).get(p.k)).push(p);
     for (const [k, list] of byKind) {
-      const t = this.kit[k], ims = [];
-      for (const part of t.parts) {
+      const t = this.kit[k], ims = [], palm = PALM[k];
+      // (the palms drawn by the scene's palm field, city/Palms.js: `palms` gets their ids)
+      if (palm != null) for (const p of list) palms.push(f.palms.add(palm, _m.makeTranslation(ORIGIN).multiply(p.M)));
+      else for (const part of t.parts) {
         const im = new THREE.InstancedMesh(part.geo, part.mat, list.length);
         list.forEach((p, i) => im.setMatrixAt(i, _m.multiplyMatrices(p.M, part.M)));
         im.castShadow = k !== 'hydrant' && k !== 'bench';
@@ -384,11 +531,14 @@ export class CityStream {
     const b = c.built;
     if (!b) return;
     b.group.removeFromParent();
-    for (const grp of [b.far, b.near, b.night]) grp.traverse((m) => { if (m.isMesh) m.geometry.dispose(); });
+    for (const h of [...b.far, ...b.night]) this.batches.remove(h);
+    b.group.traverse((m) => { if (m.isMesh && !m.isInstancedMesh) m.geometry.dispose(); });
     b.kit.traverse((m) => { if (m.isInstancedMesh) m.dispose(); }); // (their geometry is the prop's, shared)
     const W = this.f.physics.world;
     for (const body of b.bodies) if (W.bodies.contains(body.handle)) W.removeRigidBody(body);
     for (const it of b.items) this.f.smash.remove(it);
+    for (const id of b.palms) this.f.palms.remove(id);
+    this.occlusion.remove(b.occ);
     this.farShow(c, true);
     c.built = null;
     c.state = null;
@@ -397,10 +547,10 @@ export class CityStream {
 
   setNight(k) {
     this.night = k;
-    this.mats.lamp.emissiveIntensity = k * 2.2;
-    for (const m of this.litMats) m.emissiveIntensity = 0.08 + k * 0.5;
+    this.mats.lamp.emissiveIntensity = k * 1.8;
+    for (const m of this.litMats) m.emissiveIntensity = 0.08 + k * 1.1;
     this.pool.opacity = k; this.spill.opacity = k * 0.8;
-    for (const c of this.index.cells) if (c.built) c.built.night.visible = k > 0.01;
+    for (const c of this.index.cells) if (c.built) this.showCell(c.built);
     this.waterfront?.setNight(k);
   }
 

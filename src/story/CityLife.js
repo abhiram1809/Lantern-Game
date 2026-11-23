@@ -704,7 +704,7 @@ export class CityLife {
       if (every === 1 || (this.frameN + (p.slot ??= this.people.indexOf(p))) % every === 0) { p.anim.update(p.animDt); p.per.update(p.animDt); p.animDt = 0; }
       eyesOf(p.rig, p.head);
       const cast = dc < 22;
-      if (cast !== p.cast) { p.cast = cast; for (const m of p.rig.meshes) m.castShadow = cast; }
+      if (cast !== p.cast) { p.cast = cast; for (const m of p.rig.meshes) (m.userData.twin ?? m).castShadow = cast; } // (a scan's shadow is its twin's: characters/Rig.js)
       p.rb.setNextKinematicTranslation({ x: p.pos.x, y: p.ghost ? -50 : p.pos.y, z: p.pos.z }); // (`ghost`: no body, someone sat inside a car)
       if (p.state === 'route' || p.kind === 'diner') this.block.openers.push(p.pos);
       if (p.state === 'route' && p.kind === 'rosie') this.block.staff.push(p.pos);

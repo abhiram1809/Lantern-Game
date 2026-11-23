@@ -112,7 +112,8 @@ export async function voyage(story, { from, to, long = false, launch = true }) {
     player.animator.reach('R', null, { rate: 4 });
     player.flightState.k = 1;
     player.animator.play(player.flightGen, 0.5);
-    const world = { earth: space.earth, oa: space.oa, ysmault: space.ysmault, korugar: space.korugar }[from];
+    // (Zamaron too: without it, every trip away from Zamaron threw here and left him in space)
+    const world = { earth: space.earth, oa: space.oa, ysmault: space.ysmault, korugar: space.korugar, zamaron: space.zamaron }[from];
     audio.whoosh(1.8, 0.8);
     await tween(1.6, (k) => {
       o.rotation.set(1.45 * ease.inOut(Math.min(1, k * 1.6)), Math.PI, 0, 'YXZ');

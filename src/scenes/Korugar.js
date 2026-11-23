@@ -5,8 +5,11 @@ import { bakeStatue, StatueFall, STATUE_SCALE } from './Statue.js';
 import { createSky } from '../fx/Sky.js';
 import { noiseTexture, pbrMaterial, glowTexture } from '../fx/Textures.js';
 import { Fire } from '../fx/Particles.js';
-import { Broadcast, ScreenWall, renderPortrait, tickerBand, bladeSign, SkyTraffic, ringLane, runLane, CHANNELS } from './KorugarSigns.js';
+import { Broadcast, ScreenWall, renderPortrait, tickerBand, bladeSign, SkyTraffic, ringLane, runLane, CHANNELS, NEON_COLORS } from './KorugarSigns.js';
 import { Smash } from '../props/Smash.js';
+import { LampPool } from '../city/Lamps.js';
+import { WetStreaks } from './KorugarWet.js';
+import { ContactShadows } from '../fx/ContactShadows.js';
 import { createSinestro, createCharacter } from '../characters/Characters.js';
 import { makePose } from '../characters/Poses.js';
 import { toGlyphs } from '../ui/UI.js';
@@ -157,7 +160,9 @@ export class Korugar {
     const s = this.scene;
     s.fog = new THREE.FogExp2(0xc49a7c, 0.0034);
     s.environment = this.engine.envMap;
-    s.environmentIntensity = 0.35;
+    s.userData.skyEnv = true; // (lit and reflected by its own sky, fx/SkyEnv.js: the studio room's ceiling lit the plaza's floor in a white blob)
+    s.environmentIntensity = 0.8;
+    s.userData.grade = { sat: 1.06, contrast: 1.06 };
     s.userData.exposure = 0.92;
     s.userData.far = 1400;
     s.userData.near = 0.05;
@@ -178,6 +183,13 @@ export class Korugar {
     this.buildBroadcast();
     this.buildCrowdFill();
     this.physics.fixedGround(900);
+    // its lamps, the tavern's, the cells', the palace's and the braziers' lit by four lights handed to the
+    // nearest (city/Lamps.js: seventeen were shaded for every pixel of the city)
+    const own = [];
+    s.traverse((o) => { if (o.isPointLight) own.push(o); });
+    this.lamps = new LampPool(s, 4);
+    for (const l of own) this.lamps.adopt(l);
+    this.contacts = new ContactShadows(s, this.physics); // (the people's footprints: fx/ContactShadows.js)
     return this;
   }
 
@@ -189,6 +201,7 @@ export class Korugar {
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     Object.assign(sun.shadow.camera, { left: -55, right: 55, top: 55, bottom: -55, near: 1, far: 400 });
+    sun.shadow.radius = 2.5; // (softened, as the city's: Ferris.buildLight)
     sun.shadow.bias = -0.0004;
     sun.shadow.normalBias = 0.05;
     s.add(sun, sun.target);
@@ -213,6 +226,7 @@ export class Korugar {
     // the streets: dark worn stone
     const street = pbrMaterial('concrete_floor_02', { repeat: [220, 220], tint: new THREE.Color(0.42, 0.38, 0.44) });
     const ground = new THREE.Mesh(flat(1100, 1100, 25), street);
+    this.groundMats = [street]; // (wet at night: night())
     ground.position.y = 0;
     ground.receiveShadow = true;
     s.add(ground);
@@ -237,6 +251,7 @@ export class Korugar {
     const plaza = new THREE.Mesh(new THREE.CircleGeometry(PLAZA_R, 96).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: t, roughness: 0.32, metalness: 0.1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
     plaza.position.y = 0.01;
     plaza.receiveShadow = true;
+    this.groundMats.push(plaza.material);
     s.add(plaza);
   }
 
@@ -665,7 +680,7 @@ export class Korugar {
     const s = this.scene, ab = this.assets?.characters?.abin;
     if (!ab) return;
     const bc = (this.broadcast = new Broadcast({ portrait: renderPortrait(this.engine, ab) }));
-    const wall = new ScreenWall(bc), tickers = [];
+    const wall = new ScreenWall(bc), tickers = [], blades = [];
     const pick = (i) => CHANNELS[i % CHANNELS.length];
     // round the plaza, on the faces turned to it: a big screen high over the banner on the tall
     // ones, two smaller stacked either side of it (in front of the fins)
@@ -691,7 +706,7 @@ export class Korugar {
       const sx = Math.sign(b.x), yaw = sx > 0 ? -Math.PI / 2 : Math.PI / 2, fx = b.x - sx * (b.w / 2 + 0.35);
       wall.add(pick(n + 2), V(fx, 22.5, b.z - 4), yaw, 8);
       wall.add(pick(n + 5), V(fx, 27.2, b.z + 3.5), yaw, 8);
-      for (const dz of [-6, 6]) bladeSign(s, V(b.x - sx * (b.w / 2 + 0.75), 6.5, b.z + dz), yaw, n * 3 + (dz > 0 ? 1 : 0));
+      for (const dz of [-6, 6]) blades.push({ at: V(b.x - sx * (b.w / 2 + 0.75), 6.5, b.z + dz), yaw, seed: n * 3 + (dz > 0 ? 1 : 0) });
       n++;
     }
     // over the market street, a sign on each building
@@ -699,10 +714,19 @@ export class Korugar {
     for (const b of this.towers) {
       if (!(b.x > MARKET.x0 && b.x < MARKET.x1 && Math.abs(Math.abs(b.z) - (MARKET.w + 10)) < 2.5)) continue;
       const sz = Math.sign(b.z);
-      bladeSign(s, V(b.x + ((m % 2) ? 3 : -3), 5.8, b.z - sz * (b.d / 2 + 0.75)), sz > 0 ? Math.PI : 0, m + 5);
+      blades.push({ at: V(b.x + ((m % 2) ? 3 : -3), 5.8, b.z - sz * (b.d / 2 + 0.75)), yaw: sz > 0 ? Math.PI : 0, seed: m + 5 });
       m++;
     }
     wall.build(s);
+    this.bladeFaces = blades.map((b) => bladeSign(s, b.at, b.yaw, b.seed).material[0]); // (brighter at night: night())
+    // their light in the wet stone at night (KorugarWet.js): the screens, the neon, the plaza's lamps
+    const out = (yaw) => V(Math.sin(yaw), 0, Math.cos(yaw));
+    this.wet = new WetStreaks(s, [
+      // (the plaza's dozens of big screens overlapped into one orange carpet at their first strength: faint each)
+      ...wall.list.map((w) => ({ at: w.at, w: w.w * 0.7, h: w.w * 0.45, out: out(w.yaw), color: new THREE.Color(0.9, 0.36, 0.16), strength: 0.5 / (2 + w.w * 0.35) })),
+      ...blades.map((b) => ({ at: b.at, w: 1.2, h: 4.2, out: out(b.yaw), color: new THREE.Color(NEON_COLORS[b.seed % NEON_COLORS.length]), strength: 0.75 })),
+      ...[[-30, -30], [30, -30], [-30, 30], [30, 30]].map(([x, z]) => ({ at: V(x, 7, z), w: 1.6, h: 1.2, out: V(0, 0, 0), color: new THREE.Color(1.0, 0.62, 0.32), strength: 0.55 })),
+    ]);
     // traffic: rings above the towers, runs down the open avenue and over the market's low roofs
     const traffic = new SkyTraffic(s, [ringLane(82, 96, 1), ringLane(104, 108, -1), ringLane(128, 102, 1),
       runLane(V(-3.2, 30, -34), V(-3.2, 30, -205)), runLane(V(3.6, 38, -205), V(3.6, 38, -34)), runLane(V(48, 44, 2), V(176, 44, 2))]);
@@ -933,7 +957,7 @@ export class Korugar {
     if (!!this.isNight === on) return;
     this.isNight = on;
     const s = this.scene;
-    this.day ??= { fog: s.fog.color.getHex(), density: s.fog.density, hemi: [this.hemi.color.getHex(), this.hemi.groundColor.getHex(), this.hemi.intensity], sun: [this.sun.color.getHex(), this.sun.intensity], env: s.environmentIntensity, exposure: s.userData.exposure };
+    this.day ??= { fog: s.fog.color.getHex(), density: s.fog.density, hemi: [(this.lightBase?.sky ?? this.hemi.color).getHex(), (this.lightBase?.ground ?? this.hemi.groundColor).getHex(), this.lightBase?.hemi ?? this.hemi.intensity], sun: [this.sun.color.getHex(), this.sun.intensity], env: this.lightBase?.env ?? s.environmentIntensity, exposure: s.userData.exposure, grade: s.userData.grade };
     s.remove(this.sky);
     this.sky = createSky(on ? 'korugarNight' : 'korugar', 900);
     s.add(this.sky);
@@ -942,11 +966,22 @@ export class Korugar {
     s.fog.density = on ? 0.0036 : d.density;
     this.hemi.color.set(on ? 0x56507e : d.hemi[0]);
     this.hemi.groundColor.set(on ? 0x2c1a1a : d.hemi[1]);
-    this.hemi.intensity = on ? 0.42 : d.hemi[2];
+    this.hemi.intensity = on ? 0.6 : d.hemi[2];
     this.sun.color.set(on ? 0xb4bcff : d.sun[0]);
     this.sun.intensity = on ? 0.5 : d.sun[1];
-    s.environmentIntensity = on ? 0.14 : d.env;
+    s.environmentIntensity = on ? 1.8 : d.env;
+    // the streets wet: the stone darker and glossier, the lights in it (KorugarWet.js)
+    for (const m of this.groundMats ?? []) {
+      const dry = (m.userData.dry ??= { roughness: m.roughness, color: m.color.clone() });
+      m.roughness = on ? dry.roughness * 0.45 : dry.roughness;
+      m.color.copy(dry.color).multiplyScalar(on ? 0.62 : 1);
+    }
+    this.wet?.set(on ? 1 : 0);
+    for (const m of this.bladeFaces ?? []) m.color.setScalar(on ? 1.9 : 0.9); // (the neon past the bloom's threshold at night: halos)
+    this.lightBase = { env: s.environmentIntensity, hemi: this.hemi.intensity, sky: this.hemi.color.clone(), ground: this.hemi.groundColor.clone() };
     s.userData.exposure = on ? 1.1 : d.exposure;
+    s.userData.grade = on ? { sat: 1.12, contrast: 1.1 } : d.grade;
+    if (this.engine.scene === s) { this.engine.gradeUniforms.uSat.value = s.userData.grade.sat; this.engine.gradeUniforms.uContrast.value = s.userData.grade.contrast; }
     STONE_NIGHT.value = on ? 1 : 0;
     // the statue’s pale stone, lit only by the lamps and the screens (0.2 in linear terms: about 0.45 of it)
     this.statue?.traverse((o) => { if (!o.isMesh) return; for (const m of [o.material].flat()) { m.userData.day ??= m.color.getHex(); m.color.setHex(m.userData.day).multiplyScalar(on ? 0.2 : 1); } });
@@ -1037,10 +1072,24 @@ export class Korugar {
     this.sky.userData.uniforms.uTime.value = t;
     for (const b of this.bars ?? []) b.material.opacity = 0.7 + 0.15 * Math.sin(t * 9 + b.position.x);
     for (const fn of this.updaters) fn(dt, t);
+    this.lamps.update(dt, camera);
+    this.wet?.update(dt, this.scene.fog);
+    this.contacts.update(camera);
+    // indoors (the Broken Chain), the sky's light kept out: the room lit by its own lamps, not the haze or the
+    // night sky through its walls (the sky lights the scene's image light and its hemisphere light alike)
+    const T = TAVERN, c = camera.position, inside = c.x > T.x0 && c.x < T.x1 && c.z > T.z0 && c.z < T.z1 && c.y < T.h ? 1 : 0;
+    this.inK = (this.inK ?? 0) + (inside - (this.inK ?? 0)) * Math.min(1, dt * 4 + (dt === 0 ? 1 : 0));
+    const base = (this.lightBase ??= { env: this.scene.environmentIntensity, hemi: this.hemi.intensity, sky: this.hemi.color.clone(), ground: this.hemi.groundColor.clone() });
+    this.scene.environmentIntensity = base.env * (1 - 0.72 * this.inK);
+    // (the fill indoors is the lamps' warm bounce off the plaster and the beams)
+    this.hemi.intensity = THREE.MathUtils.lerp(base.hemi, 0.75, this.inK);
+    this.hemi.color.copy(base.sky).lerp(_warm, this.inK);
+    this.hemi.groundColor.copy(base.ground).lerp(_warmFloor, this.inK);
   }
 
   dispose() { this.physics.dispose(); }
 }
 
+const _warm = new THREE.Color(0xffa860), _warmFloor = new THREE.Color(0x3a2416); // (the tavern's fill: Korugar.update)
 // a fixed cylinder's collider (Rapier's own: fine for something that's flown round, not walked on)
 function RAPIER_CYL(r, halfH) { return RAPIER.ColliderDesc.cylinder(halfH, r); }

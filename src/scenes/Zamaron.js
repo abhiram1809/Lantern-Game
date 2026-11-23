@@ -4,6 +4,7 @@ import { createSky } from '../fx/Sky.js';
 import { glowTexture } from '../fx/Textures.js';
 import { prop, hasProp } from '../props/Props.js';
 import { Smash } from '../props/Smash.js';
+import { flatten } from '../city/Lod.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { violetCrystal, keptCrystal, litScan, crystalTime } from '../fx/Crystal.js';
 
@@ -497,6 +498,9 @@ export class Zamaron {
         p.scale.setScalar(0.6 + rnd() * 0.7);
         p.position.set(x, zamaronHeight(x, z) - 0.04, z);
         p.rotation.y = rnd() * 6.28;
+        // (one mesh per material, the same merged shapes shared by them all: each flower's 46 parts were a draw
+        // call each, the two kinds of plant 3,100 of Zamaron's 3,500, 26 ms a frame)
+        flatten(p);
         p.traverse((m) => { if (m.isMesh) { m.castShadow = false; m.receiveShadow = true; } });
         s.add(p);
         this.smash.add(p, { kind: 'breaks', strong: 4, mass: 6, stuff: 'wood', glass: false });
@@ -515,6 +519,8 @@ export class Zamaron {
         p.scale.setScalar(1.5 + rnd() * 0.9);
         p.position.set(x, zamaronHeight(x, z) - 0.1, z);
         p.rotation.y = rnd() * 6.28;
+        flatten(p);
+        p.traverse((m) => { if (m.isMesh) m.castShadow = true; });
         s.add(p);
         this.smash.solid(p, { stuff: 'wood', box: new THREE.Box3(V(-0.3, 0, -0.3), V(0.3, 3.4, 0.3)) });
       }

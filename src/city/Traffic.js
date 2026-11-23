@@ -119,6 +119,7 @@ export class Traffic {
     item.body.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
     item.traffic = true;
     f.lod?.addCar(obj, 260, item); // (drawn by distance like the parked ones: a car up close is ~54 draw calls)
+    this.show(obj, false); // (in the pool, under the ground, till it's sent out)
     this.story.player.camIgnore.add(item.collider.handle); // (the camera doesn't jump in as one passes behind him)
     const lamps = item.lamps.map((m) => { m.updateWorldMatrix(true, false); const p = obj.worldToLocal(m.getWorldPosition(_v.clone())); return { m, front: p.z > 0 }; });
     return { obj, item, lamps, path: null, s: 0, v: 0, state: 'pool', pose: { x: 0, z: 0, yaw: 0 }, blocked: 0, honked: -99, lit: -1 };
@@ -164,7 +165,7 @@ export class Traffic {
     if (!this.unseen(p0[0], p0[1]) || !this.clear(p0[0], p0[1])) return false;
     if (r.bay != null) this.bays.set(r.bay, c);
     Object.assign(c, { ...r, s: 0, v: entry === 'SB' ? 0 : CRUISE * 0.8, state: 'drive', blocked: 0, parkedT: 0, hitSeen: c.item.lastHit });
-    c.obj.visible = true;
+    this.show(c.obj, true);
     this.place(c, true);
     return true;
   }
@@ -220,7 +221,7 @@ export class Traffic {
     const p0 = r.path.p[0], d = Math.hypot(p0[0] - cam.position.x, p0[1] - cam.position.z);
     if (d > 260 || !this.unseen(p0[0], p0[1], 120) || !this.clear(p0[0], p0[1], 14)) return false;
     Object.assign(c, { ...r, si: 0, stopS: -1, group: null, bay: null, s: 0, v: CRUISE * 0.7, state: 'drive', blocked: 0, parkedT: 0, hitSeen: c.item.lastHit });
-    c.obj.visible = true;
+    this.show(c.obj, true);
     this.place(c, true);
     return true;
   }
@@ -245,7 +246,7 @@ export class Traffic {
     const lamps = item.lamps.map((m) => { m.updateWorldMatrix(true, false); return { m, front: obj.worldToLocal(m.getWorldPosition(_v.clone())).z > 0 }; });
     const c = { obj, item, lamps, path, s: s0, v: speed * 0.8, state: 'drive', pose: { x: 0, z: 0, yaw: 0 }, blocked: 0, honked: -99, lit: -1, stopS: -1, group: null, bay: null, held: true, cruise: speed, onArrive, hitSeen: item.lastHit };
     this.cars.push(c);
-    obj.visible = true;
+    this.show(obj, true);
     this.place(c, true);
     return c;
   }
@@ -257,7 +258,13 @@ export class Traffic {
     c.grid = false;
     c.stops = null;
     c.item.body.setNextKinematicTranslation({ x: this.lot.x + 300, y: -60, z: this.lot.z });
-    c.obj.visible = false;
+    this.show(c.obj, false);
+  }
+  // a car out of the pool or back in it, drawn by distance while it's out (city/Lod.js)
+  show(obj, on) {
+    obj.userData.away = !on;
+    obj.visible = on;
+    this.f.lod?.recheck(obj);
   }
   // hit by the ring, or by something: physics has it now
   release(c) {
@@ -390,8 +397,8 @@ export class Traffic {
     c.lit = k;
     for (const { m, front } of c.lamps) {
       if (!m.material.emissive) continue;
-      if (front) { m.material.emissive.setRGB(1, 0.9, 0.72); m.material.emissiveIntensity = on ? 1.8 : 0; }
-      else { m.material.emissive.setRGB(1, 0.08, 0.04); m.material.emissiveIntensity = (on ? 1.1 : 0) + (braking ? 1.4 : 0); }
+      if (front) { m.material.emissive.setRGB(1, 0.9, 0.72); m.material.emissiveIntensity = on ? 2.6 : 0; } // (past the bloom's threshold: halos)
+      else { m.material.emissive.setRGB(1, 0.08, 0.04); m.material.emissiveIntensity = (on ? 2.0 : 0) + (braking ? 1.6 : 0); }
     }
   }
 }

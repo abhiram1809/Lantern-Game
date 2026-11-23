@@ -88,8 +88,10 @@ export class Particles {
     this.uniforms.uTime.value = t;
     const P = this.aPos.array, S = this.aSize.array, C = this.aColor.array;
     const dragK = Math.exp(-this.drag * dt);
+    let live = 0;
     for (let i = 0; i < this.count; i++) {
       if (this.life[i] <= 0) { C[i * 4 + 3] = 0; continue; }
+      live++;
       this.life[i] -= dt;
       const k = 1 - Math.max(0, this.life[i]) / this.maxLife[i];
       const j = i * 3;
@@ -109,6 +111,10 @@ export class Particles {
       C[i * 4 + 3] *= fadeIn;
       if (this.life[i] <= 0) C[i * 4 + 3] = 0;
     }
+    // (none alive: not drawn, nothing sent; idle, each system was a draw call and its buffers uploaded every frame)
+    if (!live && !this.wasLive) { this.points.visible = false; return; }
+    this.wasLive = live > 0;
+    this.points.visible = true;
     this.aPos.needsUpdate = this.aSize.needsUpdate = this.aColor.needsUpdate = true;
   }
 }

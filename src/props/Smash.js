@@ -132,6 +132,7 @@ export class Smash {
   // "recursive use of an object"), the world, the scene; its fire too
   remove(item) {
     if (!item) return;
+    this.watched?.delete(item);
     const i = this.items.indexOf(item);
     if (i >= 0) this.items.splice(i, 1);
     const d = this.physics.dynamics, j = d.findIndex((e) => e.body === item.body);
@@ -412,9 +413,27 @@ export class Smash {
   }
 
   // ---------------------------------------------------------------------------------- frame
+  // `onMove` called once, the first time the item's body is moved off where it stood (a prop drawn instanced till
+  // then is shown as itself from that moment: city/HalsBlock.js)
+  watch(item, onMove) {
+    if (!item?.body) return;
+    const t = item.body.translation();
+    item.rest = { x: t.x, y: t.y, z: t.z };
+    item.onMove = onMove;
+    (this.watched ??= new Set()).add(item);
+  }
+
   update(dt, t, camera, renderer) {
     this.clock += dt;
     this.camera = camera;
+    for (const it of this.watched ?? []) {
+      const b = it.body;
+      if (!b || b.isSleeping?.()) continue;
+      const p = b.translation();
+      if (Math.abs(p.x - it.rest.x) + Math.abs(p.y - it.rest.y) + Math.abs(p.z - it.rest.z) < 0.03) continue;
+      this.watched.delete(it);
+      it.onMove?.();
+    }
     for (const it of this.items) {
       if (it.kind !== 'car') continue;
       // the alarm and the hazard lights

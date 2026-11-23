@@ -30,6 +30,16 @@ export const PRESETS = {
   sunset: { top: 0x3a5d8a, horizon: 0xffb070, bottom: 0x6b4a32, sun: 0xffd6a0, sunDir: [0.0, 0.08, -1], sunSize: 0.002, glow: 2.2, cloud: 0.35, cloudColor: 0xd08a6a, cloudLit: 0xffe0b0, stars: 0.0 },
 };
 
+// The sky's colour looking along `dir` (its gradient and the sun's glow, as the shader paints them; no clouds
+// or stars): what the haze should be where the ground meets it (scenes/DayCycle.js).
+export function skyColor(u, dir, out) {
+  const h = dir.y, sd = Math.max(0, dir.dot(u.uSunDir.value));
+  if (h > 0) out.copy(u.uHorizon.value).lerp(u.uTop.value, Math.sqrt(h)); else out.copy(u.uHorizon.value).lerp(u.uBottom.value, Math.pow(-h, 0.35));
+  const g = u.uGlow.value, k = Math.pow(sd, 18) * g * 0.6 + Math.pow(sd, 4) * g * 0.08;
+  return out.add(_glow.copy(u.uSunColor.value).multiplyScalar(k));
+}
+const _glow = new THREE.Color();
+
 export function createSky(preset = 'night', radius = 450) {
   const p = PRESETS[preset];
   const uniforms = {
@@ -38,6 +48,7 @@ export function createSky(preset = 'night', radius = 450) {
     uSunSize: { value: p.sunSize }, uGlow: { value: p.glow }, uCloud: { value: p.cloud },
     uCloudColor: { value: new THREE.Color(p.cloudColor) }, uCloudLit: { value: new THREE.Color(p.cloudLit) },
     uStars: { value: p.stars }, uTime: { value: 0 }, uFlash: { value: 0 }, uFlashTint: { value: new THREE.Color(0.55, 0.6, 0.8) },
+    uDisc: { value: 1 }, // (the sun's disc: 0 while the sky's drawn for the image light, fx/SkyEnv.js)
   };
   const mat = new THREE.ShaderMaterial({
     uniforms,
@@ -49,7 +60,7 @@ export function createSky(preset = 'night', radius = 450) {
     `,
     fragmentShader: /* glsl */ `
       uniform vec3 uTop, uHorizon, uBottom, uSunColor, uSunDir, uCloudColor, uCloudLit, uFlashTint;
-      uniform float uSunSize, uGlow, uCloud, uStars, uTime, uFlash;
+      uniform float uSunSize, uGlow, uCloud, uStars, uTime, uFlash, uDisc;
       varying vec3 vDir;
       ${NOISE_GLSL}
       void main() {
@@ -63,7 +74,7 @@ export function createSky(preset = 'night', radius = 450) {
           col += vec3(0.85, 0.9, 1.0) * step(0.9965, s) * tw * uStars * smoothstep(0.0, 0.25, h) * smoothstep(0.42, 0.1, length(fract(sp) - 0.5));
         }
         float sd = dot(d, uSunDir);
-        col += uSunColor * (smoothstep(1.0 - uSunSize, 1.0 - uSunSize * 0.5, sd) * 4.0 + pow(max(sd, 0.0), 18.0) * uGlow * 0.6 + pow(max(sd, 0.0), 4.0) * uGlow * 0.08);
+        col += uSunColor * (smoothstep(1.0 - uSunSize, 1.0 - uSunSize * 0.5, sd) * 4.0 * uDisc + pow(max(sd, 0.0), 18.0) * uGlow * 0.6 + pow(max(sd, 0.0), 4.0) * uGlow * 0.08);
         if (h > -0.03) {
           vec2 uv = d.xz / (h + 0.14) * 0.9 + vec2(uTime * 0.006, uTime * 0.0025);
           float n = fbm(uv * 1.3);
@@ -81,5 +92,6 @@ export function createSky(preset = 'night', radius = 450) {
   mesh.frustumCulled = false;
   mesh.renderOrder = -10;
   mesh.userData.uniforms = uniforms;
+  mesh.userData.isSky = true;
   return mesh;
 }

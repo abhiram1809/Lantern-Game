@@ -2,6 +2,100 @@ import * as THREE from 'three';
 import { makePose } from './Poses.js';
 import { ease, damp, clamp } from '../engine/Time.js';
 import { solveTwoBone, rotateBoneWorld } from './IK.js';
+import { contactBodies } from '../fx/ContactShadows.js';
+import { MeshoptSimplifier } from 'meshoptimizer';
+
+let simplifier = false;
+MeshoptSimplifier.ready.then(() => (simplifier = MeshoptSimplifier.supported));
+// A scan's shadow from a fifth of its triangles (the perf pass, 2026-11-23: a scan is 90 k triangles, drawn again
+// whole for its shadow; Korugar's plaza cast 1.5 M): a twin of the mesh on the same skeleton with its index
+// simplified, seen only by the sun's shadow camera (layer 1), the mesh itself casting none. Its child, so it's
+// hidden and moved with it.
+// (the scans' positions are interleaved, decoded from their compression: copied out for the simplifier alone)
+function positionsOf(geo) {
+  const P = geo.attributes.position, pos = new Float32Array(P.count * 3);
+  for (let i = 0; i < P.count; i++) { pos[i * 3] = P.getX(i); pos[i * 3 + 1] = P.getY(i); pos[i * 3 + 2] = P.getZ(i); }
+  return pos;
+}
+// a geometry over the same vertices (the same buffers on the GPU) with another index
+function withIndex(geo, index) {
+  const g = new THREE.BufferGeometry();
+  for (const [n, a] of Object.entries(geo.attributes)) g.setAttribute(n, a);
+  g.setIndex(new THREE.BufferAttribute(index, 1));
+  g.boundingBox = geo.boundingBox;
+  g.boundingSphere = geo.boundingSphere;
+  return g;
+}
+function shadowTwin(mesh) {
+  const geo = mesh.geometry, idx = geo.index;
+  if (!simplifier || !idx || idx.count < 30000) return;
+  const target = Math.floor(idx.count / 3 * 0.2) * 3;
+  const [out] = MeshoptSimplifier.simplify(idx.array instanceof Uint32Array ? idx.array : new Uint32Array(idx.array), positionsOf(geo), 3, target, 0.02);
+  if (out.length >= idx.count * 0.6) return;
+  const g = withIndex(geo, out);
+  const twin = new THREE.SkinnedMesh(g, mesh.material);
+  twin.bind(mesh.skeleton, mesh.bindMatrix);
+  twin.layers.set(1);
+  twin.castShadow = true;
+  twin.receiveShadow = false;
+  twin.boundingSphere = mesh.boundingSphere;
+  twin.frustumCulled = mesh.frustumCulled;
+  twin.userData.shadowTwin = true;
+  mesh.add(twin);
+  mesh.castShadow = false;
+  mesh.userData.twin = twin;
+}
+
+// A scan's detail by how big it's drawn (the perf pass, 2026-11-23: Korugar's plaza drew nine people at 90 k
+// triangles each, 810 k of its 949 k, the furthest 170 m off and 25 pixels tall): its index simplified to under a
+// third, a tenth and a thirtieth of its triangles over the same vertices (no memory but the indices'), shared by
+// every mesh wearing the scan, and each mesh switched as it's drawn by its height on the screen (for the next
+// frame: this one's is already listed), a tenth's margin back toward the finer. Whatever geometry the mesh is
+// given later (Characters.js's ringless hands) gets its own, worked out between frames, drawn whole till then.
+const LEVELS = [[260, 1], [85, 0.3], [30, 0.1], [0, 0.035]]; // (the height in pixels above which, the share kept)
+const levelsOf = new WeakMap(), _lp = new THREE.Vector3();
+export function detailLevels(geo) {
+  let levels = levelsOf.get(geo);
+  if (levels !== undefined || !simplifier) return levels ?? null; // (not yet loaded: asked again when it's drawn)
+  const idx = geo.index;
+  levels = null;
+  if (idx && idx.count >= 30000 && geo.groups.length <= 1 && !Object.keys(geo.morphAttributes).length) {
+    const pos = positionsOf(geo);
+    let src = idx.array instanceof Uint32Array ? idx.array : new Uint32Array(idx.array);
+    levels = [geo];
+    // (each from the one before: a tenth of the work of each from the whole)
+    for (const [, share] of LEVELS.slice(1)) {
+      const [out] = MeshoptSimplifier.simplify(src, pos, 3, Math.floor(idx.count / 3 * share) * 3, 0.1);
+      levels.push(withIndex(geo, out));
+      src = out;
+    }
+  }
+  levelsOf.set(geo, levels);
+  return levels;
+}
+function detailByHeight(mesh) {
+  const lod = { levels: null, k: 0, waiting: false };
+  mesh.userData.lod = lod;
+  mesh.onBeforeRender = (renderer, scene, camera) => {
+    // (the eye's camera, not a shadow's; nor a figure of light, whose depth is drawn first from its whole shape)
+    if (!camera.isPerspectiveCamera || camera.layers.isEnabled(1) || mesh.userData.noLod) return;
+    if (!lod.levels?.includes(mesh.geometry)) {
+      const base = mesh.geometry, known = levelsOf.get(base);
+      lod.k = 0;
+      lod.levels = known ?? [base];
+      if (known === undefined && !lod.waiting) { lod.waiting = true; setTimeout(() => { detailLevels(base); lod.waiting = false; lod.levels = null; }, 0); }
+    }
+    const L = lod.levels;
+    if (L.length < 2) return;
+    const s = mesh.matrixWorld.getMaxScaleOnAxis(), d = Math.max(0.1, _lp.setFromMatrixPosition(mesh.matrixWorld).distanceTo(camera.position));
+    const focal = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.DEG2RAD * camera.fov / 2));
+    const px = (focal * camera.zoom * L[0].boundingSphere.radius * 2 * s) / d;
+    let k = lod.k;
+    while (k > 0 && px > LEVELS[k - 1][0] * 1.1) k--;
+    while (k < L.length - 1 && px < LEVELS[k][0]) k++;
+    if (k !== lod.k) { lod.k = k; mesh.geometry = L[k]; }
+  };
+}
 
 export const BONE_ORDER = ['hips', 'spine', 'chest', 'neck', 'head', 'upperArm_L', 'foreArm_L', 'hand_L', 'upperArm_R', 'foreArm_R', 'hand_R', 'thigh_L', 'shin_L', 'foot_L', 'thigh_R', 'shin_R', 'foot_R'];
 export const PARENT = {
@@ -53,15 +147,24 @@ function eigen3(A) {
 export class Rig {
   constructor(root) {
     this.root = root;
+    contactBodies.add(root); // (its footprint on the ground: fx/ContactShadows.js)
     this.bones = {};
     this.meshes = [];
     root.traverse((o) => {
       if (o.isBone) this.bones[o.name] = o;
-      if (o.isSkinnedMesh) {
+      if (o.isSkinnedMesh && !o.userData.shadowTwin) {
         this.meshes.push(o);
-        o.frustumCulled = false;
+        // (culled by a sphere round its bind pose, half as wide again for its poses and flights: never culled, Carol's
+        // 90 k-triangle scan was skinned and drawn twice a frame from her hangar 6 km off Hal's street)
+        o.geometry.computeBoundingSphere();
+        o.boundingSphere = o.geometry.boundingSphere.clone();
+        o.boundingSphere.radius *= 1.6;
+        o.frustumCulled = true;
         o.castShadow = true;
         o.receiveShadow = true;
+        if (!o.userData.shadowTwin) shadowTwin(o);
+        detailLevels(o.geometry);
+        detailByHeight(o);
       }
     });
     root.updateMatrixWorld(true);

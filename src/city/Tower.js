@@ -124,6 +124,15 @@ export function tower(ctx, s) {
       if (Math.abs(x - cx) < pw / 2 + 1 && Math.abs(z - cz) < pd / 2 + 1) continue;
       batch.add('metal', box(x - 0.8, H, z - 0.6, x + 0.8, H + 1.4, z + 0.6), M, 0x8a8c8e);
     }
+    // antennas on the plant room of the tall ones (their silhouettes against the sky; red at the tips by night)
+    if (s.crown !== 'mast' && H > 70) {
+      for (let k = 0, nA = 2 + Math.floor(rnd() * 2); k < nA; k++) {
+        const x = cx + (rnd() - 0.5) * (pw - 2), z = cz + (rnd() - 0.5) * (pd - 2), h = 5 + rnd() * 9, r = 0.07 + rnd() * 0.07;
+        batch.add('metal', cyl(r, h, x, H + 5.2, z, 6), M, 0xaeb2b6);
+        batch.add('lamp', cyl(r * 2.2, 0.3, x, H + 5.2 + h, z, 6), M, 0xff4030);
+        ctx.beacons?.push(V(x, H + 5.2 + h + 0.15, z).applyMatrix4(M));
+      }
+    }
     if (s.crown === 'mast') {
       batch.add('metal', cyl(0.35, 26, cx, H + 5.2, cz, 8), M, 0xb8bcc0);
       batch.add('metal', cyl(0.12, 12, cx, H + 31, cz, 6), M, 0xd04030);

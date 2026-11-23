@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { Rig } from './Rig.js';
+import { Rig, detailLevels } from './Rig.js';
 import { MocapSource } from './Mocap.js';
 import { glowTexture } from '../fx/Textures.js';
 
@@ -670,6 +670,7 @@ export function createLightFigure(gltf, { jaw = null } = {}) {
     mat.customProgramCacheKey = () => 'gl-light-figure';
     m.renderOrder = 20;
     m.castShadow = false;
+    m.userData.noLod = true; // (Rig.js's detail levels: its depth below is its whole shape)
     // the depth pass: the same skinned shape, dissolving the same way, writing depth only
     const dm = new THREE.MeshBasicMaterial({ colorWrite: false });
     patchMaterial(dm, { u });
@@ -694,6 +695,7 @@ function withoutScanRing(rig) {
     const src = m.geometry;
     if (!RINGLESS.has(src)) RINGLESS.set(src, ringlessGeometry(src, m.material.map, m.skeleton.bones.indexOf(hand), m.skeleton.boneInverses[m.skeleton.bones.indexOf(hand)]));
     m.geometry = RINGLESS.get(src) ?? src;
+    detailLevels(m.geometry); // (its detail levels now, while it loads: Rig.js)
   }
 }
 function ringlessGeometry(src, map, hi, inverse) {
