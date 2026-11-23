@@ -15,6 +15,7 @@ import { Zamaron, ZAMARON_PROPS, ARRIVE as ZAM_ARRIVE, COURT, THRONE } from '../
 import { breath } from '../engine/Slice.js';
 import { loadProps } from '../props/Props.js';
 import { LOT, coastX } from '../scenes/Ferris.js';
+import { RAPIER } from '../engine/Physics.js';
 import { sliced } from '../engine/Slice.js';
 import { Bedroom } from '../scenes/Bedroom.js';
 import { CityLife } from './CityLife.js';
@@ -83,6 +84,7 @@ const TAKES = { wash: 0.75, haircut: 0.5, shave: 0.3, press: 1.0, movie: 2.0, wo
 const SECTORS = { oa: 'SECTOR 0', korugar: 'SECTOR 1417', ysmault: 'SECTOR 666', qward: 'QWARD', zamaron: 'ZAMARON' }; // (off Earth the clock's place shows where he is) // (no air for a man out of the uniform; Korugar has its people's)
 const CIVILIAN_KEYS = '<b>T</b> Green Lantern &nbsp; <b>L</b> lantern &nbsp; <b>M</b> travel &nbsp; <b>G</b> phone &nbsp; <b>N</b> map';
 const LANTERN_KEYS = `${POWER_KEYS} &nbsp; <b>T</b> Hal Jordan &nbsp; <b>M</b> travel &nbsp; <b>G</b> phone &nbsp; <b>N</b> map &nbsp; <b>E</b> high up: star chart`;
+const HOME_KEYS = '<b>T</b> Green Lantern &nbsp; <b>L</b> lantern &nbsp; <b>M</b> travel &nbsp; <b>G</b> phone &nbsp; <b>E</b> at the door: out'; // (his flat: no flight, no constructs)
 
 // Free roam, after Part Six (the user's call, 2026-11-17, and their notes the same day: "I really
 // can't travel in space as a Green Lantern", "I should be able to change into Hal Jordan, and use my
@@ -112,9 +114,6 @@ export class Roam extends Exile {
     else if (free && this.cityMap && this.current === this.ferrisScene && this.input.hit('KeyN')) { this.input.consume?.('KeyN'); this.cityMap.openFull(); }
     this.cityMap?.update(real ?? dt);
     if (dt > 0) this.roamTick?.(dt);
-    // in sight or out of it, on Earth's streets (he changes only where no one can see him)
-    const earth = this.current === this.ferrisScene && this.cityLife?.started && !this.driving;
-    this.ui.watching(earth && this.player.control ? this.watchers().length : null);
     if (dt > 0) this.updateAir(dt);
     this.updateDay(dt);
   }
@@ -223,18 +222,21 @@ export class Roam extends Exile {
   }
 
   // ---------------------------------------------------------------- his secret
-  // Who can see him now (story/CityLife.js `seenBy`): on Earth he changes only where nobody can (the
-  // user, 2026-11-18: "he needs to go somewhere secret in order to change"): an alley, a roof, his flat,
-  // the diner's restroom.
+  // Who can see him now (story/CityLife.js `seenBy`). He changes anywhere (the user, 2026-11-23: "I
+  // cannot change to Hal Jordan as freely as I want to, which should not be the case"; it used to be
+  // only out of sight): whoever's watching turns to the ring's flare. The diner's restroom still does it
+  // behind a door.
   watchers() {
     if (this.current !== this.ferrisScene || !this.cityLife?.started) return [];
     return this.cityLife.seenBy();
   }
-  refuseSeen() {
-    this.audio.denied();
-    this.seenN = (this.seenN ?? 0) + 1;
-    this.bark(['halSeen1', 'halSeen2', 'halSeen3'][this.seenN % 3]);
-    this.ui.toast('Someone can see you. Get out of sight to change.');
+
+  // How far he is above whatever's under him: the scene's colliders (a roof, a deck), or the ground
+  clearance() {
+    const { player, powers } = this, p = player.position;
+    const ground = p.y - (powers.ground?.(p.x, p.z) ?? -Infinity);
+    const hit = player.physics?.world.castRay(new RAPIER.Ray({ x: p.x, y: p.y + 0.2, z: p.z }, { x: 0, y: -1, z: 0 }), 400, true, undefined, undefined, player.collider, undefined, player.filter);
+    return Math.min(ground, hit ? hit.timeOfImpact - 0.2 : Infinity);
   }
 
   // The diner's restroom: in, the door shut, changed, out
@@ -296,16 +298,18 @@ export class Roam extends Exile {
   }
 
   // The keys line under the controls: what Hal can do as he is now.
+  get indoors() { return this.roam?.where === 'home'; }
   roamKeys() {
-    this.ui.powerKeys = this.civilian ? CIVILIAN_KEYS : LANTERN_KEYS;
+    this.ui.powerKeys = this.indoors ? (this.civilian ? HOME_KEYS : HOME_KEYS.replace('Green Lantern', 'Hal Jordan')) : this.civilian ? CIVILIAN_KEYS : LANTERN_KEYS;
     if (this.player.control) this.ui.controls(true);
   }
 
   // The ring's state for who he is now: in the suit, everything; in his clothes, only the ring's charge
-  // (the key and the lantern still work; no flight, no constructs).
+  // (the key and the lantern still work; no flight, no constructs). Indoors (his flat) neither, in the
+  // suit too: suited up in the hall he took off, and flying, the door's prompt and T were gone.
   powersFor() {
-    const { powers } = this;
-    Object.assign(powers.enabled, { hud: true, constructs: !this.civilian, flight: !this.civilian });
+    const { powers } = this, out = !this.civilian && !this.indoors;
+    Object.assign(powers.enabled, { hud: true, constructs: out, flight: out });
     powers.suited = !this.civilian;
     this.hud.show(true);
     this.hud.vitals.classList.toggle('show', !this.civilian);
@@ -391,7 +395,6 @@ export class Roam extends Exile {
     const { ui, powers } = this, P = PLACES[id], from = this.roam.where, fromWorld = PLACES[from]?.world;
     if (this.civilian && P.world !== 'earth') {
       if (powers.charge < 2) { this.audio.denied(); this.ringSay('ringSuitLow'); this.giveControl(this.roamObjective()); return; }
-      if (this.watchers().length) { this.refuseSeen(); this.giveControl(this.roamObjective()); return; }
       this.takeControl();
       await this.becomeLantern();
     }
@@ -699,7 +702,6 @@ export class Roam extends Exile {
     const { player, director } = this, car = f.car;
     this.takeControl();
     if (!this.civilian) {
-      if (this.watchers().length) { this.refuseSeen(); this.giveControl(this.roamObjective()); return; }
       if (player.flying) await this.touchDown();
       await this.becomeHal();
     }
@@ -855,18 +857,24 @@ export class Roam extends Exile {
   }
 
   // ---------------------------------------------------------------- who he is
+  // T, anywhere: into the suit (it needs charge), or out of it. In the air, out of it is down first:
+  // flying low the ring sets him on whatever's under him; high up he comes down himself.
   async changeClothes() {
     const { player, powers } = this;
-    if (this.watchers().length) { this.refuseSeen(); return; }
     if (this.civilian) {
       if (powers.charge < 2) { this.audio.denied(); this.ringSay('ringSuitLow'); this.bark('halSuitFail'); return; }
       this.busy = true;
       try { await this.becomeLantern(); } finally { this.busy = false; }
-    } else {
-      if (player.flying || !player.grounded) { powers.say('Land first.', { voice: false }); this.audio.denied(); return; }
-      this.busy = true;
-      try { await this.becomeHal(); } finally { this.busy = false; }
+      return;
     }
+    if (player.flying && this.clearance() > 14) { powers.say('Land first · C to come down.', { voice: false }); this.audio.denied(); return; }
+    this.busy = true;
+    try {
+      if (player.flying) await this.touchDown();
+      // (a step down or a kerb: the controller's a frame or two off the ground, not in the air)
+      if (!player.grounded) await Promise.race([waitFor(() => player.grounded), wait(1.5)]);
+      await this.becomeHal();
+    } finally { this.busy = false; }
   }
 
   // The ring hand up before his face, its light flaring: the uniform sweeps off into his clothes, or
@@ -901,6 +909,8 @@ export class Roam extends Exile {
     const { player, powers, audio } = this, p = V(0, 0, 0);
     const up = () => { const y = player.yaw; return p.copy(player.position).add(V(Math.sin(y) * 0.38 - Math.cos(y) * 0.06, 1.5, Math.cos(y) * 0.38 + Math.sin(y) * 0.06)); };
     player.animator.reach('R', up, { pole: V(-0.6, -0.8, -0.1), rate: 9 });
+    const seen = this.watchers();
+    if (seen.length) this.cityLife.glance(seen, 3.5); // (whoever's watching turns to the flare)
     audio.riser(0.9, 0.25);
     audio.ringChime();
     this.ringGlow = 5;
@@ -1510,8 +1520,8 @@ export class Roam extends Exile {
     player.ground = () => 0;
     this.flatTime(room, !!this.ferrisScene?.isNight);
     this.ambience(audio.traffic(0.03), audio.roomTone(0.035));
-    Object.assign(powers.enabled, { flight: false, constructs: false }); // (indoors)
     this.roam.where = 'home';
+    this.powersFor(); // (indoors: no flight, no constructs, in the suit or out of it)
     this.roamTick = null;
     await ui.fade(0, 0.6);
     this.busy = false;
@@ -1525,14 +1535,17 @@ export class Roam extends Exile {
     this.takeControl();
     audio.door();
     await ui.fade(1, 0.6);
-    const f = this.ferrisScene;
-    this.enterFerris(LOT.clone().add(V(this.homeDoor ?? 13.6, 0, 11.4)), Math.PI); // (out of the door he went in by, at the foot of its stoop)
-    this.ferrisRoam(f, 'coast');
-    this.roam.where = 'coast';
-    this.powersFor();
-    await ui.fade(0, 0.6);
-    this.busy = false;
-    this.giveControl(this.roamObjective());
+    try {
+      const f = this.ferrisScene;
+      this.enterFerris(LOT.clone().add(V(this.homeDoor ?? 13.6, 0, 11.4)), Math.PI); // (out of the door he went in by, at the foot of its stoop)
+      this.ferrisRoam(f, 'coast');
+      this.roam.where = 'coast';
+      this.powersFor();
+    } finally { // (whatever went wrong, never left in the dark without control)
+      await ui.fade(0, 0.6);
+      this.busy = false;
+      this.giveControl(this.roamObjective());
+    }
   }
 
   // The flat by night: the desk lamp and the hall light on, the moon in the window, the night sky out

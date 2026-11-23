@@ -84,8 +84,10 @@ lines are pre-rendered clips (`public/voices/`), with `speechSynthesis` only as 
   X", leave X alone (no stand-ins).
 - **Show each iteration of a new model and ask** (front, three-quarter, profile, eyes). Keep review
   sheets short: very tall images preview with banding.
-- **NPCs need purpose:** jobs with visible steps, answers to Hal, talk he can overhear. On Earth Hal
-  changes between Hal and Green Lantern only where nobody can see him (`Roam.watchers()`).
+- **NPCs need purpose:** jobs with visible steps, answers to Hal, talk he can overhear.
+- **T changes him anywhere** (the user, 2026-11-23, reversing their earlier "only out of sight"): whoever
+  can see him (`Roam.watchers()`) turns to the flare (`CityLife.glance`); in the air the ring sets him
+  down first. Don't add places where T is refused without asking.
 - **Movement and physics matter most.** Borrow established techniques (mocap, IK, motion matching,
   momentum steering) rather than inventing them. Lip movement yes; visemes and hair not needed.
 - **Boss fights:** challenging like Resident Evil, not Souls. Spam gets very little; blocking and
@@ -372,6 +374,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Spawn enemies relative to the player, not the arena.
 - The guard needs `powers.enabled.constructs`: turning constructs off takes the shield too. `player.knock` is the
   Predator's; the player's own push is `player.dash(dir, speed, dur)`.
+- `powersFor()` turns flight and constructs back on for the suit: indoors (`Roam.indoors`, his flat) it has to keep
+  them off, or a change in the hall let him take off, and flying, interactions and T are gone (the user: "once I
+  enter the home, I cannot get out").
 - A view turned by yaw and pitch: `(d.z, 0, -d.x)` is the *left* of `d`, so pitching about it turns the wrong way
   (Carol's hold had the mouse and W/S inverted).
 

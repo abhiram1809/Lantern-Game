@@ -17,7 +17,7 @@ const LOAD_TIPS = [
   '<b>4</b> opens the construct wheel; time stops while it’s open.',
   'Hold <b>F</b> or the right button to guard. Raised just as a blow lands, it parries.',
   'Double-tap <b>Space</b> to fly. <b>Shift</b> boosts, <b>C</b> comes down.',
-  '<b>T</b> changes between Hal Jordan and Green Lantern, where nobody can see him.',
+  '<b>T</b> changes between Hal Jordan and Green Lantern, anywhere: in the air, he comes down first.',
   '<b>L</b> brings the lantern from wherever it is. Below a quarter of a charge, say the oath.',
   'Fly high and press <b>E</b> for the ring’s star chart. <b>M</b> is the same places by name.',
   'Rosie’s Diner is open all night. The patty melt is $5.25 with the pie.',
@@ -36,7 +36,7 @@ export class UI {
       chapter: $('#chapter'), objective: $('#objective'), clock: $('#clock'), prompt: $('#prompt'), controls: $('#controls'),
       sub: $('#subtitle'), speaker: $('#subtitle .speaker'), text: $('#subtitle .text'),
       over: $('#overheard'), overSpeaker: $('#overheard .speaker'), overText: $('#overheard .text'),
-      watched: $('#watched'), watchedLabel: $('#watched .label'), life: $('#life'),
+      life: $('#life'),
       pick: $('#pick'), pickTitle: $('#pick .title'), pickOptions: $('#pick .options'),
       choice: $('#choice'), question: $('#choice .question'), options: $('#choice .options'), keys: $('#choice .keys'),
       screen: $('#screen'), letterbox: $('#letterbox'), frame: $('#frame'), hud: $('#hud'),
@@ -233,8 +233,6 @@ export class UI {
     return p;
   }
 
-  // Whether anyone can see him (his secret: he changes only out of sight). n: how many are watching;
-  // null hides it
   // free roam's panel under the clock (story/Life.js): his money (and Rosie's tab), his level and the
   // XP into it, points to spend, and as Green Lantern what the city thinks; null hides it
   life(s) {
@@ -249,14 +247,6 @@ export class UI {
     const op = L.querySelector('.op');
     op.textContent = s.opinion == null ? '' : `${s.mood.toUpperCase()} ${s.opinion > 0 ? '+' : ''}${s.opinion}`;
     op.className = `op ${s.opinion == null ? '' : s.opinion >= 25 ? 'good' : s.opinion > -10 ? 'mid' : 'bad'}`;
-  }
-
-  watching(n) {
-    const w = this.el.watched;
-    if (n == null) { w.classList.remove('show'); return; }
-    w.classList.add('show');
-    w.classList.toggle('seen', n > 0);
-    this.el.watchedLabel.textContent = n > 0 ? (n === 1 ? 'SEEN · 1 PERSON' : `SEEN · ${n} PEOPLE`) : 'OUT OF SIGHT';
   }
 
   // Morph the glyph line on screen into English, character by character.

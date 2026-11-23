@@ -57,8 +57,8 @@ const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3
 //   (`TALKS`, overheard on a channel of their own, as loud as he is close), and whisper about him
 //   (Martin Jordan's boy, the Ferris pilot) or about Green Lantern; under their breath as Green Lantern
 //   walks by. The jaw moves on the voice.
-// - Who sees him (`seenBy`): anyone facing him, within sight of him, with nothing solid between. He
-//   changes only where no one can (story/Roam.js).
+// - Who sees him (`seenBy`): anyone facing him, within sight of him, with nothing solid between. When
+//   the ring changes him, they turn to the flare (`glance`; story/Roam.js).
 // - Reactions: Green Lantern flying low, they stop and look up, the kids point, someone calls out; a
 //   construct cast near them, the street runs, crouches, then goes back to where it was.
 // By night half the walkers and the bus stop's people go home. Far from the camera nobody's drawn.
@@ -434,6 +434,15 @@ export class CityLife {
   look(p, at, w = 0.8) {
     p.anim.lookAt(at, w);
     p.per.lookEyes(at);
+  }
+
+  // A flash where Hal is (the ring changing him): those who saw it turn their heads to it for a while
+  glance(people, secs) {
+    for (const p of people) {
+      if (p.talking || p.up || p.actor) continue;
+      this.look(p, this.halHead(), 0.8);
+      wait(secs * (0.8 + Math.random() * 0.4)).then(() => { if (!p.talking && !p.up) this.look(p, null); });
+    }
   }
 
   halHead() { return this._hh ??= (() => { const v = V(0, 0, 0); return () => this.story.player.rig.bonePosition('head', v); })(); }

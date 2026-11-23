@@ -512,8 +512,10 @@ block debris, bolts and Hal.
    back. Walk near people and you'll overhear them, out loud or whispering about Hal Jordan, or about
    Green Lantern. Fly low over them and they look up and point; make a construct near them and they run.
    By night the street empties out.
-   **Your secret**: on Earth Hal can only change (**T**) where nobody can see him; the HUD says "SEEN" or
-   "OUT OF SIGHT". Try an alley, a roof, his flat, or the diner's restroom.
+   **Changing**: **T** changes Hal anywhere, in his flat too. People who can see him turn to look at
+   the ring's flare. Flying low, the ring sets him down first; high up, land first (**C**). The diner's
+   restroom does it behind a door. His flat is indoors: no flight and no constructs there, in the suit
+   or out of it.
    **The day goes by**: a minute every two seconds, the sun across the sky and the town's lamps coming
    on at dusk; clear days mostly, the marine layer some mornings, overcast, now and then rain. Sleep in
    the flat to skip to the morning or the evening.

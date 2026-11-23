@@ -80,12 +80,6 @@ body.powers #subtitle { max-width: min(760px, 56vw); }
 #pick button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 4px; border: 0; background: none; color: #eef2ef; font: 500 15px/1.2 var(--hud-font); text-align: left; cursor: pointer; }
 #pick button:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
 #pick .key { display: inline-grid; place-items: center; width: 20px; height: 20px; border: 1px solid #8a9a90; border-radius: 3px; font-size: 11px; color: #cfe; }
-/* in sight or out of it (he changes only where no one can see him) */
-/* (in free roam's panel, under his level: it sat at a fixed height and covered the level's line) */
-#watched { display: inline-flex; margin-top: 8px; align-items: center; gap: 8px; padding: 5px 10px 5px 8px;
-  border-radius: 3px; background: rgba(0, 0, 0, 0.32); font: 600 10px/1 var(--hud-font); letter-spacing: 0.22em; color: #9fe8b6;
-  opacity: 0; transition: opacity 0.4s, color 0.3s; pointer-events: none; }
-#watched.show { opacity: 1; }
 #life { position: absolute; top: 54px; right: 26px; text-align: right; font: 600 11px/1.5 var(--hud-font); letter-spacing: 0.16em; color: #c9f5e3; opacity: 0; transition: opacity 0.4s; pointer-events: none; text-shadow: 0 0 8px rgba(0, 0, 0, 0.6); }
 #life.show { opacity: 1; }
 #life .cash b { font-size: 16px; letter-spacing: 0.08em; color: #eafff5; font-weight: 600; }
@@ -96,11 +90,6 @@ body.powers #subtitle { max-width: min(760px, 56vw); }
 #life .pts { color: #fff0a0; }
 #life .op:empty { display: none; }
 #life .op.good { color: #8dffb8; } #life .op.mid { color: #e8e2b8; } #life .op.bad { color: #ff9a7a; }
-#watched .eye { width: 16px; height: 9px; border: 1.5px solid currentColor; border-radius: 50% / 60%; position: relative; }
-#watched .eye::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: currentColor; }
-#watched:not(.seen) .eye { border-style: dashed; opacity: 0.7; }
-#watched:not(.seen) .eye::after { opacity: 0; }
-#watched.seen { color: #ffb37a; }
 #subtitle .text .g { font-family: var(--glyph-font); color: #c8ffd9; }
 #subtitle .more { display: inline-block; margin-left: 8px; color: var(--green); animation: blink 1s infinite; }
 @keyframes blink { 50% { opacity: 0.2; } }
