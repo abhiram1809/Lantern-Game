@@ -9,7 +9,7 @@ import { prop, hasProp } from '../props/Props.js';
 import { Batch, cityMaterials } from './Kit.js';
 import { building, box, label } from './Building.js';
 import { kit, shell, FLOOR } from './Interiors.js';
-import { SignAtlas } from './Signs.js';
+import { SignPages } from './Signs.js';
 import { swingDoors, SOLID } from './HalsBlock.js';
 import { flatten } from './Lod.js';
 
@@ -28,9 +28,7 @@ export function buildFerrisOffice(f, at = V(83, 0, 51)) {
   g.name = 'ferrisOffice';
   f.scene.add(g);
   const mats = cityMaterials();
-  const signs = { painted: new SignAtlas(1024), lit: new SignAtlas(1024) };
-  mats.sign = new THREE.MeshStandardMaterial({ map: signs.painted.texture, roughness: 0.72, alphaTest: 0.4 });
-  mats.signLit = new THREE.MeshStandardMaterial({ map: signs.lit.texture, emissiveMap: signs.lit.texture, emissive: 0xffffff, emissiveIntensity: 0.12, roughness: 0.4 });
+  const signs = new SignPages(f.engine.renderer, mats, { size: 1024, glow: 0.12 });
   mats.roofTile = mats.tile;
   let s0 = 1964;
   const ctx = { batch: new Batch(), mats, signs, rnd: () => ((s0 = (s0 * 1664525 + 1013904223) >>> 0) / 4294967296), props: true, objects: [], lamps: [], neon: [], shops: [], solids: [], parapets: [], hulls: [], pads: [], decals: {},
@@ -42,6 +40,8 @@ export function buildFerrisOffice(f, at = V(83, 0, 51)) {
   const r = ctx.inside[0];
   if (r) lobby(ctx, r.M, r);
   for (const l of ctx.labels) label(ctx, l.M.clone().multiply(new THREE.Matrix4().makeTranslation(0, 0, l.z)), l.u0, l.u1, l.y0, l.h, l.sign);
+  signs.flush();
+  signs.sealAll();
   g.add(ctx.batch.build(mats));
   for (const { o, kind } of ctx.objects) {
     g.add(o);
@@ -72,7 +72,7 @@ export function buildFerrisOffice(f, at = V(83, 0, 51)) {
       _in.copy(p).applyMatrix4(inv);
       return _in.x > r.x0 && _in.x < r.x1 && _in.z < r.z0 && _in.z > r.z1 && _in.y < r.ceil + 0.2;
     },
-    setNight(k) { for (const m of [mats.signLit]) m.emissiveIntensity = 0.1 + k * 0.4; },
+    setNight(k) { for (const m of signs.litMats) m.emissiveIntensity = 0.1 + k * 0.4; },
     update(dt, t, camera) {
       swingDoors(ctx.doors, g.position, dt, this);
       if (camera && src) src.power = light.position.distanceTo(camera.position) < 40 ? 6 : 0;

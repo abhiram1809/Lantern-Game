@@ -5,6 +5,7 @@ import { AudioBank } from './engine/Audio.js';
 import { Voice } from './engine/Voice.js';
 import { initPhysics } from './engine/Physics.js';
 import { tick } from './engine/Time.js';
+import { ktx2Support } from './engine/Ktx2.js';
 import { UI } from './ui/UI.js';
 import { PerfHud } from './ui/PerfHud.js';
 import { loadCharacters, PART_SCANS } from './characters/Characters.js';
@@ -58,6 +59,7 @@ async function boot() {
   // the assets kept in the browser between visits (public/sw.js)
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   const engine = new Engine(document.getElementById('app'));
+  ktx2Support(engine.renderer); // (the props', people's and surfaces' compressed textures: engine/Ktx2.js)
   const input = new Input(engine.renderer.domElement);
   const audio = new AudioBank();
   const voice = new Voice();

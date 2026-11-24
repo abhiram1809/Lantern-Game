@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { ktx2 } from '../engine/Ktx2.js';
 
 // Downloaded models (see CREDITS.md), built by tools/build-props.mjs into public/models/props:
 // each faces +Z in metres, standing on y = 0. A part loads the set it needs first
 // (`await loadProps(names)`); `prop(name)` then hands out copies, synchronously.
-const loader = new GLTFLoader();
+const loader = new GLTFLoader().setKTX2Loader(ktx2);
 const pending = new Map(), ready = new Map();
 
 export function loadProps(names, onProgress = null) {

@@ -14,6 +14,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { ktx2, ktx2Support } from '/src/engine/Ktx2.js';
 
 const W = 480, H = 360, COLS = 3;
 const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true, preserveDrawingBuffer: true });
@@ -25,7 +26,8 @@ scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnviron
 const sun = new THREE.DirectionalLight(0xffffff, 2.2);
 sun.position.set(3, 6, 4);
 scene.add(sun, new THREE.HemisphereLight(0xdde6ff, 0x554433, 0.6));
-const loader = new GLTFLoader();
+ktx2Support(renderer);
+const loader = new GLTFLoader().setKTX2Loader(ktx2); // (the built props' textures are KTX2)
 let current = null;
 
 // views: [yaw, pitch, zoom] about the model's centre (yaw 0 looks at its front, +Z)

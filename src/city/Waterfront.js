@@ -18,7 +18,8 @@ const _q = new THREE.Quaternion(), _Y = V(0, 1, 0);
 export function* buildWaterfront(stream) {
   const f = stream.f, mats = stream.mats, P = f.physics;
   const batch = new Batch(), I = new THREE.Matrix4(), places = [], bodies = [], items = [], lamps = [];
-  const ctx = { batch, mats, signs: stream.signs, rnd: mulberry(3121), props: false, objects: [], lamps, neon: [], shops: [], solids: [], parapets: [], hulls: [], pads: [], decals: {}, doors: [], inside: [], spots: [], posts: [], roomLights: [], rooms: [], labels: [], goods: [] };
+  // (`signUses`: its signs counted in use for good, so their pages are never filled again)
+  const ctx = { batch, mats, signs: stream.signs, signUses: [], rnd: mulberry(3121), props: false, objects: [], lamps, neon: [], shops: [], solids: [], parapets: [], hulls: [], pads: [], decals: {}, doors: [], inside: [], spots: [], posts: [], roomLights: [], rooms: [], labels: [], goods: [] };
   const rnd = ctx.rnd;
   const solid = (x0, y0, z0, x1, y1, z1) => bodies.push(P.fixedBox(V((x0 + x1) / 2 + ORIGIN.x, (y0 + y1) / 2, (z0 + z1) / 2 + ORIGIN.z), V(Math.abs(x1 - x0) / 2, Math.abs(y1 - y0) / 2, Math.abs(z1 - z0) / 2)));
   const put = (k, x, y, z, yaw, s = 1) => places.push({ k, M: new THREE.Matrix4().compose(V(x, y, z), _q.setFromAxisAngle(_Y, yaw), V(s, s, s)), s });

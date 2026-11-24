@@ -6,17 +6,18 @@
 // turned to face +Z and set on the ground, and the Biped's 80 weights are folded onto our 17 bones,
 // keeping the fingers (fifteen a hand, for hands that hold and close) and the eyes (to look with).
 // Of the 175 face blendshapes, seven are kept: the jaw for speech, the blinks, a smile, a pucker and
-// the inner brows. Textures come down to what a passer-by needs (the face's colour at 1024).
+// the inner brows. Textures come down to what a passer-by needs (the face's colour at 768), GPU-compressed
+// (KTX2, tools/texture-fit.mjs).
 //
 //   node tools/build-people.mjs            every person in PEOPLE (assets/people/<id>.glb → public/models/people/)
 //   ONLY=female-adult-02 node tools/...    one
 //   FETCH=1 node tools/...                 download the sources that are missing first
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { textureCompress, prune } from '@gltf-transform/functions';
+import { prune } from '@gltf-transform/functions';
 import { MeshoptDecoder } from 'meshoptimizer';
-import sharp from 'sharp';
 import { mkdir, writeFile, access } from 'node:fs/promises';
+import { fitTextures, neededSize, fitted } from './texture-fit.mjs';
 
 // who's in the city: id → role (the role is only a note for whoever places them)
 export const PEOPLE = {
@@ -102,8 +103,8 @@ for (const id of ids) {
     await writeFile(src, Buffer.from(await r.arrayBuffer()));
   }
   const doc = await io.read(src);
-  // written plain, as the scans are (the game's loader has no meshopt decoder); the WebP textures
-  // come back with textureCompress
+  // written plain, as the scans are (the game's loader has no meshopt decoder); the textures come back
+  // compressed (KHR_texture_basisu)
   for (const ext of doc.getRoot().listExtensionsUsed()) ext.dispose();
   const root = doc.getRoot(), buffer = root.listBuffers()[0];
   const node = root.listNodes().find((n) => n.getMesh() && n.getSkin());
@@ -221,18 +222,19 @@ for (const id of ids) {
   meta[id] = { height: +top.toFixed(3), eyes: +at.eye_L[1].toFixed(3), role: PEOPLE[id] ?? '' };
 
   // the people Hal talks to across a counter at 1024; passers-by smaller (a face at 768 still holds up
-  // at talking distance; 25 of them at 1024 would be 400 MB of texture)
-  const near = STAFF.includes(id), T = (n) => [n, n];
+  // at talking distance). What they wear and carry (helmets, a keffiyeh, a holster, tools: 2048 in the
+  // source, for VR) at the face's size, and nothing more than a texel to a pixel from 1.5 m; then fitted
+  // (a flat map shrinks) and compressed
+  const near = STAFF.includes(id), face = near ? 1024 : 768;
+  const CAPS = [[/head_color/, face], [/body_color/, near ? 1024 : 512], [/head_normal/, 512], [/body_normal/, near ? 512 : 256], [/opacity/, 512]];
+  const capOf = (t) => (CAPS.find(([re]) => re.test(t.getName() || t.getURI())) ?? [null, face])[1];
+  let rows = [];
   await doc.transform(
-    textureCompress({ encoder: sharp, targetFormat: 'webp', pattern: /head_color/, resize: T(near ? 1024 : 768), quality: 88 }),
-    textureCompress({ encoder: sharp, targetFormat: 'webp', pattern: /body_color/, resize: T(near ? 1024 : 512), quality: 85 }),
-    textureCompress({ encoder: sharp, targetFormat: 'webp', pattern: /head_normal/, resize: T(512), quality: 85 }),
-    textureCompress({ encoder: sharp, targetFormat: 'webp', pattern: /body_normal/, resize: T(near ? 512 : 256), quality: 85 }),
-    textureCompress({ encoder: sharp, targetFormat: 'webp', pattern: /opacity/, resize: T(512), quality: 88 }),
     prune(),
+    fitTextures({ cap: (slot, t) => Math.min(capOf(t), neededSize(t, { near: 1.5 })), report: (r) => { rows = r; } }),
   );
   await io.write(`public/models/people/${id}.glb`, doc);
-  console.log(`${id}: ${meta[id].height} m, bind spread ${spread.toExponential(1)}, faced from ${(yaw * 180 / Math.PI).toFixed(0)}°`);
+  console.log(`${id}: ${meta[id].height} m, bind spread ${spread.toExponential(1)}, faced from ${(yaw * 180 / Math.PI).toFixed(0)}°; ${fitted(rows)}`);
 }
 
 // what the game reads to know who exists (heights for placing them)

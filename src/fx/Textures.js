@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ktx2Texture } from '../engine/Ktx2.js';
 
 const canvas = (w, h = w) => {
   const c = document.createElement('canvas');
@@ -177,15 +178,14 @@ export function photoTexture() {
 }
 
 // A material from one of the downloaded surface textures (tools/fetch-textures.mjs, Poly Haven,
-// CC0): colour, normal and roughness at 1K, each with its own repeat. `repeat` is how many times it
-// tiles across the surface's UVs; `tint` multiplies the colour; `map` replaces the colour (a canvas
-// with markings painted on it, say) while the normal and roughness keep the surface's grain.
+// CC0): colour, normal and roughness at 1K (GPU-compressed KTX2), each with its own repeat. `repeat` is
+// how many times it tiles across the surface's UVs; `tint` multiplies the colour; `map` replaces the colour
+// (a canvas with markings painted on it, say) while the normal and roughness keep the surface's grain.
 const pbrCache = new Map();
-const pbrLoader = new THREE.TextureLoader();
 function pbrTexture(id, name, colour) {
   const key = `${id}/${name}`;
   if (!pbrCache.has(key)) {
-    const t = pbrLoader.load(`/textures/pbr/${id}/${name}.webp`);
+    const t = ktx2Texture(`/textures/pbr/${id}/${name}.ktx2`);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.anisotropy = 8;
     if (colour) t.colorSpace = THREE.SRGBColorSpace;

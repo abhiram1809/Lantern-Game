@@ -8,8 +8,9 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { Rig } from './Rig.js';
 import { makeUniforms, patchMaterial } from './Characters.js';
+import { ktx2 } from '../engine/Ktx2.js';
 
-const loader = new GLTFLoader();
+const loader = new GLTFLoader().setKTX2Loader(ktx2);
 const cache = new Map();
 let roster = null;
 

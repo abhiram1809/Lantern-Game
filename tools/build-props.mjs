@@ -9,11 +9,11 @@
 //   ONLY=phoenix node tools/...           build one
 import { NodeIO, getBounds } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { textureCompress, prune, dedup, metalRough, weld, simplify } from '@gltf-transform/functions';
+import { prune, dedup, metalRough, weld, simplify } from '@gltf-transform/functions';
 import { MeshoptDecoder, MeshoptSimplifier } from 'meshoptimizer';
-import sharp from 'sharp';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, stat } from 'node:fs/promises';
 import { TEXTURES } from './fetch-textures.mjs';
+import { fitTextures, neededSize, fitted } from './texture-fit.mjs';
 
 const ONLY = process.env.ONLY;
 const BY = 'CC BY 4.0';
@@ -22,8 +22,9 @@ const BY = 'CC BY 4.0';
 // turns it about x first. Size by length (along the front after turning),
 // height, or a plain scale. origin 'ground' stands it on y = 0; 'centre' centres it (hand props).
 // drop: parts to remove (node names). opaque: materials that were exported as blended for no reason.
-// simplify: the share of triangles to keep, for heavy scans. tex: the texture size (512 for props
-// only ever seen small or far off; the default 1024).
+// simplify: the share of triangles to keep, for heavy scans. tex: the largest texture size (512 for props
+// only ever seen small or far off; the default 1024); near: the closest the camera comes, in metres (2 by
+// default): a map bigger than one texel to a pixel there is brought down to that (tools/texture-fit.mjs).
 export const PROPS = [
   // Hal's car: the '71 muscle car, its paint a plain material the game fades and patches with primer
   { name: 'phoenix', src: 'assets/props/phoenix.glb', forward: '+z', length: 4.9, tex: 2048,
@@ -287,14 +288,20 @@ for (const p of PROPS) {
   const triCount = () => doc.getRoot().listMeshes().reduce((n, m) => n + m.listPrimitives().reduce((k, q) => k + (q.getIndices()?.getCount() ?? q.getAttribute('POSITION').getCount()) / 3, 0), 0);
   const ratio = p.tris ? Math.min(1, p.tris / triCount()) : p.simplify;
   if (ratio && ratio < 1) await doc.transform(weld(), simplify({ simplifier: MeshoptSimplifier, ratio, error: p.error ?? 0.002 }));
+  // the textures: each at most `tex`, and no more than a texel to a pixel from `near`; then fitted and
+  // GPU-compressed (KTX2, tools/texture-fit.mjs)
+  let rows = [];
   await doc.transform(
     metalRough(),
     dedup(),
-    textureCompress({ encoder: sharp, targetFormat: 'webp', resize: [tex, tex], quality: 85 }),
     prune(),
+    fitTextures({ cap: (slot, t) => Math.min(tex, neededSize(t, { near: p.near ?? 2 })), report: (r) => { rows = r; } }),
   );
-  await io.write(`public/models/props/${p.name}.glb`, doc);
-  console.log(`${p.name}: ${[0, 1, 2].map((i) => (b.max[i] - b.min[i]).toFixed(2)).join(' x ')} m`);
+  const out = `public/models/props/${p.name}.glb`;
+  await io.write(out, doc);
+  const mb = (await stat(out)).size / 1e6;
+  if (mb > 25) throw new Error(`${out} is ${mb.toFixed(1)} MB: over the repo's 25 MB a file (lower its \`tex\`)`);
+  console.log(`${p.name}: ${[0, 1, 2].map((i) => (b.max[i] - b.min[i]).toFixed(2)).join(' x ')} m, ${mb.toFixed(1)} MB; ${fitted(rows)}`);
 }
 
 // the credits, from the same list
@@ -313,7 +320,7 @@ ${lines.join('\n')}
 
 ## Textures
 
-${TEXTURES.map((t) => `- **${t.id}** from [Poly Haven](https://polyhaven.com/a/${t.id}), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): ${t.use}. Converted to WebP at 1K (\`public/textures/pbr/\`, \`tools/fetch-textures.mjs\`).`).join('\n')}
+${TEXTURES.map((t) => `- **${t.id}** from [Poly Haven](https://polyhaven.com/a/${t.id}), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): ${t.use}. Fitted and converted to KTX2 at 1K or less (\`public/textures/pbr/\`, \`tools/fetch-textures.mjs\`).`).join('\n')}
 
 ## Voices
 
@@ -339,5 +346,13 @@ textures resized.
 ## Animation
 
 - Mixamo clips (\`assets/mocap/\`, \`public/anims/\`), from the three.js examples, under Mixamo's terms.
+
+## Software
+
+- The shop signs are compressed in the browser (\`src/city/SignWorker.js\`) by the prebuilt WebAssembly encoder
+  of [Basis Universal](https://github.com/BinomialLLC/basis_universal) 2.50 (\`public/basis/basis_encoder.js\`,
+  \`basis_encoder.wasm\`), unmodified, licensed [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) (its
+  \`LICENSE\` and \`NOTICE\` are beside it): Basis Universal™ Supercompressed GPU Texture Compression Library,
+  Copyright © 2016–2026 Binomial LLC. "Basis Universal" is a trademark of Binomial LLC.
 `);
 console.log('wrote CREDITS.md');

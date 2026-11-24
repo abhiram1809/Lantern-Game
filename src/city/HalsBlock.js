@@ -20,7 +20,7 @@ import { building, box, decal, label } from './Building.js';
 import { flatten, InstanceSet, BatchSet } from './Lod.js';
 import { runSteps } from '../engine/Slice.js';
 import { diner, market, shopRoom, stockShelves, kit } from './Interiors.js';
-import { SignAtlas, neonTexture, muralTexture, ghostTexture } from './Signs.js';
+import { SignPages, neonTexture, muralTexture, ghostTexture } from './Signs.js';
 import { PALM_KINDS } from './Palms.js';
 
 // How far the block's things are drawn (city/Lod.js): the walls, roofs, glass and signs from anywhere
@@ -182,22 +182,8 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
   scene.add(g);
   const rnd = seeded(1958), rndS = seeded(1977); // (each block its own: the second leaves Hal's as it was)
   const mats = cityMaterials();
-  const signs = { painted: new SignAtlas(2048), lit: new SignAtlas(2048) };
-  mats.sign = new THREE.MeshStandardMaterial({ map: signs.painted.texture, roughness: 0.72, alphaTest: 0.4 }); // (letters painted on a wall: only the letters)
-  mats.signLit = new THREE.MeshStandardMaterial({ map: signs.lit.texture, emissiveMap: signs.lit.texture, emissive: 0xffffff, emissiveIntensity: 0.1, roughness: 0.4 });
-  // when an atlas is full, another page and a material for it (two blocks' signs overflow one)
-  signs.painted.key = 'sign'; signs.lit.key = 'signLit';
-  const litMats = [mats.signLit];
-  let page = 1;
-  signs.more = (lit) => {
-    const a = new SignAtlas(2048), m = (lit ? mats.signLit : mats.sign).clone();
-    a.key = `${lit ? 'signLit' : 'sign'}${++page}`;
-    m.map = a.texture;
-    if (lit) { m.emissiveMap = a.texture; litMats.push(m); }
-    mats[a.key] = m;
-    signs[lit ? 'lit' : 'painted'] = a;
-    return a;
-  };
+  // the signs' pages, and a material of each kind for each (Signs.js: two blocks' signs fill more than one)
+  const signs = new SignPages(f.engine.renderer, mats), litMats = signs.litMats;
   mats.roofTile = mats.tile;
   const ctx = { batch: new Batch(), mats, signs, rnd, props: true, objects: [], lamps: [], neon: [], shops: [], solids: [], parapets: [], hulls: [], pads: [], decals: {},
     doors: [], inside: [], spots: [], posts: [], roomLights: [], rooms: [], labels: [], goods: [] };
@@ -213,6 +199,7 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
   // the rooms you can walk into (Interiors.js), their lettering
   for (const r of ctx.inside) { (r.kind === 'diner' ? diner : r.kind === 'market' ? market : shopRoom)(ctx, r.M, r); yield; }
   for (const l of ctx.labels) label(ctx, l.M.clone().multiply(new THREE.Matrix4().makeTranslation(0, 0, l.z)), l.u0, l.u1, l.y0, l.h, l.sign);
+  signs.flush();
   for (const sp of ctx.spots) for (const k of ['at', 'approach', 'look']) sp[k]?.add(origin); // (the story's interactions are in the world)
   for (const p of ctx.posts) { p.at.add(origin); for (const b of p.beat ?? []) b.add(origin); } // (and where its people stand)
   // ------------------------------------------------------------------ the street
@@ -380,6 +367,8 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
   still(night.group);
   for (const c of g.children) if (c.isInstancedMesh) still(c);
   for (const d of solidStandIns) still(d);
+  signs.flush(); // (any lettered since)
+  signs.sealAll(); // (all its signs are in: compressed)
   return {
     group: g, ctx, mats,
     setNight(k) {

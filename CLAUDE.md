@@ -119,10 +119,11 @@ npm run build      # production build to dist/; must be clean
 npm run assets     # tools/build-assets.mjs: assets/raw/*.glb → public/models/*.glb, rigged (ONLY=name, DEBUG_DIR=dir)
 npm run props      # tools/build-props.mjs: assets/props/*.glb → public/models/props/, and CREDITS.md
 npm run people     # tools/build-people.mjs: Rocketbox avatars → public/models/people/ (FETCH=1 downloads)
+                   # (both, and fetch-textures, write KTX2 textures with basisu: brew install basis_universal)
 npm run voices     # tools/build-voices.mjs: lines.js → public/voices/*.mp3 + manifest.json (ONLY=keys, WHO=chars, FORCE=1)
 npm run mocap      # tools/strip-mocap.mjs: assets/mocap → public/anims/
 npm run posters    # tools/extract-posters.mjs
-node tools/fetch-textures.mjs   # Poly Haven CC0 surfaces → public/textures/pbr/
+node tools/fetch-textures.mjs   # Poly Haven CC0 surfaces: assets/textures/pbr → public/textures/pbr/*.ktx2 (FORCE=1)
 ```
 
 ### Git and GitHub
@@ -146,14 +147,15 @@ node tools/fetch-textures.mjs   # Poly Haven CC0 surfaces → public/textures/pb
 ```
 src/main.js        boot, title / Continue / Parts / Chapters, loading plans, window.__game
 src/engine/        Engine (renderer, post chain), Input, Physics (Rapier), CameraDirector, Time (game-time
-                   waits and tweens), Audio (synth), Voice (clips, mouth curve), Save, Slice (building in slices)
+                   waits and tweens), Audio (synth), Voice (clips, mouth curve), Save, Slice (building in slices),
+                   Ktx2 (the compressed textures' loader)
 src/characters/    Rig + Animator, IK, Mocap, Poses, Player (walk + flight), Characters (scans, shaders, JAW),
                    BodyLanguage, Guardian/Robe/HairCards, FlightSuit, People (Rocketbox)
 src/powers/        RingPowers (charge, health, wheel, aim, guard, constructs), Constructs (list, shaders, geometry)
 src/scenes/        Bedroom, Dream, Hyperspace, CrashSite (the lake), Space, Oa + Hall, Ferris (the field, the
                    road, Coast City's host scene), Site, Ysmault, Korugar + KorugarSigns + Statue, Qward, Wake
                    (Part Seven's flight through space), Zamaron, Mortuary (Part Seven's sting), DayCycle
-src/city/          Coast City: Kit, Building, Signs, HalsBlock, Interiors, Shops, Office, Lod, Lamps, Traffic,
+src/city/          Coast City: Kit, Building, Signs (+ SignWorker), HalsBlock, Interiors, Shops, Office, Lod, Lamps, Traffic,
                    Plan, Tower, Stream, Ground, Waterfront, Landmarks, Palms (every palm, near or as its picture)
 src/props/         Props (load, clone, helpers), Car (makeCar, planDrive), Smash (every prop touchable)
 src/enemies/       Drones, Sinestro, Hammond, Atrocitus, Thunderers, StarSapphire (+ SapphireAlly), Predator
@@ -329,8 +331,24 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   the CPU issuing draw calls (about 6 µs each), so count calls, not only triangles. `time()` waits for the GPU
   each frame, so it's CPU plus GPU; in play they overlap. The GPU is shared with whatever else is running: for a
   GPU cost, time the pass alone in a loop inside one timer query, or alternate on and off and take the minimum.
-- Textures are the next budget (2026-11-23: 777 images on the GPU in Coast City, ~2.8 GB as RGBA8 with mips:
-  people ~700 MB, Hal's block's props ~660, cars ~650, the city's surfaces ~410). No KTX2 encoder is installed.
+- Textures: the props', the people's and the surfaces' are KTX2, UASTC (`tools/texture-fit.mjs`, `basisu`): one
+  byte a texel on the GPU (ASTC here, BC7 elsewhere), a quarter of RGBA8, and sharper than the WebP they replaced
+  (a face's colour map: 51.7 dB against 40.3; Basis's smaller ETC1S mode, 37.8, is worse than the WebP). Each build
+  caps a map at its `tex` and at one texel a pixel from the thing's closest view (`near`), halves it while it still
+  rebuilds within a tolerance, and folds a one-colour map into the material's factors. Load them through
+  `engine/Ktx2.js` (`setKTX2Loader(ktx2)`, `ktx2Texture(url)`). `tools/texture-probe.js` lists what's on the GPU by
+  owner and file: Coast City 2026-11-23, 2,742 → 1,073 MB (props 720 → 153, people 678 → 113, cars 460 → 111,
+  surfaces 235 → 47). The price is download: those files went from 168 to 472 MB.
+- The shop signs (`city/Signs.js` `SignPages`) are 2048² pages on the GPU only, each sign drawn on its own canvas and
+  copied into its place (`copyTextureToTexture`; `flush()` makes the mipmaps after), packed by max rects, lightboxes
+  and boards on the same pages. The streamed city's are recycled: each block counts the signs it uses
+  (`ctx.signUses`), and a page none of whose signs is in use is cleared and filled again. A full page is sealed (the
+  streamed city's when the next is begun, Hal's blocks' and the office's once built: `sealAll()`) and compressed to
+  UASTC in a worker (`city/SignWorker.js`, Basis Universal's WASM encoder in `public/basis/`, Apache-2.0: ~3 s a page,
+  160 MB while a worker's up, put away after 30 s idle), 22.4 → 5.6 MB a page; only the page being filled stays RGBA.
+  2026-11-24, arrival in Hal's street: 358 → 91 MB (before, the pages also grew without end: 43, 962 MB, over 80
+  blocks). The weathering is seeded by the sign's words and size, so a sign is the same every time it's drawn;
+  `localStorage.gl_signs_rgba = '1'` leaves the pages uncompressed, to compare.
 - Point lights: four for a whole scene, handed to the nearest sources (`city/Lamps.js`, `LampPool`;
   `adopt(light)` takes over a light something else made and follows its intensity). Every point light
   costs every lit pixel, and changing the count recompiles every material.
@@ -390,9 +408,10 @@ tools/             asset, prop, people and voice builders, autorig, debug render
    `$SHOT_DIR/name.png` (1536×960, no HUD: use a pane screenshot for the HUD). Poke state through
    `window.__game` (`engine`, `story`, `ui`, `input`). Synthetic `KeyboardEvent`s and mouse events on
    the canvas work; two `Space` keydowns within 300 ms fly.
-6. Helpers: `tools/story-monitor.js` (`run()` steps a chapter with the engine paused, logs lines and
-   flags bones moving faster than a body can, whole-body flights included; `around(prefix, rig)` saves
-   close-ups of a figure and its hands in whatever pose it's in), `tools/fight-bots.js`,
+6. Helpers: `tools/texture-probe.js` (the textures on the GPU by owner and file; `ab()` draws one frame
+   with the textures from before a rebuild and after), `tools/story-monitor.js` (`run()` steps a chapter
+   with the engine paused, logs lines and flags bones moving faster than a body can, whole-body flights
+   included; `around(prefix, rig)` saves close-ups of a figure and its hands in whatever pose it's in), `tools/fight-bots.js`,
    `tools/sapphire-bot.js`, `tools/people-test.js`, `tools/propview.html?src=…`.
 7. Check faces and contact in close-up for anything touching skinning, poses or look-at.
 8. `npm run build` at the end; stop your server. If the user is playing on your server, open your own
@@ -496,7 +515,10 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - `compileAsync` on a whole scene stalls: split it. A scene's first draw uploads all its geometry.
 - `mergeGeometries` returns null on mismatched attributes. `Color.multiplyScalar` is linear.
 - Geometry whose arrays were freed (`freeArray`) can't be measured: compute bounds first.
-- The sign atlas fills quietly (`signs.more` adds pages). `glowTexture()`'s default mid-tone is green.
+- `getImageData` / `putImageData` ignore a canvas's transform: drawn into a page, each sign's weathering read the
+  page's corner (its first sign bleached, every other one never worn). `glowTexture()`'s default mid-tone is green.
+- Whatever letters the streamed city's sign pages for good (the waterfront) passes a `signUses` it never releases, or
+  its page looks unused and is cleared under it. A sign page lives on the GPU only: read it back through a framebuffer.
 - A camera inside a translucent construct tints the frame. A glow tube the camera flies inside is seen
   edge-on and vanishes under a view-angle falloff: draw a thin core faded near the camera (`Wake`).
 - A bright point light on glossy pale stone (or polished steel: the mortuary's drawers) blooms into a white sun:
@@ -531,6 +553,14 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   Lod-managed object calls `lod.recheck(object)`; `userData.away` keeps it hidden at any distance.
 
 **Models and props**
+- A loader reading the props or the people needs `setKTX2Loader(ktx2)` (`engine/Ktx2.js`), or their textures
+  fail. Node tools can't read the built files' textures (sharp has no KTX2): read the sources in `assets/`.
+- three flips a texture loaded outside glTF at upload (TextureLoader's `flipY`) and can't flip a compressed one:
+  write its rows bottom first (`encodeKtx2(..., { flipY: true })`), or tiles turn upside down and a normal map's
+  bumps light from below. A compressed texture without its mips throws when uploaded (`ktx2Texture` waits).
+- Lossy WebP halves the colour channels (YUV 4:2:0): on a metal-roughness map it wiped the metal off a police car's
+  chrome handles (they shine again in KTX2, as modelled). Build from the sources in `assets/`, not re-downloads:
+  Poly Haven's asphalt normal map is a third stronger than the one the game had, and glittered in the sun.
 - Tripo sheets can hold several figures (`keepSide`, `figure`); a scanned bow or weapon can be a sheet.
 - Paint over a scan in bind-pose object space; push vertices along position-only directions (normals
   differ across UV seams and crack). A scan's sculpted ring can't be cut out: fold it into skin.
@@ -594,7 +624,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 ## Known weak spots
 
 - The ambient occlusion has only depth (no normals drawn): what's behind glass or a translucent construct is what
-  darkens it, and it fades out by 120 m. Zamaron's crystals are still ~600 draw calls. Texture memory (above).
+  darkens it, and it fades out by 120 m. Zamaron's crystals are still ~600 draw calls. A sign page some long-built
+  block (a tower's, from 950 m) still uses can't be emptied, and the sign pages stay RGBA for the ~25 s the encoder
+  takes to catch up after arriving in Coast City (13 pages).
 
 - Unreviewed by the user: the flight suit (`FlightSuit.js`), the Weaponers, Part Six's later beats
   (built on my defaults while they slept).

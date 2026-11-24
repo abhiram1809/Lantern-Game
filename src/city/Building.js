@@ -284,7 +284,7 @@ function sign(ctx, F, s, o, u0, u1, top) {
   let a0 = u0 + (sg.inset ?? 0.1), a1 = u1 - (sg.inset ?? 0.1);
   // a board no wider than its lettering wants (a 15 m board with a 3 m name in the middle reads empty)
   if (sg.style !== 'letters' && !sg.full) {
-    const g = ctx.signs.painted.g, px = 160;
+    const g = ctx.signs.g, px = 160;
     g.font = `${sg.weight ?? 700} ${h * (sg.sub ? 0.56 : 0.7) * px}px ${FONT_OF(sg.font)}`;
     const want = g.measureText(sg.text).width / px * 1.25 + 1.0;
     if (want < a1 - a0) { const c = (a0 + a1) / 2, half = Math.max(want, (a1 - a0) * 0.42) / 2; a0 = c - half; a1 = c + half; }
@@ -296,17 +296,10 @@ function sign(ctx, F, s, o, u0, u1, top) {
 // letters painted on. u0..u1 along the wall, from y0 up `h`.
 export function label(ctx, F, a0, a1, y0, h, sg, out = 0) {
   const y1 = y0 + h, lit = sg.style === 'lightbox' || sg.style === 'neon';
-  let atlas = lit ? ctx.signs.lit : ctx.signs.painted;
-  const px = Math.min(160, (atlas.size - 4) / (a1 - a0)); // texels per metre (fewer for a sign wider than the atlas: the hospital's on its roof)
-  // (the city's streamed blocks share their signs: one drawn once is used wherever it comes up again)
-  const ck = ctx.signs.cache && `${sg.text}|${sg.sub}|${sg.style}|${sg.font}|${sg.bg}|${sg.fg}|${Math.round((a1 - a0) * 20)}|${Math.round(h * 20)}`;
-  let r = ck && ctx.signs.cache.get(ck), key = r?.key;
-  if (!r) {
-    if (!atlas.fits((a1 - a0) * px, h * px) && ctx.signs.more) atlas = ctx.signs.more(lit); // (full: a page of its own, and its material)
-    r = atlas.add((a1 - a0) * px, h * px, (g, w, hh) => drawSign(g, w, hh, sg));
-    key = atlas.key ?? (lit ? 'signLit' : 'sign');
-    if (ck) ctx.signs.cache.set(ck, { ...r, key });
-  }
+  const px = Math.min(160, (ctx.signs.size - 4) / (a1 - a0)); // texels per metre (fewer for a sign wider than a page: the hospital's on its roof)
+  // (a sign drawn once is used wherever it comes up again: Signs.js SignPages; `ctx.signUses`, the block's, counts it)
+  const ck = [sg.text, sg.sub, sg.style, sg.font, sg.weight, sg.bg, sg.fg, sg.accent, sg.vertical, Math.round((a1 - a0) * 20), Math.round(h * 20)].join('|');
+  const r = ctx.signs.sign(ck, (a1 - a0) * px, h * px, lit, (g, w, hh) => drawSign(g, w, hh, sg), ctx.signUses), key = r.key;
   const depth = sg.style === 'letters' ? 0.005 : 0.08;
   if (sg.style !== 'letters') ctx.batch.add('paint', box(a0 - 0.03, y0 - 0.03, out, a1 + 0.03, y1 + 0.03, out + depth), F, sg.edge ?? 0x2a2420);
   const face = new THREE.PlaneGeometry(a1 - a0, h);

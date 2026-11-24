@@ -115,20 +115,20 @@ licence. They come from [Sketchfab](https://sketchfab.com) by way of the
 
 ## Textures
 
-- **corrugated_iron_02** from [Poly Haven](https://polyhaven.com/a/corrugated_iron_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): the hangars’ walls and roofs. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **concrete_floor_02** from [Poly Haven](https://polyhaven.com/a/concrete_floor_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): the apron, the lots and the pavements. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **asphalt_02** from [Poly Haven](https://polyhaven.com/a/asphalt_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): the roads and the runway. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **gravelly_sand** from [Poly Haven](https://polyhaven.com/a/gravelly_sand), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): the desert floor. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **white_plaster_02** from [Poly Haven](https://polyhaven.com/a/white_plaster_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): stucco walls (the control tower, the office). Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **painted_plaster_wall** from [Poly Haven](https://polyhaven.com/a/painted_plaster_wall), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: stucco walls. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **clay_roof_tiles_02** from [Poly Haven](https://polyhaven.com/a/clay_roof_tiles_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: barrel tile roofs, copings and pent roofs. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **painted_metal_shutter** from [Poly Haven](https://polyhaven.com/a/painted_metal_shutter), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: roll-down shop shutters. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **painted_worn_brick** from [Poly Haven](https://polyhaven.com/a/painted_worn_brick), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: painted brick walls. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **red_brick_plaster_patch_02** from [Poly Haven](https://polyhaven.com/a/red_brick_plaster_patch_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: old brick walls. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **concrete_pavement** from [Poly Haven](https://polyhaven.com/a/concrete_pavement), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: pavements. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **patio_tiles** from [Poly Haven](https://polyhaven.com/a/patio_tiles), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: terracotta tiling at shop doors. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **rectangular_facade_tiles** from [Poly Haven](https://polyhaven.com/a/rectangular_facade_tiles), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: the bank front. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
-- **floor_tiles_06** from [Poly Haven](https://polyhaven.com/a/floor_tiles_06), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: the diner’s checkered tiles. Converted to WebP at 1K (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **corrugated_iron_02** from [Poly Haven](https://polyhaven.com/a/corrugated_iron_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): the hangars’ walls and roofs. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **concrete_floor_02** from [Poly Haven](https://polyhaven.com/a/concrete_floor_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): the apron, the lots and the pavements. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **asphalt_02** from [Poly Haven](https://polyhaven.com/a/asphalt_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): the roads and the runway. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **gravelly_sand** from [Poly Haven](https://polyhaven.com/a/gravelly_sand), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): the desert floor. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **white_plaster_02** from [Poly Haven](https://polyhaven.com/a/white_plaster_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): stucco walls (the control tower, the office). Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **painted_plaster_wall** from [Poly Haven](https://polyhaven.com/a/painted_plaster_wall), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: stucco walls. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **clay_roof_tiles_02** from [Poly Haven](https://polyhaven.com/a/clay_roof_tiles_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: barrel tile roofs, copings and pent roofs. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **painted_metal_shutter** from [Poly Haven](https://polyhaven.com/a/painted_metal_shutter), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: roll-down shop shutters. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **painted_worn_brick** from [Poly Haven](https://polyhaven.com/a/painted_worn_brick), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: painted brick walls. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **red_brick_plaster_patch_02** from [Poly Haven](https://polyhaven.com/a/red_brick_plaster_patch_02), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: old brick walls. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **concrete_pavement** from [Poly Haven](https://polyhaven.com/a/concrete_pavement), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: pavements. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **patio_tiles** from [Poly Haven](https://polyhaven.com/a/patio_tiles), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: terracotta tiling at shop doors. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **rectangular_facade_tiles** from [Poly Haven](https://polyhaven.com/a/rectangular_facade_tiles), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: the bank front. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
+- **floor_tiles_06** from [Poly Haven](https://polyhaven.com/a/floor_tiles_06), [CC0](https://creativecommons.org/publicdomain/zero/1.0/): Coast City: the diner’s checkered tiles. Fitted and converted to KTX2 at 1K or less (`public/textures/pbr/`, `tools/fetch-textures.mjs`).
 
 ## Voices
 
@@ -154,3 +154,11 @@ textures resized.
 ## Animation
 
 - Mixamo clips (`assets/mocap/`, `public/anims/`), from the three.js examples, under Mixamo's terms.
+
+## Software
+
+- The shop signs are compressed in the browser (`src/city/SignWorker.js`) by the prebuilt WebAssembly encoder
+  of [Basis Universal](https://github.com/BinomialLLC/basis_universal) 2.50 (`public/basis/basis_encoder.js`,
+  `basis_encoder.wasm`), unmodified, licensed [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0) (its
+  `LICENSE` and `NOTICE` are beside it): Basis Universal™ Supercompressed GPU Texture Compression Library,
+  Copyright © 2016–2026 Binomial LLC. "Basis Universal" is a trademark of Binomial LLC.

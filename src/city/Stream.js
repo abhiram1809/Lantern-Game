@@ -18,7 +18,7 @@ import { pbrMaterial, glowTexture } from '../fx/Textures.js';
 import { Batch, cityMaterials, cityU } from './Kit.js';
 import { building, box, label } from './Building.js';
 import { tower } from './Tower.js';
-import { SignAtlas } from './Signs.js';
+import { SignPages } from './Signs.js';
 import { CityIndex, seeded, streetX, EW, DOWNTOWN, LOT_Z, PIER } from './Plan.js';
 import { cityGround } from './Ground.js';
 import { buildWaterfront } from './Waterfront.js';
@@ -118,22 +118,10 @@ export class CityStream {
     // the materials, once for every block (the same programs as Hal's: nothing new to compile)
     const mats = (this.mats = cityMaterials());
     mats.pavement = pbrMaterial('concrete_pavement', { repeat: [1 / 3, 1 / 3], tint: new THREE.Color(1.08, 1.05, 1.0) });
-    // the signs: two atlases shared by every block, a sign drawn once (Building.js's `label` looks it up)
-    const signs = (this.signs = { painted: new SignAtlas(2048), lit: new SignAtlas(2048), cache: new Map() });
-    mats.sign = new THREE.MeshStandardMaterial({ map: signs.painted.texture, roughness: 0.72, alphaTest: 0.4 });
-    mats.signLit = new THREE.MeshStandardMaterial({ map: signs.lit.texture, emissiveMap: signs.lit.texture, emissive: 0xffffff, emissiveIntensity: 0.1, roughness: 0.4 });
-    signs.painted.key = 'sign'; signs.lit.key = 'signLit';
-    this.litMats = [mats.signLit];
-    let page = 1;
-    signs.more = (lit) => {
-      const a = new SignAtlas(2048), m = (lit ? mats.signLit : mats.sign).clone();
-      a.key = `${lit ? 'signLit' : 'sign'}${++page}`;
-      m.map = a.texture;
-      if (lit) { m.emissiveMap = a.texture; this.litMats.push(m); }
-      mats[a.key] = m;
-      signs[lit ? 'lit' : 'painted'] = a;
-      return a;
-    };
+    // the signs: pages shared by every block, a sign drawn once (Building.js's `label` looks it up), its page
+    // filled again once no block that's built uses what's on it (Signs.js)
+    this.signs = new SignPages(f.engine.renderer, mats, { recycle: true });
+    this.litMats = this.signs.litMats;
     mats.roofTile = mats.tile;
     // the parks' hedges, trees and water (Stream.park)
     mats.hedge = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0 });
@@ -160,6 +148,7 @@ export class CityStream {
     this.buildFar();
     yield;
     this.waterfront = yield* buildWaterfront(this);
+    this.signs.flush();
     // the freeway, the channel and its bridges (city/Landmarks.js)
     this.landmarks = yield* buildLandmarks(this);
   }
@@ -392,7 +381,7 @@ export class CityStream {
   // ---------------------------------------------------------------------------- a block
   *buildCell(c) {
     const f = this.f, rnd = seeded(c.seed ^ 0x5bd1e995);
-    const ctx = { batch: new Batch(), mats: this.mats, signs: this.signs, rnd, props: false, objects: [], lamps: [], neon: [], shops: [], solids: [], parapets: [], hulls: [], pads: [],
+    const ctx = { batch: new Batch(), mats: this.mats, signs: this.signs, signUses: [], rnd, props: false, objects: [], lamps: [], neon: [], shops: [], solids: [], parapets: [], hulls: [], pads: [],
       decals: {}, doors: [], inside: [], spots: [], posts: [], roomLights: [], rooms: [], labels: [], goods: [], beacons: [] };
     for (const s of c.specs) {
       // (their backs on the alleys blank: windows there were a third of a block's triangles, seen from nowhere)
@@ -407,6 +396,7 @@ export class CityStream {
       }
       yield;
     }
+    this.signs.flush();
     const places = [], extras = [];
     this.street(ctx, c, places);
     if (c.park) this.park(ctx, c, places, extras);
@@ -463,7 +453,7 @@ export class CityStream {
     this.root.add(g);
     g.updateMatrixWorld(true);
     box.union(new THREE.Box3().setFromObject(g)).translate(ORIGIN);
-    const b = { group: g, far, near, kit, night, items, bodies, casters, palms, occ: null, cast: true, shown: true, nearOn: false, revealed: 0 };
+    const b = { group: g, far, near, kit, night, items, bodies, casters, palms, signs: ctx.signUses, occ: null, cast: true, shown: true, nearOn: false, revealed: 0 };
     b.occ = this.occlusion.add(box, (v) => { b.shown = v; g.visible = v; this.showCell(b); });
     c.built = b;
     // shown a few pieces a frame (each goes to the GPU the frame it's added: a whole block at once was a 60 ms
@@ -538,6 +528,7 @@ export class CityStream {
     for (const body of b.bodies) if (W.bodies.contains(body.handle)) W.removeRigidBody(body);
     for (const it of b.items) this.f.smash.remove(it);
     for (const id of b.palms) this.f.palms.remove(id);
+    this.signs.release(b.signs);
     this.occlusion.remove(b.occ);
     this.farShow(c, true);
     c.built = null;
