@@ -396,6 +396,11 @@ export function building(ctx, s) {
       const base = gh + (f - 1) * fh, n = Math.max(1, Math.round(len / 4.2));
       for (let i = 0; i < n; i++) { const u = (len * (i + 0.5)) / n; if (u > len - 1.2) continue; op.push({ kind: 'win', u: u - win.w / 2, v: base + win.sill, w: win.w, h: win.h, arch: win.arch, floor: base, roomH: fh, ac: rnd() < 0.25, lintel: mat !== 'stucco' }); }
     }
+    // (a house's sides have windows on the ground floor too: Stream.js's suburban lots, `home`)
+    if (s.home && (kind === 'windows' || kind === 'front')) {
+      const n = Math.max(1, Math.round(len / 4.6));
+      for (let i = 0; i < n; i++) { const u = (len * (i + 0.5)) / n; if (u > len - 1.2 || u < 0.9) continue; op.push({ kind: 'win', u: u - win.w / 2, v: win.sill, w: win.w, h: Math.min(win.h, gh - win.sill - 0.4), arch: win.arch, floor: 0, roomH: gh, ac: false, room: 0, lit: 0.45, bars: s.bars }); }
+    }
     for (const sh of (L ? s.shopsL : s.shopsR) ?? []) op.push({ kind: 'shop', u: sh.x0 + 0.28, v: 0, w: sh.x1 - sh.x0 - 0.56, h: sh.h ?? Math.min(gh - 1.05, 3.25), ...sh });
     return { kind, op };
   };
@@ -412,9 +417,15 @@ export function building(ctx, s) {
       const base = gh + (f - 1) * fh, n = Math.max(1, Math.round(bw / 3.6));
       for (let i = 0; i < n; i++) back.push({ kind: 'win', u: (bw * (i + 0.5)) / n - 0.55, v: base + 1.0, w: 1.1, h: 1.3, floor: base, roomH: fh, ac: rnd() < 0.35, lintel: mat !== 'stucco', sill: true });
     }
-    const doors = Math.max(1, (s.shops?.length ?? 0) + (s.entries?.length ?? 0) > 1 ? 2 : 1);
-    for (let i = 0; i < doors; i++) back.push({ kind: 'door', u: (bw * (i + 0.5)) / doors - 0.5, v: 0, w: 1.0, h: 2.2, steel: true, color: 0x5d6a5e });
-    for (let i = 0; i < Math.max(1, Math.round(bw / 7)); i++) back.push({ kind: 'win', u: (bw * (i + 0.25)) / Math.max(1, Math.round(bw / 7)) + 1.4, v: 1.6, w: 0.8, h: 0.9, floor: 0, roomH: gh, bars: true, room: 1, lit: 0.3 });
+    if (s.home) { // a house's back: its kitchen door onto the yard and its windows (Stream.js's suburban lots)
+      const n = Math.max(2, Math.round(bw / 3.6)), du = bw * 0.3;
+      back.push({ kind: 'door', u: du - 0.5, v: 0, w: 1.0, h: 2.2, color: s.entries?.[0]?.color ?? 0x5a3a22, lamp: false });
+      for (let i = 0; i < n; i++) { const u = (bw * (i + 0.5)) / n; if (Math.abs(u - du) < 1.6) continue; back.push({ kind: 'win', u: u - win.w / 2, v: win.sill, w: win.w, h: Math.min(win.h, gh - win.sill - 0.4), floor: 0, roomH: gh, room: 0, lit: 0.45, ac: false, sill: true }); }
+    } else {
+      const doors = Math.max(1, (s.shops?.length ?? 0) + (s.entries?.length ?? 0) > 1 ? 2 : 1);
+      for (let i = 0; i < doors; i++) back.push({ kind: 'door', u: (bw * (i + 0.5)) / doors - 0.5, v: 0, w: 1.0, h: 2.2, steel: true, color: 0x5d6a5e });
+      for (let i = 0; i < Math.max(1, Math.round(bw / 7)); i++) back.push({ kind: 'win', u: (bw * (i + 0.25)) / Math.max(1, Math.round(bw / 7)) + 1.4, v: 1.6, w: 0.8, h: 0.9, floor: 0, roomH: gh, bars: true, room: 1, lit: 0.3 });
+    }
   }
   wall(ctx, FB, { ...common, len: s.w - 2 * t, top, openings: back.filter((o) => o.u > 0.2 && o.u + o.w < s.w - 2 * t - 0.2) });
   // ---- the roof
@@ -558,8 +569,8 @@ function flatRoof(ctx, M, s, H, t, top) {
   }
 }
 
-// a tiled hip roof over walls that stop at the eaves
-function hipRoof(ctx, M, w, d, H, pitch) {
+// a tiled hip roof over walls that stop at the eaves (exported for the suburbs' garages and the hills' houses)
+export function hipRoof(ctx, M, w, d, H, pitch) {
   const o = 0.45, x0 = -o, x1 = w + o, z0 = o, z1 = -d - o, rise = ((d + 2 * o) / 2) * pitch, ry0 = H + 0.05, top = ry0 + rise;
   const inset = (d + 2 * o) / 2, ra = V(x0 + inset, top, (z0 + z1) / 2), rb = V(x1 - inset, top, (z0 + z1) / 2);
   const tris = [

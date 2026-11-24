@@ -5,6 +5,7 @@
 //   p.probe({ by: 'root' })   // by the scene's top-level groups
 //   p.probe({ by: 'material' })
 //   await p.toCoast(); p.time()  // free roam on Hal's street; a frame's length in ms
+//   await p.view(1); await p.split()  // a benchmark view; the frame's CPU and GPU apart
 //   await p.palmPair('a', 3)     // a palm as the tree and as its cards
 // Each row: draw calls and triangles in the main pass, then in the shadow pass.
 const named = (o) => { const out = []; for (let p = o; p && out.length < 3; p = p.parent) if (p.name && !p.isScene) out.push(p.name); return out.join(' < ') || o.type; };
@@ -55,6 +56,38 @@ export function time(n = 15) {
   }
   ms.sort((a, b) => a - b);
   return Math.round(ms[ms.length >> 1] * 10) / 10;
+}
+
+// The frame's CPU and GPU apart (`time` is both, one after the other): `n` frames, the CPU's time to issue each and
+// the GPU's to draw it (a timer query), their medians and minimums in ms. Yields between frames by message (a
+// hidden pane's timers run once a second). Two tabs of the game on one GPU slow each other down by half: close one.
+const tick = () => new Promise((r) => { const c = new MessageChannel(); c.port1.onmessage = r; c.port2.postMessage(0); });
+export async function split(n = 30) {
+  const G = window.__game, gl = G.engine.renderer.getContext(), ext = gl.getExtension('EXT_disjoint_timer_query_webgl2'), px = new Uint8Array(4), cpu = [], gpu = [], qs = [];
+  for (let i = 0; i < n; i++) {
+    const q = ext && gl.createQuery();
+    if (q) gl.beginQuery(ext.TIME_ELAPSED_EXT, q);
+    const t0 = performance.now();
+    G.engine.composer.render(0);
+    cpu.push(performance.now() - t0);
+    if (q) { gl.endQuery(ext.TIME_ELAPSED_EXT); qs.push(q); }
+    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    await tick();
+  }
+  for (let k = 0; k < 5; k++) await tick();
+  for (const q of qs) { if (gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE) && !gl.getParameter(ext.GPU_DISJOINT_EXT)) gpu.push(gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6); gl.deleteQuery(q); }
+  const at = (a, k) => { const b = [...a].sort((x, y) => x - y); return b.length ? Math.round(b[Math.floor((b.length - 1) * k)] * 100) / 100 : null; };
+  return { cpu: at(cpu, 0.5), cpuMin: at(cpu, 0), gpu: at(gpu, 0.5), gpuMin: at(gpu, 0) };
+}
+// one of the benchmark's views staged (BENCH[i], its hour), the engine left paused there
+export async function view(i) {
+  const L = await import('./look-shots.js'), G = window.__game, s = G.story, v = BENCH[i];
+  G.engine.paused = false;
+  if (v.hour != null) { s.dayCycle?.setHour(v.hour); s.dayCycle?.setWeather?.('clear', true); }
+  await L.stage(v, 2);
+  G.engine.paused = true;
+  for (let k = 0; k < 8; k++) { G.engine.composer.render(0); await tick(); } // (the occlusion's answers come after a task)
+  return v.key;
 }
 
 // From the title (`/?r=1#world`, free roam): Continue, then travel to Hal's street and let the city stream in;
@@ -115,7 +148,7 @@ export async function bench(label, { views = BENCH } = {}) {
     await L.stage(v, 2);
     G.engine.paused = true;
     // (frames drawn with the browser let in between: the occlusion queries' answers only come after a task)
-    for (let i = 0; i < 8; i++) { G.engine.composer.render(0); await new Promise((res) => setTimeout(res, 0)); }
+    for (let i = 0; i < 8; i++) { G.engine.composer.render(0); await tick(); }
     const ms = time(20), p = probe({ top: 1 }), m = r.info.memory;
     out[v.key] = { ms, fps: Math.round(1000 / ms), calls: p.calls, staticCalls: p.staticCalls, shadowCalls: p.shadowCalls, staticShadow: p.staticShadow, tris: p.tris, shadowTris: p.shadowTris, geometries: m.geometries, textures: m.textures };
     G.engine.composer.render(0);

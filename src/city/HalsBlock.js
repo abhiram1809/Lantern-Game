@@ -213,8 +213,9 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
   ctx.rnd = rnd;
   yield;
   // (600 m cells, not 80: a material's whole stretch one draw; the street's 1,086 draw calls were a quarter
-  // these, forty materials in eight cells; the perf pass, 2026-11-23)
-  const city = yield* ctx.batch.buildSteps(mats, { cell: 600 });
+  // these, forty materials in eight cells; the perf pass, 2026-11-23. The grid's lines kept off the blocks, x -46
+  // to 60, z -404 to -24: on x = 0, down the street's middle, they drew every material twice)
+  const city = yield* ctx.batch.buildSteps(mats, { cell: 600, at: [-300, -500] });
   g.add(city);
   // the props the buildings and the street placed: into the block, and touchable
   for (const [i, { o, kind }] of ctx.objects.entries()) {
@@ -284,7 +285,7 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
       for (const m of parts) {
         const M = new THREE.Matrix4().multiplyMatrices(inv, m.matrixWorld);
         _ic.setFromMatrixPosition(M);
-        const key = `${m.geometry.uuid}|${m.material.uuid}|${Math.floor(_ic.x / 600)},${Math.floor(_ic.z / 600)}|${dist}|${shadow}`;
+        const key = `${m.geometry.uuid}|${m.material.uuid}|${Math.floor((_ic.x + 300) / 600)},${Math.floor((_ic.z + 500) / 600)}|${dist}|${shadow}`; // (the batches' cells: above)
         const e = inst.get(key) ?? inst.set(key, { geo: m.geometry, mat: m.material, list: [], dist, shadow, cast: m.castShadow }).get(key);
         const entry = { M, pos: new THREE.Vector3().setFromMatrixPosition(m.matrixWorld), gone: false, set: null };
         e.list.push(entry);
@@ -307,6 +308,7 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
       }
       if (STILL.has(kind)) {
         for (const m of instance(o, dist, shadow).parts) m.removeFromParent();
+        if (itemOf.get(o)?.kind === 'solid') smash.stow(o); // (nothing of its own left to draw)
         continue;
       }
       const item = itemOf.get(o);

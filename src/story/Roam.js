@@ -14,7 +14,11 @@ import { loadPeople, createPerson } from '../characters/People.js';
 import { Zamaron, ZAMARON_PROPS, ARRIVE as ZAM_ARRIVE, COURT, THRONE } from '../scenes/Zamaron.js';
 import { breath } from '../engine/Slice.js';
 import { loadProps } from '../props/Props.js';
-import { LOT, coastX } from '../scenes/Ferris.js';
+import { LOT, coastX, CEMETERY_PROPS } from '../scenes/Ferris.js';
+import { PIER } from '../city/Plan.js';
+import { WATER_Y, sdfAt } from '../city/Terrain.js';
+import { onBridge } from '../city/Bridge.js';
+import { highwayDeckAt } from '../city/Highway.js';
 import { RAPIER } from '../engine/Physics.js';
 import { sliced } from '../engine/Slice.js';
 import { Bedroom } from '../scenes/Bedroom.js';
@@ -115,6 +119,7 @@ export class Roam extends Exile {
     this.cityMap?.update(real ?? dt);
     if (dt > 0) this.roamTick?.(dt);
     if (dt > 0) this.updateAir(dt);
+    if (dt > 0) this.updateWater(dt);
     this.updateDay(dt);
   }
 
@@ -181,6 +186,35 @@ export class Roam extends Exile {
   }
 
   // ---------------------------------------------------------------- no air
+  // In the water (the map rework, 2026-11-24: the bay, the river, the basins and the sea are deep now, and nobody
+  // swims): in the uniform the ring lifts him out to hover over it; in his clothes he's back on the nearest shore.
+  updateWater(dt) {
+    const { player } = this, f = this.current;
+    if (!this.roaming || !f?.waterAt || player.flying || this.driving || this.toShoreT || !player.control) { this.wet = 0; return; }
+    const p = player.position;
+    if (p.y > WATER_Y - 0.9 || !f.waterAt(p.x, p.z)) { this.wet = 0; return; }
+    this.wet = (this.wet ?? 0) + dt;
+    if (!this.civilian && player.canFly) player.takeOff();
+    else if (this.wet > 0.6) this.toShore().catch(console.warn);
+  }
+  async toShore() {
+    const { player, ui } = this, f = this.current;
+    this.toShoreT = true;
+    await ui.fade(1, 0.45);
+    // up the distance to the shore (its gradient) to dry land, on past anything built at the water's edge
+    let x = player.position.x, z = player.position.z - LOT.z, gx = 0, gz = 0;
+    for (let i = 0, past = 0; i < 80; i++) {
+      const d = sdfAt(x, z);
+      gx = sdfAt(x + 2, z) - sdfAt(x - 2, z); gz = sdfAt(x, z + 2) - sdfAt(x, z - 2);
+      const L = Math.hypot(gx, gz) || 1, step = d < 3 ? Math.max(2, 3 - d) : 3;
+      if (d > 3 && !f.city?.solidAt(x, 1, z + LOT.z)) { if (++past > 1) break; } 
+      x += (gx / L) * step; z += (gz / L) * step;
+    }
+    player.place(V(x, f.groundAt(x, z + LOT.z) + 0.05, z + LOT.z), Math.atan2(gx, gz));
+    await ui.fade(0, 0.45);
+    this.toShoreT = false;
+  }
+
   // Out of the uniform on a world with no air for him (the user: on Oa or Ysmault he "suffocates,
   // badly"; Qward too): a breath held, then the colour draining and the edges closing in, his heart
   // racing, his health going faster and faster (gone in about seven seconds), his hands at his throat,
@@ -594,13 +628,22 @@ export class Roam extends Exile {
     if (!this.traffic && f.block) { this.traffic = new Traffic(f, this, { count: 16, grid: 16, lot: LOT }); f.updaters.push((dt) => this.traffic.update(dt)); }
     // and what goes wrong on them, for Green Lantern to answer (story/Emergencies.js)
     if (!this.emergencies && f.block) { this.emergencies = new Emergencies(this, f); f.updaters.push((dt) => this.emergencies.update(dt)); }
+    // the memorial park, in town now on the bluff over the bay (Ferris.cemetery: built for the grave chapter, and here)
+    if (!f.cem) loadProps(CEMETERY_PROPS).then(() => f.cemetery()).catch(console.warn);
     // and what a city that's turned against Green Lantern does about it (story/Pressure.js)
     if (!this.pressure && f.block) { this.pressure = new Pressure(this, f); f.updaters.push((dt) => this.pressure.update(dt)); }
     f.follow = () => (this.driving ? f.car.position : player.position);
     this.ambience(audio.wind(0.05), audio.traffic(id === 'coast' ? 0.05 : 0.015));
     // (flight over the field, the road and the whole city to its north edge, never down into the sea; the
     // city's buildings solid to him in the air where their blocks aren't built yet)
-    powers.attach({ scene: f.scene, physics: f.physics, ground: () => 0, floor: () => 0, canLand: (x, z) => Math.abs(x) < 4200 && z > -1200 && z < LOT.z + 3700 && (x > coastX(z) + 1 || f.city?.onPier(x, z)),
+    // (the ground's height from the city's terrain (city/Terrain.js: the hills, the beach's slope, the water's surface
+    // over water), the pier's deck on the pier; he lands anywhere on land or the pier, never on the water)
+    // (he lands on the decks over the water too, the Bay Bridge's and Highway 1's arches: city/Bridge.js, Highway.js;
+    // their colliders take him, so they're no ground of the flight's, or he couldn't fly under them)
+    const deck = (x, z) => (f.city?.onPier(x, z) ? PIER.deck : null);
+    const over = (x, z) => onBridge(x, z - LOT.z) !== null || highwayDeckAt(x, z - LOT.z) !== null;
+    powers.attach({ scene: f.scene, physics: f.physics, ground: (x, z) => deck(x, z) ?? f.groundAt(x, z), water: WATER_Y,
+      canLand: (x, z) => Math.abs(x) < 4200 && z > -1200 && z < LOT.z + 3700 && (deck(x, z) !== null || over(x, z) || (x > coastX(z) + 1 && !f.waterAt(x, z))),
       solid: f.city ? (x, y, z) => f.city.solidAt(x, y, z) : undefined, center: V(0, 0, 4600), radius: 6400, ceiling: 650 });
     powers.regen = 0;
     player.boostScale = 2.4; // (six kilometres from the field to the city)

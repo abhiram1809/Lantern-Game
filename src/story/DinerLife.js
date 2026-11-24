@@ -70,6 +70,7 @@ export class DinerLife {
     this.laneZ = lane;
     this.slots = [x0 + 9.6, x0 + 10.7, x0 + 11.8];
     this.slotUsed = [null, null, null];
+    this.centre = this.W((x0 + x1) / 2, (z0 + r.z1) / 2);
   }
 
   // the room's frame to the world (y above the floor's 0), and a direction in it as a world yaw
@@ -449,6 +450,13 @@ export class DinerLife {
   update(dt) {
     const life = this.life, story = life.story, hp = story.player.position;
     this.t += dt;
+    // the plates, mugs and cups (a dozen small draws each) only while the camera's near the room: they were drawn
+    // from down the street, through its walls
+    const near = story.engine.camera.position.distanceToSquared(this.centre) < 45 * 45;
+    if (near !== mealsShown || meals.size > 200) {
+      mealsShown = near;
+      for (const g of meals) if (!g.parent) meals.delete(g); else g.visible = near;
+    }
     // Hal comes in: she says hello from wherever she is (and the room looks up)
     const inside = this.inside(hp);
     if (inside && !this.halIn && this.rosie?.active && !this.rosie.talking && story.player.control && this.t - (this.hiT ?? -99) > 60) {
@@ -584,9 +592,13 @@ const china = () => mat('china', { color: 0xe9e5dc, roughness: 0.5, envMapIntens
 function part(g, geo, m, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; g.add(o); return o; }
 
 // a plate (or a mug, a bowl, a glass) with what was ordered on it; `userData.food` is what's eaten
+const meals = new Set();
+let mealsShown = true;
 export function meal(kind) {
   const g = new THREE.Group(), food = new THREE.Group();
   g.userData.food = food;
+  g.visible = mealsShown;
+  meals.add(g);
   g.add(food);
   const plate = () => { part(g, new THREE.CylinderGeometry(0.125, 0.09, 0.016, 28), china(), 0, 0.008, 0); part(g, new THREE.TorusGeometry(0.118, 0.006, 6, 28).rotateX(Math.PI / 2), china(), 0, 0.016, 0); };
   const mug = (x = 0, z = 0, into = g) => {

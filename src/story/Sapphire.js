@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { WATER_Y } from '../city/Terrain.js';
 import { wait, waitFor, tween, ease, onFrame } from '../engine/Time.js';
 import { SapphireSave, RoamSave } from '../engine/Save.js';
 import { Roam } from './Roam.js';
@@ -843,8 +844,8 @@ export class Sapphire extends Roam {
     for (const id of ['gatling', 'sword', 'hammer', 'staff', 'bubble']) this.learn(id, false);
     this.pocketLantern();
     const f0 = f;
-    powers.attach({ scene: f.scene, physics: f.physics, ground: (x, z) => (f0.city?.onPier(x, z) ? DECK : 0), floor: (x, z) => (f0.city?.onPier(x, z) ? DECK : 0.6),
-      canLand: (x, z) => !!f0.city?.onPier(x, z) || x > coastX(z) + 1, solid: f.city ? (x, y, z) => f0.city.solidAt(x, y, z) : undefined, center: ARENA.clone(), radius: 230, ceiling: 140 });
+    powers.attach({ scene: f.scene, physics: f.physics, ground: (x, z) => (f0.city?.onPier(x, z) ? DECK : f0.groundAt?.(x, z) ?? 0), floor: (x, z) => (f0.city?.onPier(x, z) ? DECK : 0.6), water: WATER_Y,
+      canLand: (x, z) => !!f0.city?.onPier(x, z) || (x > coastX(z) + 1 && !f0.waterAt?.(x, z)), solid: f.city ? (x, y, z) => f0.city.solidAt(x, y, z) : undefined, center: ARENA.clone(), radius: 230, ceiling: 140 });
     powers.regen = 1.1; // (no battery out here, only his will: a ring run dry in the middle of this fight would leave nothing to do)
     powers.trappable = (body, point, origin, dir) => this.sapTrap(origin, dir);
     player.boostScale = 1.6;
@@ -2523,8 +2524,8 @@ export class Sapphire extends Roam {
     this.world = 'earth';
     f.scene.add(pivot);
     this.playerActive = true;
-    powers.attach({ scene: f.scene, physics: f.physics, ground: (x, z) => (f.city?.onPier(x, z) ? DECK : 0), floor: (x, z) => (f.city?.onPier(x, z) ? DECK : 0.6),
-      canLand: (x, z) => !!f.city?.onPier(x, z) || x > coastX(z) + 1, solid: f.city ? (x, y, z) => f.city.solidAt(x, y, z) : undefined, center: V(-1800, 0, LOT.z + 360), radius: 560, ceiling: 220 });
+    powers.attach({ scene: f.scene, physics: f.physics, ground: (x, z) => (f.city?.onPier(x, z) ? DECK : f.groundAt?.(x, z) ?? 0), floor: (x, z) => (f.city?.onPier(x, z) ? DECK : 0.6), water: WATER_Y,
+      canLand: (x, z) => !!f.city?.onPier(x, z) || (x > coastX(z) + 1 && !f.waterAt?.(x, z)), solid: f.city ? (x, y, z) => f.city.solidAt(x, y, z) : undefined, center: V(-1800, 0, LOT.z + 360), radius: 560, ceiling: 220 });
     f.focus(FINISH);
     this.ambience(audio.wind(0.06), audio.traffic(0.004));
     player.boostScale = 1.8;

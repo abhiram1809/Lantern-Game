@@ -13,20 +13,25 @@
 // builds a block when the camera comes near it and puts it away when it goes, and draws the rest as
 // shaded boxes.
 
-// the city's extent: from the shore east to the street at x 2806's far pavement, from the end of Hal's
-// blocks (where the road leaves for the field) north
-export const CITY = { x0: -1240, x1: 2818, z0: -404, z1: 3592 };
-export const CORE = { x0: -1240, x1: 300, z0: -404, z1: 1060 };
-export const K_MIN = -14, K_MAX = 35;
+// The city's shape (the map rework, 2026-11-24) is city/Layout.js: the sea, the bay, the river, the port, the
+// districts, Highway 1 and the hills. The grid's streets are as they were (Hal's blocks stand on them), running now
+// from the bay's shore to the shipyards and from Ocean Avenue to the river, and there are blocks only where the
+// layout has the land for them.
+import { GRID, DOWNTOWN_CORE, MEMORIAL, blockAt, districtAt, waterAt } from './Layout.js';
+
+// the city's extent (the ground's): the beach's Point out to x -1700, the river's bank, the bay's shore, the shipyards
+export const CITY = { x0: -1800, x1: 1420, z0: -1000, z1: 3100 };
+export const CORE = { x0: -1240, x1: 300, z0: -1000, z1: 1060 };
+export const K_MIN = GRID.kMin, K_MAX = GRID.kMax;
 export const streetX = (k) => 6 + 80 * k;
-export const STREET_Z = [-210, ...Array.from({ length: 18 }, (_, n) => 70 + 200 * n)];
-const ROW_EDGES = [CITY.z0, ...STREET_Z, CITY.z1];
+export const STREET_Z = GRID.rows;
+const ROW_EDGES = STREET_Z;
 // a street's half widths: the kerb from its middle, and the pavement's outer edge (where the fronts stand)
 export const NS = { kerb: 7, front: 12 }, EW = { kerb: 6, front: 11 };
 const frontOf = (k) => (k === 0 ? 11.9 : NS.front); // (the boulevard's are Hal's blocks': -5.9 and 17.9)
 // Hal's lot and his building, at the head of the boulevard: nothing's built there
 export const HALS_LOT = { x0: -32, x1: 44, z0: -24, z1: 59 };
-export const DOWNTOWN = { x: -560, z: 660 };
+export const DOWNTOWN = { x: DOWNTOWN_CORE.x, z: DOWNTOWN_CORE.z };
 
 // the shore, the line where the sand meets the sea: a long, gentle curve of beach
 export const shoreX = (z) => -1205 + 26 * Math.sin(z / 330) + 11 * Math.sin(z / 103 + 1.0);
@@ -43,58 +48,78 @@ export const COAST_GLSL = (z) => `mix(-6800.0 + 650.0 * sin(${z} / 2300.0) + 320
 // Ocean Avenue's promenade, from its kerb west to the sea wall; the pier out from it
 export const PROMENADE = { x0: -1133, x1: streetX(-14) - NS.kerb };
 export const PIER = { z: 372, x0: -1133, x1: -1545, w: 14, deck: 4.2 };
-// What makes a city besides its blocks (the user, 2026-11-19: "randomized big parks... a flyover or a
-// bridge"). The freeway: a viaduct over the street at z 1070 (the north edge of midtown), its deck 11.5 m
-// up on piers down the street's middle, from a ramp off Ocean Avenue (touching down at x -1000) east past
-// the city's edge, where it comes down to the desert road. The channel: a concrete flood channel, the Los
-// Angeles River's kind, down the column of blocks between the streets at x 1526 and 1606, its bed 4 m
-// down, a bridge where every east-west street crosses it. The parks: blocks left open, a few in every
-// district but downtown (a seeded pick, the same every time), and one big one of four blocks in the ring.
-export const FREEWAY = { z: 1070, deck: 11.5, half: 9.4, west: -1000, westTop: -790, eastTop: 3000, east: 3260 };
-export const CHANNEL = { j: 19, x0: 1540, x1: 1590, bed0: 1550, bed1: 1580, depth: 4 };
-const BIG_PARK = { j0: 5, j1: 6, r0: 10, r1: 11 };
-
 // a seeded random, so the city comes out the same every time
 export function seeded(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
 const pick = (rnd, a) => a[Math.floor(rnd() * a.length) % a.length];
 const range = (rnd, a, b) => a + rnd() * (b - a);
 
+// what a point of the city is, as the blocks have it ('downtown', 'suburbia', 'town', 'waterfront', ...)
 export function district(x, z) {
-  if (x < streetX(-12)) return 'waterfront';
-  const dd = Math.hypot(x - DOWNTOWN.x, z - DOWNTOWN.z);
-  if (dd < 300) return 'downtown';
-  if (dd < 540) return 'midtown';
-  if (x > 1900 && z < 1300) return 'industrial';
-  if (x >= CORE.x0 && x < CORE.x1 && z < CORE.z1) return 'town';
-  return 'ring';
+  const d = districtAt(x, z);
+  return d ? ({ oldtown: 'town', marina: 'town', southshore: 'suburbia', heights: 'suburbia', north: 'industrial' })[d.id] ?? d.id : null;
 }
 export const inCore = (x, z) => x >= CORE.x0 && x < CORE.x1 && z >= CORE.z0 && z < CORE.z1;
 
 // ------------------------------------------------------------------------------------- the blocks
-// Each block: its fronts (x0 west, x1 east, z0 south, z1 north), whether a street runs along each side,
-// and what it is. Beside the boulevard by Hal's blocks only the outer half is new (`half`: the side of
-// the block that's built): the inner half is Hal's (city/HalsBlock.js), or his lot.
+// Each block: its fronts (x0 west, x1 east, z0 south, z1 north), the streets along its sides, and what it is (as
+// Layout.js blockAt has it: a district, or open ground: a park, a plaza). Beside the boulevard by Hal's blocks
+// only the outer half is the city's (`half`: the side that's built; `halRow` which of his two blocks): the inner
+// half is Hal's (city/HalsBlock.js), or his lot.
+let CELLS = null;
 export function cityCells() {
+  if (CELLS) return CELLS;
   const cells = [];
   for (let j = K_MIN; j < K_MAX; j++) for (let r = 0; r + 1 < ROW_EDGES.length; r++) {
-    const s = ROW_EDGES[r], n = ROW_EDGES[r + 1];
-    const z0 = r === 0 ? s : s + EW.front, z1 = r + 2 === ROW_EDGES.length ? n : n - EW.front;
+    const z0 = ROW_EDGES[r] + EW.front, z1 = ROW_EDGES[r + 1] - EW.front;
     const x0 = streetX(j) + frontOf(j), x1 = streetX(j + 1) - frontOf(j + 1);
-    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-    const cell = { id: `${j},${r}`, j, r, x0, x1, z0, z1, cx, cz, south: r > 0, north: r + 2 < ROW_EDGES.length, west: true, east: true,
-      district: district(cx, cz), core: inCore(cx, cz), seed: (j + 100) * 7919 + r * 104729 + 13 };
-    // the two blocks either side of the boulevard, from the field end to the street north of his lot
-    if ((j === -1 || j === 0) && r <= 1) cell.half = j === -1 ? 'west' : 'east';
-    if (j === CHANNEL.j) cell.channel = true;
-    else if (!cell.half && cell.district !== 'downtown' && cell.district !== 'waterfront') {
-      const big = j >= BIG_PARK.j0 && j <= BIG_PARK.j1 && r >= BIG_PARK.r0 && r <= BIG_PARK.r1;
-      const nearHal = Math.abs(j) <= 2 && r <= 2;
-      const h = Math.abs(Math.sin(j * 12.9898 + r * 78.233) * 43758.5453) % 1; // (a hash: the seeded random's first number runs in stripes across the grid)
-      if (big || (!nearHal && h < (cell.district === 'industrial' ? 0.015 : 0.045))) cell.park = big ? 'big' : 'park';
+    const b = blockAt(x0, z0, x1, z1);
+    if (!b) continue;
+    const f = b.fronts ?? { x0, z0, x1, z1 }; // (a block cut back from the water: its side there faces the shore, no street)
+    const cx = (f.x0 + f.x1) / 2, cz = (f.z0 + f.z1) / 2;
+    const cell = { id: `${j},${r}`, j, r, x0: f.x0, x1: f.x1, z0: f.z0, z1: f.z1, cx, cz, south: true, north: true, west: true, east: true,
+      district: b.district, core: inCore(cx, cz), seed: (j + 100) * 7919 + r * 104729 + 13 };
+    if (b.shore) { cell[b.shore] = false; cell.shore = b.shore; }
+    if (b.near !== undefined) cell.near = b.near;
+    if (b.park) { cell.park = b.park; cell.parkId = b.parkId; }
+    if ((j === -1 || j === 0) && z1 > -420 && z0 < 70) { cell.half = j === -1 ? 'west' : 'east'; cell.halRow = cz > -210 ? 'north' : 'south'; }
+    else if (!cell.park && ['suburbia', 'town', 'ring', 'midtown'].includes(cell.district)) {
+      // a few small parks among the houses and the shops (a hash: the seeded random's first number runs in stripes)
+      const nearHal = Math.abs(j) <= 2 && cz > -700 && cz < 400;
+      const h = Math.abs(Math.sin(j * 12.9898 + r * 78.233) * 43758.5453) % 1;
+      if (!nearHal && h < 0.045) cell.park = 'park';
     }
     cells.push(cell);
   }
-  return cells;
+  return (CELLS = cells);
+}
+
+// The streets as they're built: a stretch of street between two crossings runs only where there's a block beside
+// it (built, or open ground), not through a park of several blocks or the memorial park, and not out over the water.
+// The ground paints these, the traffic drives them, the people walk them, the map draws them. Each
+// { ns: true, k, x, z0, z1 } (north-south, between the crossings at z0 and z1) or { ew: true, s, z, x0, x1 }.
+let SEGS = null;
+export function streetSegments() {
+  if (SEGS) return SEGS;
+  const at = new Map(cityCells().map((c) => [`${c.j},${c.r}`, c]));
+  const cell = (j, r) => at.get(`${j},${r}`);
+  // (a block counts for the street along a side only if that side has one: not the side it was cut back from the water)
+  const open = (a, b) => (a || b) && !(a && b && a.parkId && a.parkId === b.parkId);
+  const memorial = (x, z0, z1) => x > MEMORIAL.x0 && x < MEMORIAL.x1 && z1 > MEMORIAL.z0 && z0 < MEMORIAL.z1;
+  const dry = (ax, az, bx, bz) => { for (let t = 0; t <= 1.0001; t += 0.05) if (waterAt(ax + (bx - ax) * t, az + (bz - az) * t)) return false; return true; };
+  const segs = [];
+  for (let k = K_MIN; k <= K_MAX; k++) for (let r = 0; r + 1 < ROW_EDGES.length; r++) {
+    const x = streetX(k), z0 = ROW_EDGES[r], z1 = ROW_EDGES[r + 1];
+    const boul = k === 0 && z0 >= -935 && z1 <= 70; // (the boulevard and the road south from it: always there)
+    const w = cell(k - 1, r), e = cell(k, r);
+    // (the boulevard ends at Hal's lot, at the head of his blocks)
+    if (boul) segs.push({ ns: true, k, x, z0, z1: Math.min(z1, HALS_LOT.z0) });
+    else if (open(w?.east !== false && w, e?.west !== false && e) && !memorial(x, z0 + EW.front, z1 - EW.front) && dry(x, z0, x, z1)) segs.push({ ns: true, k, x, z0, z1 });
+  }
+  for (let s = 0; s < ROW_EDGES.length; s++) for (let k = K_MIN; k < K_MAX; k++) {
+    const z = ROW_EDGES[s], x0 = streetX(k), x1 = streetX(k + 1), sth = cell(k, s - 1), nth = cell(k, s);
+    if (open(sth?.north !== false && sth, nth?.south !== false && nth) && dry(x0, z, x1, z)) segs.push({ ew: true, s, z, x0, x1 });
+  }
+  return (SEGS = segs);
 }
 
 // ------------------------------------------------------------------------------------- the faces
@@ -102,8 +127,12 @@ export function cityCells() {
 // kit's buildings: `at` the front's left corner, `yaw` facing the street. A face's first building's left
 // side and its last's right side turn the corners.
 export function planCell(cell) {
-  if (cell.park || cell.channel) return []; // (open ground: Stream.js lays a park out, or the channel)
+  if (cell.park) return []; // (open ground: Stream.js lays a park out)
   const rnd = seeded(cell.seed), out = [];
+  if (cell.district === 'port') { // a container yard (its stacks are Port.js's): one shed across its north end, by the gate
+    const w = 24, spec = style('warehouse', rnd, w, cell.x1 - cell.x0, { L: 'windows', R: 'front' }, cell);
+    return [{ ...spec, at: { x: cell.x0, y: 0, z: cell.z1 - w }, yaw: -Math.PI / 2, w, kind: 'building' }];
+  }
   const width = cell.x1 - cell.x0;
   if (cell.district === 'downtown' && !cell.half) return downtown(cell, rnd);
   const deep = cell.half ? 26 : Math.min(25, (width - 6) / 2);
@@ -118,7 +147,9 @@ function faceKind(cell, k, rnd) {
   const d = cell.district;
   if (d === 'waterfront') return 'deco';
   if (d === 'midtown') return rnd() < 0.55 ? 'midrise' : 'mixed';
-  if (d === 'industrial') return 'warehouse';
+  if (d === 'industrial' || d === 'port') return 'warehouse';
+  // Suburbia (city/Layout.js): houses on their lots, shops along every fifth street
+  if (d === 'suburbia') return Math.abs(k) % 5 === 0 ? 'shops' : rnd() < 0.82 ? 'houses' : 'homes';
   if (d === 'town') return Math.abs(k) % 2 === 0 || rnd() < 0.3 ? 'shops' : 'homes';
   // the ring: shops along every fifth street (its avenues), homes and courts between
   return Math.abs(k) % 5 === 0 ? 'shops' : cell.cz > 2200 && rnd() < 0.6 ? 'houses' : 'homes';
@@ -309,7 +340,7 @@ function style(kind, rnd, w, d, sides, cell) {
 // office blocks back to back, south to north.
 function downtown(cell, rnd) {
   const out = [], width = cell.x1 - cell.x0, len = cell.z1 - cell.z0;
-  const near = 1 - Math.hypot(cell.cx - DOWNTOWN.x, cell.cz - DOWNTOWN.z) / 300; // 1 at the middle
+  const near = cell.near ?? 1 - Math.hypot(cell.cx - DOWNTOWN.x, cell.cz - DOWNTOWN.z) / 300; // 1 at the middle (or as city/Layout.js has it)
   let z = cell.z0;
   while (z < cell.z1 - 20) {
     let L = pick(rnd, [44, 50, 56, 62]);

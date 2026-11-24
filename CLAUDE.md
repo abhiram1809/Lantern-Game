@@ -57,8 +57,18 @@ story class with its own save store and checkpoints. Checkpoint ids are unique a
   performance pass (counter, palms, cars, Korugar's lights), the light pass (each scene lit by its own sky,
   warmer coastal light, Korugar's wet neon nights) and a polish pass measured step by step (softer, wider sun
   shadows and a cooler fill, contact shadows, worn roads and a kerb, roof silhouettes and wall-foot shade, night
-  emissives and sodium lamps); the map's not started and will need the pier chapters
-  (`PIER`, the day presets) checked after.
+  emissives and sodium lamps), and the map (2026-11-24, below: "Coast City's map").
+- **Coast City's map** (the user's reference map, "not a hard goal"): a peninsula about 3 × 4 km with the sea west,
+  Coast Bay south (the Bay Bridge on the road to the field), Coast River east, Port Haven north. `city/Layout.js` is
+  the one description of it (coast, bay, river, basins, districts, parks, Highway 1, the hills and their ground,
+  the bridge, names) and everything reads it: `Plan.js` (`cityCells()`: the grid's blocks where the layout has land
+  for them, cut back from the water; `streetSegments()`: which stretches of street exist, read by the ground, the
+  traffic, the people and the map), the terrain and water, the highway, the districts' builders, the map.
+  `node tools/draw-layout.mjs out.png 3.4` draws it (`... 1.2 x z span` a close-up). What didn't move, so the story
+  keeps its places: Hal's blocks and the grid round them, the pier (Part Seven is staged on it), the beach by it,
+  the memorial park (now a block of its own on the bluff over the bay), the straight road to the field. Inside the
+  districts the streets are the old grid (Hal's blocks stand on it); the curves are the coast, the river, the hill
+  roads and the highway.
 - **Story rules:** take beats from the comics (*Green Lantern: Secret Origin* first, modern
   continuity: no yellow weakness). When proposing beats, say which come from the comics and which
   are ours. Discuss a new part's beats with the user before building it.
@@ -155,8 +165,11 @@ src/powers/        RingPowers (charge, health, wheel, aim, guard, constructs), C
 src/scenes/        Bedroom, Dream, Hyperspace, CrashSite (the lake), Space, Oa + Hall, Ferris (the field, the
                    road, Coast City's host scene), Site, Ysmault, Korugar + KorugarSigns + Statue, Qward, Wake
                    (Part Seven's flight through space), Zamaron, Mortuary (Part Seven's sting), DayCycle
-src/city/          Coast City: Kit, Building, Signs (+ SignWorker), HalsBlock, Interiors, Shops, Office, Lod, Lamps, Traffic,
-                   Plan, Tower, Stream, Ground, Waterfront, Landmarks, Palms (every palm, near or as its picture)
+src/city/          Coast City: Layout (the map), Plan (blocks, streets), Kit, Building, Signs (+ SignWorker), HalsBlock,
+                   Interiors, Shops, Office, Lod, Lamps, Traffic, Tower, Stream, Ground + Terrain + Relief + Water (the
+                   ground, the hills' ground, the water, the quay walls), Landmarks + Highway + Bridge (Highway 1, the Bay
+                   Bridge), Parks (Coast Park, the plazas, the city's trees), Hills (houses, roads, the Observatory),
+                   Port, Playland, Marina, Waterfront, Palms (every palm, near or as its picture)
 src/props/         Props (load, clone, helpers), Car (makeCar, planDrive), Smash (every prop touchable)
 src/enemies/       Drones, Sinestro, Hammond, Atrocitus, Thunderers, StarSapphire (+ SapphireAlly), Predator
 src/vehicles/      Drive (the car, raycast vehicle), Jet (flight model, mouse aim)
@@ -239,8 +252,15 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   while the player has control; E runs it **with `story.busy` already set**.
 - The **Ferris scene** hosts the airfield, the road and all of Coast City. `LOT` (6 km down the road)
   is the frame for Hal's building, his two detailed blocks (`city/HalsBlock.js`) and the streamed
-  city around them (`city/Plan.js` grid, `city/Stream.js` builds blocks near the camera, boxes
-  beyond). Traffic keeps right: southbound on the boulevard is its east half (x 6 to 10).
+  city around them (`city/Plan.js` blocks from `city/Layout.js`, `city/Stream.js` builds blocks near the camera,
+  boxes beyond; Hal's two outer halves are the cells with `half` / `halRow`). Traffic keeps right: southbound on the
+  boulevard is its east half (x 6 to 10); its network is `streetSegments()`, the bridge's lanes and Highway 1's
+  (`Highway.js` `highwayLanes()`).
+- Water: one surface at `Terrain.js` `WATER_Y` (-1.5, so the quay walls show), sea, bay, river and basins alike; the
+  ground's height is `Ferris.groundAt(x, z)` (the water's surface over water) and `Ferris.waterAt(x, z)`, the
+  terrain's baked from the layout (`Terrain.js`: a signed distance to the water). The ring takes the scene's water
+  height (`powers.attach({ water })`). In deep water Hal can't swim: in the suit the ring lifts him out, in his
+  clothes he's put back ashore (`Roam.updateWater`).
 - Grounding: the sun's shadow box is 120 m across round the player (`shadowSpan(60)`), softened by `shadow.radius`;
   every Rig's root is in `contactBodies` and gets a footprint under it, as do the scene's cars
   (`fx/ContactShadows.js`: one instanced draw, a ray down for each). The roads' tyre tracks and ruts are
@@ -320,10 +340,13 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 
 ### Performance rules
 
-- Measure first (2026-11-23 round two: street 11 PM 14.1 → 11.1 ms, Korugar 7.1 → 4.9, serialised CPU + GPU):
+- Measure first (2026-11-23 round two: street 11 PM 14.1 → 11.1 ms, Korugar 7.1 → 4.9; 2026-11-24 the map put the
+  street at 13.6 ms and 457 static draws, and its pass took it to 10.4 / 301, against the last commit before the map's
+  11.6 / 376 timed the same session; serialised CPU + GPU):
   `` ` `` shows the counter (`ui/PerfHud.js`: frame, GPU time where the browser allows it, draw
   calls and triangles with the shadow pass's share, lights, buffer sizes); `tools/perf-probe.js` lists what each
-  draw costs (`table()`, `table({ by: 'root' })`) and times a frame (`time()`). `bench(label)` runs the four
+  draw costs (`table()`, `table({ by: 'root' })`, `systems()`), times a frame (`time()`) and its CPU and GPU apart
+  (`split()`, after `view(i)` stages a benchmark view). `bench(label)` runs the four
   standard views (downtown 6 PM, the street at 11 PM, a parked car by day, Korugar's plaza) and keeps the numbers
   in localStorage across reloads; `deltas([...labels])` compares runs. Set `localStorage.gl_seed` first; traffic and
   people still vary by ±20 draws, so judge by `staticCalls` / `staticShadow`, and time one change on and off in
@@ -331,6 +354,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   the CPU issuing draw calls (about 6 µs each), so count calls, not only triangles. `time()` waits for the GPU
   each frame, so it's CPU plus GPU; in play they overlap. The GPU is shared with whatever else is running: for a
   GPU cost, time the pass alone in a loop inside one timer query, or alternate on and off and take the minimum.
+  Two tabs of the game slow each other (22 → 27 ms, both): to compare against an older build, check it out in a
+  worktree, serve it on 5181 and bench it in the same tab, one build after the other.
 - Textures: the props', the people's and the surfaces' are KTX2, UASTC (`tools/texture-fit.mjs`, `basisu`): one
   byte a texel on the GPU (ASTC here, BC7 elsewhere), a quarter of RGBA8, and sharper than the WebP they replaced
   (a face's colour map: 51.7 dB against 40.3; Basis's smaller ETC1S mode, 37.8, is worse than the WebP). Each build
@@ -359,17 +384,27 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   shadow triangles, 20 → 14 ms):
   - Occlusion (`engine/Occlusion.js`): a scene's `userData.occlusion` tests big pieces' boxes against the frame's
     depth with GPU queries, the boxes drawn in the scene's own render after the opaque things (`ask(camera)` before
-    it); the streamed blocks are in it.
+    it, `after()` once it's answered); the streamed blocks are in it, the shore's parts (port, beach, Playland, the
+    marina: `Waterfront.js`) and the memorial park.
   - Batches (`BatchedMesh`): Hal's block's props and doors one per material (`Lod.js` `BatchSet`; `move(e, M)` for
     a door swinging, per-copy colours), the streamed blocks' walls, glass, roofs, signs and night light one per
-    material (`Stream.js` `CityBatches`). A batch keeps a copy of all it holds in memory: the trim (barrel tiles,
-    sills) stays in per-block meshes that free theirs once uploaded (batched, the city held 553 MB of it).
+    material (`Stream.js` `CityBatches`: one is drawn only while a copy in it is shown, culled whole by a sphere round
+    those; 46 of the street's 51 drew nothing). A batch keeps a copy of all it holds in memory: the trim (barrel
+    tiles, sills) stays in per-block meshes that free theirs once uploaded (batched, the city held 553 MB of it).
   - Far cars (`Lod.js` `FarCars`): past `far` (24 m, parked 16) every car of a model is one instanced draw, paint per
     instance (`userData.paint`, `aPaint`), lamps lit from their materials; every car's shadow is its model's shape
     from a shadow-only copy, its own parts cast none.
   - Props (`HalsBlock`): what's touchable and not a car or glass is drawn instanced (`Lod.js` `InstanceSet`: each copy
     within its distance, a shadow-only copy within its shadow distance) until `smash.watch` sees its body move; then
-    it's shown as itself. Hal's block merges by material in 600 m cells.
+    it's shown as itself. Hal's block merges by material in 600 m cells, their grid off the blocks (`at`).
+  - Smash's fixed stand-ins with nothing to draw (a collider for an instanced copy) are kept in a hidden group
+    (`smash.stands`, `stow()`), out of the renderer's walk of the scene; one that breaks goes back into the scene.
+    The map's 7,800 of them, each visited in every pass, were 1.5 ms of the street's CPU.
+  - Far copies in one draw: the memorial park beyond 280 m (`flatCopy`, its cypresses as spindles), the Bay Bridge
+    beyond 600 m (`Landmarks.js` `farBridge`: its lit parts kept), Highway 1's piers in its far copy (its columns,
+    masts and gantries instanced only for the near chunks). A far copy's colours are its textures' averages
+    (`Lod.js` `average`; a compressed texture's on the GPU, `Ktx2.js` `averageColour`).
+  - A room's small things are drawn only while the camera's near it (the diner's plates and mugs: `DinerLife`).
   - Shadow-only stand-ins live on layer 1, which every shadow camera sees (`Engine` patches `shadowMap.render`) and
     the camera never does: scans' simplified twins (`Rig.js` `shadowTwin`, a fifth of the triangles; set a twinned
     mesh's shadow with `(m.userData.twin ?? m).castShadow`), palms' cards, cars' models.
@@ -449,6 +484,12 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Parse a changed file (`rolldown/parseAst`) before reloading: a comment pasted mid-line can swallow
   the rest of it.
 
+- Agents in worktrees start from the GitHub commit (origin/main), not the local main: reset theirs to main first.
+  With `node_modules` symlinked into a worktree, Vite won't serve the KTX2 transcoder (every texture missing): run
+  it with a config adding the main checkout's `node_modules` to `server.fs.allow`.
+- Lines held by voices wait for real time, and cutscene lines for a click: voices off (`Save.setting('voice',
+  false)`, `import('/src/engine/Save.js')`) and click the canvas while stepping a chapter.
+
 **Story flow**
 - A new world goes in every planet table in `Voyage.js` (leaving Zamaron threw: it was missing from the departures,
   and Hal was left in space).
@@ -475,6 +516,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   enter the home, I cannot get out").
 - A view turned by yaw and pitch: `(d.z, 0, -d.x)` is the *left* of `d`, so pitching about it turns the wrong way
   (Carol's hold had the mouse and W/S inverted).
+- A deck over the water (the bridge, the highway's arches) is somewhere to land (`canLand`), never the flight's
+  `ground`/`floor`: as ground it lifted him onto the deck whenever he flew under it.
 
 **Physics**
 - A sensor collider blocks the character controller unless its filter skips it (`Player.filter` does):
@@ -494,6 +537,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - The controller sometimes returns no movement on a flat floor box (`floorOnly` retry in
   `updateGround`). A ray exactly on a heightfield's cell line can miss.
 - Camera and aim rays must skip invisible walls and dynamic bodies.
+- `removeFromPhysics` frees the controller with the body (`kcc` null): `place()` while he was out of the world (a
+  rift, the car) reached into the freed one and threw (`enableAutostep` of undefined).
 
 **Rendering**
 - One NaN pixel becomes black blocks under bloom (keep the guard; don't normalise zero vectors).
@@ -551,6 +596,18 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Two systems setting one object's `visible` fight: `Lod` acted only when its own answer changed, so a traffic
   car taken out of its pool 300 m away stayed drawn whole (69 draws each, five of them). What shows or hides a
   Lod-managed object calls `lod.recheck(object)`; `userData.away` keeps it hidden at any distance.
+- A district's `Batch` built in small cells (`build(mats, { cell })`) is a draw a material for every cell in view:
+  the marina's 120 m cells were 24 of Hal's street's draws from a kilometre off. Cells as big as the district.
+- A set built for a chapter's close-ups is seen from all over town once it's in the city (the memorial park: 500
+  draws, 790 k triangles of headstones, from Hal's street): merge it by material (`mergeByMaterial`) and swap a
+  simplified copy in at a distance (`Ferris.cemLod`).
+- A merge's cells cut where their grid's lines run: Hal's street had x = 0 down its middle, and every material of
+  his blocks was two draws in each pass. Keep the grid off what's merged (`Batch.buildSteps({ at })`).
+- A transparent two-sided material is drawn twice, its back faces then its front (the cypresses' leaf cards, 300 k
+  triangles each time): leaves are cut-outs (`Props.js` `prepare`).
+- The canvas can't read a compressed (KTX2) texture: its average comes from the GPU (`Ktx2.js` `averageColour`). A
+  far copy that got none drew its textured parts in their materials' plain colours (the far cars, from the KTX2
+  change until this was found).
 
 **Models and props**
 - A loader reading the props or the people needs `setKTX2Loader(ktx2)` (`engine/Ktx2.js`), or their textures
@@ -642,10 +699,17 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   parapet (the `queen` and `predator` arena, not dressed yet). Zamaron isn't in free roam's places yet.
 - The streamed city has no interiors, wall props or parked cars; Hal's blocks' upper-floor flats can't
   be entered. Tom Kalmaku is a voice only.
+- The map (2026-11-24, built by six agents in parallel and merged): checked in captures, Part Three's `drive` and
+  `grave` played through by script; not played by hand. Not re-run: Part Five's `commute`, Part Seven's pier
+  chapters (`pier`, `strike`, `return`, `wheel`) with the water 1.5 m lower. No traffic on the hill roads, no cars in
+  the suburbs' drives; the containers' colours read toy-like; the bay's sea wall and the bluff have no rocks; the
+  spurs end in open desert; the in-game map draws Highway 1 from its own arcs (`Highway.js` exports
+  `highwayCentrelines()`). A travel error (`null` reading `add`) was seen once in a bench run, not reproduced.
 - Scans have no finger bones (hands stay open) and lip sync is a jaw only.
-- Performance still to do: the street is ~400 static draws (the goal was 300): Hal's block's instanced props are ~90
-  (one per shape and material: a BatchedMesh per material would make them ~30), the streamed blocks ~80 where
-  they're seen, doors and neon ~50. Scans have no detail levels in the main pass (a Korugarian is 90 k triangles up
+- Performance still to do: Hal's street is ~300 static draws, of which Hal's block's prop batches are ~70 (one per
+  material: fewer needs their textures in atlases), the streamed blocks' near meshes ~20, doors and neon ~16.
+  Downtown from the air is 0.6 ms over the last commit before the map, at 11 PM (the new ground, the waterfront, the
+  trees). Scans have no detail levels in the main pass (a Korugarian is 90 k triangles up
   close); Korugar's built props are ~370 draws of small boxes. The counter's GPU time
   hasn't been read in a visible window (a hidden pane's is meaningless).
 - Light: the suit reads dark at night away from lamps (no rim light yet); Coast City's shop and diner

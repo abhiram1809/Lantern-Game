@@ -8,36 +8,159 @@ import { LOT } from '../scenes/Ferris.js';
 import { wait, onFrame } from '../engine/Time.js';
 import { LINES } from './lines.js';
 import { DinerLife } from './DinerLife.js';
-import { streetX, STREET_Z, K_MIN, K_MAX, FREEWAY, NS, EW } from '../city/Plan.js';
+import { streetX, STREET_Z, NS, EW, cityCells, streetSegments } from '../city/Plan.js';
+import { groundAt } from '../city/Layout.js';
+import { underRamp } from '../city/Highway.js';
+import { coastParkPlan, COAST } from '../city/Parks.js';
 import { breath } from '../engine/Slice.js';
 
 // The rest of the city's people (2026-11-19, the user: "there is no life outside of this block... the
 // same everywhere, but more randomized. I don't mind if you reuse stuff"): `roamer`s, the block's walkers'
-// models again, out on every pavement of the grid near the camera (city/Plan.js), down the middle of
-// each (9.5 m off a north-south street's middle, 8.5 off an east-west one), over the crosswalks at the
-// corners, on at each corner or round it; put down where nobody's looking when the camera leaves them,
-// half of them home by night. Everything the block's people do they do (talk, stop and look up at him,
-// run from a construct, see him change).
+// models again, out on the city's pavements near the camera, down the middle of each (9.5 m off a
+// north-south street's middle, 8.5 off an east-west one), over the crosswalks at the corners (on the
+// crossing's lights, where it has them: they wait at the kerb for the cars to be held), on at each corner
+// or round it; put down where nobody's looking when the camera leaves them, half of them home by night.
+// Everything the block's people do they do (talk, stop and look up at him, run from a construct, see him change).
+// The pavements (the map rework, 2026-11-24: `walks`) are only beside the streets that are built (city/Plan.js
+// streetSegments): round each block on each side that faces a street, and over the street from corner to
+// corner. So nobody walks out over the water, under the highway's sweeping corners, into the hills or the
+// memorial park (no blocks there), over a park of several blocks (only round its edge: inside are its lawns), or
+// on Hal's blocks' own pavements (their walkers'; beside them, only the city's side).
 const PATH_NS = (NS.kerb + NS.front) / 2, PATH_EW = (EW.kerb + EW.front) / 2;
-const XC = []; for (let k = K_MIN; k <= K_MAX; k++) XC.push(streetX(k) - PATH_NS, streetX(k) + PATH_NS);
-const ZC = []; for (let i = 1; i < STREET_Z.length; i++) ZC.push(STREET_Z[i] - PATH_EW, STREET_Z[i] + PATH_EW);
-XC.sort((a, b) => a - b); ZC.sort((a, b) => a - b);
-// a stretch of pavement they may walk (the lot's frame): in the city, not on Hal's blocks (their own
-// people) or under the freeway's ramp
-const roamOK = (axis, fixed, a, b) => {
-  const m = (a + b) / 2, x = axis === 'z' ? fixed : m, z = axis === 'z' ? m : fixed;
-  if (x < XC[0] - 1 || x > XC[XC.length - 1] + 1 || z < ZC[0] - 1 || z > ZC[ZC.length - 1] + 1) return false;
-  if (x > -48 && x < 64 && z < 64) return false;
-  if (Math.abs(z - FREEWAY.z) < 12 && x < FREEWAY.westTop + 12) return false;
-  return true;
-};
-// the ground under a point of the grid's (the lot's frame): the road, or a pavement's 14 cm up
-const gridGround = (x, z) => {
-  const k = Math.round((x - 6) / 80), dx = Math.abs(x - streetX(k));
-  const dz = STREET_Z.reduce((m, sz) => Math.min(m, Math.abs(z - sz)), Infinity);
-  return dx < NS.kerb || dz < EW.kerb ? 0 : PAVE;
-};
-const nextOf = (list, u, dir) => { if (dir > 0) { for (const v of list) if (v > u + 0.01) return v; } else { for (let i = list.length - 1; i >= 0; i--) if (list[i] < u - 0.01) return list[i]; } return null; };
+const pathX = (k) => (k === 0 ? (6.4 + 11.9) / 2 : PATH_NS); // (the boulevard's pavements are Hal's blocks': its kerbs 6.4 m from its middle)
+const bucket = (x, z) => Math.floor(x / 100) * 10007 + Math.floor(z / 100);
+// where Highway 1's ramps come down low over a pavement (at its diamonds), nobody walks: city/Highway.js's
+// `underRamp(x, z, pad)`, once it's in (`import { underRamp } from '../city/Highway.js'`, and UNDER_RAMP set to it)
+const UNDER_RAMP = underRamp;
+let WALKS = null;
+function walks() {
+  if (WALKS) return WALKS;
+  const row = (z) => STREET_Z.indexOf(z), segNS = new Set(), segEW = new Set();
+  for (const g of streetSegments()) if (g.ns) segNS.add(`${g.k},${row(g.z0)}`); else segEW.add(`${Math.round((g.x0 - 6) / 80)},${g.s}`);
+  const nodes = new Map(), grid = new Map();
+  const corner = (k, s, sx, sz) => {
+    const id = `${k},${s},${sx},${sz}`;
+    let n = nodes.get(id);
+    if (!n) {
+      nodes.set(id, (n = { id, x: streetX(k) + sx * pathX(k), z: STREET_Z[s] + sz * PATH_EW, edges: [] }));
+      const key = bucket(n.x, n.z);
+      (grid.get(key) ?? grid.set(key, []).get(key)).push(n);
+    }
+    return n;
+  };
+  const under = (a, b) => { if (!UNDER_RAMP) return false; for (let t = 0; t <= 1.0001; t += 0.05) if (UNDER_RAMP(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, 0.6)) return true; return false; };
+  const link = (a, b, cross = null, kerb = 0) => { if (under(a, b)) return; const e = { a, b, len: Math.hypot(b.x - a.x, b.z - a.z), cross, kerb }; a.edges.push(e); b.edges.push(e); };
+  // round each block, on its sides that face a street (beside Hal's blocks, the city's side, and the street north of his lot)
+  for (const c of cityCells()) {
+    const { j, r } = c, SW = () => corner(j, r, 1, 1), SE = () => corner(j + 1, r, -1, 1), NW = () => corner(j, r + 1, 1, -1), NE = () => corner(j + 1, r + 1, -1, -1);
+    const w = segNS.has(`${j},${r}`), e = segNS.has(`${j + 1},${r}`), s = segEW.has(`${j},${r}`), n = segEW.has(`${j},${r + 1}`);
+    if (c.half) {
+      if (c.half === 'west' && w) link(SW(), NW());
+      if (c.half === 'east' && e) link(SE(), NE());
+      if (c.halRow === 'north' && n) link(NW(), NE());
+      continue;
+    }
+    if (w) link(SW(), NW());
+    if (e) link(SE(), NE());
+    if (s) link(SW(), SE());
+    if (n) link(NW(), NE());
+  }
+  // the crosswalks, each over a street that's there, between two corners that are (`cross`: the crossing, and
+  // which street: its traffic held while they go)
+  const at = (k, s, sx, sz) => nodes.get(`${k},${s},${sx},${sz}`);
+  const cw = (a, b, k, s, street, kerb) => { if (a?.edges.length && b?.edges.length) link(a, b, { k, s, street }, kerb); };
+  const ks = new Set([...nodes.keys()].map((id) => id.split(',').slice(0, 2).join(',')));
+  for (const key of ks) {
+    const [k, s] = key.split(',').map(Number), nsK = k === 0 ? 6.4 : NS.kerb;
+    if (segNS.has(`${k},${s}`)) cw(at(k, s, -1, 1), at(k, s, 1, 1), k, s, 'NS', nsK); // (over the north-south street, north of the crossing)
+    if (segNS.has(`${k},${s - 1}`)) cw(at(k, s, -1, -1), at(k, s, 1, -1), k, s, 'NS', nsK); // (south of it)
+    if (segEW.has(`${k - 1},${s}`)) cw(at(k, s, -1, -1), at(k, s, -1, 1), k, s, 'EW', EW.kerb); // (over the east-west street, its -x side)
+    if (segEW.has(`${k},${s}`)) cw(at(k, s, 1, -1), at(k, s, 1, 1), k, s, 'EW', EW.kerb); // (its +x side)
+  }
+  parkWalks({ nodes, grid, link });
+  for (const [key, list] of grid) { const live = list.filter((q) => q.edges.length); if (live.length) grid.set(key, live); else grid.delete(key); }
+  return (WALKS = { nodes, grid });
+}
+// Coast Park's paths (city/Parks.js coastParkPlan) walked too, on the lawns' ground: each path a chain of points
+// every 8 m or so, the canal's promenade either side of the water (its line is the canal's middle), a ring round the
+// fountain's square between its lamps and its palms; each path's open end joined to the nearest point of another
+// path, or of the pavement round the park at its gates (that stretch split there).
+function parkWalks({ nodes, grid, link }) {
+  const plan = coastParkPlan(), edges = new Set();
+  let n = 0;
+  const pnode = (x, z) => {
+    const q = { id: `park${n++}`, x, z, edges: [] };
+    nodes.set(q.id, q);
+    const key = bucket(x, z);
+    (grid.get(key) ?? grid.set(key, []).get(key)).push(q);
+    return q;
+  };
+  const plink = (a, b) => { if (Math.hypot(b.x - a.x, b.z - a.z) < 0.3) return null; link(a, b); const e = a.edges[a.edges.length - 1]; if (e?.b !== b) return null; e.ground = true; return e; };
+  let k = 0;
+  const chain = (pts, closed = false) => {
+    const out = [], id = k++;
+    let s = 99;
+    pts.forEach((p, i) => {
+      if (i > 0) s += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
+      if (s >= 8 || (!closed && i === pts.length - 1)) { const q = pnode(p.x, p.z); q.chain = id; out.push(q); s = 0; }
+    });
+    for (let i = 1; i < out.length; i++) plink(out[i - 1], out[i]);
+    if (closed && out.length > 2) plink(out[out.length - 1], out[0]);
+    return out;
+  };
+  const side = (line, off) => line.map((p, i) => { const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)], L = Math.hypot(b.x - a.x, b.z - a.z) || 1; return { x: p.x - ((b.z - a.z) / L) * off, z: p.z + ((b.x - a.x) / L) * off }; });
+  const ends = [], rings = [], P = COAST, inPark = (q) => q.x > P.x0 - 2 && q.x < P.x1 + 2 && q.z > P.z0 - 2 && q.z < P.z1 + 2;
+  for (const p of plan.paths) {
+    const lines = p.canal ? [side(p.line, 6.5), side(p.line, -6.5)] : [p.line];
+    for (const line of lines) {
+      const loop = p.loop || Math.hypot(line[0].x - line[line.length - 1].x, line[0].z - line[line.length - 1].z) < 1;
+      // (only what's in the park: the loop round its edge, smoothed through its corners, swings out over the
+      // streets and the blocks beyond them; its runs inside are walked as paths of their own)
+      if (line.every(inPark)) {
+        const c = chain(loop ? line.slice(0, -1) : line, loop);
+        if (loop) rings.push(...c); else if (c.length > 1) ends.push(c[0], c[c.length - 1]);
+        continue;
+      }
+      let run = [];
+      for (const q of [...line, null]) {
+        if (q && inPark(q)) { run.push(q); continue; }
+        if (run.length > 3) { const c = chain(run); if (c.length > 1) ends.push(c[0], c[c.length - 1]); }
+        run = [];
+      }
+    }
+  }
+  const f = plan.features.find((q) => q.kind === 'fountain');
+  if (f) { const ring = []; for (let i = 0; i < 24; i++) { const a = (i / 24) * Math.PI * 2; ring.push({ x: f.x + Math.cos(a) * 29.3, z: f.z + Math.sin(a) * 29.3 }); } rings.push(...chain(ring, true)); }
+  // a point joined to the nearest point of another walk within `far` (a path's, not its own, or the pavement's),
+  // that stretch split where it's met
+  const join = (q, far) => {
+    let best = null, bd = far;
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const m of grid.get(bucket(q.x + i * 100, q.z + j * 100)) ?? []) for (const e of m.edges) {
+      if (e.cross || e.a === q || e.b === q || (e.a.chain != null && e.a.chain === q.chain) || (e.b.chain != null && e.b.chain === q.chain)) continue;
+      const dx = e.b.x - e.a.x, dz = e.b.z - e.a.z, u = Math.max(0, Math.min(e.len, ((q.x - e.a.x) * dx + (q.z - e.a.z) * dz) / e.len));
+      const d = Math.hypot(e.a.x + (dx * u) / e.len - q.x, e.a.z + (dz * u) / e.len - q.z);
+      if (d < bd) { bd = d; best = { e, u }; }
+    }
+    if (!best) return;
+    const { e, u } = best;
+    let m = u < 1.5 ? e.a : u > e.len - 1.5 ? e.b : null;
+    if (!m) {
+      m = pnode(e.a.x + ((e.b.x - e.a.x) * u) / e.len, e.a.z + ((e.b.z - e.a.z) * u) / e.len);
+      m.chain = e.a.chain ?? e.b.chain;
+      for (const end of [e.a, e.b]) end.edges.splice(end.edges.indexOf(e), 1);
+      for (const [a, b] of [[e.a, m], [m, e.b]]) { link(a, b); const ne = a.edges[a.edges.length - 1]; if (e.ground && ne?.b === b) ne.ground = true; }
+    }
+    plink(q, m);
+  };
+  // each path's open ends; then the closed walks (the loop round the park's edge, the pond's, the fountain's) where
+  // another path comes over them
+  for (const q of ends) if (q.edges.length === 1) join(q, 9);
+  for (const q of rings) join(q, 3.5);
+}
+// the ground along a stretch (the lot's frame): a pavement's 14 cm up, the road where a crosswalk's over it, or a
+// park path on its lawns' ground (at x, z)
+const walkY = (e, u, x, z) => (e.ground ? groundAt(x, z) + 0.07 : e.cross && Math.abs(u - e.len / 2) < e.kerb ? 0 : PAVE);
+const other = (e, n) => (e.a === n ? e.b : e.a);
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -820,8 +943,8 @@ export class CityLife {
   }
 
   // ---------------------------------------------------------------- the city's roamers
-  // one down a stretch of the grid's pavement (`p.rm`: on a north-south one, axis z at x `fixed`; on an
-  // east-west one, axis x at z `fixed`; `u` how far along, `to` the next corner)
+  // one down a stretch of the city's pavement or over a crosswalk (`p.rm`: `e` the stretch, from the corner
+  // `from` to `to`, `u` how far along it)
   roam(p, dt, d, flyingOver) {
     const player = this.story.player, hp = player.position, m = p.rm;
     if (!m) return { speed: 0, want: null };
@@ -836,42 +959,46 @@ export class CityLife {
       p.up = false; p.anim.reach('R', null); this.look(p, null);
     }
     if (p.paused) return { speed: 0, want: p.faceTo };
-    const fx = m.axis === 'x' ? m.dir : 0, fz = m.axis === 'z' ? m.dir : 0, rx = -fz, rz = fx;
+    let fx = (m.to.x - m.from.x) / m.e.len, fz = (m.to.z - m.from.z) / m.e.len;
+    // at the kerb of a crosswalk: waiting for the lights to hold the street's traffic (a minute at most)
+    if (m.e.cross && m.u < 0.3 && (m.wait ?? 0) < 60 && !this.mayCross(m.e)) {
+      m.wait = (m.wait ?? 0) + dt;
+      if (d < 4.5 && !p.glance) { p.glance = true; this.look(p, this.halHead(), this.story.civilian ? 0.45 : 0.75); }
+      else if (p.glance && d > 5.5) { p.glance = false; this.look(p, null); }
+      return { speed: 0, want: Math.atan2(fx, fz) };
+    }
     // Hal in the way: round him, slower
-    const ox = hp.x - p.pos.x, oz = hp.z - p.pos.z, along = ox * fx + oz * fz, lat = ox * rx + oz * rz;
+    const ox = hp.x - p.pos.x, oz = hp.z - p.pos.z, along = ox * fx + oz * fz, lat = ox * -fz + oz * fx;
     let target = p.lane, speed = p.speed;
     if (!player.flying && along > -0.4 && along < 2.4 && Math.abs(lat - p.offset) < 0.9) { target = THREE.MathUtils.clamp(lat > p.offset ? lat - 0.95 : lat + 0.95, -1.8, 1.8); speed *= along < 0.9 ? 0.25 : 0.6; }
     p.offset += (target - p.offset) * Math.min(1, dt * 2.5);
-    m.u += m.dir * speed * dt;
-    if ((m.dir > 0 && m.u >= m.to) || (m.dir < 0 && m.u <= m.to)) { m.u = m.to; this.roamTurn(p); }
-    const n = p.rm, gx = n.axis === 'z' ? n.fixed : n.u, gz = n.axis === 'z' ? n.u : n.fixed;
-    const nfx = n.axis === 'x' ? n.dir : 0, nfz = n.axis === 'z' ? n.dir : 0;
-    const tx = gx - nfz * p.offset, tz = gz + nfx * p.offset;
-    _b.set(tx + LOT.x, gridGround(tx, tz), tz + LOT.z);
+    m.u += speed * dt;
+    if (m.u >= m.e.len) { const over = m.u - m.e.len; this.roamTurn(p); if (!p.rm) return { speed: 0, want: null }; p.rm.u = p.rm.e.cross ? 0 : Math.min(over, p.rm.e.len); }
+    const n = p.rm;
+    fx = (n.to.x - n.from.x) / n.e.len; fz = (n.to.z - n.from.z) / n.e.len;
+    const tx = n.from.x + fx * n.u - fz * p.offset, tz = n.from.z + fz * n.u + fx * p.offset;
+    _b.set(tx + LOT.x, walkY(n.e, n.u, tx, tz), tz + LOT.z);
     p.pos.x += (_b.x - p.pos.x) * Math.min(1, dt * 4);
     p.pos.z += (_b.z - p.pos.z) * Math.min(1, dt * 4);
     p.pos.y += (_b.y - p.pos.y) * Math.min(1, dt * 10);
     if (d < 4.5 && along > 0.5 && !p.glance) { p.glance = true; this.look(p, this.halHead(), this.story.civilian ? 0.45 : 0.75); }
     else if (p.glance && (d > 5.5 || along < -0.5)) { p.glance = false; this.look(p, null); }
-    return { speed, want: Math.atan2(nfx, nfz) };
+    return { speed, want: Math.atan2(fx, fz) };
   }
-  // at a corner: on, or round it (not back the way they came unless there's nothing else)
+  // whether they may step off the kerb over a crosswalk (city/Traffic.js: the crossing's lights)
+  mayCross(e) { const tr = this.story.traffic; return !tr?.walkOK || tr.walkOK(e.cross.k, e.cross.s, e.cross.street); }
+  // at a corner: on, or round it, or over the street (not back the way they came unless there's nothing else)
   roamTurn(p) {
-    const m = p.rm, cx = m.axis === 'z' ? m.fixed : m.u, cz = m.axis === 'z' ? m.u : m.fixed;
-    const opts = [];
-    const go = (axis, dir, w) => {
-      const list = axis === 'z' ? ZC : XC, u = axis === 'z' ? cz : cx, fixed = axis === 'z' ? cx : cz, to = nextOf(list, u, dir);
-      if (to != null && roamOK(axis, fixed, u, to)) opts.push({ axis, dir, fixed, u, to, w });
-    };
-    go(m.axis, m.dir, 5);
-    const other = m.axis === 'z' ? 'x' : 'z';
-    go(other, 1, 2.2);
-    go(other, -1, 2.2);
-    if (!opts.length) go(m.axis, -m.dir, 1);
-    if (!opts.length) { p.rm = null; return; }
-    let w = Math.random() * opts.reduce((a, o) => a + o.w, 0);
-    for (const o of opts) { if ((w -= o.w) <= 0) { Object.assign(m, o); return; } }
-    Object.assign(m, opts[0]);
+    const m = p.rm, at = m.to, fx = (m.to.x - m.from.x) / m.e.len, fz = (m.to.z - m.from.z) / m.e.len, opts = [];
+    for (const e of at.edges) {
+      if (e === m.e) continue;
+      const o = other(e, at), dot = ((o.x - at.x) * fx + (o.z - at.z) * fz) / e.len;
+      opts.push({ e, o, w: dot > 0.7 ? 5 : 2.2 });
+    }
+    if (!opts.length) opts.push({ e: m.e, o: m.from, w: 1 });
+    let w = Math.random() * opts.reduce((a, o) => a + o.w, 0), pick = opts[0];
+    for (const o of opts) { if ((w -= o.w) <= 0) { pick = o; break; } }
+    Object.assign(m, { e: pick.e, from: at, to: pick.o, u: 0, wait: 0 });
   }
   // Kept near the camera: when it's left them behind (or they've no pavement yet), put down at a corner
   // within reach of it that nobody's looking at, facing on along it.
@@ -882,31 +1009,37 @@ export class CityLife {
       const dc = Math.hypot(p.pos.x - cam.position.x, p.pos.z - cam.position.z);
       if (dc < 140 || this.frustum.containsPoint(_s.copy(p.pos).setY(p.pos.y + 1)) && dc < 220) return;
     }
-    if (p.state !== 'roam' || cam.position.y > 140 || cz < ZC[0] - 150 || cz > ZC[ZC.length - 1] + 150) { if (p.rm && p.state === 'roam') { p.rm = null; p.pos.y = -60; } return; }
+    const hide = () => { if (p.rm && p.state === 'roam') { p.rm = null; p.pos.y = -60; } };
+    if (p.state !== 'roam' || cam.position.y > 140) { hide(); return; }
+    const { grid } = walks();
     for (let tries = 0; tries < 10; tries++) {
-      const x = XC[Math.floor(Math.random() * XC.length)], z = ZC[Math.floor(Math.random() * ZC.length)];
-      const dd = Math.hypot(x - cx, z - cz);
-      if (dd < 25 || dd > 115) { const k = Math.floor(Math.random() * XC.length); void k; continue; }
-      _s.set(x + LOT.x, 1, z + LOT.z);
+      const list = grid.get(bucket(cx + (Math.random() - 0.5) * 230, cz + (Math.random() - 0.5) * 230));
+      if (!list) continue;
+      const n = list[Math.floor(Math.random() * list.length)], dd = Math.hypot(n.x - cx, n.z - cz);
+      if (dd < 25 || dd > 115) continue;
+      _s.set(n.x + LOT.x, 1, n.z + LOT.z);
       if (this.frustum.containsPoint(_s) && dd < 70) continue;
-      const axis = Math.random() < 0.5 ? 'z' : 'x', dir = Math.random() < 0.5 ? 1 : -1;
-      const list = axis === 'z' ? ZC : XC, u = axis === 'z' ? z : x, fixed = axis === 'z' ? x : z, to = nextOf(list, u, dir);
-      if (to == null || !roamOK(axis, fixed, u, to)) continue;
-      p.rm = { axis, dir, fixed, u, to };
+      const e = n.edges[Math.floor(Math.random() * n.edges.length)];
+      p.rm = { e, from: n, to: other(e, n), u: 0, wait: 0 };
       p.offset = p.lane;
-      const gx = axis === 'z' ? fixed : u, gz = axis === 'z' ? u : fixed;
-      p.pos.set(gx + LOT.x, gridGround(gx, gz), gz + LOT.z);
-      p.rig.root.rotation.y = Math.atan2(axis === 'x' ? dir : 0, axis === 'z' ? dir : 0);
+      p.pos.set(n.x + LOT.x, walkY(e, 0, n.x, n.z), n.z + LOT.z);
+      p.rig.root.rotation.y = Math.atan2(p.rm.to.x - n.x, p.rm.to.z - n.z);
       return;
     }
+    hide(); // (no pavement near the camera: put away till there is)
   }
-  // after running: on from the nearest corner's line
+  // after running: on from the nearest point of the nearest stretch of pavement, either way along it
   roamRejoin(p) {
-    const cx = p.pos.x - LOT.x, cz = p.pos.z - LOT.z;
-    const x = XC.reduce((b, v) => (Math.abs(v - cx) < Math.abs(b - cx) ? v : b), XC[0]), z = ZC.reduce((b, v) => (Math.abs(v - cz) < Math.abs(b - cz) ? v : b), ZC[0]);
-    const axis = Math.abs(cx - x) < Math.abs(cz - z) ? 'z' : 'x', fixed = axis === 'z' ? x : z, u = axis === 'z' ? cz : cx, dir = Math.random() < 0.5 ? 1 : -1;
-    const to = nextOf(axis === 'z' ? ZC : XC, u, dir);
-    p.rm = to != null ? { axis, dir, fixed, u, to } : null;
+    const cx = p.pos.x - LOT.x, cz = p.pos.z - LOT.z, { grid } = walks();
+    let best = null, bd = Infinity;
+    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const n of grid.get(bucket(cx + i * 100, cz + j * 100)) ?? []) for (const e of n.edges) {
+      const dx = e.b.x - e.a.x, dz = e.b.z - e.a.z, u = Math.max(0, Math.min(e.len, ((cx - e.a.x) * dx + (cz - e.a.z) * dz) / e.len));
+      const d = Math.hypot(e.a.x + (dx * u) / e.len - cx, e.a.z + (dz * u) / e.len - cz);
+      if (d < bd) { bd = d; best = { e, u }; }
+    }
+    if (!best) { p.rm = null; return; }
+    const fwd = Math.random() < 0.5, e = best.e;
+    p.rm = fwd ? { e, from: e.a, to: e.b, u: best.u, wait: 0 } : { e, from: e.b, to: e.a, u: e.len - best.u, wait: 0 };
   }
 
   // back onto the loop at the nearest point (after running, the hop, or coming out of the diner)

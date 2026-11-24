@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { mergeGeometries, mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
 import { MeshoptSimplifier } from 'meshoptimizer';
+import { averageColour } from '../engine/Ktx2.js';
 
 let simplifier = false;
 MeshoptSimplifier.ready.then(() => (simplifier = MeshoptSimplifier.supported));
@@ -78,9 +79,14 @@ export function mergeByMaterial(root, { simplify = 0 } = {}) {
 // as they are, since they light at night. Shared like a merged copy by everything that matches it.
 const flatMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.2, name: 'farCar' });
 const averages = new WeakMap(), _c = new THREE.Color();
-function average(tex) {
+export function average(tex) {
   if (!tex?.image) return null;
   if (averages.has(tex)) return averages.get(tex);
+  if (tex.isCompressedTexture) { // (the KTX2 ones: engine/Ktx2.js, kept once it's in)
+    const c = averageColour(tex);
+    if (c || tex.mipmaps?.length) averages.set(tex, c);
+    return c;
+  }
   let c = null;
   try {
     const cv = document.createElement('canvas');
@@ -95,7 +101,7 @@ function average(tex) {
   averages.set(tex, c);
   return c;
 }
-export function flatCopy(root, keep = new Set(), { simplify = 0.2 } = {}) {
+export function flatCopy(root, keep = new Set(), { simplify = 0.2, material = flatMat } = {}) {
   root.updateMatrixWorld(true);
   const inv = new THREE.Matrix4().copy(root.matrixWorld).invert(), parts = [], kept = [];
   root.traverseVisible((m) => {
@@ -133,7 +139,7 @@ export function flatCopy(root, keep = new Set(), { simplify = 0.2 } = {}) {
   const out = new THREE.Group();
   out.userData.sig = sig;
   for (const { geo } of entry.slots) {
-    const mesh = new THREE.Mesh(geo, flatMat);
+    const mesh = new THREE.Mesh(geo, material);
     mesh.castShadow = mesh.receiveShadow = true;
     out.add(mesh);
   }

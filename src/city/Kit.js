@@ -263,14 +263,15 @@ export class Batch {
   build(mats, opts) { return runSteps(this.buildSteps(mats, opts)); }
   // (`chunk`: at most that many parts in one mesh, so a merge never holds a frame up long: the
   // streamed blocks', city/Stream.js)
-  *buildSteps(mats, { shadows = true, cell = 80, chunk = Infinity } = {}) {
+  // (`at`: where the cells' grid starts, x and z)
+  *buildSteps(mats, { shadows = true, cell = 80, chunk = Infinity, at = [0, 0] } = {}) {
     const group = new THREE.Group(), _c = new THREE.Vector3();
     for (const [key, list] of this.parts) {
       const cells = new Map();
       for (const g of list) {
         g.computeBoundingBox();
         g.boundingBox.getCenter(_c);
-        const k = `${Math.floor(_c.x / cell)},${Math.floor(_c.z / cell)}`;
+        const k = `${Math.floor((_c.x - at[0]) / cell)},${Math.floor((_c.z - at[1]) / cell)}`;
         let arr = cells.get(k) ?? cells.set(k, [[]]).get(k);
         if (arr.at(-1).length >= chunk) arr.push([]);
         arr.at(-1).push(g);

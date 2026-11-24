@@ -44,6 +44,20 @@ export class Smash {
     this.water = new Particles(1200, { additive: false, soft: 0.14, gravity: -9.8, drag: 0.3, turbulence: 0.5 }); // (a hydrant's spray)
     scene.add(this.bits.points, this.smoke.points, this.glow.points, this.water.points);
     this.live = []; // burning things, geysers: { update(dt, t) -> keep? }
+    // the fixed stand-ins with nothing to draw (a collider for an instanced copy, city/Port.js Placed): in a group of
+    // their own, hidden, so the renderer's walk of the scene leaves them out (the new map's 7,800 of them, each passed
+    // over in every pass, were a millisecond and a half of the street's frame); out into the scene when one breaks
+    this.stands = new THREE.Group();
+    this.stands.name = 'smashStands';
+    this.stands.visible = false;
+    scene.add(this.stands);
+  }
+
+  // an object with nothing of its own to draw out of the renderer's way (a fixed item only: its pose never changes)
+  stow(object) {
+    let drawn = false;
+    object.traverse((o) => { drawn ||= o.isMesh || o.isPoints || o.isLine || o.isSprite || o.isLight; });
+    if (!drawn && object.parent !== this.stands) this.stands.attach(object);
   }
 
   // ---------------------------------------------------------------------------------- adding
@@ -77,6 +91,7 @@ export class Smash {
     this.byBody.set(body.handle, item);
     this.byCollider.set(collider.handle, item);
     if (kind !== 'solid') this.physics.dynamics.push({ body, mesh: object, radius: item.radius, item });
+    if (fixed) this.stow(object);
     return item;
   }
 
@@ -174,6 +189,7 @@ export class Smash {
   breakOff(item, at, dir, strength) {
     item.kind = 'loose';
     item.broken = true;
+    if (item.object.parent === this.stands) this.scene.attach(item.object); // (its pieces are about to be put in it)
     item.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
     item.body.setLinearDamping(0.12);
     item.body.setAngularDamping(0.4);

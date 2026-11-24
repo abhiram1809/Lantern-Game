@@ -10,16 +10,61 @@ import { makeCar } from '../props/Car.js';
 import { blockSteps, BLOCK_PROPS } from '../city/HalsBlock.js';
 import { PalmField } from '../city/Palms.js';
 import { ContactShadows } from '../fx/ContactShadows.js';
-import { wearRoad } from '../city/Ground.js';
+import { wearRoad, DESERT_GLSL, buildCityGround, groundU } from '../city/Ground.js';
 import { sliced, runSteps } from '../engine/Slice.js';
 import { buildFerrisOffice } from '../city/Office.js';
 import { LampPool } from '../city/Lamps.js';
-import { Lod } from '../city/Lod.js';
+import { Lod, mergeByMaterial, flatCopy, releaseMerged, average } from '../city/Lod.js';
 import { CityStream } from '../city/Stream.js';
-import { cityOcean } from '../city/Ground.js';
-import { CITY, LOT_Z, coastX, COAST_GLSL, CHANNEL } from '../city/Plan.js';
-// the city's own ground collider (world: its x lines on the channel's edges every 10 m)
-const CITY_GROUND = { x0: -1400, x1: 3000, z0: 5400, z1: 9800 };
+import { CITY, LOT_Z, coastX as oldCoastX } from '../city/Plan.js';
+import { BRIDGE, MEMORIAL, coastAt, highwayDistance } from '../city/Layout.js';
+import { bakeTerrain, terrainTextures, TERRAIN_GLSL, sdfAt, zoneAt, terrainY, hillsY, bankY, kindAt, WATER_Y, COARSE, W_BANK } from '../city/Terrain.js';
+import { ReliefTiles } from '../city/Relief.js';
+import { cityWater, quayWalls, quayColliders, WATER_AREA } from '../city/Water.js';
+// The ground's colliders round the city (Ferris.roadGround; the lot's frame): a heightfield every 4 m over the city and
+// its waters (the beds under them), another up the river into the valley, every 2 m over the hills
+const CITY_FIELD = { x0: -2200, x1: 1952, z0: -2100, z1: 4400, step: 4 };
+const RIVER_FIELD = { x0: 1952, x1: 3800, z0: 2400, z1: 7400, step: 4 };
+const HILL_FIELD = { x0: 96, x1: 1296, z0: 430, z1: 2078, step: 2 };
+// The desert round the field and the city (world), in 125 m tiles; a hair under the city's level ground
+const DESERT = { x0: -8000, x1: 8000, z0: -5000, z1: 13250, tile: 125, y: -0.03 };
+// The road in from the field (Ferris.buildRoad, world z): it stops at the bay's bridge (city/Layout.js BRIDGE, the
+// south end) and comes on again past it only for Hal's street (from the block south of his to his lot); between,
+// the boulevard is the city's ground's (city/Ground.js), the bridge the highway's (built by its own code)
+export const ROAD_CUT = { bridgeSouth: LOT_Z + BRIDGE.z1, bridgeNorth: LOT_Z + BRIDGE.z0, halsStreet: LOT_Z - 404 };
+const inCoarse = (x, z) => x > COARSE.x0 && x < COARSE.x0 + COARSE.nx * COARSE.step && z > COARSE.z0 && z < COARSE.z0 + COARSE.nz * COARSE.step;
+// The city's sprawl round it in the valley, seen from the air (the airspace's boxes, the desert's paving under them):
+// across the river, on the bay's far shore, up the coast past the shipyards, thinning out into the desert; never in
+// the water or by it, on the city's own ground, or along the road's corridor to the field. In the lot's frame; the
+// shader's and the boxes' the same.
+const SPRAWL_GLSL = /* glsl */`
+float sprawlAt(vec2 lp, float sdf, float zone) {
+  float r = length((lp - vec2(300.0, 900.0)) / vec2(3300.0, 3500.0)) + (dNoise(lp / 1400.0) - 0.5) * 0.5 + (dNoise(lp / 380.0) - 0.5) * 0.16;
+  float k = (1.0 - smoothstep(0.7, 0.95, r)) * smoothstep(70.0, 140.0, sdf) * (1.0 - smoothstep(0.05, 0.35, zone));
+  return k * (1.0 - step(abs(lp.x - 6.0), 380.0) * step(lp.y, -1700.0));
+}
+// (whole blocks of it, 120 m, built or not: its edge ragged by the block, not a fog fading into the sand)
+float sprawlBlock(vec2 lp) {
+  vec2 b = floor(lp / 120.0), c = (b + 0.5) * 120.0;
+  return step(dHash(b) * 0.5 + 0.38, sprawlAt(c, tSdf(c), tInfo(c).b));
+}`;
+const dHash = (x, z) => { const v = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return v - Math.floor(v); };
+const dNoise = (x, z) => {
+  const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz, u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz);
+  const a = dHash(ix, iz), b = dHash(ix + 1, iz), c = dHash(ix, iz + 1), d = dHash(ix + 1, iz + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+};
+const sss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function sprawlAt(x, z) {
+  const r = Math.hypot((x - 300) / 3300, (z - 900) / 3500) + (dNoise(x / 1400, z / 1400) - 0.5) * 0.5 + (dNoise(x / 380, z / 380) - 0.5) * 0.16;
+  const k = (1 - sss(0.7, 0.95, r)) * sss(70, 140, sdfAt(x, z)) * sss(0.35, 0.05, zoneAt(x, z));
+  return Math.abs(x - 6) < 380 && z < -1700 ? 0 : k;
+}
+// whether the block of it (x, z) is in is built (the shader's sprawlBlock), and how thick it is there
+function sprawlBlock(x, z) {
+  const bx = Math.floor(x / 120), bz = Math.floor(z / 120), k = sprawlAt((bx + 0.5) * 120, (bz + 0.5) * 120);
+  return k > dHash(bx, bz) * 0.5 + 0.38 ? k : 0;
+}
 
 // Ferris Aircraft, mid-morning: the airfield in the desert outside Coast City where Martin Jordan
 // flew (the dream's airfield, in daylight, twenty years on). North to south: the runway, a taxiway,
@@ -58,8 +103,11 @@ export const KIT = {
 };
 export const BOULEVARD = { x0: 2, x1: 10, z0: -24, z1: -440, cross: -210 }; // in the lot's frame (LOT): the road out of town
 const SOUTH_END = -404; // where the block over the crossing (city/HalsBlock.js) gives the boulevard back
-// The coastline, west of Coast City: x of the shore at a given z (metres; the sea is west of it)
-export { coastX }; // (the shore and Coast City's bay: city/Plan.js)
+// The coastline, west of Coast City: x of the shore at a given z (the world's frame; the sea is west of it). (The
+// bay, the river and the basins are water too: Ferris.waterAt.)
+export const coastX = (z) => coastAt(z - LOT_Z);
+// whether a point (the world's frame) is in the water: the sea, the bay, the river, the port, the marina
+export const waterAtW = (x, z) => sdfAt(x, z - LOT_Z) < 0;
 // The desert's relief past the field (the airspace's mountains), in metres above the flats: nothing
 // within 9 km of the field, ranges beyond, the coast's plain falling to the sea in the west.
 const hash2 = (x, z) => { const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -136,9 +184,14 @@ export class Ferris {
     this.contactT = 0;
     this.blockOn = hasProp('ac_units'); // Hal's block is built (city/HalsBlock.js): what stood on its stretch steps aside
     this.cityOn = this.blockOn; // (and the rest of the city round it, streamed: city/Stream.js; free roam's)
+    // the lie of the land: where the water is, the shores, the hills (city/Terrain.js), baked once for everything
+    yield* bakeTerrain();
     this.buildLight();
     this.buildGround();
     yield;
+    s.add(yield* this.desertRelief.build());
+    // the city's ground (city/Ground.js: Stream.js puts it in the scene)
+    if (this.cityOn) yield* buildCityGround();
     this.buildRunway();
     this.buildHangars();
     yield;
@@ -256,40 +309,77 @@ export class Ferris {
 
   // ------------------------------------------------------------------------------------- ground
   buildGround() {
-    const s = this.scene;
-    // desert: pale sand, scrubby patches, tyre-worn dirt near the buildings
-    const sand = pbrMaterial('gravelly_sand', { repeat: [5300, 5300], tint: new THREE.Color(1.15, 1.08, 1.0), normalScale: 0.8 });
-    // large-scale variation, by world position: patches of redder hardpan and pale wash, darker
-    // where the scrub grows thick, so the flats don't read as one tiled colour
+    const s = this.scene, terr = terrainTextures(), D = DESERT;
+    // desert: pale sand, scrubby patches, tyre-worn dirt near the buildings. Large-scale variation by world
+    // position (city/Ground.js DESERT_GLSL, which the city's waste ground turns into at its edge): patches of redder
+    // hardpan and pale wash, darker where the scrub grows thick, so the flats don't read as one tiled colour.
+    // Not in the water (city/Terrain.js), nor on the city's own ground (but under Hal's lot, its asphalt's edges)
+    const sand = (this.desertMat = pbrMaterial('gravelly_sand', { repeat: [5300, 5300], normalScale: 0.8 }));
     sand.onBeforeCompile = (sh) => {
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vGw;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvGw = (modelMatrix * vec4(transformed, 1.0)).xz;');
+      Object.assign(sh.uniforms, terr.uniforms);
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vGw; varying float vGy;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvec4 gWp = modelMatrix * vec4(transformed, 1.0); vGw = gWp.xz; vGy = gWp.y;');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-        varying vec2 vGw;
-        float gH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-        float gN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(gH(i), gH(i + vec2(1, 0)), f.x), mix(gH(i + vec2(0, 1)), gH(i + vec2(1, 1)), f.x), f.y); }`)
-        .replace('#include <map_fragment>', `#include <map_fragment>
-        if (vGw.x < ${COAST_GLSL('vGw.y')}) discard; // (the Pacific, west of town: Ferris.airspace)
-${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12}.0 && vGw.y > ${LOT.z + CITY.z0 - 8}.0 && vGw.y < ${LOT.z + CITY.z1 + 12}.0 && !(abs(vGw.x) < 30.0 && vGw.y > ${LOT.z - 17}.0 && vGw.y < ${LOT.z + 13}.0)) discard; // (the city's ground: city/Ground.js)
-` : ''}        float gA = gN(vGw / 90.0) * 0.6 + gN(vGw / 23.0) * 0.3 + gN(vGw / 6.0) * 0.1;
-        // Coast City's ground, seen from the air: paved, in blocks, toward the shore (not in a layer
-        // of its own over the sand: two layers fought from up high)
-        // (an irregular spread, thickest downtown, thinning out into the desert at its edges)
-        float gSpread = length((vGw - vec2(-1800.0, 7800.0)) / vec2(4300.0, 4600.0)) + (gN(vGw / 1400.0) - 0.5) * 0.55 + (gN(vGw / 380.0) - 0.5) * 0.18;
-        float gCity = (1.0 - smoothstep(0.82, 0.98, gSpread)) * step(${COAST_GLSL('vGw.y')} + 200.0, vGw.x)
-          * (1.0 - step(abs(vGw.x - 6.0), 700.0) * step(${(LOT.z - 600).toFixed(1)}, vGw.y) * step(vGw.y, ${(LOT.z + 400).toFixed(1)}));
-        vec2 gGr = abs(fract(vGw / 120.0) - 0.5);
-        float gB = gN(vGw / 41.0 + 7.3);
-        diffuseColor.rgb *= mix(vec3(1.08, 1.02, 0.94), vec3(0.86, 0.7, 0.58), smoothstep(0.45, 0.75, gA));
-        diffuseColor.rgb *= mix(1.0, 0.82, smoothstep(0.6, 0.85, gB));
-        diffuseColor.rgb *= 0.9 + 0.12 * gN(vGw * 1.7) + 0.08 * gN(vGw * 9.0);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.3, 0.29) * (1.0 - 0.35 * step(0.46, max(gGr.x, gGr.y))), gCity);`);
+        varying vec2 vGw; varying float vGy;
+        ${TERRAIN_GLSL}
+        ${DESERT_GLSL}
+        ${SPRAWL_GLSL}`)
+        .replace('#include <map_fragment>', `
+        vec2 lp = vec2(vGw.x, vGw.y - ${LOT.z.toFixed(1)});
+        float sdf = tSdf(lp);
+        if (sdf < 0.0 && vGy > ${(WATER_Y + 0.05).toFixed(2)}) discard; // (the water's: city/Water.js; a bank goes on down under it)
+        if (vGy < ${(WATER_Y - 0.03).toFixed(2)}) discard; // (under the water: from high up the depth can't tell a bank from the water over it)
+        float zone = tInfo(lp).b;
+${this.cityOn ? `        if (zone >= 0.5 && !(abs(vGw.x) < 30.0 && lp.y > -17.0 && lp.y < 13.0)) discard; // (the city's ground: city/Ground.js)
+` : ''}        vec3 c = desertLook(map, vGw);
+        // Coast City's sprawl round it, seen from the air (the airspace's boxes stand on it): paved, in blocks (not in a
+        // layer of its own over the sand: two layers fought from up high); from the ground it's the desert
+        float gCity = sprawlBlock(lp) * smoothstep(45.0, 140.0, cameraPosition.y);
+        vec2 gGr = abs(fract(lp / 120.0) - 0.5), gLot = floor(lp / 30.0);
+        // (its lots: roofs, yards, a tree or two, in the valley's dust; its streets darker round each block)
+        float lh = dHash(gLot), lg = dHash(gLot + 7.0);
+        vec3 lots = mix(mix(vec3(0.16, 0.14, 0.12), vec3(0.24, 0.2, 0.16), lh), vec3(0.07, 0.085, 0.04), step(0.7, lg) * 0.8) * (0.85 + 0.3 * dHash(gLot + 3.0));
+        c = mix(c, mix(lots, vec3(0.085, 0.085, 0.085), step(0.45, max(gGr.x, gGr.y))), gCity);
+        // a bank down to the water: darker, wet at the water's edge
+        c = mix(c, c * vec3(0.62, 0.6, 0.56), (1.0 - smoothstep(${(WATER_Y + 0.15).toFixed(2)}, -0.25, vGy)));
+        diffuseColor.rgb *= c;`);
     };
-    const ground = new THREE.Mesh(flat(16000, 16000, 125), sand);
-    ground.position.set(0, -0.03, 3000);
+    sand.customProgramCacheKey = () => `desert${this.cityOn ? 1 : 0}`;
+    // its tiles: level ones a quad each, the shores' its relief (city/Relief.js), none under the water or the city's own
+    const uvOf = (x, z) => [(x + 8000) / 16000, (11000 - z) / 16000]; // (as the 16 km plane the desert was: its maps' repeat)
+    const flatT = [], reliefT = [];
+    for (let z0 = D.z0; z0 < D.z1; z0 += D.tile) for (let x0 = D.x0; x0 < D.x1; x0 += D.tile) {
+      let land = false, city = true, bumpy = false;
+      for (let j = 0; j <= 5; j++) for (let i = 0; i <= 5; i++) {
+        const x = x0 + i * 25, z = z0 + j * 25 - LOT.z, d = sdfAt(x, z);
+        if (d > -2) land = true;
+        if (!this.cityOn || zoneAt(x, z) < 0.55) city = false;
+        if (d > -60 && d < W_BANK + 14 && inCoarse(x, z)) bumpy = true;
+      }
+      if (!land || city) continue;
+      (bumpy ? reliefT : flatT).push({ x0, z0 });
+    }
+    const nf = flatT.length, fPos = new Float32Array(nf * 12), fUv = new Float32Array(nf * 8), fNor = new Float32Array(nf * 12), fIdx = new Uint32Array(nf * 6);
+    flatT.forEach((t, k) => {
+      [[0, 0], [D.tile, 0], [0, D.tile], [D.tile, D.tile]].forEach(([dx, dz], c) => { fPos.set([t.x0 + dx, 0, t.z0 + dz], (k * 4 + c) * 3); fNor.set([0, 1, 0], (k * 4 + c) * 3); fUv.set(uvOf(t.x0 + dx, t.z0 + dz), (k * 4 + c) * 2); });
+      fIdx.set([k * 4, k * 4 + 2, k * 4 + 1, k * 4 + 1, k * 4 + 2, k * 4 + 3], k * 6);
+    });
+    const fGeo = new THREE.BufferGeometry();
+    fGeo.setAttribute('position', new THREE.BufferAttribute(fPos, 3));
+    fGeo.setAttribute('normal', new THREE.BufferAttribute(fNor, 3));
+    fGeo.setAttribute('uv', new THREE.BufferAttribute(fUv, 2));
+    fGeo.setIndex(new THREE.BufferAttribute(fIdx, 1));
+    fGeo.computeBoundingSphere();
+    const ground = new THREE.Mesh(fGeo, sand);
+    ground.position.y = D.y;
     ground.receiveShadow = true;
+    ground.name = 'desert';
+    ground.matrixAutoUpdate = false;
+    ground.updateMatrix();
     s.add(ground);
-    // the bay, at the beach (from the street the airspace's sea isn't drawn)
-    s.add(cityOcean());
+    this.desertRelief = new ReliefTiles({ material: sand, tiles: reliefT, size: D.tile, height: (x, z, level) => terrainY(x, z - LOT.z, true, level), uv: uvOf, origin: V(0, D.y, 0), name: 'desert banks' });
+    // the water round the city (city/Water.js: the sea, the bay, the river, the port, the marina) and its quays
+    s.add(cityWater());
+    s.add((this.quays = quayWalls()));
     // (a heightfield, not a box: Hal sank into a box this size as soon as he walked, and stuck)
     this.physics.fixedGround(600);
     // concrete: the apron, and the lot behind the hangars
@@ -342,7 +432,9 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
       m4.compose(p.set(x, r * 0.25, z), q.setFromAxisAngle(V(0, 1, 0), rnd() * 6), sc.set(r, r, r));
       col.setHSL(0.17 + rnd() * 0.06, 0.15 + rnd() * 0.1, 0.32 + rnd() * 0.12);
       // (not in the bay, nor in the city: tested after its numbers are drawn, so the rest of the scene's come out as before)
-      if (x < coastX(z) + 4 || (this.cityOn && x > CITY.x0 - 40 && x < CITY.x1 + 20 && z > LOT.z + CITY.z0 - 20 && z < LOT.z + CITY.z1 + 20)) continue;
+      if (x < oldCoastX(z) + 4 || (this.cityOn && x > CITY.x0 - 40 && x < CITY.x1 + 20 && z > LOT.z + CITY.z0 - 20 && z < LOT.z + CITY.z1 + 20)) continue;
+      // (nor in the water or on a bank, nor on the city's ground: counted all the same, so the sequence is as it was)
+      if (sdfAt(x, z - LOT.z) < W_BANK + 6 || (this.cityOn && zoneAt(x, z - LOT.z) > 0.4)) m4.makeScale(0, 0, 0);
       bushes.setMatrixAt(n, m4);
       bushes.setColorAt(n, col);
       n++;
@@ -570,10 +662,19 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     roadTex.wrapT = THREE.RepeatWrapping;
     const len = LOT.z - 14 - 80; // to the north edge of the apartment lot
     roadTex.repeat.set(1, len / 40);
-    const road = new THREE.Mesh(flat(8, len), wearRoad(pbrMaterial('asphalt_02', { map: roadTex, detailRepeat: [2.7, len / 3] }), 6)); // (worn in tyre tracks: city/Ground.js)
-    road.position.set(6, 0.012, 80 + len / 2);
-    road.receiveShadow = true;
-    s.add(road);
+    const roadMat = wearRoad(pbrMaterial('asphalt_02', { map: roadTex, detailRepeat: [2.7, len / 3] }), 6); // (worn in tyre tracks: city/Ground.js)
+    // with the city: from the field to the bay's bridge, and Hal's street (ROAD_CUT); the bridge and the boulevard
+    // between are the city's. (Each piece's texture lies as the one road's did, so the dashes run on.)
+    const spans = this.cityOn ? [[80, ROAD_CUT.bridgeSouth], [ROAD_CUT.halsStreet, LOT.z - 14]] : [[80, LOT.z - 14]];
+    for (const [z0, z1] of spans) {
+      const g2 = flat(8, z1 - z0), uv = g2.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - (z0 - 80 + (1 - uv.getY(i)) * (z1 - z0)) / len);
+      const road = new THREE.Mesh(g2, roadMat);
+      road.position.set(6, 0.012, (z0 + z1) / 2);
+      road.receiveShadow = true;
+      road.name = 'road';
+      s.add(road);
+    }
     // power poles down the east side
     const pole = new THREE.MeshStandardMaterial({ color: 0x5a4636, roughness: 0.95 });
     const poleGeo = new THREE.CylinderGeometry(0.13, 0.17, 10, 6).translate(0, 5, 0), armGeo = new THREE.BoxGeometry(2.2, 0.14, 0.14);
@@ -583,6 +684,7 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     for (let i = 0; i < n; i++) {
       const z = 130 + i * 55;
       if (this.blockOn && z > LOT.z + SOUTH_END && z < LOT.z - 20) { m4.makeScale(0, 0, 0); poles.setMatrixAt(i, m4); arms.setMatrixAt(i, m4); continue; } // (the block's pavement: its poles are in the alleys)
+      if (this.cityOn && z > ROAD_CUT.bridgeSouth - 30 && z < LOT.z - 20) { m4.makeScale(0, 0, 0); poles.setMatrixAt(i, m4); arms.setMatrixAt(i, m4); continue; } // (the bridge, and the city's street lamps)
       m4.makeTranslation(13, 0, z); poles.setMatrixAt(i, m4); m4.makeTranslation(13, 9.4, z); arms.setMatrixAt(i, m4); this.physics.fixedBox({ x: 13, y: 5, z }, { x: 0.15, y: 5, z: 0.15 });
     }
     poles.castShadow = true;
@@ -645,6 +747,8 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
       const p = geo.attributes.position;
       for (let j = 0; j < p.count; j++) p.setXYZ(j, p.getX(j) * (0.85 + rnd() * 0.3), p.getY(j), p.getZ(j) * (0.85 + rnd() * 0.3));
       geo.computeVertexNormals();
+      // (none standing in the water or on its shore: its numbers drawn all the same, so the scene's sequence is as it was)
+      if (sdfAt(x, z - LOT.z) < top * 2 + 60) continue;
       const m = new THREE.Mesh(geo, mat);
       m.position.set(x, h / 2 - 2, z);
       s.add(m);
@@ -816,7 +920,7 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     }
     ground.position.set(6, 0, (B.z0 + B.z1) / 2 + 120);
     ground.receiveShadow = true;
-    g.add(ground);
+    if (!this.cityOn || (B.z0 + B.z1) / 2 + 120 - (len + 520) / 2 < CITY.z0 - 8) g.add(ground); // (with the city's ground reaching the bay it's all the city's)
     // the blocks: fronts to the street, a few metres of plaza between them
     const blocks = ['office5', 'office2', 'office4', 'office1', 'office6', 'office5', 'office4', 'office2', 'office1', 'office3'];
     for (const side of [-1, 1]) {
@@ -1020,7 +1124,8 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
   // gate onto a drive from the road, rows of headstones, cypresses, his stone by a bench. Walkable.
   cemetery() {
     if (this.cem) return this.cem;
-    const s = this.scene, C = CEMETERY, g = (this.cem = new THREE.Group());
+    groundU.uCemetery.value = 1; // (the city's ground leaves the lawn and the drive to it: city/Ground.js)
+    const s = this.scene, C = CEMETERY, g = (this.cem = new THREE.Group()), before = new Set(s.children);
     g.position.copy(C);
     s.add(g);
     const W = 64, D = 52; // the lawn: x -32..32, z -26..26 in the park's frame; the gate on the west side
@@ -1029,6 +1134,16 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     lawn.position.y = 0.02;
     lawn.receiveShadow = true;
     g.add(lawn);
+    // its grounds round it, out to the streets (the map rework, 2026-11-24: it's in town now, a block of its own on the
+    // bluff over the bay, Layout.js MEMORIAL), around the fenced lawn and the drive; in the park's frame
+    const M = MEMORIAL, ox = C.x, oz = C.z - LOT_Z, grounds = new THREE.MeshStandardMaterial({
+      map: noiseTexture({ size: 512, base: '#556a3a', light: '#7c9450', dark: '#323f26', spots: 2400, spread: 16, alpha: 0.12, repeat: [6, 6] }), roughness: 1 });
+    for (const [x0, x1, z0, z1] of [[M.x0, M.x1, M.z0, oz - D / 2], [M.x0, ox - W / 2, oz - D / 2, oz - 3], [M.x0, ox - W / 2, oz + 3, M.z1], [ox + W / 2, M.x1, oz - D / 2, M.z1]]) {
+      const m = new THREE.Mesh(flat(x1 - x0, z1 - z0, 13), grounds);
+      m.position.set((x0 + x1) / 2 - ox, 0.02, (z0 + z1) / 2 - oz);
+      m.receiveShadow = true;
+      g.add(m);
+    }
     // the drive in from the road, and the path up the middle to his row
     const asphalt = pbrMaterial('asphalt_02', { repeat: [20, 1.2] });
     const drive = new THREE.Mesh(flat(C.x - 10 - W / 2, 6), asphalt);
@@ -1079,14 +1194,43 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
       this.graveStone = st;
     }
     if (hasProp('bench')) this.smash.solid(put(prop('bench'), GRAVE.x - 0.4, GRAVE.z + 3.2, 0), { stuff: 'wood' });
+    const cypresses = [];
     if (hasProp('cypress')) {
       // (each with a trunk to walk into)
-      const tree = (o) => this.smash.solid(o, { stuff: 'wood', shrink: 1, box: new THREE.Box3(V(-0.35, 0, -0.35), V(0.35, 5.5 * o.scale.y, 0.35)) });
+      const tree = (o) => { cypresses.push(o); this.smash.solid(o, { stuff: 'wood', shrink: 1, box: new THREE.Box3(V(-0.35, 0, -0.35), V(0.35, 5.5 * o.scale.y, 0.35)) }); };
       for (const [x, z] of [[GRAVE.x - 1.7, GRAVE.z - 1.8], [GRAVE.x - 1.5, GRAVE.z + 1.9]]) tree(put(prop('cypress'), x, z, rnd() * 6)); // behind it, either side
       for (let x = -28; x <= 28; x += 7) for (const side of [-1, 1]) { const o = put(prop('cypress'), x + (rnd() - 0.5) * 2, side * (D / 2 + 1.5), rnd() * 6); o.scale.setScalar(0.85 + rnd() * 0.35); tree(o); }
       for (let z = -22; z <= 22; z += 7) { const o = put(prop('cypress'), W / 2 + 1.5, z + (rnd() - 0.5) * 2, rnd() * 6); o.scale.setScalar(0.85 + rnd() * 0.35); tree(o); }
+      // an avenue of them up the drive from the road, across the grounds
+      for (let x = 24 - C.x; x < -W / 2 - 6; x += 13) for (const side of [-1, 1]) { const o = put(prop('cypress'), x + (rnd() - 0.5) * 1.5, side * 5.5, rnd() * 6); o.scale.setScalar(0.9 + rnd() * 0.3); tree(o); }
     }
     this.physics.fixedGround(110, 0, 12, C.x - 20, C.z);
+    // merged by material once it's all placed (built for the grave chapter's close-ups, it's seen from all over town
+    // now, and piece by piece it was 500 draws); its colliders stay as they were, and nothing in it moves
+    const all = new THREE.Group();
+    s.add(all);
+    for (const o of [...g.children, ...s.children.filter((o) => !before.has(o) && o !== g && o !== all)]) all.attach(o);
+    // (the headstones' model is detailed: 790 k triangles, all of it drawn from across town; beyond 280 m a copy
+    // simplified to 4%, no shadows: Ferris.update swaps them. The cypresses' leaf cards don't simplify (500 k
+    // triangles at 4%): far off each is a spindle of its outline instead. The far copy one mesh, each part's colour
+    // in its vertices: by material it was 20 draws, from Hal's street down the boulevard)
+    const near = mergeByMaterial(all);
+    cypresses[0]?.traverse((m) => { const a = m.isMesh && /2_sided/.test(m.material.name) && average(m.material.map); if (a) spindleMat.color.copy(a).multiply(m.material.color); });
+    for (const o of cypresses) o.visible = false;
+    const simple = mergeByMaterial(all, { simplify: 0.04 });
+    for (const o of cypresses) o.visible = true;
+    if (cypresses.length) simple.add(cypressSpindles(cypresses));
+    const far = flatCopy(simple, new Set(), { simplify: 1, material: farMatte });
+    releaseMerged(simple);
+    far.traverse((m) => { if (m.isMesh) m.castShadow = false; });
+    s.remove(all);
+    g.attach(near);
+    g.attach(far);
+    far.visible = false;
+    const L = (this.cemLod = { near, far, at: C.clone(), seen: true });
+    // and hidden behind the town's blocks, as they are (city/Stream.js)
+    const occ = s.userData.occlusion;
+    if (occ) { g.updateMatrixWorld(true); L.occ = occ.add(new THREE.Box3().setFromObject(near), (v) => { L.seen = v; }); }
     return g;
   }
 
@@ -1094,22 +1238,25 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
   // driven: walking needs only the patches round the lot, the field and the park).
   roadGround() {
     if (this.roadGroundBody) return;
-    if (!this.cityOn) { this.roadGroundBody = this.physics.fixedGround(16000, 0, 160, 0, 3000); return; }
-    // with the city: the valley's ground dropped out of sight under it, and the city's own at 10 m cells
-    // over it, the channel's banks and bed cut in (city/Plan.js CHANNEL: its edges on the cells' lines,
-    // so the banks come out exact)
-    const F = CITY_GROUND, C = CHANNEL;
-    const under = (x, z) => (x > F.x0 + 100 && x < F.x1 - 100 && z > F.z0 + 100 && z < F.z1 - 100 ? -10 : 0);
-    this.roadGroundBody = this.physics.fixedHeights(16000, 16000, 160, 160, under, 0, 3000);
-    const cz0 = LOT.z + CITY.z0, cz1 = LOT.z + CITY.z1;
-    const city = (x, z) => {
-      if (z < cz0 || z > cz1 || x < C.x0 || x > C.x1) return 0;
-      if (x < C.bed0) return -C.depth * (x - C.x0) / (C.bed0 - C.x0);
-      if (x > C.bed1) return -C.depth * (C.x1 - x) / (C.x1 - C.bed1);
-      return -C.depth;
-    };
-    this.cityGroundBody = this.physics.fixedHeights(F.x1 - F.x0, F.z1 - F.z0, (F.x1 - F.x0) / 10, (F.z1 - F.z0) / 10, city, (F.x0 + F.x1) / 2, (F.z0 + F.z1) / 2);
+    // The valley's ground every 100 m, the beds under the sea well down; dropped out of sight under the fields round
+    // the city: there the ground's height every 4 m (city/Terrain.js: the shores going down, the beds under the bay,
+    // the river and the basins, a quay's last metres held up by its own boxes: Water.quayColliders), and the hills'
+    // every 2 m over that (a field each: a heightfield's cells stay local, a box this size let him sink)
+    const fields = [CITY_FIELD, RIVER_FIELD].map((F) => ({ x0: F.x0 + 100, x1: F.x1 - 100, z0: LOT.z + F.z0 + 100, z1: LOT.z + F.z1 - 100 }));
+    const under = (x, z) => (fields.some((F) => x > F.x0 && x < F.x1 && z > F.z0 && z < F.z1) ? -10 : sdfAt(x, z - LOT.z) < -50 ? -20 : 0);
+    this.roadGroundBody = this.physics.fixedHeights(16000, 18000, 160, 180, under, 0, 4000);
+    const field = (F, h) => this.physics.fixedHeights(F.x1 - F.x0, F.z1 - F.z0, Math.round((F.x1 - F.x0) / F.step), Math.round((F.z1 - F.z0) / F.step), (x, z) => h(x, z - LOT.z), (F.x0 + F.x1) / 2, LOT.z + (F.z0 + F.z1) / 2);
+    const shore = (x, z) => { const d = sdfAt(x, z); return d < 40 ? bankY(kindAt(x, z), d, false) : 0; };
+    this.cityGroundBody = field(CITY_FIELD, shore);
+    this.riverGroundBody = field(RIVER_FIELD, shore);
+    this.hillGroundBody = field(HILL_FIELD, (x, z) => hillsY(x, z));
+    this.quayBodies = quayColliders(this.physics);
   }
+  // The ground's height under (x, z) in the world's frame, for whatever stands, lands or builds on it: the hills,
+  // the shores going down, the water's surface over the water (city/Terrain.js)
+  groundAt(x, z) { return Math.max(WATER_Y, terrainY(x, z - LOT.z)); }
+  // whether it's water there (the sea, the bay, the river, the port, the marina)
+  waterAt(x, z) { return sdfAt(x, z - LOT.z) < 0; }
   // The car is driven out of its bay: its stand-in box goes (carSolid puts one back where it stops).
   freeCar() {
     if (this.carBox) { this.physics.world.removeRigidBody(this.carBox); this.carBox = null; }
@@ -1127,15 +1274,20 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     const p = geo.attributes.position;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i) + 3000; p.setY(i, reliefAt(x, z) - 2); }
     geo.computeVertexNormals();
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }), terr = terrainTextures(), D = DESERT;
     mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, terr.uniforms);
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vRw; varying vec3 vRn;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvRw = (modelMatrix * vec4(transformed, 1.0)).xyz; vRn = normalize(mat3(modelMatrix) * objectNormal);');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
         varying vec3 vRw; varying vec3 vRn;
+        ${TERRAIN_GLSL}
         float rH(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float rN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(rH(i), rH(i + vec2(1, 0)), f.x), mix(rH(i + vec2(0, 1)), rH(i + vec2(1, 1)), f.x), f.y); }`)
         .replace('#include <map_fragment>', `#include <map_fragment>
-        if (abs(vRw.x) < 7990.0 && vRw.z > -4990.0 && vRw.z < 10990.0 && vRw.x > ${COAST_GLSL('vRw.z')}) discard; // (the near desert's there)
+        vec2 lp = vec2(vRw.x, vRw.z - ${LOT.z.toFixed(1)});
+        // (the near desert's there, the city's ground, and the city's water: from high up the depth buffer can't tell
+        // its floor here, 2 m down, from the water half a metre over it)
+        if (vRw.x > ${(D.x0 + 10).toFixed(1)} && vRw.x < ${(D.x1 - 10).toFixed(1)} && vRw.z > ${(D.z0 + 10).toFixed(1)} && vRw.z < ${(D.z1 - 10).toFixed(1)} && (tSdf(lp) > -1.0 || vRw.z > ${(LOT.z + WATER_AREA.z0 + 10).toFixed(1)})) discard;
         vec2 q = vRw.xz;
         float n1 = rN(q / 2600.0) * 0.6 + rN(q / 700.0) * 0.3 + rN(q / 160.0) * 0.1;
         vec3 sand = mix(vec3(0.62, 0.5, 0.38), vec3(0.5, 0.36, 0.26), smoothstep(0.4, 0.75, n1));
@@ -1148,7 +1300,7 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
         vec3 c = mix(sand, rock, smoothstep(0.08, 0.3, slope) * smoothstep(20.0, 160.0, vRw.y));
         c = mix(c, vec3(0.8, 0.78, 0.76), smoothstep(1500.0, 1900.0, vRw.y) * (1.0 - smoothstep(0.35, 0.6, slope)));
         // the coast: a pale beach, then the coastal plain greener toward the sea
-        float cx = ${COAST_GLSL('vRw.z')};
+        float cx = tFar(lp.y); // (out here the coast is the world's far one: the city's own stretch is under the near desert)
         c = mix(c, vec3(0.42, 0.44, 0.3), (1.0 - smoothstep(cx, cx + 6000.0, vRw.x)) * 0.6);
         c = mix(c, vec3(0.85, 0.78, 0.62), 1.0 - smoothstep(cx, cx + 120.0, vRw.x));
         diffuseColor.rgb = c;`);
@@ -1160,19 +1312,24 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     // the sea, west of the shore: deep blue, the sun glinting off it
     const seaGeo = flat(80000, 160000, 4000);
     const sea = new THREE.Mesh(seaGeo, new THREE.MeshStandardMaterial({ color: 0x1c4660, roughness: 0.28, metalness: 0.1 }));
+    const WA = WATER_AREA;
     sea.material.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, terr.uniforms);
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vSw;').replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvSw = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vSw;')
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+        varying vec3 vSw;
+        ${TERRAIN_GLSL}`)
         .replace('#include <map_fragment>', `#include <map_fragment>
-        float sx = ${COAST_GLSL('vSw.z')};
+        float sx = tFar(vSw.z - ${LOT.z.toFixed(1)});
         if (vSw.x > sx) discard;
-        if (vSw.x > -8990.0 && vSw.z > 1210.0 && vSw.z < 14790.0) discard; // (the bay's own, nearer: city/Ground.js)
+        if (vSw.x > ${(WA.x0 + 10).toFixed(1)} && vSw.z > ${(LOT.z + WA.z0 + 10).toFixed(1)} && vSw.z < ${(LOT.z + WA.z1 - 10).toFixed(1)}) discard; // (the city's own water, nearer: city/Water.js)
         diffuseColor.rgb = mix(vec3(0.16, 0.42, 0.46), diffuseColor.rgb, smoothstep(0.0, 900.0, sx - vSw.x));`);
     };
-    sea.position.set(-46000, 0.05, 3000);
+    sea.position.set(-46000, WATER_Y + 0.02, 3000); // (at the city's water's height: they meet out at sea)
     g.add(sea);
-    // Coast City from the air: blocks and towers between the boulevard and the shore (the streets
-    // the drive passes are the real models: this is the rest of the city, kept clear of them)
+    // Coast City's sprawl from the air: the valley's suburbs and yards round the city (across the river, on the bay's
+    // far shore, up the coast past the shipyards: sprawlAt), low boxes on the paving the desert's shader lays under
+    // them (the city itself is the real one, streamed: these stand only where it isn't)
     const box = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
     const cityMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.75, metalness: 0.1 });
     cityMat.onBeforeCompile = (sh) => {
@@ -1189,17 +1346,14 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
         diffuseColor.rgb = bc;`);
     };
     const spots = [];
-    for (let i = 0; i < 6000 && spots.length < 1700; i++) {
-      const x = -6200 + rnd() * 8800, z = 3600 + rnd() * 9400;
-      if (x < coastX(z) + 250) continue;
-      if (Math.abs(x - 6) < 900 && z > LOT.z - 700 && z < LOT.z + 500) continue; // the real streets
-      if (this.cityOn && x > CITY.x0 - 60 && x < CITY.x1 + 60 && z > LOT.z + CITY.z0 - 60 && z < LOT.z + CITY.z1 + 60) continue; // (the city's, streamed)
-      // the same spread as the paving under it (the desert shader's gSpread, roughly)
-      const spread = Math.hypot((x + 1800) / 4300, (z - 7800) / 4600);
-      if (spread > 0.9 || rnd() < spread * 0.5) continue;
-      const down = Math.hypot(x + 1800, z - 7600);
-      const h = down < 1000 ? 70 + rnd() * 240 : down < 2400 ? 22 + rnd() * 80 : 8 + rnd() * 26;
-      spots.push([x, z, 18 + rnd() * 36, h, 18 + rnd() * 36, rnd() * 0.2]);
+    for (let i = 0; i < 9000 && spots.length < 1700; i++) {
+      const x = -3400 + rnd() * 7800, lz = -3200 + rnd() * 8400, k = sprawlBlock(x, lz), r1 = rnd(), r2 = rnd(), r3 = rnd(), r4 = rnd(), r5 = rnd();
+      const ex = Math.abs(((x % 120) + 120) % 120 - 60), ez = Math.abs(((lz % 120) + 120) % 120 - 60);
+      if (k < 0.2 || r1 > k * 0.95 || ex > 42 || ez > 42) continue; // (on its blocks, off the streets round them)
+      if (highwayDistance(x, lz) < 40) continue; // (Highway 1's spurs out to the valley go over them)
+      if (Math.abs(x - 6) < 40) continue; // (the road)
+      const w = 12 + r2 * 22, d = 12 + r3 * 22, h = 6 + r4 * 12 + k * k * r5 * 20;
+      spots.push([x, LOT.z + lz, w, h, d, (r2 - 0.5) * 0.12]);
     }
     const city = new THREE.InstancedMesh(box, cityMat, spots.length);
     const m4 = new THREE.Matrix4(), qy = new THREE.Quaternion();
@@ -1225,6 +1379,8 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
   terrainAt(x, z) {
     let h = Math.max(0, reliefAt(x, z) - 2);
     for (const m of this.mesas ?? []) if (Math.hypot(x - m.x, z - m.z) < m.r) h = Math.max(h, m.h);
+    // round the city: its hills, and the water's surface over the water (city/Terrain.js)
+    if (inCoarse(x, z - LOT.z)) h = Math.max(h > 0.01 ? h : -Infinity, this.groundAt(x, z));
     return h;
   }
 
@@ -1259,6 +1415,7 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
   update(dt, t, camera, renderer) {
     this.physics.step(dt);
     this.smash.update(dt, t, camera, renderer);
+    if (this.cemLod) { const L = this.cemLod, close = camera.position.distanceToSquared(L.at) < 280 * 280; L.near.visible = L.seen && close; L.far.visible = L.seen && !close; }
     // high over the field the near plane goes out with the camera's height: from 150 m up, 3.5 cm
     // between the apron's slab and the desert under it was inside one step of the depth buffer
     const near = THREE.MathUtils.clamp((camera.position.y - 4) * 0.01, 0.1, this.nearMax ?? 2); // (a cockpit view holds it close)
@@ -1275,6 +1432,9 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
     if (this.beacon) this.beacon.visible = Math.sin(t * 3) > 0;
     this.block?.update(dt, t, camera);
     this.city?.update(dt, camera);
+    // the ground that isn't level, at the detail its distance wants (city/Relief.js)
+    this.city?.ground?.userData.update?.(camera);
+    this.desertRelief?.update(camera);
     this.office?.update(dt, t, camera);
     this.lamps.update(dt, camera);
     this.lod.update(dt, camera);
@@ -1290,6 +1450,37 @@ ${this.cityOn ? `        if (vGw.x > ${CITY.x0 - 30}.0 && vGw.x < ${CITY.x1 + 12
   }
 
   dispose() { this.physics.dispose(); }
+}
+
+// The memorial park's cypresses seen from across town: each a spindle of the model's outline as it reads from 300 m
+// (its leaf cards thin out with distance: the outline measured from the model, a column a metre across, was a bolder
+// thing than the pointed trees it stood in for), eight sides, in its leaves' colour (their texture's average), one
+// mesh in the frame the trees are placed in.
+const SPINDLE = [[0.08, 0], [0.3, 0.5], [0.72, 0.9], [0.78, 1.6], [0.68, 2.6], [0.55, 3.6], [0.4, 4.6], [0.22, 5.6], [0.03, 6.5]];
+const spindleMat = new THREE.MeshStandardMaterial({ color: '#4d6236', roughness: 1, name: 'cypressFar' });
+const farMatte = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, name: 'memorialFar' });
+function cypressSpindles(trees) {
+  const one = new THREE.LatheGeometry(SPINDLE.map(([r, y]) => new THREE.Vector2(r, y)), 8);
+  const n = one.attributes.position.count, idx = one.index.array, pos = new Float32Array(n * 3 * trees.length), nor = new Float32Array(n * 3 * trees.length), index = [];
+  const v = new THREE.Vector3(), nm = new THREE.Matrix3();
+  trees.forEach((o, k) => {
+    o.updateWorldMatrix(true, false);
+    nm.getNormalMatrix(o.matrixWorld);
+    for (let i = 0; i < n; i++) {
+      v.fromBufferAttribute(one.attributes.position, i).applyMatrix4(o.matrixWorld).toArray(pos, (k * n + i) * 3);
+      v.fromBufferAttribute(one.attributes.normal, i).applyMatrix3(nm).normalize().toArray(nor, (k * n + i) * 3);
+    }
+    for (const i of idx) index.push(k * n + i);
+  });
+  one.dispose();
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  geo.setIndex(index);
+  geo.computeBoundingSphere();
+  const m = new THREE.Mesh(geo, spindleMat);
+  m.receiveShadow = true;
+  return m;
 }
 
 // Martin Jordan's name cut into his stone: dark letters with a lit lower edge, as if incised.

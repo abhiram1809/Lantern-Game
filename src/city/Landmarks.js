@@ -1,192 +1,222 @@
 import * as THREE from 'three';
-import { Batch } from './Kit.js';
-import { box } from './Building.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { cityU } from './Kit.js';
 import { pbrMaterial } from '../fx/Textures.js';
-import { CITY, STREET_Z, FREEWAY, CHANNEL, streetX, K_MIN, K_MAX, LOT_Z } from './Plan.js';
+import { RAPIER } from '../engine/Physics.js';
+import { LOT_Z } from './Plan.js';
+import { buildHighway, highwaySigns } from './Highway.js';
+import { buildBridge, BRIDGE_SIGNS } from './Bridge.js';
+import { average } from './Lod.js';
 
-// What makes a city besides its blocks (the user, 2026-11-19: "a flyover or a bridge or something like
-// that"): the Coast Freeway, a viaduct down the street at z 1070 on piers in its middle, a ramp up off
-// Ocean Avenue at its west end and down to the desert road at its east; and the flood channel, the Los
-// Angeles River's kind, concrete banks down to a bed with a trickle of water, railed along its top, a
-// bridge where every east-west street crosses it with deco pylons at its corners. Built once with the
-// city (Stream.steps), in the lot's frame, every part of it solid.
-const V = (x, y, z) => new THREE.Vector3(x, y, z);
-const ORIGIN = V(0, 0, LOT_Z);
-const PAVE = 0.14;
-const _q = new THREE.Quaternion(), _Z = V(0, 0, 1), _Y = V(0, 1, 0);
+// What makes a city besides its blocks: Highway 1 round it on its piers, its ramps and its spurs over the river
+// (city/Highway.js), and the Coast Bay Bridge on the road from the field (city/Bridge.js). (The old straight
+// viaduct down the street at z 1070 and the flood channel are gone: the map rework of 2026-11-24, city/Layout.js.)
+// Built once with the city (Stream.steps), in the lot's frame, every part of it solid: one triangle collider for each
+// stretch of highway (its deck, parapets, piers, lamps' masts and gantries' posts) and one for the bridge.
+const ORIGIN = new THREE.Vector3(0, 0, LOT_Z);
 
-// the deck's height along it: up the west ramp, level across the city, down the east ramp
-export const deckY = (x) => {
-  const F = FREEWAY;
-  if (x <= F.west || x >= F.east) return 0;
-  if (x < F.westTop) return (F.deck * (x - F.west)) / (F.westTop - F.west);
-  if (x > F.eastTop) return (F.deck * (F.east - x)) / (F.east - F.eastTop);
-  return F.deck;
-};
-
-// a sign over the freeway: green, white letters (a canvas of its own)
-function signMesh(lines, w = 9, h = 2.6) {
-  const c = document.createElement('canvas');
-  c.width = 1024; c.height = Math.round((1024 * h) / w);
-  const g = c.getContext('2d');
-  g.fillStyle = '#106a3a'; g.fillRect(0, 0, c.width, c.height);
-  g.strokeStyle = '#f2f4f0'; g.lineWidth = 10; g.strokeRect(14, 14, c.width - 28, c.height - 28);
-  g.fillStyle = '#f2f4f0'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  lines.forEach((t, i) => { g.font = `700 ${i === 0 ? 96 : 64}px "Arial Narrow", Arial, sans-serif`; g.fillText(t, c.width / 2, (c.height * (i + 0.7)) / (lines.length + 0.4)); });
+// The signs, all in one canvas: Highway 1's green guide signs (the route's shield, the exit's number tab, the
+// places in white, the distance or EXIT ONLY under them, an arrow down to the lane), the bridge's at its ends.
+const CELL = { w: 512, h: 216, cols: 4 };
+function signAtlas(list) {
+  const rows = Math.ceil(list.length / CELL.cols), c = document.createElement('canvas');
+  c.width = CELL.w * CELL.cols; c.height = 2 ** Math.ceil(Math.log2(CELL.h * rows));
+  const g = c.getContext('2d'), rects = new Map();
+  g.fillStyle = '#5a5e60'; g.fillRect(0, 0, c.width, c.height);
+  list.forEach((s, i) => {
+    const x = (i % CELL.cols) * CELL.w, y = Math.floor(i / CELL.cols) * CELL.h, W = CELL.w, H = CELL.h;
+    g.save(); g.translate(x, y);
+    // the panel: green (the bridge's too), a white border inset, the corners rounded
+    g.fillStyle = '#0f6b3c';
+    g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#f1f3ef'; g.lineWidth = 6;
+    roundRect(g, 9, 9, W - 18, H - 18, 14); g.stroke();
+    // the exit's number on a tab at the top right
+    if (s.exit) {
+      g.fillStyle = '#f1f3ef'; g.font = '700 25px "Arial Narrow", Arial, sans-serif'; g.textAlign = 'right'; g.textBaseline = 'top';
+      g.fillText(`EXIT ${s.exit}`, W - 24, 18);
+    }
+    // the route's shield on the left: a green spade, "1"
+    if (!s.bridge) shield(g, 26, 44, 74);
+    const left = s.bridge ? 34 : 116;
+    g.fillStyle = '#f6f7f3'; g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    s.lines.forEach((t, k) => {
+      let size = k === 0 ? 52 : 42;
+      g.font = `600 ${size}px "Arial Narrow", "Helvetica Neue", Arial, sans-serif`;
+      while (g.measureText(t).width > W - left - 34 && size > 24) { size -= 2; g.font = `600 ${size}px "Arial Narrow", "Helvetica Neue", Arial, sans-serif`; }
+      g.fillText(t, left, 94 + k * 50);
+    });
+    if (s.sub) {
+      g.font = '700 26px "Arial Narrow", Arial, sans-serif';
+      if (s.sub === 'EXIT ONLY') { g.fillStyle = '#f2c230'; g.fillRect(left - 6, H - 58, 168, 36); g.fillStyle = '#111'; }
+      else g.fillStyle = '#f6f7f3';
+      g.fillText(s.sub, left, H - 31);
+    }
+    // the arrow down to the lane, or right toward the exit
+    if (s.arrow) {
+      g.fillStyle = '#f6f7f3';
+      g.save(); g.translate(W - 70, H - 64);
+      if (s.arrow === 'right') g.rotate(-Math.PI / 4);
+      g.beginPath(); g.moveTo(-9, -30); g.lineTo(9, -30); g.lineTo(9, 4); g.lineTo(22, 4); g.lineTo(0, 30); g.lineTo(-22, 4); g.lineTo(-9, 4); g.closePath(); g.fill();
+      g.restore();
+    }
+    g.restore();
+    // (in the texture's 0..1, v up: three.js flips the canvas)
+    rects.set(s.id, [x / c.width + 0.002, 1 - (y + H) / c.height + 0.002, (x + W) / c.width - 0.002, 1 - y / c.height - 0.002]);
+  });
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 4;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: t, roughness: 0.5, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.06 }));
-  m.castShadow = false;
-  return m;
+  t.anisotropy = 8;
+  return { texture: t, rects };
+}
+function roundRect(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+// a state route's shield: a spade, white edged, its number
+function shield(g, x, y, s) {
+  g.save(); g.translate(x, y);
+  const path = () => { g.beginPath(); g.moveTo(s * 0.5, s * 1.08); g.bezierCurveTo(s * 0.12, s * 0.86, -s * 0.02, s * 0.5, s * 0.06, s * 0.18); g.lineTo(s * 0.5, 0); g.lineTo(s * 0.94, s * 0.18); g.bezierCurveTo(s * 1.02, s * 0.5, s * 0.88, s * 0.86, s * 0.5, s * 1.08); g.closePath(); };
+  path(); g.fillStyle = '#f1f3ef'; g.fill();
+  g.scale(0.86, 0.86); g.translate(s * 0.08, s * 0.08);
+  path(); g.fillStyle = '#1a7a48'; g.fill();
+  g.restore();
+  g.fillStyle = '#f6f7f3'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = `700 ${Math.round(s * 0.58)}px "Arial Narrow", Arial, sans-serif`;
+  g.fillText('1', x + s * 0.5, y + s * 0.56);
+  g.font = `700 ${Math.round(s * 0.13)}px Arial, sans-serif`;
+  g.fillText('COAST', x + s * 0.5, y + s * 0.2);
+}
+
+// a material lit at night from inside (cityU.uNight, the city's 0 by day to 1 at night): its emissive by `day` + `night`
+function nightLit(mat, day, night, key) {
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uNight = cityU.uNight;
+    sh.uniforms.uLit = { value: new THREE.Vector2(day, night) };
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uNight; uniform vec2 uLit;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= uLit.x + uLit.y * uNight;');
+  };
+  mat.customProgramCacheKey = () => `nightLit${key}`;
+  return mat;
 }
 
 export function* buildLandmarks(stream) {
   const f = stream.f, P = f.physics, mats = stream.mats;
-  mats.deck ??= Object.assign(pbrMaterial('asphalt_02', { repeat: [1 / 6, 1 / 6], tint: new THREE.Color(0.86, 0.84, 0.82) }), { vertexColors: true });
-  const batch = new Batch(), I = new THREE.Matrix4(), bodies = [];
-  const solid = (x0, y0, z0, x1, y1, z1) => bodies.push(P.fixedBox(V((x0 + x1) / 2 + ORIGIN.x, (y0 + y1) / 2, (z0 + z1) / 2 + ORIGIN.z), V(Math.abs(x1 - x0) / 2, Math.abs(y1 - y0) / 2, Math.abs(z1 - z0) / 2)));
-  // a box `len` long along a stretch from (xa, ya) to (xb, yb) at z, its top `top` above the line
-  const slab = (key, xa, ya, xb, yb, z, w, thick, top, color, collide = false) => {
-    const len = Math.hypot(xb - xa, yb - ya), ang = Math.atan2(yb - ya, xb - xa);
-    const geo = new THREE.BoxGeometry(len + 0.02, thick, w).translate(0, top - thick / 2, 0);
-    _q.setFromAxisAngle(_Z, ang);
-    const M = new THREE.Matrix4().compose(V((xa + xb) / 2, (ya + yb) / 2, z), _q, V(1, 1, 1));
-    batch.add(key, geo, M, color);
-    if (collide) {
-      const c = V(0, top - thick / 2, 0).applyMatrix4(M).add(ORIGIN);
-      bodies.push(P.fixedBox(c, V(len / 2 + 0.01, thick / 2, w / 2), _q.clone()));
-    }
+  // ---- the materials (the city's where they'll do: their programs are compiled already)
+  const asphalt = Object.assign(pbrMaterial('asphalt_02', { repeat: [1 / 6, 1 / 6], tint: new THREE.Color(0.84, 0.82, 0.8), roughness: 1 }), { vertexColors: true });
+  const { texture, rects } = signAtlas([...highwaySigns(), ...BRIDGE_SIGNS]);
+  const sign = nightLit(new THREE.MeshStandardMaterial({ map: texture, emissive: 0xffffff, emissiveMap: texture, roughness: 0.55, metalness: 0.1, vertexColors: true }), 0.05, 0.55, 'sign');
+  const far = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
+  // (cast concrete, clean and pale: the city's weathered concrete, grimed toward the ground, read as old wood on a
+  // girder in its own shade)
+  // (smooth cast concrete: the plaster's grain and its roughness, not its colour, which is blotched brown at this size)
+  const cast = (rep, normal, grey) => {
+    const m = pbrMaterial('white_plaster_02', { repeat: [1 / rep, 1 / rep], roughness: 0.86, normalScale: normal });
+    m.map = null; m.vertexColors = true; m.color.setScalar(grey);
+    return m;
   };
-
-  // ---------------------------------------------------------------- the freeway
-  const F = FREEWAY, z = F.z, hw = F.half, STEP = 20;
-  const nearStreet = (x) => { const k = Math.round((x - 6) / 80); return Math.abs(x - streetX(k)) < 15; };
-  for (let xa = F.west; xa < F.east; xa += STEP) {
-    const xb = Math.min(F.east, xa + STEP), ya = deckY(xa), yb = deckY(xb);
-    // the deck (its slab, solid), the road on it, the barriers at its edges and down its middle
-    slab('concrete', xa, ya, xb, yb, z, hw * 2, 1.25, -0.04, 0xb9b3a8, true);
-    slab('deck', xa, ya, xb, yb, z, hw * 2 - 0.9, 0.05, 0.01, 0xffffff);
-    for (const s of [-1, 1]) slab('concrete', xa, ya, xb, yb, z + s * (hw - 0.25), 0.5, 0.9, 0.88, 0xd2ccc0, true);
-    slab('concrete', xa, ya, xb, yb, z, 0.6, 0.85, 0.83, 0xd2ccc0, true);
-    // the lanes' lines: dashed between the lanes, solid at the edges (paint on the road)
-    for (const s of [-1, 1]) {
-      slab('roadpaint', xa, ya, xb, yb, z + s * (hw - 1.15), 0.14, 0.02, 0.035, 0xe8e4d8);
-      slab('roadpaint', xa, ya, xb, yb, z + s * 0.75, 0.12, 0.02, 0.035, 0xd8b23a);
-      for (let d = 0; d < STEP; d += 12) {
-        const x0 = xa + d, x1 = Math.min(xb, x0 + 3.2), y0 = deckY(x0), y1 = deckY(x1);
-        slab('roadpaint', x0, y0, x1, y1, z + s * 4.4, 0.13, 0.02, 0.036, 0xe8e4d8);
-      }
-    }
-    if (xa % 40 === 0) yield;
-  }
-  // its piers down the street's middle, a bent cap under the deck on each (not in the crossings)
-  for (let x = F.west + 60; x < F.east - 40; x += 38) {
-    const y = deckY(x);
-    if (y < 3.2 || nearStreet(x)) continue;
-    const h = y - 1.25 - 1.3;
-    batch.add('concrete', new THREE.CylinderGeometry(0.95, 1.1, h, 18).translate(x, h / 2, z), I, 0xc2bcb0);
-    batch.add('concrete', box(x - 1.2, h, z - hw + 0.6, x + 1.2, h + 1.32, z + hw - 0.6), I, 0xbcb6aa);
-    solid(x - 1.0, 0, z - 1.0, x + 1.0, h, z + 1.0);
-  }
-  // its lamps on the median, every 60 m: a mast, an arm out over each carriageway
-  for (let x = F.westTop + 30; x < F.eastTop; x += 60) {
-    const y = deckY(x) + 0.85;
-    batch.add('iron', box(x - 0.13, y, z - 0.13, x + 0.13, y + 9, z + 0.13), I, 0x55585c);
-    for (const s of [-1, 1]) {
-      batch.add('iron', box(x - 0.07, y + 8.7, z + (s > 0 ? 0 : -3.4), x + 0.07, y + 8.86, z + (s > 0 ? 3.4 : 0)), I, 0x55585c);
-      batch.add('concrete', box(x - 0.32, y + 8.55, z + s * 3.4 - 0.18, x + 0.32, y + 8.72, z + s * 3.4 + 0.18), I, 0xf4efe2);
-    }
-  }
-  yield;
-  // its signs: on gantries over the carriageways at three places
-  const signs = new THREE.Group();
-  const gantry = (x, east, west) => {
-    const y = deckY(x);
-    for (const s of [-1, 1]) batch.add('iron', box(x - 0.18, y, z + s * (hw - 0.3) - 0.18, x + 0.18, y + 7.6, z + s * (hw - 0.3) + 0.18), I, 0x8a8e92);
-    batch.add('iron', box(x - 0.25, y + 7.2, z - hw + 0.2, x + 0.25, y + 7.7, z + hw - 0.2), I, 0x8a8e92);
-    // each carriageway's sign faces the traffic coming (eastbound on the +z side: Traffic.js's lanes)
-    const a = signMesh(east), b = signMesh(west);
-    a.position.set(x - 0.3, y + 5.9, z + hw / 2);
-    a.rotation.y = -Math.PI / 2;
-    b.position.set(x + 0.3, y + 5.9, z - hw / 2);
-    b.rotation.y = Math.PI / 2;
-    signs.add(a, b);
+  // the highway's: the concrete floor's stains and patches kept, but grey and at half their contrast (as they are, a
+  // girder in its own shade read as brown, mottled like old wood)
+  const concrete = Object.assign(pbrMaterial('concrete_floor_02', { repeat: [1 / 5, 1 / 5], roughness: 0.9, normalScale: 0.5 }), { vertexColors: true });
+  concrete.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', `#ifdef USE_MAP
+      { float l = dot(texture2D(map, vMapUv).rgb, vec3(0.299, 0.587, 0.114)); diffuseColor.rgb *= 0.62 + (l - 0.42) * 0.55; }
+    #endif`);
   };
-  gantry(-560, ['DOWNTOWN', 'NEXT EXIT · 1/2 MILE'], ['OCEAN AVE · BEACH', 'PIER · 1 MILE']);
-  gantry(1100, ['DESERT RD · FERRIS FIELD', 'EAST · 2 MILES'], ['DOWNTOWN', 'COAST CITY · WEST']);
-  gantry(2600, ['DESERT HWY · EAST', 'NEXT SERVICES 40 MI'], ['COAST CITY', 'ALL EXITS']);
-  // past the city's edge, the road on over the desert
-  batch.add('deck', box(F.east - 2, 0.005, z - hw + 0.4, F.east + 900, 0.03, z + hw - 0.4), I, 0xffffff);
-  yield;
-
-  // ---------------------------------------------------------------- the channel
-  const C = CHANNEL, z0 = CITY.z0, z1 = CITY.z1;
-  const bank = (xa, xb, ya, yb, za, zb) => {
-    const len = Math.hypot(xb - xa, yb - ya), ang = Math.atan2(yb - ya, xb - xa);
-    const geo = new THREE.BoxGeometry(len, 0.35, zb - za).translate(0, -0.175, 0);
-    const M = new THREE.Matrix4().compose(V((xa + xb) / 2, (ya + yb) / 2, (za + zb) / 2), _q.setFromAxisAngle(_Z, ang), V(1, 1, 1));
-    batch.add('concrete', geo, M, 0xc8c1b4);
+  concrete.customProgramCacheKey = () => 'highwayConcrete';
+  concrete.color.setScalar(1.0);
+  const M = {
+    concrete, asphalt, paint: mats.roadpaint, metal: mats.iron, lamp: mats.lamp, pool: stream.pool, sign, far,
   };
-  for (let za = z0; za < z1; za += 200) {
-    const zb = Math.min(z1, za + 200);
-    bank(C.x0, C.bed0, 0, -C.depth, za, zb);
-    bank(C.bed1, C.x1, -C.depth, 0, za, zb);
-    batch.add('concrete', box(C.bed0, -C.depth - 0.35, za, C.bed1, -C.depth, zb), I, 0xb4ad9f);
-    batch.add('concrete', box(C.bed0 + 6, -C.depth, za, C.bed1 - 6, -C.depth + 0.04, zb), I, 0x8f8c80); // (the low-flow strip, stained)
-  }
-  // its ends closed, concrete walls
-  for (const zz of [z0, z1]) batch.add('concrete', box(C.x0, -C.depth - 0.4, zz - 0.3, C.x1, 0.02, zz + 0.3), I, 0xbcb5a8);
-  // the water: a trickle down the middle
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(C.bed1 - C.bed0 - 14, z1 - z0, 1, Math.ceil((z1 - z0) / 100)).rotateX(-Math.PI / 2).translate((C.bed0 + C.bed1) / 2, -C.depth + 0.07, (z0 + z1) / 2),
-    new THREE.MeshStandardMaterial({ color: 0x31565c, roughness: 0.06, metalness: 0, transparent: true, opacity: 0.86, envMapIntensity: 1.1 }));
-  water.receiveShadow = true;
-  // the bridges, and the railings along its top between them
-  const streets = STREET_Z.filter((s) => s > z0 && s < z1);
-  const gaps = [z0, ...streets.flatMap((s) => [s - 11, s + 11]), z1];
-  for (let i = 0; i + 1 < gaps.length; i += 2) {
-    const ra = gaps[i] + 0.3, rb = gaps[i + 1] - 0.3;
-    if (rb - ra < 2) continue;
-    for (const x of [C.x0 - 0.3, C.x1 + 0.3]) {
-      for (let zz = ra; zz <= rb; zz += 2.5) batch.add('iron', box(x - 0.04, 0, zz - 0.04, x + 0.04, 1.05, zz + 0.04), I, 0x4c5054);
-      batch.add('iron', box(x - 0.035, 1.0, ra, x + 0.035, 1.07, rb), I, 0x4c5054);
-      batch.add('iron', box(x - 0.025, 0.55, ra, x + 0.025, 0.6, rb), I, 0x4c5054);
-      solid(x - 0.06, 0, ra, x + 0.06, 1.1, rb);
-    }
-  }
-  for (const s of streets) {
-    // the deck under the street's road and pavements (its top just under the painted ground), its edges
-    batch.add('concrete', box(C.x0 - 2, -1.35, s - 11, C.x1 + 2, -0.03, s + 11), I, 0xc4bdb0);
-    solid(C.x0 - 2, -1.35, s - 11, C.x1 + 2, -0.03, s + 11);
-    // parapets on the pavements' outer edges, with deco pylons at the corners, a lamp on each
-    for (const e of [-1, 1]) {
-      const zp = s + e * 10.75;
-      batch.add('concrete', box(C.x0, PAVE, zp - 0.17, C.x1, PAVE + 1.0, zp + 0.17), I, 0xe2dbcd);
-      batch.add('concrete', box(C.x0, PAVE + 1.0, zp - 0.24, C.x1, PAVE + 1.1, zp + 0.24), I, 0xd4ccbd);
-      solid(C.x0, 0, zp - 0.17, C.x1, PAVE + 1.1, zp + 0.17);
-      for (const x of [C.x0 - 0.6, C.x1 + 0.6]) {
-        batch.add('concrete', box(x - 0.6, 0, zp - 0.6, x + 0.6, 2.4, zp + 0.6), I, 0xe8e0d0);
-        batch.add('concrete', box(x - 0.72, 2.4, zp - 0.72, x + 0.72, 2.62, zp + 0.72), I, 0xd6cebe);
-        batch.add('iron', box(x - 0.06, 2.62, zp - 0.06, x + 0.06, 4.2, zp + 0.06), I, 0x2e2f31);
-        batch.add('concrete', box(x - 0.22, 4.2, zp - 0.22, x + 0.22, 4.62, zp + 0.22), I, 0xf6f0e0);
-        solid(x - 0.6, 0, zp - 0.6, x + 0.6, 2.62, zp + 0.6);
-      }
-    }
-    // the fascia's lettering band along each face (a darker course)
-    for (const e of [-1, 1]) batch.add('concrete', box(C.x0, -1.0, s + e * 11 - 0.05 * e - 0.05, C.x1, -0.55, s + e * 11 - 0.05 * e + 0.05), I, 0xa9a294);
-  }
-  yield;
-
-  // ---------------------------------------------------------------- into the city
+  // the bridge's own: its concrete whiter and smoother (the user's reference: a big white-grey bridge), white-painted
+  // steel, the stays (a faint cool light in them at night), its red lights and the towers' floodlight wash
+  const bridgeConcrete = cast(7, 0.35, 0.8);
+  const steel = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.05 });
+  const stays = nightLit(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.45, metalness: 0.1, emissive: new THREE.Color(0.72, 0.84, 1.0) }), 0, 0.4, 'stays');
+  const red = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.12, 0.06) });
+  const flood = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.0, 0.94, 0.84), vertexColors: true, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  const BM = { concrete: bridgeConcrete, steel, asphalt, paint: mats.roadpaint, stays, lamp: mats.lamp, pool: stream.pool, red, flood, sign };
+  // ---- the colliders: triangles, in the world
+  const bodies = [];
+  const trimesh = (pos, idx) => {
+    if (!idx.length) return null;
+    for (let i = 0; i < pos.length; i += 3) { pos[i] += ORIGIN.x; pos[i + 1] += ORIGIN.y; pos[i + 2] += ORIGIN.z; }
+    const body = P.fixedCollider(RAPIER.ColliderDesc.trimesh(pos, idx).setFriction(0.9));
+    bodies.push(body);
+    return body;
+  };
   const g = new THREE.Group();
   g.name = 'landmarks';
   g.position.copy(ORIGIN);
-  g.add(batch.build(mats, { cell: 400 }), signs, water);
-  g.traverse((o) => { if (o.isMesh) { o.receiveShadow = true; if (o !== water && o.parent !== signs) o.castShadow = true; } });
+  const highway = yield* buildHighway({ mats: M, signRects: rects, trimesh });
+  yield;
+  const bridge = yield* buildBridge({ mats: BM, signRects: rects, trimesh });
+  g.add(highway.group, bridge.group);
+  const bridgeFar = farBridge(bridge.group);
+  g.add(bridgeFar);
+  g.traverse((o) => { if (o.isMesh && o.receiveShadow === undefined) o.receiveShadow = true; });
   g.updateMatrixWorld(true);
   g.traverse((o) => { o.matrixAutoUpdate = false; });
   stream.root.add(g);
-  return { group: g, bodies };
+  // ---- each frame: which stretches of the highway are near enough to be themselves, and the lights' night
+  const camera = f.engine.camera;
+  highway.update(1, camera, ORIGIN, true);
+  // (the lamps' pools on the roads are drawn only at night: transparent at nothing, they were a draw a chunk by day)
+  const pools = [];
+  g.traverse((o) => { if (o.isMesh && o.material === stream.pool) pools.push(o); });
+  // (the bridge from more than 600 m: its far copy, below)
+  const bridgeBox = new THREE.Box3().setFromObject(bridge.group), _cam = new THREE.Vector3();
+  const nearBridge = (on) => {
+    bridge.group.visible = on;
+    bridgeFar.visible = !on;
+  };
+  nearBridge(bridgeBox.distanceToPoint(camera.getWorldPosition(_cam)) < 600);
+  f.updaters.push((dt) => {
+    highway.update(dt, camera, ORIGIN);
+    const d = bridgeBox.distanceToPoint(camera.getWorldPosition(_cam));
+    if (bridge.group.visible ? d > 640 : d < 600) nearBridge(!bridge.group.visible);
+    const k = cityU.uNight.value;
+    if (flood.userData.k !== k) {
+      flood.userData.k = k; flood.opacity = k * 0.3; flood.visible = k > 0.01;
+      for (const m of pools) m.visible = k > 0.01;
+    }
+  });
+  return { group: g, bodies, highway, bridge };
 }
 
-void K_MIN; void K_MAX; void _Y;
+// The bridge from across the city: its concrete, steel and road one mesh in their colours (each part's vertex colours
+// times its material's, and its texture's average: the road's), no shadows; its stays, lamps, red lights, signs and
+// the towers' floodlight wash as they are, since they light at night (the stays' glow is the bridge at night). By
+// material it was ten draws, eight by day, the tower in sight at the end of Hal's street.
+const FAR_PARTS = new Set(['bridge_concrete', 'bridge_steel', 'bridge_asphalt']);
+const farBridgeMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.02, name: 'bridgeFar' });
+function farBridge(group) {
+  const out = new THREE.Group(), geos = [], tint = new THREE.Color();
+  out.name = 'baybridgeFar';
+  for (const m of group.children) {
+    if (!m.isMesh) continue;
+    if (m.name === 'bridge_paint') continue; // (its lines: nothing from this far)
+    if (!FAR_PARTS.has(m.name)) {
+      const c = new THREE.Mesh(m.geometry, m.material);
+      Object.assign(c, { name: `${m.name}Far`, renderOrder: m.renderOrder, castShadow: false, receiveShadow: false });
+      out.add(c);
+      continue;
+    }
+    tint.copy(m.material.color);
+    if (m.material.map) tint.multiply(average(m.material.map) ?? tint.clone().setScalar(0.32)); // (the asphalt: dark, if its texture isn't in yet)
+    const g = new THREE.BufferGeometry(), src = m.geometry, n = src.attributes.position.count, col = new Float32Array(n * 3), sc = src.attributes.color;
+    for (let i = 0; i < n; i++) { col[i * 3] = (sc ? sc.getX(i) : 1) * tint.r; col[i * 3 + 1] = (sc ? sc.getY(i) : 1) * tint.g; col[i * 3 + 2] = (sc ? sc.getZ(i) : 1) * tint.b; }
+    g.setAttribute('position', src.attributes.position);
+    g.setAttribute('normal', src.attributes.normal);
+    g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    g.setIndex(src.index);
+    geos.push(g);
+  }
+  const merged = geos.length ? mergeGeometries(geos, false) : null;
+  if (merged) {
+    merged.computeBoundingSphere();
+    const mesh = new THREE.Mesh(merged, farBridgeMat);
+    mesh.name = 'bridge_far';
+    mesh.receiveShadow = true;
+    out.add(mesh);
+  }
+  out.visible = false;
+  return out;
+}

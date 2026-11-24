@@ -251,6 +251,70 @@ export const PROPS = [
   // skeleton and clips, kept whole (the rig's control widgets dropped); fifteen metres, nose to tail
   { name: 'predator', src: 'assets/props/predator.glb', forward: '+z', length: 15, tex: 1024, drop: /Shape|^Circle_0$/,
     title: 'Prowler Dragon Variant Rig', author: 'DM-913 (SuperKapoo913)', uid: '7ee71aaf323d426bbbdf28d73d55bbd9' },
+  // Port, beach and marina (map rework): Port Haven's cranes, boxes and ships (city/Port.js), Playland on the
+  // beach's Point and the beach's furniture (city/Playland.js, city/Waterfront.js), the marina's boats and hut
+  // (city/Marina.js). Licences and authors as their Sketchfab pages give them (the API's model record), 2026-11-24.
+  // (the ship-to-shore crane's boom faces +z, over the water; scaled so its girders are 42 m up)
+  { name: 'sts_crane', tris: 30000, error: 0.004, src: 'assets/props/sts_crane.glb', forward: '+z', height: 42, tex: 1024, near: 6,
+    title: 'Crane Harbour', author: 'jhervianto', uid: 'ae2b1da54f6a4e28ba5f7daa1c6dc5b8' },
+  // the yards' forty-foot boxes: only the seven in plain paint (the pack's others wear real shipping lines' names)
+  { name: 'box40', src: 'assets/props/box40.glb', forward: '+z', scale: 1, tex: 1024, drop: /^Object_(4|6|8|10|12|14|16|18|34)$/,
+    title: '40ft ISO General Container [Free Asset Pack]', author: 'Lex713', uid: '92bf3d3d7ebc45ada55d46637b9b7586' },
+  { name: 'cargoship', src: 'assets/props/cargoship.glb', forward: '+x', length: 127, tex: 1024, near: 8,
+    title: 'Cargo ship', author: 'hungry_drifter', uid: 'b7c97df584824ca682d26daabf401f87' },
+  // (its lashing bridges empty: city/Port.js loads its bays with the yards' boxes)
+  { name: 'boxship', src: 'assets/props/boxship.glb', forward: '+z', length: 247, tex: 1024, near: 8,
+    title: 'Container Ship', author: 'LavaWave', uid: '4f7cf10593824061bfe2e36ffd823cde' },
+  { name: 'tanker', tris: 60000, error: 0.003, src: 'assets/props/tanker.glb', forward: '-z', length: 182, near: 8,
+    title: 'Tanker Ship', author: 'Art Blender', uid: '96ebf61af42b4062ae98a6ad848e1a25' },
+  { name: 'harbourtug', tris: 24000, error: 0.003, src: 'assets/props/harbourtug.glb', forward: '+z', length: 32, tex: 1024, near: 4,
+    title: 'Rastar 3200 tugboat', author: 'Brout', uid: '1bbadbe4ab0a4b2599cd3f450942e6fe' },
+  { name: 'lighthouse', src: 'assets/props/lighthouse.glb', forward: '+z', height: 17, tex: 1024, near: 3,
+    title: 'Tuas Lighthouse', author: 'Brout', uid: '049983441f5f439d8a190e2f4ff501f4' },
+  { name: 'bitt', src: 'assets/props/bitt.glb', forward: '+z', height: 1.0, tex: 512,
+    title: "Ship's bollard", author: 'DOMNIN', uid: '3730e17805324c24bba2a58f87f0c984' },
+  // (the port's high masts: the stadium's floodlights without its ground plane)
+  { name: 'floodmast', tris: 4000, error: 0.03, src: 'assets/props/floodmast.glb', forward: '+z', height: 30, drop: /^Plane/,
+    title: 'Stadium Light', author: 'thundermind', uid: '425625d154084a29a194dd2b0bb52fd5' },
+  // Playland: the looping coaster cut out of a whole theme park (assets/props/coaster.glb is its red coaster
+  // alone, the SketchUp file's edge lines dropped and its parts joined by material: the park was 38 MB)
+  { name: 'coaster', src: 'assets/props/coaster.glb', forward: '+z', height: 38, near: 4, cut: true,
+    title: 'Roller Coaster', author: 'damedliver', uid: 'c25fd527348e4d98a5308f8a46f77d94' },
+  // (the family coaster and the kiddie coaster keep their trains' animations: city/Playland.js plays them)
+  { name: 'familycoaster', src: 'assets/props/familycoaster.glb', forward: '+z', scale: 1, tex: 1024, near: 4,
+    title: 'Animated Roller Coaster', author: 'gluttonia', uid: '9d3a8abf35a2436bb4ab1e3680105d33' },
+  { name: 'kiddiecoaster', src: 'assets/props/kiddiecoaster.glb', forward: '+z', scale: 1.4, tex: 1024, near: 3,
+    title: 'Animated Kiddie-coaster', author: 'ansonweese', uid: 'cb700fbf73dd4f32aff34a2996fb5b0c' },
+  { name: 'carousel', src: 'assets/props/carousel.glb', forward: '+z', height: 8.5, tex: 1024, near: 3,
+    title: 'Carousel', author: 'Tomas Rubianes', uid: '892f9fd08d3b4c6ab350dfc9ae658dbe' },
+  { name: 'bumpercars', tris: 30000, error: 0.003, src: 'assets/props/bumpercars.glb', forward: '+z', scale: 1, tex: 1024, near: 3,
+    title: 'Lunapark - Bumper Cars', author: 'Vetech82', uid: 'ffa24effe07e470cb0a207cc46b215a5' },
+  { name: 'ticketbooth', src: 'assets/props/ticketbooth.glb', forward: '+z', height: 3.2, tex: 1024,
+    title: 'Ticket booth', author: 'gemmaballesteros', uid: '8ff9678d9c534855bd9ce70ed3591931' },
+  { name: 'gamebooth', tris: 9000, error: 0.004, src: 'assets/props/gamebooth.glb', forward: '+z', height: 3.3,
+    title: 'Ticket Booth', author: 'LeeVai', uid: 'cbc119a2d3354e7fbc21145fead937c4' },
+  { name: 'foodcart', tris: 12000, error: 0.004, src: 'assets/props/foodcart.glb', forward: '+z', height: 2.45, tex: 512,
+    title: 'Street stall', author: 'Víctor Hernández', uid: '41e6a9883c4b4ac8bc476e167c949ff1' },
+  { name: 'icecream', src: 'assets/props/icecream.glb', forward: '+z', height: 2.2, tex: 512,
+    title: 'IceCream Cart', author: 'huskisean1', uid: '30d53582a7a64e83882caec742235ee5' },
+  // the beach: parasols and deck chairs on the sand, life rings at the water's edge
+  { name: 'parasol', src: 'assets/props/parasol.glb', forward: '+z', height: 2.4,
+    title: 'Beach umbrella', author: 'damien59492', uid: 'bc2b553cf87142ada6a721e73d3d96b8' },
+  { name: 'deckchair', src: 'assets/props/deckchair.glb', forward: '+z', height: 2.3, tex: 512, drop: /^Plane/,
+    title: 'Deck Chair & Parasol FBX Low Poly FREE', author: 'Lady Lion Studios', uid: 'b396d4de963e49f68692d53d236bfe57' },
+  { name: 'lifering', src: 'assets/props/lifering.glb', pitch: -Math.PI / 2, forward: '+z', height: 0.76, tex: 256,
+    title: 'Buoy', author: 'Lightningx', uid: '9b567716507942519b5ede5ab5dba6dd' },
+  // the marina: the boats (the sailboat's sails taken down: it's tied up), the harbour master's hut, the cleats
+  { name: 'sailboat', tris: 12000, error: 0.004, src: 'assets/props/sailboat.glb', forward: '+z', length: 15, tex: 1024, drop: /^Object_5$/,
+    title: 'Sailboat', author: 'Yevhenii_D', uid: '84f398b362bf47b495822f529d69a696' },
+  { name: 'superyacht', src: 'assets/props/superyacht.glb', forward: '+z', length: 40, tex: 1024, near: 4,
+    title: 'Yacht', author: 'Sergei', uid: '0dd451f295d049cea20c17d3ffa87ee3' },
+  { name: 'cruiser', tris: 14000, error: 0.004, src: 'assets/props/cruiser.glb', forward: '+x', length: 10.5, tex: 1024, near: 3,
+    title: 'Small Yacht', author: 'Miguelangelo Rosario', uid: '09a9fc4a0061464fba1bc3ba76848869' },
+  { name: 'harbourhut', src: 'assets/props/harbourhut.glb', forward: '+z', scale: 1, tex: 512,
+    title: 'Large Beach Hut 1', author: 'rhcreations', uid: 'fde51449d03840528d31d060597c53e5' },
+  { name: 'cleat', src: 'assets/props/cleat.glb', forward: '+x', length: 0.45, tex: 256,
+    title: 'Dock Cleat', author: 'buggyprince', uid: '421736f05c1a452f8f25b21ab6a020f0' },
 ];
 
 const YAW = { '+z': 0, '-z': Math.PI, '+x': -Math.PI / 2, '-x': Math.PI / 2 };
@@ -305,7 +369,7 @@ for (const p of PROPS) {
 }
 
 // the credits, from the same list
-const lines = PROPS.map((p) => `- **${p.title}** by ${p.author}, [sketchfab.com/3d-models/${p.uid}](https://sketchfab.com/3d-models/${p.uid}), licensed [${BY}](https://creativecommons.org/licenses/by/4.0/). Used as \`${p.name}\`; reoriented, rescaled, textures recompressed${p.drop ? ', parts removed' : ''}${p.simplify || p.tris ? ', simplified' : ''}${p.opaque ? ', materials made opaque' : ''}.`);
+const lines = PROPS.map((p) => `- **${p.title}** by ${p.author}, [sketchfab.com/3d-models/${p.uid}](https://sketchfab.com/3d-models/${p.uid}), licensed [${BY}](https://creativecommons.org/licenses/by/4.0/). Used as \`${p.name}\`; reoriented, rescaled, textures recompressed${p.drop || p.cut ? ', parts removed' : ''}${p.simplify || p.tris ? ', simplified' : ''}${p.opaque ? ', materials made opaque' : ''}.`);
 await writeFile('CREDITS.md', `# Credits
 
 The game's code is MIT (see \`LICENSE\`). These third-party 3D models are not: each keeps its own

@@ -93,7 +93,8 @@ export class RingPowers {
 
   // Enter a scene: { scene, physics, ground(x, z), bounds: Set of invisible-wall collider handles,
   // canLand(x, z), solid(x, y, z), center, radius, floor(x, z), ceiling } (the rest bound flight).
-  attach({ scene, physics, ground, bounds = new Set(), canLand = () => true, solid = null, center = new THREE.Vector3(), radius = 80, floor = null, ceiling = 48 }) {
+  attach({ scene, physics, ground, bounds = new Set(), canLand = () => true, solid = null, center = new THREE.Vector3(), radius = 80, floor = null, ceiling = 48, water = WATER }) {
+    this.water = water; // (where the scene's water is, for splashes, aim and hovering over it: Coast City's is Terrain.js WATER_Y)
     this.detach();
     Object.assign(this, { scene, physics, ground, bounds });
     if (physics.smash) physics.smash.fx = this; // (the scene's props: their effects and sounds through the ring's)
@@ -114,7 +115,7 @@ export class RingPowers {
     this.tracerMesh.frustumCulled = false;
     scene.add(this.tracerMesh);
     this.muzzleGlow = glowTexture('rgba(255,255,255,1)', 'rgba(90,255,150,0.5)');
-    floor ??= (x, z) => { const h = ground(x, z); return h < WATER + 0.3 ? WATER + 0.45 : h; }; // hover over water
+    floor ??= (x, z) => { const h = ground(x, z); return h < water + 0.3 ? water + 0.45 : h; }; // hover over water
     this.player.air = { floor, canLand, solid, ignoreInFlight: bounds, center, radius, ceiling };
     this.player.onTakeoff = () => this.takeoffFx();
     this.player.onLand = (v, soft) => this.landFx(v, soft);
@@ -274,7 +275,7 @@ export class RingPowers {
     let toi = hit ? hit.timeOfImpact : Infinity;
     a.water = false;
     a.body = null;
-    if (dir.y < -1e-3) { const tw = (WATER - origin.y) / dir.y; if (tw > 0 && tw < toi) { toi = tw; a.water = true; } }
+    if (dir.y < -1e-3) { const tw = ((this.water ?? WATER) - origin.y) / dir.y; if (tw > 0 && tw < toi) { toi = tw; a.water = true; } }
     if (hit && !a.water) { const b = hit.collider.parent(); a.body = b?.isDynamic() ? b : null; }
     a.point.copy(origin).addScaledVector(dir, Number.isFinite(toi) ? toi : cap);
     _c.subVectors(a.point, a.from);
@@ -319,7 +320,7 @@ export class RingPowers {
       }
       a.point.y = a.base = lo;
       a.dist = hd;
-      a.valid &&= lo > WATER + 0.02 && hiG - lo < 1.4;
+      a.valid &&= lo > (this.water ?? WATER) + 0.02 && hiG - lo < 1.4;
     } else if (info.id === 'bubble') {
       // what it would hold: whoever or whatever is under the aim (`trappable`, the story's: its people
       // and cars), or nothing
@@ -694,10 +695,10 @@ export class RingPowers {
     this.audio.splash(scale);
     this.spray.emit(Math.round(90 * scale), (p, v) => {
       const a = Math.random() * Math.PI * 2, r = Math.random() * 0.5 * scale;
-      p[0] = at.x + Math.cos(a) * r; p[1] = WATER + 0.02; p[2] = at.z + Math.sin(a) * r;
+      p[0] = at.x + Math.cos(a) * r; p[1] = (this.water ?? WATER) + 0.02; p[2] = at.z + Math.sin(a) * r;
       v[0] = Math.cos(a) * (0.5 + Math.random() * 2); v[1] = (2 + Math.random() * 4.5) * Math.sqrt(scale); v[2] = Math.sin(a) * (0.5 + Math.random() * 2);
     }, { life: 1.2, size: [0.07, 0.03], color: [[0.5, 0.65, 0.75, 0.7], [0.25, 0.35, 0.45, 0]] });
-    this.live.push(new Shockwave(this, _a.set(at.x, WATER + 0.02, at.z), UP, 2.2 * scale, 0.9, new THREE.Color(0.35, 0.5, 0.6)));
+    this.live.push(new Shockwave(this, _a.set(at.x, (this.water ?? WATER) + 0.02, at.z), UP, 2.2 * scale, 0.9, new THREE.Color(0.35, 0.5, 0.6)));
   }
 
   takeoffFx() {

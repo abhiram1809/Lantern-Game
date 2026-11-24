@@ -505,14 +505,15 @@ export class Player {
       this.physics.world.removeRigidBody(this.rb);
     }
     this.rb = null;
+    this.kcc = null; // (freed: `place` while out of the world reached into it and threw)
   }
 
   // Already in the air (arriving from space): flying, without a takeoff.
   airborne(vel) {
     this.flying = true;
     this.vel.copy(vel);
-    this.kcc.disableSnapToGround();
-    this.kcc.disableAutostep();
+    this.kcc?.disableSnapToGround();
+    this.kcc?.disableAutostep();
     this.grounded = false;
     this.landing = 0;
     this.flightState.k = 1;

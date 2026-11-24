@@ -27,9 +27,13 @@ ring, and Hal follows them back into the dark, where the Weaponers give Sinestro
 He returns to Korugar as the Yellow Lantern and asks Hal the question the light asked him on his
 first night: are you afraid? Then free roam: everywhere the story has been, Earth's valley and the
 lake, Oa, Korugar, Ysmault and Qward, and Zamaron once Part Seven has charted it, by the ring's star chart; Hal in the suit or in his clothes,
-with his car (and a ring-made key). Coast City is four kilometres
-square now: Hal's blocks with their shops and people, the streets round them, downtown's towers, and
-the waterfront (the beach, the promenade, the pier and its Ferris wheel), built as you come near.
+with his car (and a ring-made key). Coast City is a peninsula now, about three kilometres by four: downtown's
+towers round Civic Plaza, Old Town and Midtown, Suburbia's terracotta houses round Hal's own blocks, the Hills with
+their winding roads, terraced houses and the Observatory on top, Coast Park, Port Haven's cranes, containers and
+ships, the Marina, Coast City Beach with Playland on its Point and the pier with its Ferris wheel, Highway 1's
+elevated loop, Coast River down the east side and Coast Bay to the south, crossed by the Bay Bridge on the road to
+Ferris Aircraft; all built as you come near. Deep water lifts Hal out in the suit, and puts him back on the shore
+in his clothes.
 **Part Seven, Sapphire** (talk to Carol in Hangar Two in free roam, or pick it from the title): Hal asks Carol to dinner again, and she sets her terms; the pier at night, the ring quiet;
 a violet light out of the sky that has been looking for a heart like hers; and the fight over the water, where
 what Hal has to break is the gem's hold, not Carol. Then after her: the breach's wake, flown out past the
@@ -647,7 +651,8 @@ block debris, bolts and Hal.
   the prototype jet, the phone, the palms, Hal's apartment block, Coast City's office blocks and
   street furniture, the airfield's ground equipment and gate booth, the fridge, the coffee maker,
   the F-104, the Air Force's truck and light towers at the lake, and the memorial park's
-  headstones, gate, fence, cypresses and bench are CC BY 4.0 models from Sketchfab by way of the
+  headstones, gate, fence, cypresses and bench, and Port Haven's cranes, containers and ships, Playland's coasters,
+  carousel, bumper cars and stalls, the beach's parasols and the Marina's boats are CC BY 4.0 models from Sketchfab by way of the
   [Objaverse](https://huggingface.co/datasets/allenai/objaverse) dataset, credited in
   [CREDITS.md](CREDITS.md). Coast City's people are from Microsoft's
   [Rocketbox Avatar Library](https://github.com/microsoft/Microsoft-Rocketbox) (MIT), on the game's own
@@ -708,7 +713,11 @@ src/enemies/                Drones (Part Two's training drones: AI, physics, bol
                             (the fight downtown), Thunderers (Qward's soldiers: brute, caster, archer, winged)
 src/fx/                     sky, particles + fire, water, trees, green light / bubble / shafts, cloth, textures,
                             Rift (the pocket dimension), EarthMap (continents and city lights for Space)
-src/city/                   Coast City's building kit and Hal's block (materials, windows with rooms, signs, the street)
+src/city/                   Coast City: its layout (Layout: the coast, bay, river, port, districts, Highway 1, hills),
+                            the grid's blocks and streets (Plan), the building kit and Hal's block, the terrain,
+                            water and hills' ground (Terrain, Relief, Water, Ground), Highway 1 and the Bay Bridge,
+                            Coast Park and the plazas (Parks), the hill houses (Hills), Port Haven, Playland, the
+                            Marina, the waterfront, traffic
 src/story/                  Story (Part One + the shared chapter plumbing, the lantern's pocket dimension),
                             Corps (Part Two, travel), Coast (Part Three), Prisoner (Part Four), Probation
                             (Part Five), Exile (Part Six), Roam (free roam after it: travel, Hal or Green

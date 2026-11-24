@@ -1,14 +1,29 @@
-// Coast City's waterfront (2026-11-19): Ocean Avenue's promenade the length of the city, its sea wall,
+// Coast City's waterfront (2026-11-19): Ocean Avenue's promenade the length of the beach, its sea wall,
 // palms, lamps and benches facing the water; the beach below it with a lifeguard tower every 300 m; and
 // the pier: a ramp up off the promenade over the sand, the deck out on its piles, railings and lamps,
 // the bait shop and the arcade, and at its head the seafood house and the Ferris wheel turning.
 // Built once with the city (Stream.js), in the lot's frame.
+//
+// The map rework (2026-11-24, city/Layout.js): the beach runs from the marina's town (z -760) to the port's mouth
+// (2250), widening into the Point where Playland is; the towers stand on its new shore (Layout.js coastAt). The
+// rest of the shore is downloaded and placed (city/Port.js, city/Playland.js, city/Marina.js): its props load
+// while the city builds and it's built after, a few milliseconds a frame (`shore` below), far from where any
+// chapter opens.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { woodTexture } from '../fx/Textures.js';
 import { Batch } from './Kit.js';
 import { building, box, label } from './Building.js';
-import { CITY, PROMENADE, PIER, shoreX, streetX, NS, LOT_Z } from './Plan.js';
+import { PROMENADE, PIER, streetX, NS, LOT_Z } from './Plan.js';
+import { coastAt } from './Layout.js';
+import { WATER_Y } from './Terrain.js';
+import { loadProps } from '../props/Props.js';
+import { buildPort, PORT_PROPS } from './Port.js';
+import { buildPlayland, buildBeach, preloadRides, PLAYLAND_PROPS, PLAYLAND } from './Playland.js';
+import { buildMarina, MARINA_PROPS } from './Marina.js';
+
+// the beach's length (Layout.js DISTRICTS: 'beach'), the promenade's with it
+export const BEACH = { z0: -760, z1: 2250 };
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const ORIGIN = V(0, 0, LOT_Z);
@@ -23,7 +38,7 @@ export function* buildWaterfront(stream) {
   const rnd = ctx.rnd;
   const solid = (x0, y0, z0, x1, y1, z1) => bodies.push(P.fixedBox(V((x0 + x1) / 2 + ORIGIN.x, (y0 + y1) / 2, (z0 + z1) / 2 + ORIGIN.z), V(Math.abs(x1 - x0) / 2, Math.abs(y1 - y0) / 2, Math.abs(z1 - z0) / 2)));
   const put = (k, x, y, z, yaw, s = 1) => places.push({ k, M: new THREE.Matrix4().compose(V(x, y, z), _q.setFromAxisAngle(_Y, yaw), V(s, s, s)), s });
-  const { x0: wx, x1: kx } = PROMENADE, z0 = CITY.z0 - 6, z1 = CITY.z1 + 6;
+  const { x0: wx, x1: kx } = PROMENADE, z0 = BEACH.z0, z1 = BEACH.z1;
   // ---- the promenade: its paving in 100 m pieces (a box kilometres long sinks the walker), the kerb on
   // Ocean Avenue, the sea wall to sit on, gaps in it down to the sand
   for (let z = z0; z < z1; z += 100) {
@@ -33,19 +48,21 @@ export function* buildWaterfront(stream) {
     batch.add('concrete', box(kx - 0.09, 0, za, kx + 0.09, PAVE + 0.005, zb), I, 0xc9c3b8);
     batch.add('roadpaint', box(kx, 0, za, kx + 0.46, 0.02, zb), I, 0x77736d);
   }
+  // (openings in it: the pier's ramp goes over it, Playland's walk through it)
+  const openings = [{ z: PIER.z, w: PIER.w + 2 }, { z: PLAYLAND.gateZ, w: 16 }];
   for (let z = z0; z < z1; z += 160) {
-    const a = z + 2.2, b = Math.min(z1, z + 160 - 2.2), mid = (a + b) / 2;
-    if (Math.abs(mid - PIER.z) < 90) { // (the pier's ramp goes over it)
-      for (const [s0, s1] of [[a, PIER.z - PIER.w / 2 - 1], [PIER.z + PIER.w / 2 + 1, b]]) if (s1 - s0 > 1) { batch.add('concrete', box(wx - 0.45, 0, s0, wx, 0.9, s1), I, 0xd8d0c0); batch.add('concrete', box(wx - 0.5, 0.9, s0, wx + 0.05, 0.98, s1), I, 0xe6e0d4); solid(wx - 0.45, 0, s0, wx, 0.98, s1); }
-      continue;
+    let runs = [[z + 2.2, Math.min(z1, z + 160 - 2.2)]];
+    for (const o of openings) runs = runs.flatMap(([s0, s1]) => (o.z + o.w / 2 < s0 || o.z - o.w / 2 > s1 ? [[s0, s1]] : [[s0, o.z - o.w / 2], [o.z + o.w / 2, s1]]));
+    for (const [s0, s1] of runs) {
+      if (s1 - s0 < 1) continue;
+      batch.add('concrete', box(wx - 0.45, 0, s0, wx, 0.9, s1), I, 0xd8d0c0);
+      batch.add('concrete', box(wx - 0.5, 0.9, s0, wx + 0.05, 0.98, s1), I, 0xe6e0d4); // its cap
+      solid(wx - 0.45, 0, s0, wx, 0.98, s1);
     }
-    batch.add('concrete', box(wx - 0.45, 0, a, wx, 0.9, b), I, 0xd8d0c0);
-    batch.add('concrete', box(wx - 0.5, 0.9, a, wx + 0.05, 0.98, b), I, 0xe6e0d4); // its cap
-    solid(wx - 0.45, 0, a, wx, 0.98, b);
   }
   // palms down the promenade, lamps on Ocean Avenue's side, benches facing the sea
   for (let z = z0 + 8, n = 0; z < z1 - 8; z += 16, n++) {
-    if (Math.abs(z - PIER.z) < PIER.w / 2 + 3) continue;
+    if (Math.abs(z - PIER.z) < PIER.w / 2 + 3 || Math.abs(z - PLAYLAND.gateZ) < 10) continue;
     put(n % 2 ? 'palm0' : 'palm1', wx + 3.2, PAVE, z, rnd() * 6, 0.66 + rnd() * 0.16);
     batch.add('iron', box(wx + 3.2 - 0.62, PAVE, z - 0.62, wx + 3.2 + 0.62, PAVE + 0.025, z + 0.62), I, 0x2a2622);
     if (n % 2 === 0) {
@@ -56,12 +73,15 @@ export function* buildWaterfront(stream) {
     if (n % 3 === 1) put('bench', wx + 1.3, PAVE, z + 4, -Math.PI / 2);
   }
   yield;
-  // ---- lifeguard towers on the sand, painted as the city's are
+  // ---- lifeguard towers on the sand, painted as the city's are, a little up the beach from the water and facing
+  // straight out to sea (round the Point the shore turns: each faces its own stretch of it)
   const colours = [0x6fb5c8, 0xf2d26a, 0xe88a7a, 0x9ad0a8, 0xf2efe6];
   for (let z = z0 + 150, n = 1; z < z1 - 60; z += 300, n++) {
     if (Math.abs(z - PIER.z) < 60) continue;
-    const x = (shoreX(z) + wx) / 2 - 4, c = colours[n % colours.length];
-    const M = new THREE.Matrix4().makeTranslation(x, 0, z).multiply(new THREE.Matrix4().makeRotationY(-Math.PI / 2)); // (facing the sea)
+    const c = colours[n % colours.length], sx = coastAt(z), tx = coastAt(z + 15) - coastAt(z - 15), L = Math.hypot(tx, 30);
+    const nx = -30 / L, nz = tx / L; // (the shore's normal, out to sea)
+    const back = Math.min(34, (wx - sx) * 0.42), x = sx - nx * back, zz = z - nz * back;
+    const M = new THREE.Matrix4().makeTranslation(x, 0, zz).multiply(new THREE.Matrix4().makeRotationY(Math.atan2(nx, nz)));
     for (const [px, pz] of [[-1.2, -1], [1.2, -1], [-1.2, 1], [1.2, 1]]) batch.add('paint', box(px - 0.09, 0, pz - 0.09, px + 0.09, 1.6, pz + 0.09), M, 0xe8e4dc);
     batch.add('paint', box(-1.6, 1.6, -1.4, 1.6, 1.75, 1.6), M, 0xd8d2c6); // its deck
     batch.add('paint', box(-1.3, 1.75, -1.1, 1.3, 3.9, 1.1), M, c); // the hut
@@ -69,9 +89,9 @@ export function* buildWaterfront(stream) {
     batch.add('paint', box(-1.6, 3.9, -1.5, 1.6, 4.05, 1.5), M, 0xf2efe6); // the roof
     batch.add('paint', box(-0.5, 0, 1.6, 0.5, 0.12, 5.2).applyMatrix4(new THREE.Matrix4().makeRotationX(0.42)).translate(0, 2.4, 0), M, 0xd8d2c6); // the ramp down to the sand
     label(ctx, M, -1.1, 1.1, 3.95 - 0.55, 0.45, { text: `${n}`, style: 'letters', fg: '#c0201b', font: 'condensed', wear: 0.1 }, 1.115);
-    const w = V(x, 0, z).add(ORIGIN);
-    bodies.push(P.fixedBox(V(w.x, 2.85, w.z), V(1.3, 1.1, 1.3)));
-    bodies.push(P.fixedBox(V(w.x, 1.67, w.z), V(1.6, 0.08, 1.6)));
+    const w = V(x, 0, zz).add(ORIGIN), tq = new THREE.Quaternion().setFromRotationMatrix(M);
+    bodies.push(P.fixedBox(V(w.x, 2.85, w.z), V(1.3, 1.1, 1.3), tq));
+    bodies.push(P.fixedBox(V(w.x, 1.67, w.z), V(1.6, 0.08, 1.6), tq));
   }
   yield;
   // ---- the pier: a ramp over the sand, the deck on piles, the head where it widens
@@ -218,18 +238,74 @@ export function* buildWaterfront(stream) {
   // bulbs, 0..1), its cars and where to sit in one (in a car's frame: the bench, facing east)
   const wheelCtl = { group: wheelGroup, cars, speed: 0.045, lit: 1, centre: wc.clone().add(ORIGIN), R, seat: V(0, FL + 0.54, -0.62), floor: FL + 0.08 };
   let nightK = 0;
+  const shore = shoreSteps(stream);
   return {
     group: g,
     wheel: wheelCtl,
+    shore,
     update(dt) {
       const k = (wheelGroup.rotation.z -= dt * wheelCtl.speed);
       for (const c of cars) c.rotation.z = -k;
       mats.wheelLamp.emissiveIntensity = nightK * 2.2 * wheelCtl.lit;
+      shore.update(dt);
     },
-    setNight(k) { night.visible = k > 0.01; nightK = k; },
+    setNight(k) { night.visible = k > 0.01; nightK = k; shore.setNight(k); },
   };
 }
 
+// The rest of the shore, downloaded (Port.js, Playland.js, Marina.js): its props fetched as soon as the city starts
+// building, then built a slice a frame (3 ms) once they're in; each part's own update after (what it draws by
+// distance, what turns). `ready` once it's all there; `parts` by name.
+export const SHORE_PROPS = [...new Set([...PORT_PROPS, ...PLAYLAND_PROPS, ...MARINA_PROPS])];
+function shoreSteps(stream) {
+  const f = stream.f, shore = { ready: false, failed: null, parts: {}, job: null, night: 0, t: 0, ms: 0 };
+  const ctx = { f, stream, mats: stream.mats, root: stream.root, signs: stream.signs };
+  function* all() {
+    shore.parts.port = yield* buildPort(ctx);
+    shore.parts.beach = yield* buildBeach(ctx);
+    shore.parts.playland = yield* buildPlayland(ctx);
+    shore.parts.marina = yield* buildMarina(ctx);
+    stream.signs.flush(); // (Playland's and the marina's signs on their pages)
+    // each hidden while the town's blocks cover it, as the blocks are (engine/Occlusion.js: from down in a street the
+    // marina's boats were 10 draws and 340 k triangles, a kilometre off behind the houses)
+    const occ = f.scene.userData.occlusion;
+    if (occ) for (const p of Object.values(shore.parts)) if (p.root) p.occ = occ.add(partBox(p), (v) => { p.root.visible = v; });
+  }
+  // (`localStorage.gl_shore = '0'` leaves it out: for measuring what it costs, tools/perf-probe.js bench)
+  let off = false;
+  try { off = globalThis.localStorage?.gl_shore === '0'; } catch { /* no storage */ }
+  if (!off) Promise.all([loadProps(SHORE_PROPS), preloadRides()]).then(() => { shore.job = all(); }).catch((e) => { shore.failed = e; console.warn('the shore:', e); });
+  const cam = new THREE.Vector3();
+  shore.update = (dt) => {
+    shore.t += dt;
+    if (shore.job) {
+      const t0 = performance.now();
+      try {
+        while (performance.now() - t0 < 3) if (shore.job.next().done) { shore.job = null; shore.ready = true; shore.setNight(shore.night); break; }
+      } catch (e) { shore.job = null; shore.failed = e; console.warn('the shore:', e); }
+      shore.ms += performance.now() - t0;
+    }
+    f.engine.camera.getWorldPosition(cam);
+    for (const p of Object.values(shore.parts)) p.update?.(dt, cam, shore.t);
+  };
+  shore.setNight = (k) => { shore.night = k; for (const p of Object.values(shore.parts)) p.setNight?.(k); };
+  return shore;
+}
+
+// a shore part's box in the world: its meshes as built, its placed copies (a few metres round each) and its boats
+function partBox(part) {
+  const box = new THREE.Box3(), b = new THREE.Box3();
+  part.root.updateMatrixWorld(true);
+  part.root.traverse((m) => {
+    if (!m.isMesh || m.isInstancedMesh || m.isBatchedMesh) return;
+    if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
+    box.union(b.copy(m.geometry.boundingBox).applyMatrix4(m.matrixWorld));
+  });
+  for (const set of part.placed?.sets ?? []) for (const e of set.list) box.union(b.setFromCenterAndSize(e.pos, V(8, 8, 8)));
+  const S = part.fleet?.sphere;
+  if (S) box.union(b.setFromCenterAndSize(S.center.clone().applyMatrix4(part.root.matrixWorld), V(1, 1, 1).multiplyScalar(S.radius * 2)).intersect(new THREE.Box3(V(-1e5, WATER_Y - 3, -1e5), V(1e5, WATER_Y + 30, 1e5))));
+  return box;
+}
 const quad = (u0, v0, u1, v1, z) => new THREE.PlaneGeometry(u1 - u0, v1 - v0).translate((u0 + u1) / 2, (v0 + v1) / 2, z);
 function mulberry(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 // a pane's room for the kit's glass (as Building.js's): its cell along the pane's tangent

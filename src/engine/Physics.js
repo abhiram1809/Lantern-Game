@@ -49,7 +49,7 @@ export class Physics {
   // Collider for a static mesh's world-space triangles.
   fixedTrimesh(mesh) {
     mesh.updateMatrixWorld(true);
-    const geo = mesh.geometry.index ? mesh.geometry : mesh.geometry.toNonIndexed();
+    const geo = mesh.geometry; // (indexed or not, both read below: made non-indexed first, three warned for each one that was already, hundreds in the city)
     const pos = geo.attributes.position;
     const verts = new Float32Array(pos.count * 3);
     for (let i = 0; i < pos.count; i++) {

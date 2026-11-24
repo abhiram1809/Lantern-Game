@@ -98,7 +98,9 @@ export class Pressure {
         story.traffic?.extra.push(b); // (the traffic stops at them)
       }
       const { NB, SB, SOUTH, STOP } = LANES, tr = story.traffic;
-      this.cruisers = tr ? [tr.dispatch('policecar', [[NB, SOUTH], [NB, STOP.NB], [NB, -205]], { speed: 12 }), tr.dispatch('policecar', [[SB, -8], [SB, -26]], { speed: 10 })] : [];
+      // (the first nose up to the line, its tail clear of the cross street's eastbound lane: short of -205 it stood
+      // over it, and the cross street's traffic, that the cordon leaves open, queued behind it through the crossing)
+      this.cruisers = tr ? [tr.dispatch('policecar', [[NB, SOUTH], [NB, STOP.NB], [NB, -204]], { speed: 12 }), tr.dispatch('policecar', [[SB, -8], [SB, -26]], { speed: 10 })] : [];
       story.ui.toast('The police have cordoned off the block');
     } else if (!want && this.lines) {
       for (const b of this.lines) this.f.smash.remove(this.f.smash.items.find((it) => it.object === b));

@@ -70,5 +70,6 @@ export class Occlusion {
       it.mesh.visible = !it.query; // (one question at a time)
       it.ask = !it.query;
     }
+    this.after?.(); // (what follows from the pieces shown and hidden: Stream.js, its batches)
   }
 }

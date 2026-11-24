@@ -507,17 +507,20 @@ body.chart #hud, body.chart #controls, body.chart #vitals, body.chart #ringhud, 
 #minimap .n { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px; border-radius: 50%; background: rgba(10,14,18,0.85); color: #7dffc8; font: 700 10px/16px var(--hud-font); text-align: center; box-shadow: 0 0 0 1px rgba(125,255,200,0.5); }
 #minimap .where { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 8px 5px; background: linear-gradient(transparent, rgba(0,0,0,0.7)); font: 600 10px/1 var(--hud-font); letter-spacing: 0.16em; text-transform: uppercase; color: #d9f5ea; text-align: center; }
 #hud.mapped #chapter, #hud.mapped #objective { margin-left: calc(clamp(150px, 15vw, 210px) + 22px); }
-#citymap { position: absolute; inset: 0; z-index: 14; background: #24292d; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+#citymap { position: absolute; inset: 0; z-index: 14; background: #2a302b; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
 #citymap.show { opacity: 1; pointer-events: auto; }
-#citymap canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
+#citymap > canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; }
 #citymap .cross { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px; border: 1.5px solid rgba(125,255,200,0.8); border-radius: 50%; pointer-events: none; }
 #citymap .cross::before, #citymap .cross::after { content: ''; position: absolute; background: rgba(125,255,200,0.8); left: 50%; top: 50%; }
 #citymap .cross::before { width: 1.5px; height: 34px; margin: -17px 0 0 -0.75px; } #citymap .cross::after { width: 34px; height: 1.5px; margin: -0.75px 0 0 -17px; }
 #citymap .side { position: absolute; left: 28px; top: 28px; padding: 16px 18px; border-radius: 12px; background: rgba(8,12,16,0.78); font: 600 12px/1.4 var(--hud-font); letter-spacing: 0.08em; color: #d9f5ea; pointer-events: none; }
 #citymap .side > b { display: block; font-size: 20px; letter-spacing: 0.2em; color: #7dffc8; }
 #citymap .side > i { display: block; font-style: normal; font-size: 11px; opacity: 0.6; margin-bottom: 10px; letter-spacing: 0.16em; text-transform: uppercase; }
-#citymap .legend div { display: flex; align-items: center; gap: 9px; margin: 4px 0; }
-#citymap .legend span { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; color: #10161a; font: 800 11px/1 Arial, sans-serif; }
+#citymap .legend { display: grid; grid-template-columns: auto auto; column-gap: 18px; }
+#citymap .legend h4 { grid-column: 1 / -1; margin: 9px 0 3px; font: 700 10px/1 var(--hud-font); letter-spacing: 0.22em; text-transform: uppercase; color: rgba(125,255,200,0.7); }
+#citymap .legend h4:first-child { margin-top: 0; }
+#citymap .legend div { display: flex; align-items: center; gap: 8px; margin: 2px 0; white-space: nowrap; }
+#citymap .legend canvas { width: 20px; height: 20px; flex: none; display: block; }
 #citymap .keys { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%); padding: 9px 16px; border-radius: 8px; background: rgba(8,12,16,0.78); font: 600 11px/1 var(--hud-font); letter-spacing: 0.14em; text-transform: uppercase; color: #c9f5e3; white-space: nowrap; pointer-events: none; }
 #citymap .keys b { color: var(--green); }
 #citymap .look { position: absolute; left: 50%; top: calc(50% + 24px); transform: translateX(-50%); padding: 4px 10px; border-radius: 6px; background: rgba(8,12,16,0.7); font: 600 11px/1 var(--hud-font); letter-spacing: 0.16em; text-transform: uppercase; color: #e8fff4; pointer-events: none; white-space: nowrap; }
