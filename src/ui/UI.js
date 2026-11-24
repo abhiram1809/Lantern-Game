@@ -33,6 +33,7 @@ export class UI {
     const $ = (s) => document.querySelector(s);
     this.el = {
       body: document.body, loading: $('#loading'), fill: $('#loading .fill'), fade: $('#fade'), flash: $('#flash'),
+      loadBar: $('#loading .bar'), loadLabel: $('#loading .label'), loadDetail: $('#loading .detail'), loadPercent: $('#loading .percent'),
       chapter: $('#chapter'), objective: $('#objective'), clock: $('#clock'), prompt: $('#prompt'), controls: $('#controls'),
       sub: $('#subtitle'), speaker: $('#subtitle .speaker'), text: $('#subtitle .text'),
       over: $('#overheard'), overSpeaker: $('#overheard .speaker'), overText: $('#overheard .text'),
@@ -45,23 +46,11 @@ export class UI {
     this.fadeLevel = 1;
   }
 
-  // The loading screen. At boot it's the bar under the emblem (`loading(p)`, then `loaded()`); after
-  // the title it comes back over everything while a part's world is made (the user, 2026-11-19: "add a
-  // true loading screen... just don't show users the dark"): `loadStart(title, stages)` with stages
-  // [key, label, weight], `loadStage(key, k)` the one under way and how far into it, and it fades out
-  // by itself when the scene fades in (`fade`), or with `loadEnd()`. (dev: each stage's start in
-  // window.__load, to see where the time goes)
-  loading(p) {
-    if (this.load) return this.loadStage(this.load.key, p);
-    this.el.fill.style.width = `${Math.round(p * 100)}%`;
-  }
-  loaded() {
-    this.el.loading.classList.add('done');
-    setTimeout(() => { if (!this.load) this.el.loading.style.display = 'none'; }, 900);
-  }
+  // Each stage reports progress from the work it completes. Keep the overlay through the first draw.
   loadStart(title, stages) {
     const L = this.el.loading;
-    this.load = { stages, key: stages[0][0], k: 0, total: stages.reduce((s, x) => s + x[2], 0), t0: performance.now(), shown: 0 };
+    this.finishedLoad = null;
+    this.load = { stages, key: stages[0][0], total: stages.reduce((s, x) => s + x[2], 0), t0: performance.now(), shown: 0 };
     L.style.display = '';
     L.style.transition = 'none';
     L.classList.remove('done');
@@ -70,49 +59,53 @@ export class UI {
     L.querySelector('.title').textContent = title ?? '';
     const tip = LOAD_TIPS[Math.floor(Math.random() * LOAD_TIPS.length)];
     L.querySelector('.tip').innerHTML = tip;
-    this.el.fill.style.transition = 'none';
-    this.el.fill.style.width = '0%';
-    void this.el.fill.offsetWidth;
-    this.el.fill.style.transition = '';
     if (import.meta.env.DEV) window.__load = [];
     this.loadStage(this.load.key, 0);
-    // (a way in that never fades the scene up or hands over control would leave it up for good: after
-    // 15 s without progress it goes)
-    clearInterval(this.loadDog);
-    this.loadDog = setInterval(() => {
-      if (!this.load) { clearInterval(this.loadDog); return; }
-      if (performance.now() - this.load.last > 15000) { console.warn('loading screen: no progress for 15 s'); this.loadEnd(); }
-    }, 1000);
   }
-  loadStage(key, k = 0) {
+  loadStage(key, k = 0, detail = '') {
     const L = this.load;
-    if (!L) return;
+    if (!L || this.el.loading.classList.contains('failed')) return;
     const i = L.stages.findIndex((s) => s[0] === key);
     if (i < 0) return;
-    L.last = performance.now();
     if (key !== L.key || !L.began) {
       L.began = true;
       if (import.meta.env.DEV) window.__load.push([key, Math.round(performance.now() - L.t0)]);
     }
     L.key = key;
-    L.k = Math.min(1, Math.max(0, k));
-    const done = L.stages.slice(0, i).reduce((s, x) => s + x[2], 0) + L.stages[i][2] * L.k;
+    const done = L.stages.slice(0, i).reduce((s, x) => s + x[2], 0) + L.stages[i][2] * Math.min(1, Math.max(0, k));
     L.shown = Math.max(L.shown, done / L.total); // (it never goes backwards)
-    this.el.fill.style.width = `${(L.shown * 100).toFixed(1)}%`;
-    this.el.loading.querySelector('.label').textContent = L.stages[i][1];
+    this.showLoadProgress(Math.min(99, Math.floor(L.shown * 100)));
+    const label = L.stages[i][1];
+    if (this.el.loadLabel.textContent !== label) this.el.loadLabel.textContent = label;
+    this.el.loadDetail.textContent = detail;
+    clearTimeout(this.loadDog);
+    this.loadDog = setTimeout(() => {
+      if (this.load === L && !this.el.loading.classList.contains('failed')) {
+        this.el.loadDetail.textContent = detail ? `${detail} · Still loading…` : 'Still loading…';
+      }
+    }, 15000);
   }
-  loadEnd() {
+  showLoadProgress(percent) {
+    this.el.fill.style.width = `${percent}%`;
+    this.el.loadPercent.textContent = `${percent}%`;
+    this.el.loadBar.setAttribute('aria-valuenow', String(percent));
+  }
+  loadEnd(completed = true) {
     if (!this.load) return;
     if (import.meta.env.DEV) window.__load.push(['end', Math.round(performance.now() - this.load.t0)]);
+    clearTimeout(this.loadDog);
+    const finished = this.finishedLoad = this.load;
     this.load = null;
-    this.el.fill.style.width = '100%';
     // kept up two frames more: the scene's first draw uploads its geometry (half a second for the
     // valley), and that stall is better under the loading screen than on the scene's first frame
     // (and a second and a half at most, if no frames come: a window that isn't drawn still has the game)
     const finish = () => {
-      if (this.load || this.el.loading.classList.contains('done')) return;
+      if (this.finishedLoad !== finished || this.el.loading.matches('.done, .failed')) return;
+      if (completed) this.showLoadProgress(100);
       this.el.loading.classList.add('done');
-      setTimeout(() => { if (!this.load) this.el.loading.style.display = 'none'; }, 900);
+      setTimeout(() => {
+        if (this.finishedLoad === finished && !this.el.loading.classList.contains('failed')) this.el.loading.style.display = 'none';
+      }, 900);
     };
     requestAnimationFrame(() => requestAnimationFrame(finish));
     setTimeout(finish, 1500);

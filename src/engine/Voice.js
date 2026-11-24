@@ -2,6 +2,8 @@
 // character: tools/build-voices.mjs), played through WebAudio with its word timings and a mouth
 // curve for the lip sync. A line with no clip (or before the manifest loads) falls back to the
 // browser's speech synthesiser, with a voice profile per character.
+import { assetUrl } from './Assets.js';
+
 const PROFILES = {
   hal: { prefer: ['Aaron', 'Evan', 'Nathan', 'Tom', 'Alex', 'Google US English', 'Microsoft Guy'], rate: 1.02, pitch: 0.95 },
   abin: { prefer: ['Daniel', 'Arthur', 'Reed', 'Rocko', 'Google UK English Male', 'Microsoft George', 'Fred'], rate: 0.8, pitch: 0.5 },
@@ -37,7 +39,7 @@ export class Voice {
     }
     // (never the browser's copy: an old manifest served by the service worker left every new line without
     // its clip, spoken in the Mac's own voice; the query keeps an old worker from matching it in its cache)
-    this.ready = fetch(`/voices/manifest.json?v=${Date.now()}`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((m) => {
+    this.ready = fetch(assetUrl(`voices/manifest.json?v=${Date.now()}`), { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((m) => {
       if (!m) return;
       for (const line of Object.values(m.lines)) {
         const raw = atob(line.mouth ?? ''), mouth = new Uint8Array(raw.length);
@@ -64,7 +66,7 @@ export class Voice {
   }
 
   buffer(file) {
-    const url = file.startsWith('/') ? file : `/voices/${file.replace(/^voices\//, '')}`;
+    const url = assetUrl(file.startsWith('/') ? file : `voices/${file.replace(/^voices\//, '')}`);
     if (!this.buffers.has(url)) this.buffers.set(url, fetch(url).then((r) => r.arrayBuffer()).then((b) => this.audio.ctx.decodeAudioData(b)).catch(() => null));
     return this.buffers.get(url);
   }

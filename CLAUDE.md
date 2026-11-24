@@ -184,21 +184,22 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 
 ### Boot and loading
 
-- `main.js` loads the core scans (both Hals, Abin Sur, the Xbot mocap) and Rapier, then shows the
-  title. Each part's code (`PART_CODE`, a dynamic import) and scans (`PART_SCANS`,
-  `characters.more()`) are fetched while the title shows.
+- `entry.js` shows the loader while the game modules download. `main.js` starts Rapier and tracks
+  the core scans, Xbot mocap and posters before showing the title. A selected chapter loads its part's
+  code and scans with the overlay already shown.
 - Continue is the checkpoint played last in any part (`latestCheckpoint()`). A part opens once the
   one before it is finished. A step that throws shows a "The story stopped" card offering a restart.
 - **The loading screen** (`ui.loadStart(title, stages)`, `ui.loadStage(key, k)`, `LOAD_PLANS`) covers
-  everything between a click and the first frame. It ends at the scene's first fade up,
-  `giveControl()` or a card (or after 15 s without progress). While it's up the engine doesn't draw.
+  startup and the work between a chapter choice and its first frame. It ends when the scene fades in,
+  control is given to the player, or a card takes over. Stalls keep the progress visible.
 - Heavy scenes build in slices (`engine/Slice.js`: `sliced(steps, budget)`, generator steps that
   yield; `breath()` yields by message, since timers are throttled in hidden tabs).
   `Story.warmUp()` compiles shaders behind the loading screen in pieces.
-- `public/sw.js` serves `/models`, `/textures`, `/voices` and `/anims` from the browser's cache
-  (`gl-assets-v2`) and refreshes behind it, so a changed file shows a visit late: bump a rebuilt
+- `assetUrl()` (`engine/Assets.js`) resolves public files under the Vite build base: every path to `public/` goes
+  through it (the signs' worker is sent the base: `SignWorker.js`). `public/sw.js` caches models,
+  textures, voices, animations and the signs' encoder under its own scope and refreshes behind it: bump a rebuilt
   scan's number in `SCAN_VERSION` (`Characters.js`). On a local dev host it asks the server first.
-  JSON is never cached. Bump `CACHE` to drop everything.
+  JSON is never cached. Bump the cache version to replace the game's cache.
 
 ### Game time and the engine
 
@@ -472,7 +473,7 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   `/#id` is a hash change, not a reload: use `/?r=1#id`.
 - `#screen button` also finds the last card's buttons: click `#screen.show button`.
 - Only POST to `/__shot`: a GET with no body crashes the dev server.
-- `ui.loading` is a method (the boot bar): the loading screen's state is `ui.load` (null when it's gone).
+- The loading screen's state is `ui.load` (null when it's gone); boot is a loading screen too (`LOAD_PLANS.boot`), ended by the title's card.
 - A service worker left from earlier sessions on 127.0.0.1:5180 can break new model files: unregister
   it and delete its caches from the page.
 - `shot(name, 0)` renders the camera from before a `director.cut()`; step a few frames after a cut.

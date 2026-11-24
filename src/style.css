@@ -154,14 +154,25 @@ button:disabled { opacity: 0.35; cursor: default; box-shadow: none !important; }
 #loading { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 18px; background: #000; transition: opacity 0.8s; }
 #loading .emblem { width: 70px; height: 70px; border-radius: 50%; border: 8px solid var(--green); box-shadow: 0 0 30px var(--green-soft); animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 60px var(--green); } }
-#loading .label { font: 600 14px/1 var(--hud-font); letter-spacing: 0.4em; text-transform: uppercase; color: var(--ink-dim); }
-#loading .bar { width: 260px; height: 3px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
-#loading .fill { height: 100%; width: 0; background: var(--green); box-shadow: 0 0 10px var(--green); transition: width 0.2s; }
+#loading .label { width: min(460px, 90vw); text-align: center; font: 600 14px/1.4 var(--hud-font); letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); }
+#loading .bar { width: min(320px, 84vw); height: 5px; background: rgba(255, 255, 255, 0.12); border: 0; border-radius: 3px; clip-path: none; overflow: hidden; }
+#loading .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--green); }
+#loading .bar:not([aria-valuenow]) .fill { width: 28%; animation: loading-scan 1.6s ease-in-out infinite alternate; }
+@keyframes loading-scan { to { transform: translateX(255%); } }
+#loading .progress-caption { display: flex; justify-content: space-between; gap: 12px; width: min(320px, 84vw); min-height: 1.4em; margin-top: -10px; color: var(--ink-dim); font: 600 14px/1.4 var(--hud-font); }
+#loading .percent { color: var(--green); font-variant-numeric: tabular-nums; }
+#loading .retry { padding: 10px 24px; border: 1px solid var(--green-soft); border-radius: 8px; background: #072314; color: var(--ink); font: 700 16px/1.4 var(--hud-font); cursor: pointer; }
+#loading.failed .bar, #loading.failed .percent, #loading.failed .tip { display: none; }
 #loading.done { opacity: 0; pointer-events: none; }
 #loading { z-index: 20; pointer-events: auto; background: radial-gradient(ellipse at center, #031a0b 0%, #000 70%); }
-#loading .title { min-height: 1em; margin-bottom: 14px; font: 600 13px/1 var(--hud-font); letter-spacing: 0.55em; text-transform: uppercase; color: var(--green); }
+#loading .title { width: min(460px, 90vw); min-height: 1em; margin-bottom: 14px; text-align: center; font: 600 13px/1.4 var(--hud-font); letter-spacing: 0.3em; text-transform: uppercase; color: var(--green); }
 #loading .tip { position: absolute; left: 0; right: 0; bottom: 9vh; text-align: center; padding: 0 24px; font: 500 14px/1.6 var(--hud-font); letter-spacing: 0.08em; color: var(--ink-dim); }
 #loading .tip b { color: var(--green); font-weight: 700; }
+@media (max-height: 440px) { #loading .tip { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+  #loading { transition: none; }
+  #loading .emblem, #loading .bar:not([aria-valuenow]) .fill { animation: none; }
+}
 
 /* ---------------------------------------------------------------- ring interface (powers) */
 :root { --inset: clamp(12px, 2.4vw, 34px); --hp: #7fe9ff; --amber: #ffb35c; }

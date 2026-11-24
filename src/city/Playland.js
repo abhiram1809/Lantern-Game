@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { prop, piece } from '../props/Props.js';
 import { ktx2 } from '../engine/Ktx2.js';
+import { assetUrl } from '../engine/Assets.js';
 import { Batch } from './Kit.js';
 import { box, label, building } from './Building.js';
 import { coastAt } from './Layout.js';
@@ -37,7 +38,7 @@ const _m = new THREE.Matrix4(), _Y = V(0, 1, 0);
 const RIDES = {};
 export function preloadRides() {
   const loader = new GLTFLoader().setKTX2Loader(ktx2);
-  return Promise.all(['familycoaster', 'kiddiecoaster'].map((n) => loader.loadAsync(`/models/props/${n}.glb`).then((g) => { RIDES[n] = g; })));
+  return Promise.all(['familycoaster', 'kiddiecoaster'].map((n) => loader.loadAsync(assetUrl(`models/props/${n}.glb`)).then((g) => { RIDES[n] = g; })));
 }
 
 // Bulbs: one instanced mesh of small spheres, each its colour, unlit by day and glowing at night (a basic

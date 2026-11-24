@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ktx2 } from '../engine/Ktx2.js';
+import { assetUrl } from '../engine/Assets.js';
 import { RAPIER } from '../engine/Physics.js';
 import { damp, clamp } from '../engine/Time.js';
 import { Particles } from '../fx/Particles.js';
@@ -13,7 +14,7 @@ import { Particles } from '../fx/Particles.js';
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 let pending = null;
 export function loadPredator() {
-  return (pending ??= new GLTFLoader().setKTX2Loader(ktx2).loadAsync('/models/props/predator.glb'));
+  return (pending ??= new GLTFLoader().setKTX2Loader(ktx2).loadAsync(assetUrl('models/props/predator.glb')));
 }
 
 const HIDE = /* glsl */ `

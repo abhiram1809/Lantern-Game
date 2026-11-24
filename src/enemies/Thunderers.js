@@ -8,6 +8,7 @@ import { solveTwoBone } from '../characters/IK.js';
 import { createCharacter } from '../characters/Characters.js';
 import { glowTexture } from '../fx/Textures.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { assetUrl } from '../engine/Assets.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -170,7 +171,7 @@ let gltfs = null;
 export async function loadThunderers(manager) {
   if (gltfs) return gltfs;
   const loader = new GLTFLoader(manager), names = [...new Set(Object.values(KINDS).map((k) => k.model))];
-  const loaded = await Promise.all(names.map((n) => loader.loadAsync(`/models/${n}.glb`).catch(() => null)));
+  const loaded = await Promise.all(names.map((n) => loader.loadAsync(assetUrl(`models/${n}.glb`)).catch(() => null)));
   gltfs = Object.fromEntries(names.map((n, i) => [n, loaded[i]]));
   for (const g of loaded) g?.scene.traverse((o) => { if (o.isSkinnedMesh) { const m = o.material; if (m.metalnessMap) { m.aoMap = m.metalnessMap; m.aoMapIntensity = 0.85; } m.envMapIntensity = 0.6; } });
   return gltfs;

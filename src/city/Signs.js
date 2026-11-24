@@ -190,7 +190,7 @@ function pump() {
     if (!w && coder.pool.length < most) w = worker();
     if (!w) break;
     const j = (w.job = coder.queue.shift());
-    w.postMessage({ size: j.size, parts: j.parts }, j.parts.map((q) => q.data));
+    w.postMessage({ size: j.size, parts: j.parts, base: import.meta.env.BASE_URL }, j.parts.map((q) => q.data));
   }
   if (coder.pool.every((x) => !x.job)) coder.idle = setTimeout(() => { for (const x of coder.pool.splice(0)) x.terminate(); }, 30000);
 }

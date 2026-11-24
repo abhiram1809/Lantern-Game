@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ktx2Texture } from '../engine/Ktx2.js';
+import { assetUrl } from '../engine/Assets.js';
 
 const canvas = (w, h = w) => {
   const c = document.createElement('canvas');
@@ -185,7 +186,7 @@ const pbrCache = new Map();
 function pbrTexture(id, name, colour) {
   const key = `${id}/${name}`;
   if (!pbrCache.has(key)) {
-    const t = ktx2Texture(`/textures/pbr/${id}/${name}.ktx2`);
+    const t = ktx2Texture(assetUrl(`textures/pbr/${id}/${name}.ktx2`));
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.anisotropy = 8;
     if (colour) t.colorSpace = THREE.SRGBColorSpace;
