@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { pbrMaterial } from '../fx/Textures.js';
 import { CITY, HALS_LOT, PROMENADE, LOT_Z, K_MIN, K_MAX, STREET_Z, cityCells, streetSegments } from './Plan.js';
+import { HOME_LOT } from './HalsHome.js';
 import { PARKS } from './Layout.js';
 import { cityU } from './Kit.js';
 import { TERRAIN_GLSL, terrainTextures, terrainY, sdfAt, zoneAt, inHills, WATER_Y, W_BEACH } from './Terrain.js';
@@ -165,7 +166,7 @@ function groundMaterial() {
       if (vGp.y < ${WY(-0.03)}) discard; // (under the water: from high up the depth can't tell a beach's shelf from the water over it)
       // what has its own ground: Hal's lot, the memorial park's lawn and its drive (Ferris.cemetery), the road in from
       // the field up Hal's street (Ferris.buildRoad)
-      if (p.x > ${f1(H.x0 + 2)} && p.x < ${f1(H.x1 - 14)} && p.y > -17.0 && p.y < 13.0) discard;
+      if (p.x > ${f1(HOME_LOT.x0)} && p.x < ${f1(HOME_LOT.x1)} && p.y > ${f1(HOME_LOT.z0)} && p.y < ${f1(HOME_LOT.z1)}) discard;
       if (uCemetery > 0.5 && ((p.x > 118.02 && p.x < 181.98 && p.y > -875.98 && p.y < -824.02) || (p.x > 12.02 && p.x < 233.98 && p.y > -923.98 && p.y < -826.02))) discard; // (once it's built: its lawn, and its grounds out to the streets)
       if (uCemetery > 0.5 && p.x > 10.02 && p.x < 117.98 && p.y > -852.98 && p.y < -847.02) discard;
       if (p.x > 2.02 && p.x < 9.98 && p.y > -404.0 && p.y < -14.0) discard;

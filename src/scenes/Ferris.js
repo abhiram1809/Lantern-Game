@@ -8,6 +8,7 @@ import { prop, piece, meshes, boundsIn, hasProp } from '../props/Props.js';
 import { Smash } from '../props/Smash.js';
 import { makeCar } from '../props/Car.js';
 import { blockSteps, BLOCK_PROPS } from '../city/HalsBlock.js';
+import { HOME_LOT, HOME_TRASH } from '../city/HalsHome.js';
 import { PalmField } from '../city/Palms.js';
 import { ContactShadows } from '../fx/ContactShadows.js';
 import { wearRoad, DESERT_GLSL, buildCityGround, groundU } from '../city/Ground.js';
@@ -222,6 +223,8 @@ export class Ferris {
     if (this.blockOn) this.block = yield* blockSteps(this, LOT, this.lod, drawn);
     // (with the blocks round Hal's lot built now: every chapter that starts there opens on them, not on their boxes)
     if (this.cityOn) { this.city = new CityStream(this); yield* this.city.steps(); yield* this.city.fill(0, 0, 200); }
+    // Hal's home's trees and bushes (city/HalsHome.js) in the city's tree field
+    if (this.city && this.block) for (const t of this.block.homeTrees) this.city.trees.add(t.kind, t.x + LOT.x, t.y, t.z + LOT.z, t.h, t.w, undefined, t.tint);
     // Hal's car: sun-faded maroon, the driver's door in primer
     this.car = makeCar('phoenix', { paint: 0x5a1d19, primer: true, dust: 0.7 });
     this.car.position.copy(CAR_SPOT);
@@ -801,30 +804,38 @@ ${this.cityOn ? `        if (zone >= 0.5 && !(abs(vGw.x) < 30.0 && lp.y > -17.0 
     for (const [x, z, name, paint] of cars) this.park(name, V(x, 0, z), (z < 60 ? Math.PI : 0) + (rnd() - 0.5) * 0.05, paint);
   }
 
-  // The lot behind Hal's building, where the road from the field ends: the three-storey brick block
-  // on the lot's south side, facing it, palms, a dumpster, the neighbours' cars.
+  // The lot in front of Hal's building, where the road from the field ends: the bays, a dumpster, palms, the
+  // neighbours' cars. The house itself and its grounds are city/HalsHome.js's, built with Hal's block (Las Palmas, in
+  // the town's own Spanish Revival: the downloaded brick block that stood here looked shipped in from somewhere
+  // else, the user's "like he teleported somewhere else"); without the block, the old block stands in.
   buildApartmentLot() {
-    const s = this.scene, L = LOT;
+    const s = this.scene, L = LOT, home = this.blockOn;
     const g = new THREE.Group();
     g.position.copy(L);
     s.add(g);
-    const block = prop('apartment');
-    block.position.set(0, 0, 26);
-    block.rotation.y = Math.PI;
-    g.add(block);
+    let block = null;
+    if (!home) {
+      block = prop('apartment');
+      block.position.set(0, 0, 26);
+      block.rotation.y = Math.PI;
+      g.add(block);
+    }
     // asphalt, bays, a dumpster, palms
-    const asphalt = new THREE.Mesh(flat(60, 30), new THREE.MeshStandardMaterial({ map: noiseTexture({ base: '#4f4c48', spots: 1600, spread: 12, alpha: 0.07, repeat: [8, 4], fine: 0.2 }), roughness: 0.95 }));
-    asphalt.position.set(0, 0.015, -2);
+    const A = home ? HOME_LOT : { x0: -30, x1: 30, z0: -17, z1: 13 };
+    const asphalt = new THREE.Mesh(flat(A.x1 - A.x0, A.z1 - A.z0), home
+      ? pbrMaterial('asphalt_02', { repeat: [(A.x1 - A.x0) / 3, (A.z1 - A.z0) / 3], tint: new THREE.Color(0.9, 0.88, 0.86) })
+      : new THREE.MeshStandardMaterial({ map: noiseTexture({ base: '#4f4c48', spots: 1600, spread: 12, alpha: 0.07, repeat: [8, 4], fine: 0.2 }), roughness: 0.95 }));
+    asphalt.position.set((A.x0 + A.x1) / 2, 0.015, (A.z0 + A.z1) / 2);
     asphalt.receiveShadow = true;
     g.add(asphalt);
     const paint = new THREE.MeshBasicMaterial({ color: 0xdcd6c8 });
     for (let x = -18; x <= 18; x += 3.2) { const l = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 5).rotateX(-Math.PI / 2), paint); l.position.set(x, 0.027, 5); g.add(l); }
     const bin = new THREE.Mesh(new RoundedBoxGeometry(2.2, 1.4, 1.4, 2, 0.06), new THREE.MeshStandardMaterial({ color: 0x2f5a3a, roughness: 0.6, metalness: 0.4 }));
-    bin.position.set(-24, 0.7, 9);
+    if (home) bin.position.set(HOME_TRASH.x, 0.7, HOME_TRASH.z); else bin.position.set(-24, 0.7, 9); // (in its pen: city/HalsHome.js)
     bin.castShadow = bin.receiveShadow = true;
     g.add(bin);
     const palms = [];
-    for (const [x, z, h, r] of [[-27, -8, 11, 0.4], [26, -6, 12.5, 2.2], [31, 4, 9.5, 4.1]]) {
+    for (const [x, z, h, r] of home ? [[-29.4, -7.5, 11, 0.4], [33.6, 10.6, 12, 2.2]] : [[-27, -8, 11, 0.4], [26, -6, 12.5, 2.2], [31, 4, 9.5, 4.1]]) {
       const p = prop('palms');
       palms.push(p);
       p.position.set(x, 0, z);
@@ -832,15 +843,16 @@ ${this.cityOn ? `        if (zone >= 0.5 && !(abs(vGw.x) < 30.0 && lp.y > -17.0 
       p.scale.setScalar(h / 10.5);
       g.add(p);
     }
-    for (const [x, name, col, r] of [[-11.2, 'fairheaven', 0x2b4a6b, 0.04], [8, 'sialia', 0xc9c3b4, -0.03], [14.4, 'negotiator', 0x6d6a5f, 0.02]]) {
+    // (and with Las Palmas, two of the neighbours' nose in at their garages down the lot's east side: city/HalsHome.js)
+    for (const [x, name, col, r, z = 4.8] of [[-11.2, 'fairheaven', 0x2b4a6b, 0.04], [8, 'sialia', 0xc9c3b4, -0.03], [14.4, 'negotiator', 0x6d6a5f, 0.02], ...(home ? [[33.1, 'fairheaven_sw', 0x7a6a4e, Math.PI / 2 + 0.03, -15.05], [33.3, 'negotiator', 0x3d4a3a, Math.PI / 2 - 0.04, -8.45]] : [])]) {
       const car = makeCar(name, { paint: col });
-      car.position.set(x, 0, 4.8);
+      car.position.set(x, 0, z);
       car.rotation.y = r;
       g.add(car);
       this.smash.add(car, { kind: 'car', mass: 1300, shrink: 0.97 });
     }
     // the block, the dumpster and the palms are there to be touched too
-    this.smash.solid(block, { stuff: 'stone', mesh: true });
+    if (block) this.smash.solid(block, { stuff: 'stone', mesh: true });
     this.smash.add(bin, { mass: 420 });
     // (their colliders from their meshes, then the meshes handed to the palm field to draw)
     for (const p of palms) {
@@ -852,7 +864,7 @@ ${this.cityOn ? `        if (zone >= 0.5 && !(abs(vGw.x) < 30.0 && lp.y > -17.0 
     // the lawn in front of the block kerbed in concrete where it meets the asphalt (the polish pass: its grass
     // ran straight into the lot), 15 cm up: Hal steps over it (the controller climbs 25 cm)
     const kerb = pbrMaterial('concrete_pavement', { repeat: [8, 0.1], tint: new THREE.Color(1.05, 1.02, 0.97) });
-    for (const [x, z, w, d] of [[0, 13.92, 48.9, 0.2], [-24.42, 25.85, 0.2, 23.9], [24.42, 25.85, 0.2, 23.9]]) {
+    for (const [x, z, w, d] of home ? [] : [[0, 13.92, 48.9, 0.2], [-24.42, 25.85, 0.2, 23.9], [24.42, 25.85, 0.2, 23.9]]) {
       const k = new THREE.Mesh(new THREE.BoxGeometry(w, 0.15, d), kerb);
       k.position.set(x, 0.075, z);
       k.castShadow = k.receiveShadow = true;

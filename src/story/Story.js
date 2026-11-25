@@ -58,6 +58,7 @@ export class Story {
     input.onLockLost = () => this.pause();
     window.addEventListener('keydown', (e) => {
       if ((e.code === 'Escape' || e.code === 'KeyP') && !e.repeat) {
+        if (e.code === 'Escape' && this.overlay && !this.paused) { this.overlay(); return; } // (an interface over the game, the inventory: Esc closes it, not the game)
         if (this.paused) this.resume(); else this.pause();
       }
     });

@@ -10,14 +10,14 @@ export const toGlyphs = (s) => [...s].map((c) => {
 const randomGlyph = () => GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-const SPEAKERS = { hal: 'Hal Jordan', abin: 'Abin Sur', light: '', dad: 'Martin Jordan', kid: 'Young Hal', thought: '', kilowog: 'Kilowog', sinestro: 'Sinestro', guardian: 'The Guardians', carol: 'Carol Ferris', sapphire: 'Star Sapphire', zamaron: 'The Zamarons', warden: 'A Star Sapphire', warden2: 'A Star Sapphire', keeper: 'A Star Sapphire', keeper2: 'A Star Sapphire', agapo: 'Aga’po', gem: '', carolThought: '', hand: 'William Hand', handDad: 'His father', vendor: 'The hot dog man', tom: 'Tom Kalmaku', landlord: 'Sal Delgado', pilot: 'Viper One-One', hammond: 'Hector Hammond', tech: 'Air Force technician', tech2: 'Air Force technician', atrocitus: 'Atrocitus', katma: 'Katma Tui', radio: 'KCST 1040', caller: 'Caller', korugar: 'Korugarian', korugarf: 'Korugarian', guard: 'A guard', crowd: 'The crowd', weaponer: 'A Weaponer of Qward', rosie: 'Rosie', cook: 'Dot', clerk: 'Ray', townm1: 'A passer-by', townm2: 'A passer-by', townm3: 'A passer-by', townf1: 'A passer-by', townf2: 'A passer-by', townf3: 'A passer-by', citykid: 'A kid' };
+const SPEAKERS = { hal: 'Hal Jordan', abin: 'Abin Sur', light: '', dad: 'Martin Jordan', kid: 'Young Hal', thought: '', kilowog: 'Kilowog', sinestro: 'Sinestro', guardian: 'The Guardians', carol: 'Carol Ferris', sapphire: 'Star Sapphire', zamaron: 'The Zamarons', warden: 'A Star Sapphire', warden2: 'A Star Sapphire', keeper: 'A Star Sapphire', keeper2: 'A Star Sapphire', agapo: 'Aga’po', gem: '', carolThought: '', hand: 'William Hand', handDad: 'His father', vendor: 'The hot dog man', tom: 'Tom Kalmaku', landlord: 'Sal Delgado', pilot: 'Viper One-One', hammond: 'Hector Hammond', tech: 'Air Force technician', tech2: 'Air Force technician', atrocitus: 'Atrocitus', katma: 'Katma Tui', radio: 'KCST 1040', caller: 'Caller', korugar: 'Korugarian', korugarf: 'Korugarian', guard: 'A guard', crowd: 'The crowd', weaponer: 'A Weaponer of Qward', rosie: 'Rosie', cook: 'Dot', clerk: 'Ray', sami: 'Sami', townm1: 'A passer-by', townm2: 'A passer-by', townm3: 'A passer-by', townf1: 'A passer-by', townf2: 'A passer-by', townf3: 'A passer-by', citykid: 'A kid' };
 const ADVANCE = ['Space', 'Enter', 'Click', 'KeyE'];
 // what the loading screen says while it waits (the controls and what there is to find)
 const LOAD_TIPS = [
   '<b>4</b> opens the construct wheel; time stops while it’s open.',
   'Hold <b>F</b> or the right button to guard. Raised just as a blow lands, it parries.',
   'Double-tap <b>Space</b> to fly. <b>Shift</b> boosts, <b>C</b> comes down.',
-  '<b>T</b> changes between Hal Jordan and Green Lantern, anywhere: in the air, he comes down first.',
+  '<b>T</b> changes between Hal Jordan and Green Lantern where nobody can see him: the eye by his money says.',
   '<b>L</b> brings the lantern from wherever it is. Below a quarter of a charge, say the oath.',
   'Fly high and press <b>E</b> for the ring’s star chart. <b>M</b> is the same places by name.',
   'Rosie’s Diner is open all night. The patty melt is $5.25 with the pie.',
@@ -37,7 +37,7 @@ export class UI {
       chapter: $('#chapter'), objective: $('#objective'), clock: $('#clock'), prompt: $('#prompt'), controls: $('#controls'),
       sub: $('#subtitle'), speaker: $('#subtitle .speaker'), text: $('#subtitle .text'),
       over: $('#overheard'), overSpeaker: $('#overheard .speaker'), overText: $('#overheard .text'),
-      life: $('#life'),
+      watched: $('#watched'), watchedLabel: $('#watched .label'), life: $('#life'),
       pick: $('#pick'), pickTitle: $('#pick .title'), pickOptions: $('#pick .options'),
       choice: $('#choice'), question: $('#choice .question'), options: $('#choice .options'), keys: $('#choice .keys'),
       screen: $('#screen'), letterbox: $('#letterbox'), frame: $('#frame'), hud: $('#hud'),
@@ -240,6 +240,18 @@ export class UI {
     const op = L.querySelector('.op');
     op.textContent = s.opinion == null ? '' : `${s.mood.toUpperCase()} ${s.opinion > 0 ? '+' : ''}${s.opinion}`;
     op.className = `op ${s.opinion == null ? '' : s.opinion >= 25 ? 'good' : s.opinion > -10 ? 'mid' : 'bad'}`;
+  }
+
+  // Whether anyone can see him (his secret: he changes only out of sight). n: how many are watching;
+  // null hides it (off Earth's streets, in a cutscene)
+  watching(n) {
+    const w = this.el.watched;
+    if (!w) return;
+    if (n == null) { w.classList.remove('show'); return; }
+    w.classList.add('show');
+    w.classList.toggle('seen', n > 0);
+    const label = n > 0 ? (n === 1 ? 'SEEN · 1 PERSON' : `SEEN · ${n} PEOPLE`) : 'OUT OF SIGHT';
+    if (this.el.watchedLabel.textContent !== label) this.el.watchedLabel.textContent = label;
   }
 
   // Morph the glyph line on screen into English, character by character.

@@ -180,8 +180,8 @@ const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3
 //   (`TALKS`, overheard on a channel of their own, as loud as he is close), and whisper about him
 //   (Martin Jordan's boy, the Ferris pilot) or about Green Lantern; under their breath as Green Lantern
 //   walks by. The jaw moves on the voice.
-// - Who sees him (`seenBy`): anyone facing him, within sight of him, with nothing solid between. When
-//   the ring changes him, they turn to the flare (`glance`; story/Roam.js).
+// - Who sees him (`seenBy`): anyone near enough to tell, looking his way, with nothing solid between;
+//   on Earth's streets he changes only where nobody does (story/Roam.js `watchers`).
 // - Reactions: Green Lantern flying low, they stop and look up, the kids point, someone calls out; a
 //   construct cast near them, the street runs, crouches, then goes back to where it was.
 // By night half the walkers and the bus stop's people go home. Far from the camera nobody's drawn.
@@ -261,6 +261,11 @@ const TALKS = [
   { members: ['clerk', 'shopper'], near: 7,
     ambient: [[[1, 'ovYa1'], [0, 'ovYa2']], [[0, 'ovYb1'], [1, 'ovYb2'], [0, 'ovYb3']]],
     gl: [[[1, 'ovYg1'], [0, 'ovYg2']]] },
+  // the Blue Marlin's bar: Sami, Doris, Gus behind it (Sami's theories about who Green Lantern is)
+  { members: ['shop:bar:male-adult-15', 'shop:bar:female-adult-09', 'shop:bar'], near: 4.5,
+    ambient: [[[0, 'ovSa1'], [1, 'ovSa2'], [0, 'ovSa3']], [[1, 'ovSb1'], [0, 'ovSb2']], [[0, 'ovSc1'], [2, 'ovSc2'], [0, 'ovSc3']]],
+    hal: [[[1, 'ovSh1'], [0, 'ovSh2']]],
+    gl: [[[0, 'ovSg1'], [1, 'ovSg2'], [0, 'ovSg3']]] },
   { members: ['phone'],
     ambient: [[[0, 'ovPa']], [[0, 'ovPb']], [[0, 'ovPc']]],
     gl: [[[0, 'ovPg']]] },
@@ -702,16 +707,21 @@ export class CityLife {
     if (this.t - this.seenT < 0.2) return this.seen;
     this.seenT = this.t;
     const { story, f } = this, player = story.player, world = f.physics.world;
-    const chest = _c.copy(player.position).add(_e.set(0, 1.2, 0)), far = f.isNight ? 20 : 40;
+    // (near enough to see who it is: 26 m by day, 14 at night; at 40 m, and anyone at all facing his way,
+    // a street refused him for people a block off, which is why the rule went for a day)
+    const chest = _c.copy(player.position).add(_e.set(0, 1.2, 0)), far0 = f.isNight ? 14 : 26;
     const skip = (col) => !(this.capsules.has(col.handle) || col.handle === player.collider?.handle || player.ignore?.has?.(col.handle));
     const out = [];
     for (const p of this.people) {
       if (!p.active) continue;
       const eyes = p.head, d = eyes.distanceTo(chest);
+      // (someone on the phone or reading the labels sees half as far: their mind's elsewhere)
+      const far = p.does === 'phone' || p.post?.browse ? far0 * 0.5 : far0;
       if (d > far || d < 0.05) continue;
       _d.copy(chest).sub(eyes);
       const h = Math.hypot(_d.x, _d.z), facing = p.faceTo ?? p.rig.root.rotation.y;
-      if (Math.abs(wrap(Math.atan2(_d.x, _d.z) - facing)) > 1.4 && d > 1.2) continue;
+      // looking his way: within 60° of where they face; the corner of the eye only up close
+      if (Math.abs(wrap(Math.atan2(_d.x, _d.z) - facing)) > (d < 4 ? 1.5 : 1.05) && d > 1.2) continue;
       if (Math.atan2(_d.y, h) > 0.75) continue; // (high above them: people don't look up)
       const ray = new RAPIER.Ray(eyes, _d.normalize());
       const hit = world.castRay(ray, d - 0.35, true, undefined, undefined, undefined, undefined, skip);
@@ -1108,6 +1118,16 @@ export class CityLife {
     ray.goal = ray.home.clone();
     return this.say(ray, this.story.civilian ? 'clerkBell' : 'clerkGBell');
   }
+  // Sami, on what Hal orders at the bar, if he's on his stool and Hal's in his clothes; Hal answers him.
+  // True when they've had their say (Hal's own word on the drink is then this).
+  async barChime(name) {
+    const sami = this.byTag('shop:bar:male-adult-15'), kind = /ginger/i.test(name) ? 'Ginger' : /beer/i.test(name) ? 'Beer' : /whiskey/i.test(name) ? 'Whiskey' : null;
+    if (!kind || !sami?.active || sami.talking || !this.story.civilian || sami.pos.distanceTo(this.story.player.position) > 6) return false;
+    await this.say(sami, `barSami${kind}`);
+    await this.story.say(`halSami${kind}`, { skip: false });
+    return true;
+  }
+
   // Ray says something at the register (null if he isn't about)
   clerkSay(key) { const ray = this.people.find((p) => p.kind === 'clerk'); return ray && !ray.talking ? this.say(ray, key) : null; }
 

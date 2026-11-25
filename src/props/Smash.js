@@ -23,6 +23,7 @@ const STUFF = { // what flies off it when it's hit, and how it sounds
   plastic: { chip: [0.75, 0.72, 0.62], sound: 'clatter' },
   wood: { chip: [0.48, 0.36, 0.24], sound: 'clatter' },
   stone: { chip: [0.62, 0.6, 0.56], sound: 'dust' },
+  leather: { chip: [0.3, 0.2, 0.13], sound: 'thud' }, // (the gym's bags and gloves: a thud, `sound`'s last case)
 };
 const CAR = { health: 100, smoke: 55, fire: 22, fuse: 5.5, blast: 7.5 }; // (smoking below 55, burning below 22, up after the fuse)
 
@@ -207,7 +208,8 @@ export class Smash {
   }
 
   bump(item, other, force) {
-    if (item.kind === 'solid' || item.shielded || this.clock - (item.lastBump ?? -9) < 0.25 || this.clock < 0.5) return;
+    // (`settle`: a thing just put down settling where it stands, a streamed block's parked car: no crash till then)
+    if (item.kind === 'solid' || item.shielded || this.clock - (item.lastBump ?? -9) < 0.25 || this.clock < 0.5 || this.clock < (item.settle ?? 0)) return;
     const world = this.physics.world, oc = world.getCollider(other);
     const dv = (force * world.timestep) / Math.max(1, item.mass); // (the change of speed it took)
     // (the ground takes less out of it: a car dropping back onto its wheels isn't a crash)

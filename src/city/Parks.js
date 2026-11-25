@@ -249,7 +249,10 @@ function crown({ lumps, detail, y0 = 0.55, y1 = 0.93, spread = 0.2, r0 = 0.11, r
       p.setXYZ(k, _v.x * sx, _v.y, _v.z * sx);
     }
     const a = rand() * Math.PI * 2, r = spread * (0.25 + 0.75 * rand()), shade = 0.82 + 0.36 * rand();
-    g.translate(Math.cos(a) * r * sx, y0 + rand() * (y1 - y0), Math.sin(a) * r * sx);
+    // (a column's lumps stacked evenly up it, each a little off its place: scattered at random they left gaps, and a
+    // lump hung over the rest of a cypress on its own, seen from an alley)
+    const at = column ? (i + 0.5 + (rand() - 0.5) * 0.7) / lumps : rand();
+    g.translate(Math.cos(a) * r * sx, y0 + at * (y1 - y0), Math.sin(a) * r * sx);
     g.computeVertexNormals();
     const n = g.attributes.normal, P = g.attributes.position, c = new Float32Array(P.count * 3), d = V(0, 0, 0);
     for (let k = 0; k < P.count; k++) {
@@ -296,6 +299,20 @@ export class TreeField {
     this.group.name = 'trees';
     parent.add(this.group);
     this.mat = foliageMaterial(cityU.uTime);
+    // (a tree's tint is its leaves': a jacaranda's lavender, a ficus's dark green, a sweetgum's red (city/Homes.js); its
+    // trunk keeps its bark, only lighter or darker)
+    this.mat.onBeforeCompile = ((prev) => (sh) => {
+      prev(sh);
+      sh.vertexShader = sh.vertexShader.replace('#include <color_vertex>', `vColor = vec4(1.0);
+        #ifdef USE_COLOR
+          vColor.rgb *= color.rgb;
+        #endif
+        #ifdef USE_INSTANCING_COLOR
+          float leaf = smoothstep(1.08, 1.3, color.g / max(color.r, 1e-4));
+          vColor.rgb *= mix(vec3(clamp(dot(instanceColor.rgb, vec3(0.3333)), 0.7, 1.3)), instanceColor.rgb, leaf);
+        #endif`);
+    })(this.mat.onBeforeCompile);
+    this.mat.customProgramCacheKey = () => 'cityTrees';
     this.kinds = {};
     for (const [k, K] of Object.entries(treeKinds())) { K.name = k; K.n = 0; K.cap = 0; this.kinds[k] = K; this.grow(K, 256); }
     this.trees = new Map();

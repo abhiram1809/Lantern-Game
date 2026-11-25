@@ -6,7 +6,10 @@
 // lights every surface with every point light: eighteen more would have cost every frame).
 import * as THREE from 'three';
 import { box } from './Building.js';
-import { kit, shell, gondola, shelfRow, FLOOR } from './Interiors.js';
+import { kit, shell, gondola, shelfRow, coolerStock, FLOOR } from './Interiors.js';
+import { stockRow, stockHeap } from './Stock.js';
+import { prop, hasProp } from '../props/Props.js';
+import { RAPIER } from '../engine/Physics.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const POSTER = [0xd0603a, 0x3a7ab0, 0xe8c050, 0x5a9a6a, 0xa04a7a, 0x2a4a6a];
@@ -33,19 +36,21 @@ export const SHOPS = {
   bank: { floor: 'facadeTiles', fc: 0xd8d0c0, wall: 0xe8e2d6, dado: 0x6a4a32, staff: { id: 'business-female-03', voice: 'townf1', label: 'The teller', lines: ['shopBank1', 'shopBank2'] }, sell: [['Check your balance', 0, 'balance']], board: ['COAST CITY SAVINGS & LOAN', 'Since 1931 · Member FDIC'], fit: bank, ownCounter: true, extra: both(byWall('atm', 2.6), plant(1.2)) },
   pharmacy: { floor: 'checker', fc: 0xeef0f0, wall: 0xf2f4f2, staff: { id: 'female-adult-17', voice: 'townf2', label: 'The pharmacist', lines: ['shopPharm1', 'shopPharm2'] }, sell: [['Aspirin', 1.89, 'food:40'], ['Chewing gum', 0.25, 'food:0']], board: ['PRESCRIPTIONS', 'Pharmacist on duty'], fit: aisles, extra: byWall('magrack', 1.6) },
   autoparts: { floor: 'concrete', fc: 0x8e8a84, wall: 0xe0e2e4, staff: { id: 'male-adult-01', voice: 'townm2', label: 'The counterman', lines: ['shopAuto1', 'shopAuto2'] }, sell: [['A quart of motor oil', 1.29, 'oil']], board: ['PARTS · BATTERIES · BRAKES', 'Ask about our warranty'], fit: aisles },
-  donuts: { floor: 'checker', fc: 0xf6e8ee, wall: 0xf8dce6, dado: 0xd0587a, staff: { id: 'female-party-02', voice: 'townf3', label: 'Sunny', lines: ['shopDonut1', 'shopDonut2'] }, sell: [['A glazed donut', 0.45, 'food:8'], ['A coffee', 0.5, 'food:4']], board: ['DONUTS · CRULLERS · COFFEE', 'Open 24 hours'], fit: eatery, extra: both(byWall('cooler'), onCounter('espresso', 0.6)), cases: true },
+  donuts: { floor: 'checker', fc: 0xf6e8ee, wall: 0xf8dce6, dado: 0xd0587a, staff: { id: 'female-party-02', voice: 'townf3', label: 'Sunny', lines: ['shopDonut1', 'shopDonut2'] }, sell: [['A glazed donut', 0.45, 'food:8'], ['A chocolate donut', 0.5, 'food:8'], ['A blueberry muffin', 0.85, 'food:8'], ['A coffee', 0.5, 'food:4']], board: ['DONUTS · CRULLERS · COFFEE', 'Open 24 hours'], fit: eatery, extra: both(byWall('cooler'), onCounter('espresso', 0.6)), cases: true },
   records: { floor: 'checker', fc: 0x3a3a3c, wall: 0x2e3440, staff: { id: 'male-adult-06', voice: 'townm3', label: 'The record clerk', lines: ['shopRec1', 'shopRec2'] }, sell: [['An LP', 6.99, 'record'], ['A cassette', 4.49, 'record']], board: ['RIALTO RECORDS', 'New · Used · Imports'], fit: records },
   checks: { floor: 'concrete', fc: 0xa8a49c, wall: 0xe2e6e0, staff: { id: 'male-adult-08', voice: 'townm1', label: 'The clerk', lines: ['shopCheck1', 'shopCheck2'] }, sell: [], board: ['CHECKS CASHED · MONEY ORDERS', 'No ID, no cash'], fit: bank },
   florist: { floor: 'patio', fc: 0xb8a48c, wall: 0xf1efe4, dado: 0x4a6a3a, staff: { id: 'female-adult-08', voice: 'townf1', label: 'Elena', lines: ['shopFlor1', 'shopFlor2'] }, sell: [['A dozen roses', 4.5, 'flowers'], ['A carnation', 0.5, 'flowers']], board: ['FLORES ELENA', 'Weddings · Funerals · Just because'], fit: florist, extra: byWall('cooler', 1.6) },
-  cafe: { floor: 'facadeTiles', fc: 0xc8b49a, wall: 0xf0e2cc, dado: 0x6a3a2a, staff: { id: 'female-adult-15', voice: 'townf2', label: 'The waitress', lines: ['shopCafe1', 'shopCafe2'] }, sell: [['An espresso', 1, 'food:6'], ['A croissant', 1.25, 'food:10']], board: ['CAFÉ MARISOL', 'Espresso · Pastries · Breakfast'], fit: eatery, extra: both(onCounter('espresso', 0.6), plant(1.4)) },
-  bakery: { floor: 'patio', fc: 0xd2b48c, wall: 0xf5e6c8, dado: 0xa0522d, staff: { id: 'female-adult-05', voice: 'townf3', label: 'The baker', lines: ['shopBake1', 'shopBake2'] }, sell: [['Pan dulce', 0.6, 'food:8'], ['A bolillo', 0.25, 'food:5']], board: ['PANADERÍA LA ESTRELLA', 'Pan dulce · Bolillos · Pasteles'], fit: eatery, extra: plant(1.2), cases: true },
+  cafe: { floor: 'facadeTiles', fc: 0xc8b49a, wall: 0xf0e2cc, dado: 0x6a3a2a, staff: { id: 'female-adult-15', voice: 'townf2', label: 'The waitress', lines: ['shopCafe1', 'shopCafe2'] }, sell: [['An espresso', 1, 'food:6'], ['A croissant', 1.25, 'food:10'], ['A blueberry muffin', 0.85, 'food:8']], board: ['CAFÉ MARISOL', 'Espresso · Pastries · Breakfast'], fit: eatery, extra: both(onCounter('espresso', 0.6), plant(1.4)), cases: true },
+  bakery: { floor: 'patio', fc: 0xd2b48c, wall: 0xf5e6c8, dado: 0xa0522d, staff: { id: 'female-adult-05', voice: 'townf3', label: 'The baker', lines: ['shopBake1', 'shopBake2'] }, sell: [['Pan dulce', 0.6, 'food:8'], ['A bolillo', 0.25, 'food:5'], ['A chocolate brioche', 0.85, 'food:8'], ['A croissant', 1.25, 'food:10']], board: ['PANADERÍA LA ESTRELLA', 'Pan dulce · Bolillos · Pasteles'], fit: eatery, extra: plant(1.2), cases: true },
   hardware: { floor: 'concrete', fc: 0x9a948a, wall: 0xe6e0d0, staff: { id: 'male-adult-04', voice: 'townm3', label: 'The hardware man', lines: ['shopHard1', 'shopHard2'] }, sell: [['A roll of duct tape', 1.79, 'tape']], board: ['PACIFIC HARDWARE', 'Paint · Plumbing · Keys cut'], fit: aisles },
   clinic: { floor: 'checker', fc: 0xe8eef0, wall: 0xeef4f6, staff: { id: 'medical-female-01', voice: 'townf1', label: 'The nurse', lines: ['shopClin1', 'shopClin2'] }, sell: [['See the nurse', 12, 'heal']], board: ['CLÍNICA FAMILIAR DEL MAR', 'Médico · Dental · Walk-ins welcome'], fit: clinic, ownCounter: true, extra: both(plant(1.0), byWall('magrack', 3.2)) },
   pho: { floor: 'checker', fc: 0xe4dcc8, wall: 0xf0e6c4, dado: 0xa8321f, staff: { id: 'male-adult-16', voice: 'townm2', label: 'Mr. Nguyen', lines: ['shopPho1', 'shopPho2'] }, sell: [['A bowl of phở', 3.5, 'food:35'], ['A bánh mì', 1.75, 'food:20']], board: ['PHỞ · BÁNH MÌ · CÀ PHÊ', 'Phở Saigon'], fit: eatery, extra: byWall('cooler') },
   cellular: { floor: 'facadeTiles', fc: 0xd0d4d8, wall: 0xeef0f2, staff: { id: 'business-male-02', voice: 'townm1', label: 'The salesman', lines: ['shopCell1', 'shopCell2'] }, sell: [], board: ['COAST CELLULAR', 'The future is portable'], fit: cellular },
   // the block over the crossing (city/HalsBlock.js WEST2, EAST2)
   bar: { floor: 'patio', fc: 0x8a6a52, wall: 0x2a3a4a, dado: 0x4a2a1a, staff: { id: 'male-adult-05', voice: 'townm3', label: 'Gus', lines: ['shopBar1', 'shopBar2', 'shopBar3'] }, sell: [['A cold beer', 1.25, 'drink'], ['A whiskey', 2.5, 'drink'], ['A ginger ale', 0.5, 'food:4']], board: ['THE BLUE MARLIN', 'Cocktails · Pool · Since 1948'], fit: bar, ownCounter: true, posters: false,
-    regulars: [{ id: 'male-adult-15', voice: 'townm1', label: 'A man at the bar', lines: ['barRegM1', 'barRegM2'], stool: 2 }, { id: 'female-adult-09', voice: 'townf2', label: 'A woman at the bar', lines: ['barRegF1', 'barRegF2'], stool: 6 }] },
+    // (Sami has his own voice and lines, as Ray has: lines.js barSami*, his talk with Doris and Gus in story/CityLife.js TALKS, his word on what Hal orders `barChime`)
+    regulars: [{ id: 'male-adult-15', voice: 'sami', label: 'Sami', lines: ['barSami1', 'barSami2', 'barSami3', 'barSami4', 'barSami5', 'barSami6', 'barSami7', 'barSami8'], glLines: ['barSamiG1', 'barSamiG2', 'barSamiG3', 'barSamiG4'], stool: 2 },
+      { id: 'female-adult-09', voice: 'townf2', label: 'Doris', lines: ['barRegF1', 'barRegF2'], stool: 6 }] },
   police: { floor: 'checker', fc: 0xd8d4c8, wall: 0xe6e4d8, dado: 0x5a6a5a, staff: { id: 'police-male-02', voice: 'townm2', label: 'The desk sergeant', lines: ['shopCop1', 'shopCop2', 'shopCop3'] }, sell: [], board: ['COAST CITY P.D.', '14th Precinct · Serving Coast City since 1912'], fit: station, ownCounter: true, deep: true,
     regulars: [{ id: 'police-male-03', voice: 'townm1', label: 'An officer', lines: ['shopCopDesk1', 'shopCopDesk2'], desk: 1 }] },
   hospital: { floor: 'checker', fc: 0xeef2f2, wall: 0xe8f0f0, dado: 0x7a9aa8, staff: { id: 'medical-female-02', voice: 'townf3', label: 'The triage nurse', lines: ['shopER1', 'shopER2'] }, sell: [['See a doctor', 30, 'heal']], board: ['ST. MARY’S EMERGENCY', 'Triage · Walk-ins · 24 Hours'], fit: er, ownCounter: true,
@@ -61,10 +66,22 @@ export const SHOPS = {
   books: { floor: 'patio', fc: 0xb89a74, wall: 0xf0e6d0, dado: 0x2a3a2a, staff: { id: 'male-adult-10', voice: 'townm3', label: 'The bookseller', lines: ['shopBook1', 'shopBook2'] }, sell: [['A paperback', 1.95, 'book'], ['A road map of California', 0.75, 'book']], board: ['PACIFIC BOOKS', 'New · Used · Rare · Maps'], fit: bookcases, posters: false },
   tv: { floor: 'facadeTiles', fc: 0xc8ccd0, wall: 0xe8ecf0, staff: { id: 'business-male-01', voice: 'townm1', label: 'The salesman', lines: ['shopTV1', 'shopTV2'] }, sell: [['A transistor radio', 9.95, 'radio']], board: ['STARLIGHT TV & RADIO', 'Sales · Service · Rentals'], fit: tvs, posters: false },
   salon: { floor: 'checker', fc: 0xf8eef0, wall: 0xf6e4ea, dado: 0x8a4a5a, staff: { id: 'female-adult-11', voice: 'townf2', label: 'Belle', lines: ['shopSalon1', 'shopSalon2'] }, sell: [['A trim', 3, 'haircut']], board: ['BELLE’S BEAUTY SALON', 'Cuts · Sets · Perms'], fit: both(barber, dryers) },
-  gym: { floor: 'concrete', fc: 0x3a3a3c, wall: 0xd8dcd8, dado: 0x2a2a2a, staff: { id: 'male-adult-19', voice: 'townm3', label: 'The trainer', lines: ['shopGym1', 'shopGym2'] }, sell: [['A workout', 2, 'workout']], board: ['IRON BEACH GYM', 'Members · Day passes · Boxing'], fit: gym, posters: false },
+  // (a day pass, for the bench, the heavy bag or the rope: story/Gym.js plays the hour out)
+  gym: { floor: 'concrete', fc: 0x3a3a3c, wall: 0xd8dcd8, dado: 0x2a2a2a, staff: { id: 'male-adult-19', voice: 'townm3', label: 'The trainer', lines: ['shopGym1', 'shopGym2'] },
+    sell: [['A day pass · the bench press', 2, 'workout:bench'], ['A day pass · the heavy bag', 2, 'workout:bag'], ['A day pass · the jump rope', 2, 'workout:rope']], board: ['IRON BEACH GYM', 'Members · Day passes · Boxing'], fit: gym, posters: false },
   grocer: { floor: 'checker', fc: 0xe8ece6, wall: 0xeef2ea, dado: 0x2a6a4a, staff: { id: 'female-adult-12', voice: 'townf3', label: 'The cashier', lines: ['shopGrocer1', 'shopGrocer2'] }, sell: [['A bag of groceries', 6.5, 'food:40'], ['An apple', 0.2, 'food:5']], board: ['OCEAN MARKET', 'Fresh produce daily'], fit: grocer },
 };
 
+
+// what's on the shelving behind the counter (city/Stock.js MIX), by trade; the rest keep the plain boxes
+const BACK = { laundromat: 'cleaning', pharmacy: 'pharmacy', autoparts: 'auto', hardware: 'tools', bakery: 'bakeryBack', barber: 'toiletries', salon: 'toiletries', takeout: 'drinks', taqueria: 'drinks', pho: 'drinks', grocer: 'snacks' };
+// and on the aisles' gondolas: a mix a shelf, bottom first, for each side
+const AISLES = {
+  pharmacy: [[['household', 'toiletries', 'pharmacy', 'candy'], ['toiletries', 'pharmacy', 'pharmacy', 'snacks']], [['household', 'cleaning', 'toiletries', 'pharmacy'], ['pantry', 'drinks', 'candy', 'snacks']]],
+  autoparts: [[['autolow', 'auto', 'auto', 'tools'], ['autolow', 'auto', 'paint', 'tools']], [['autolow', 'cleaning', 'auto', 'paint'], ['autolow', 'auto', 'tools', 'tools']]],
+  hardware: [[['cleaning', 'paint', 'tools', 'tools'], ['autolow', 'cleaning', 'paint', 'tools']], [['household', 'cleaning', 'paint', 'tools'], ['autolow', 'paint', 'tools', 'tools']]],
+  grocer: [[['household', 'pantry', 'bread', 'snacks'], ['cleaning', 'pantry', 'snacks', 'snacks']], [['pantry', 'pantry', 'bread', 'candy'], ['household', 'toiletries', 'pantry', 'snacks']]],
+};
 
 export function shopRoom(ctx, M, r) {
   const T = SHOPS[r.kind];
@@ -85,6 +102,7 @@ export function shopRoom(ctx, M, r) {
   const [da, db] = r.door ?? [x1 - 1.3, x1 - 0.3], dc = (da + db) / 2, doorLeft = dc < mid;
   const cz = z1 + Math.min(2.4, d * 0.32), ca = doorLeft ? Math.max(mid - 0.5, x0 + 1.2) : x0 + 0.8, cb = doorLeft ? x1 - 0.8 : Math.min(mid + 0.5, x1 - 1.2);
   const room = { K, M, r: { ...r, z1 }, T, x0, x1, z0, z1, w, d, mid, ceil, dc, doorLeft, cz, ca, cb, aisle: [Math.min(da, db) - 0.7, Math.max(da, db) + 0.7], rnd: seeded(Math.round(x0 * 977 + z1 * 131) + r.kind.length * 7919) };
+  (ctx.stockRooms ??= {})[r.kind] = { M, x0, x1, z0, z1, ceil }; // (its stock drawn as itself with the camera near: city/Stock.js)
   if (!T.ownCounter) counter(ctx, room, { back: T.back !== false });
   T.fit(ctx, room);
   const { ca: pa, cb: pb } = room; // (the bank's and the clinic's counters are their own)
@@ -136,7 +154,12 @@ function counter(ctx, R, { color = 0x6a4a32, top = 0xe8e2d4, h = 1.0, register =
   const { M, z1 } = R;
   K.add('paint', box(ca, FLOOR, z1 + 0.02, cb, FLOOR + 2.0, z1 + 0.42), 0x8a6a4a);
   K.solid(ca, FLOOR, z1 + 0.02, cb, FLOOR + 2.0, z1 + 0.42, 'wood');
-  for (const y of [0.9, 1.3, 1.7]) { K.add('paint', box(ca, FLOOR + y, z1 + 0.02, cb, FLOOR + y + 0.03, z1 + 0.46), 0xb08a5a); ctx.goods.push(...shelfRow(ca + 0.1, cb - 0.1, FLOOR + y + 0.03, z1 + 0.44, 0.06, 0.18, 0.012, M, true, 0.2)); }
+  const mix = BACK[R.r.kind];
+  for (const y of [0.9, 1.3, 1.7]) {
+    K.add('paint', box(ca, FLOOR + y, z1 + 0.02, cb, FLOOR + y + 0.03, z1 + 0.46), 0xb08a5a);
+    if (mix) stockRow(ctx, M, { room: R.r.kind, along: 'x', a: ca + 0.1, b: cb - 0.1, y: FLOOR + y + 0.03, at: z1 + 0.45, face: 1, depth: 0.4, H: y === 1.7 ? 0.28 : 0.37, mix, phys: false, take: false, seed: Math.round(y * 10) });
+    else ctx.goods.push(...shelfRow(ca + 0.1, cb - 0.1, FLOOR + y + 0.03, z1 + 0.44, 0.06, 0.18, 0.012, M, true, 0.2));
+  }
 }
 
 // tables with chairs over the front of the room, clear of the way in from the door
@@ -168,9 +191,14 @@ function eatery(ctx, R) {
   // a glass case on the counter (the donuts, the bakery's bread), or a menu of photos over it
   const { K, ca, cb, cz, M, T } = R;
   if (T.cases) {
-    K.add('clearGlass', box(ca + 0.9, FLOOR + 1.0, cz - 0.55, cb - 0.2, FLOOR + 1.45, cz - 0.05), 0xffffff);
-    const tint = R.r.kind === 'donuts' ? [0xd9a35a, 0xc0607a, 0x6a3a22, 0xf0e0c0] : [0xc89a5a, 0xe0b878, 0xa8743a, 0xf0d098];
-    for (let x = ca + 1.05; x < cb - 0.3; x += 0.2) for (const [y, zz] of [[1.05, -0.4], [1.25, -0.25]]) K.add('paint', new THREE.CylinderGeometry(0.075, 0.075, 0.05, 12).translate(x, FLOOR + y, cz + zz), tint[Math.floor(Math.abs(x * 13 + y * 7)) % 4]);
+    // the case on the counter: its glass, a glass shelf across it, a steel tray under each tier; what's in it faces
+    // the customer (bought at the counter: story/Shopping.js hands it over)
+    const a = ca + 0.9, b = cb - 0.2, kind = R.r.kind;
+    K.add('clearGlass', box(a, FLOOR + 1.0, cz - 0.55, b, FLOOR + 1.45, cz - 0.05), 0xffffff);
+    K.add('clearGlass', box(a + 0.02, FLOOR + 1.215, cz - 0.53, b - 0.02, FLOOR + 1.225, cz - 0.07), 0xd8e4e8);
+    for (const y of [1.0, 1.225]) K.add('metal', box(a + 0.05, FLOOR + y, cz - 0.5, b - 0.05, FLOOR + y + 0.008, cz - 0.1), 0xc8ccd0);
+    const tiers = kind === 'donuts' ? ['donuts', 'donuts'] : kind === 'bakery' ? ['pastry', 'bakeryTop'] : ['cafe', 'cafe'];
+    for (const [k, y] of [1.008, 1.233].entries()) stockRow(ctx, M, { room: kind, along: 'x', a: a + 0.07, b: b - 0.07, y: FLOOR + y, at: cz - 0.11, face: 1, depth: 0.38, H: 0.19, mix: tiers[k], phys: false, take: false, stack: false, span: [0.3, 0.45], gap: 0.012, deep: 3, seed: 3 + k });
   } else if (T.back !== false) { // (on the back shelving's front: without it, Tony's oven, they'd float)
     for (let x = ca + 0.9, i = 0; x < cb - 0.6; x += 0.9, i++) K.add('paint', box(x - 0.36, FLOOR + 2.45, R.z1 + 0.43, x + 0.36, FLOOR + 2.95, R.z1 + 0.46), [0xd8a050, 0xc85a3a, 0x8aa05a, 0xe0c080][i % 4]);
   }
@@ -252,7 +280,8 @@ function bank(ctx, R) {
 function aisles(ctx, R) {
   const { x0, x1, z0, cz, aisle, M } = R;
   // gondolas from the front to the counter, clear of the door's line
-  for (let x = x0 + 1.6; x < x1 - 1.4; x += 2.4) if (x + 0.6 < aisle[0] || x - 0.6 > aisle[1]) gondola(ctx, M, x, z0 - 1.6, Math.max(cz + 1.5, z0 - 1.6 - 6));
+  let n = 0;
+  for (let x = x0 + 1.6; x < x1 - 1.4; x += 2.4) if (x + 0.6 < aisle[0] || x - 0.6 > aisle[1]) gondola(ctx, M, x, z0 - 1.6, Math.max(cz + 1.5, z0 - 1.6 - 4.8), AISLES[R.r.kind] ? { room: R.r.kind, sides: AISLES[R.r.kind][n++ % 2], seed: n } : {});
 }
 
 function records(ctx, R) {
@@ -327,15 +356,14 @@ function bar(ctx, R) {
   K.add('paint', boxX(wall + sg * 0.02, wall + sg * 0.5, FLOOR, FLOOR + 0.95, zb, za), 0x3a2216);
   K.solid(...solidX(wall + sg * 0.02, wall + sg * 0.5, FLOOR, FLOOR + 0.95, zb, za), 'wood');
   K.add('metal', boxX(wall + sg * 0.02, wall + sg * 0.04, FLOOR + 1.1, FLOOR + 2.4, zb + 0.2, za - 0.2), 0x5a6268); // (a smoked mirror: a bright one bloomed to a white wall)
-  const bottle = [0x6a3410, 0x1f4a24, 0x9ab0b4, 0x5a1e0e, 0xb88a3a, 0x2a1e44];
-  for (const y of [1.15, 1.55, 1.95]) {
+  // (the bottles downloaded, city/Stock.js: whiskey, gin, rum, port, wine, a few of each, labels out; each glass shelf
+  // a collider, so a knocked bottle falls; on the cabinet, glasses upside down in rows)
+  for (const [k, y] of [1.15, 1.55, 1.95].entries()) {
     K.add('clearGlass', boxX(wall + sg * 0.05, wall + sg * 0.32, FLOOR + y - 0.015, FLOOR + y, zb + 0.2, za - 0.2), 0xd8e4e8);
-    for (let z = za - 0.3; z > zb + 0.3; z -= 0.11 + rnd() * 0.05) {
-      const h = 0.24 + rnd() * 0.1, x = wall + sg * (0.14 + rnd() * 0.08);
-      K.add('paint', new THREE.CylinderGeometry(0.035, 0.038, h, 8).translate(x, FLOOR + y + h / 2, z), bottle[Math.floor(rnd() * bottle.length)]); // (the clear glass vanished against the mirror)
-      K.add('dark', new THREE.CylinderGeometry(0.012, 0.016, 0.07, 6).translate(x, FLOOR + y + h + 0.035, z), 0x1a1a1a);
-    }
+    K.solid(...solidX(wall + sg * 0.05, wall + sg * 0.32, FLOOR + y - 0.015, FLOOR + y, zb + 0.2, za - 0.2), 'stone');
+    stockRow(ctx, R.M, { room: R.r.kind, along: 'z', a: za - 0.24, b: zb + 0.24, y: FLOOR + y, at: wall + sg * 0.31, face: sg, depth: 0.25, H: 0.42, mix: 'liquor', span: [0.1, 0.3], gap: 0.02, deep: 2, take: false, miss: 0.12, seed: 70 + k });
   }
+  for (const [k, [a, b]] of [[zm + 2.2, zm + 1.1], [zm - 1.1, zm - 2.2]].entries()) if (a < za && b > zb) stockRow(ctx, R.M, { room: R.r.kind, along: 'z', a, b, y: FLOOR + 0.95, at: wall + sg * 0.47, face: sg, depth: 0.2, H: 0.3, mix: ['glassDown'], fill: 9, gap: 0.012, deep: 2, take: false, miss: 0.15, seed: 80 + k });
   // the taps on the bar, the stools
   for (const z of [zm + 0.8, zm, zm - 0.8]) { K.add('metal', boxX(face - sg * 0.5, face - sg * 0.44, FLOOR + 1.1, FLOOR + 1.45, z - 0.03, z + 0.03), 0xd8d0b8); K.add('paint', boxX(face - sg * 0.51, face - sg * 0.43, FLOOR + 1.45, FLOOR + 1.6, z - 0.04, z + 0.04), [0xc0201b, 0x1f4f9a, 0xd8b060][Math.round((z - zm) / 0.8) + 1]); }
   R.stools = [];
@@ -656,10 +684,13 @@ function dryers(ctx, R) {
   }
 }
 
-// Iron Beach: a ring at the back, the heavy bags hanging, benches and a barbell, the dumbbells on
-// their rack, mirrors down the wall
+// Iron Beach: a ring at the back, the heavy bags on short chains from a steel beam (bodies that swing when
+// they're hit: `hangs`), a flat bench with its loaded bar in the uprights (the bar an object of its own: Hal
+// lifts it, story/Gym.js), gloves hung over the ring's rope, the dumbbells on their rack, mirrors down the
+// wall. What the workouts need of it is `ctx.gym`, in the block's frame.
 function gym(ctx, R) {
-  const { K, x0, x1, z0, z1, cz, ceil, aisle } = R;
+  const { K, x0, x1, z0, z1, cz, ceil } = R;
+  const G = (ctx.gym = { M: R.M.clone(), bags: [], hangs: [] });
   const left = !R.doorLeft; // (the ring at the back on the door's side: the desk's across the other half)
   const rx0 = left ? R.mid + 1.2 : x0 + 1.0, rx1 = rx0 + 5.0, rz1 = z1 + 0.6, rz0 = rz1 + 5.0;
   const top = FLOOR + 0.6;
@@ -672,24 +703,60 @@ function gym(ctx, R) {
     const [ax, az] = corners[i], [bx, bz] = corners[(i + 1) % 4], len = Math.hypot(bx - ax, bz - az);
     K.add('paint', new THREE.CylinderGeometry(0.02, 0.02, len, 6).rotateZ(Math.PI / 2).rotateY(-Math.atan2(bz - az, bx - ax)).translate((ax + bx) / 2, top + y, (az + bz) / 2), [0xc0201b, 0xf2f0e8, 0x1f4f9a][k]);
   }
-  // heavy bags, from chains
-  for (const [i, bx] of [R.mid + (left ? -2.0 : 2.0), R.mid + (left ? -4.0 : 4.0)].entries()) {
-    const bz = z0 - 2.2 - i * 0.4;
-    if (bx < x0 + 0.6 || bx > x1 - 0.6 || (bx > aisle[0] - 0.4 && bx < aisle[1] + 0.4)) continue;
-    K.add('paint', new THREE.CylinderGeometry(0.18, 0.17, 1.0, 14).translate(bx, FLOOR + 1.1, bz), 0x8a1a1a);
-    K.add('metal', new THREE.CylinderGeometry(0.008, 0.008, ceil - FLOOR - 1.6, 4).translate(bx, (ceil + FLOOR + 1.6) / 2, bz), 0x8a8e92);
-    K.solid(bx - 0.18, FLOOR + 0.6, bz - 0.18, bx + 0.18, FLOOR + 1.6, bz + 0.18, 'wood');
+  // the heavy bags: a steel beam across the room under the ceiling, a half metre of chain from it to each
+  // bag's ring (city/HalsBlock.js runs `ctx.after` once the props are in: each bag a body on a ball joint at
+  // the beam, so a punch or a construct swings it and turns it on its chain)
+  const beamZ = z0 - 2.4, beamY = ceil - 0.55, steel = 0x34403c;
+  K.add('metal', box(x0, beamY, beamZ - 0.1, x1, beamY + 0.024, beamZ + 0.1), steel);
+  K.add('metal', box(x0, beamY, beamZ - 0.011, x1, ceil, beamZ + 0.011), steel);
+  K.add('metal', box(x0, ceil - 0.024, beamZ - 0.1, x1, ceil, beamZ + 0.1), steel);
+  K.solid(x0, beamY, beamZ - 0.1, x1, ceil, beamZ + 0.1, 'metal');
+  const BAG = { y: FLOOR + 0.7, ring: 1.48, chain: 0.52 }; // (the bag's foot 70 cm off the floor; its ring 1.48 m up the bag)
+  const hasBag = hasProp('heavybag') && hasProp('bagchain');
+  for (const [i, bx] of [x0 + 8.0, x0 + 5.0].entries()) {
+    if (!hasBag) break;
+    // the beam's eye bolt, and the bag (its chain its own child: they swing as one)
+    K.add('metal', new THREE.TorusGeometry(0.022, 0.006, 6, 12).translate(bx, beamY - 0.022, beamZ), 0x8a8e92);
+    const o = K.put('heavybag', bx, BAG.y, beamZ, 0.4 + i * 1.9, 'gymbag');
+    const chain = prop('bagchain');
+    chain.position.y = BAG.ring;
+    o.add(chain);
+    const bag = { o, pivotY: BAG.ring + BAG.chain, radius: 0.2, top: 1.16, foot: BAG.y - FLOOR, box: new THREE.Box3(V(-0.2, 0.05, -0.2), V(0.2, 1.17, 0.2)), mass: 40 };
+    G.bags.push(bag);
+    G.hangs.push(bag);
   }
-  // a bench with its barbell on the uprights, and the plates
-  const ex = left ? x0 + 2.2 : x1 - 2.2, ez = (z0 + cz) / 2 + 0.6;
-  if (!(ex > aisle[0] - 1.2 && ex < aisle[1] + 1.2)) {
-    K.add('paint', box(ex - 0.15, FLOOR + 0.38, ez - 0.6, ex + 0.15, FLOOR + 0.45, ez + 0.6), 0x1a1a1a);
-    K.add('metal', box(ex - 0.04, FLOOR, ez - 0.4, ex + 0.04, FLOOR + 0.38, ez + 0.4), 0x3a3a3a);
-    for (const dx of [-0.32, 0.32]) K.add('metal', box(ex + dx - 0.03, FLOOR, ez - 0.6, ex + dx + 0.03, FLOOR + 1.05, ez - 0.54), 0x3a3a3a);
-    K.add('metal', new THREE.CylinderGeometry(0.014, 0.014, 1.8, 8).rotateZ(Math.PI / 2).translate(ex, FLOOR + 1.07, ez - 0.57), 0xc8ccd0);
-    for (const dx of [-0.75, -0.68, 0.68, 0.75]) K.add('dark', new THREE.CylinderGeometry(0.22, 0.22, 0.05, 18).rotateZ(Math.PI / 2).translate(ex + dx, FLOOR + 1.07, ez - 0.57), 0x1a1a1a);
-    K.solid(ex - 0.4, FLOOR, ez - 0.65, ex + 0.4, FLOOR + 1.1, ez + 0.6, 'metal');
+  // a pair of gloves hung by their laces over the ring's top rope, by the corner post nearest the bags
+  if (hasProp('gloves')) {
+    const [gx, gz] = [rx0 + 0.45, rz0 + 0.04], gy = top + 1.15 - 0.56; // (the pair's peg 56 cm up it, on the rope)
+    const o = K.put('gloves', gx, gy, gz, Math.PI, 'gymgloves');
+    G.hangs.push({ o, pivotY: 0.56, box: new THREE.Box3(V(-0.2, 0.1, -0.15), V(0.18, 0.5, 0.18)), mass: 1.2, damp: 1.2 });
   }
+  // the flat bench, its pad's head end at the uprights, toward the back wall; the loaded bar in the hooks
+  const ex = x0 + 2.0, ez = z0 - 3.5;
+  if (hasProp('benchpress')) {
+    const o = K.put('benchpress', ex, FLOOR, ez, 0, 'gymbench');
+    // the bar and its plates out of it, an object of their own about the bar's middle (lifted off the hooks)
+    o.updateMatrixWorld(true);
+    let mesh = null;
+    o.traverse((m) => { if (m.isMesh && m.material?.name === 'lambert2SG') mesh = m; });
+    if (mesh) {
+      const bar = new THREE.Group();
+      bar.position.copy(K.at(ex, FLOOR + 0.935, ez - 0.39));
+      bar.rotation.y = K.yawOf;
+      bar.updateMatrixWorld(true);
+      bar.attach(mesh);
+      ctx.objects.push({ o: bar, kind: 'gymbar' });
+      G.bench = { o, bar, rest: bar.position.clone(), restQ: bar.quaternion.clone() };
+    }
+    // solid: the pad and its frame, the uprights and their foot, the bar and its plates where they rest
+    K.solid(ex - 0.18, FLOOR, ez - 0.48, ex + 0.18, FLOOR + 0.5, ez + 0.73, 'metal');
+    for (const s of [-1, 1]) K.solid(...solidX(ex + s * 0.645, ex + s * 0.72, FLOOR, FLOOR + 1.2, ez - 0.49, ez - 0.41), 'metal');
+    K.solid(ex - 0.72, FLOOR, ez - 0.52, ex + 0.72, FLOOR + 0.09, ez - 0.38, 'metal');
+    K.solid(ex - 0.78, FLOOR + 0.912, ez - 0.413, ex + 0.78, FLOOR + 0.958, ez - 0.367, 'metal');
+    for (const s of [-1, 1]) K.solid(...solidX(ex + s * 0.78, ex + s * 1.1, FLOOR + 0.735, FLOOR + 1.135, ez - 0.59, ez - 0.19), 'metal');
+  }
+  // their bodies, once the block's props are in it
+  if (G.hangs.length) (ctx.after ??= []).push((w) => hang(w, G.hangs));
   // mirrors down the near wall, the dumbbells on their rack below them
   const wall = R.doorLeft ? x1 : x0, sg = R.doorLeft ? -1 : 1;
   K.add('metal', boxX(wall + sg * 0.02, wall + sg * 0.04, FLOOR + 0.6, FLOOR + 2.2, cz + 0.8, z0 - 1.0), 0xd8dde2);
@@ -704,16 +771,58 @@ function grocer(ctx, R) {
   const { K, x0, x1, z0, z1, cz, cb, aisle, M, rnd } = R;
   const wall = R.doorLeft ? x1 : x0, sg = R.doorLeft ? -1 : 1;
   const fruit = [0xc0201b, 0xf08030, 0xf0d040, 0x5a9a3a, 0x8a2a5a, 0xe8c878];
-  for (let z = z0 - 1.0; z > cz + 1.2; z -= 0.9) {
+  // (each crate one kind, heaped two deep on its tilted floor, a lip along its low edge; city/Stock.js stockHeap)
+  const PRODUCE = ['apple', 'mandarin', 'bananas', 'lemon', 'pear', 'peach', 'pepper', 'potato', 'onion', 'broccoli', 'cabbage', 'russet', 'pomegranate', 'watermelon'];
+  let n = 0;
+  for (let z = z0 - 1.0; z > cz + 1.2; z -= 0.9, n++) {
     K.add('paint', boxX(wall + sg * 0.05, wall + sg * 0.95, FLOOR, FLOOR + 0.62, z - 0.42, z + 0.42), 0x6a4a2a);
     K.add('paint', new THREE.BoxGeometry(0.85, 0.1, 0.8).rotateZ(-sg * 0.35).translate(wall + sg * 0.5, FLOOR + 0.78, z), 0x8a6a3a);
-    const col = fruit[Math.floor(rnd() * fruit.length)];
-    for (let i = 0; i < 16; i++) { const u = rnd(), v = rnd() - 0.5; K.add('paint', new THREE.SphereGeometry(0.045, 8, 6).translate(wall + sg * (0.15 + u * 0.7), FLOOR + 0.86 + (1 - u) * 0.28, z + v * 0.7), col); }
+    K.add('paint', new THREE.BoxGeometry(0.03, 0.09, 0.8).rotateZ(-sg * 0.35).translate(wall + sg * 0.91, FLOOR + 0.69, z), 0x6a4a2a); // (the lip)
+    const t = 0.35, top = V(wall + sg * (0.5 + 0.05 * Math.sin(t)), FLOOR + 0.78 + 0.05 * Math.cos(t), z);
+    stockHeap(ctx, M, { room: R.r.kind, key: PRODUCE[n % PRODUCE.length], c: top, y: top.y, w: 0.74, d: 0.78, yaw: sg * Math.PI / 2, tilt: t, seed: 90 + n });
   }
+  void fruit; void rnd;
   K.solid(...solidX(wall + sg * 0.05, wall + sg * 0.95, FLOOR, FLOOR + 1.0, cz + 0.7, z0 - 0.5), 'wood');
-  for (let x = wall + sg * 2.8; sg > 0 ? x < x1 - 1.4 : x > x0 + 1.4; x += sg * 2.4) if (x + 0.6 < aisle[0] || x - 0.6 > aisle[1]) gondola(ctx, M, x, z0 - 1.6, Math.max(cz + 1.5, z0 - 1.6 - 6));
+  let g = 0;
+  for (let x = wall + sg * 2.8; sg > 0 ? x < x1 - 1.4 : x > x0 + 1.4; x += sg * 2.4) if (x + 0.6 < aisle[0] || x - 0.6 > aisle[1]) gondola(ctx, M, x, z0 - 1.6, Math.max(cz + 1.5, z0 - 1.6 - 4.8), { room: R.r.kind, sides: AISLES.grocer[g++ % 2], seed: 20 + g });
   const [ka, kb] = R.doorLeft ? [x0 + 0.7, R.ca - 0.9] : [cb + 0.9, x1 - 0.7]; // (across the back beside the counter)
-  for (let x = ka; x < kb; x += 1.1) { if (x > aisle[0] - 0.5 && x < aisle[1] + 0.5) continue; K.put('cooler', x, FLOOR, z1 + 0.45, 0); }
+  let c = 0;
+  for (let x = ka; x < kb; x += 1.1) { if (x > aisle[0] - 0.5 && x < aisle[1] + 0.5) continue; K.put('cooler', x, FLOOR, z1 + 0.45, 0); coolerStock(ctx, M, x, z1 + 0.45, R.r.kind, c % 2 ? 'drinks' : 'dairy', 30 + c++); }
+}
+
+// Things that hang (the gym's bags on their chains, the gloves on the rope): each a loose body through
+// props/Smash.js (the ring's blows and anything walking into it shove it), its weight `mass`, its collider
+// `box` (in its own frame), on a ball joint at `pivotY` above its origin, to a fixed point in the world
+// there. It swings, and turns on its chain, and settles (`damp`: the turning's damping).
+// A blow that would swing it up past level (the ring's, mostly: a construct's hook took a 40 kg bag over the top of
+// its beam and up through the ceiling) tears it off its chain instead, and it falls: loose on the floor from then.
+function hang({ physics, smash }, list) {
+  const world = physics.world;
+  for (const h of list) {
+    h.item = smash.add(h.o, { kind: 'loose', mass: h.mass, box: h.box, shrink: 1, stuff: 'leather', glass: false, friction: 0.6, restitution: 0.05 });
+    const body = (h.body = h.item.body);
+    body.setLinearDamping(0.06);
+    body.setAngularDamping(h.damp ?? 0.55);
+    h.o.updateMatrixWorld(true);
+    h.pivot = h.o.localToWorld(V(0, h.pivotY, 0));
+    const anchor = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(h.pivot.x, h.pivot.y, h.pivot.z));
+    h.joint = world.createImpulseJoint(RAPIER.JointData.spherical({ x: 0, y: 0, z: 0 }, { x: 0, y: h.pivotY, z: 0 }), anchor, body, true);
+    h.reach = h.pivotY - (h.box.min.y + h.box.max.y) / 2; // (the pivot to its middle)
+  }
+  const _c = V(0, 0, 0);
+  (physics.beforeStep ??= []).push(() => {
+    for (const h of list) {
+      if (!h.joint || h.body.isSleeping()) continue;
+      const c = h.body.worldCom(), v = h.body.linvel();
+      _c.set(c.x - h.pivot.x, c.y - h.pivot.y, c.z - h.pivot.z);
+      if (_c.y < -h.reach * 0.35 && Math.hypot(v.x, v.y, v.z) < 7) continue; // (still below 70 degrees off the plumb, and not flying)
+      world.removeImpulseJoint(h.joint, true);
+      h.joint = null;
+      h.torn = true;
+      smash.sound('snap', h.pivot, 0.8);
+      smash.chips(h.item, h.pivot.clone(), V(0, -1, 0), 8);
+    }
+  });
 }
 
 // boxes and solids along x (for the side walls' fittings, whichever side): the x extent in either order

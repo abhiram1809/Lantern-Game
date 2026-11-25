@@ -704,7 +704,7 @@ export class Probation extends Prisoner {
     this.show(kor);
     this.playerActive = true;
     player.spawn(kor.physics, kor.scene, at, yaw);
-    player.ground = () => 0;
+    player.ground = player.floorAt; // (Korugar's kerbs and steps: Player.floorAt)
     player.surface = 'stone';
     player.camDist = 2.8;
     powers.attach({ scene: kor.scene, physics: kor.physics, ...kor.airBounds() });

@@ -4,7 +4,7 @@
 // ring's six stats with every level; and what Coast City thinks of Green Lantern (public opinion,
 // instead of a wanted level). Kept in the open world's own store (engine/Save.js LifeSave) beside the
 // clock; the HUD's panel under the clock shows it.
-import { LifeSave, PARTS } from '../engine/Save.js';
+import { LifeSave, PARTS, SapphireSave } from '../engine/Save.js';
 
 // the ring's stats: what a point does (powers.mods, the player, the ring's health), at most ten each
 export const STATS = {
@@ -41,7 +41,7 @@ export class Life {
   }
 
   get level() { return levelOf(this.d.xp).level; }
-  save() { LifeSave.update((s) => { for (const k of ['money', 'tab', 'rentDue', 'xp', 'points', 'stats', 'opinion', 'worked', 'lateNoted', 'ledger', 'events']) s[k] = this.d[k]; }); }
+  save() { LifeSave.update((s) => { for (const k of ['money', 'tab', 'rentDue', 'xp', 'points', 'stats', 'opinion', 'worked', 'lateNoted', 'ledger', 'events', 'tally', 'slept', 'ate', 'flowers', 'oilDay', 'carDamage']) s[k] = this.d[k]; }); }
 
   // ---------------------------------------------------------------- money
   // (each in and out kept for the phone's bank, the last forty)
@@ -118,6 +118,45 @@ export class Life {
     powers.healBoost = 1 + 0.08 * s.endurance;
     powers.trickle = 0.01 * s.willpower; // (charge a second, out of a fight)
     player.flyScale = 1 + 0.05 * s.flight;
+  }
+
+  // ---------------------------------------------------------------- what he's done, and how he is
+  // (the inventory's Life and Stats, ui/Inventory.js) Counts: constructs made, metres flown and driven, what the ring
+  // broke in town in dollars, people saved; and when he last slept and ate, flowers for Carol, the car's oil and knocks
+  tally(key, n = 1) { const t = (this.d.tally ??= {}); t[key] = (t[key] ?? 0) + n; this.unsaved = true; }
+  count(key) { return this.d.tally?.[key] ?? 0; }
+  get clock() { const dc = this.story.dayCycle; return (dc?.day ?? 1) * 24 + (dc?.hour ?? 12); } // (hours since the first day began)
+  fed() { this.d.ate = this.clock; this.save(); }
+  rested() { this.d.slept = this.clock; this.save(); }
+  flowersFor() { (this.d.flowers ??= []).push(this.story.dayCycle?.day ?? 1); this.save(); }
+  oiled() { this.d.oilDay = this.story.dayCycle?.day ?? 1; this.d.carDamage = Math.max(0, (this.d.carDamage ?? 0) - 10); this.save(); }
+  knock(n) { this.d.carDamage = Math.min(100, (this.d.carDamage ?? 0) + n); this.unsaved = true; }
+  // dates with Carol: the story's (Part Seven's night at the pier, the wheel) and any since
+  get dates() { const r = SapphireSave.load().reached ?? []; return ['pier', 'wheel'].filter((id) => r.includes(id)).length + this.count('dates'); }
+  // how he is, a grade each (S to D) and a word on why: himself (sleep, food, hurt), his car, him and Carol
+  condition() {
+    const G = ['S', 'A', 'B', 'C', 'D'], at = (n) => G[Math.max(0, Math.min(4, n))], now = this.clock, day = this.story.dayCycle?.day ?? 1;
+    const awake = now - (this.d.slept ?? now - 4), hungry = now - (this.d.ate ?? now - 2), powers = this.story.powers;
+    const hurt = powers ? powers.health / (powers.maxHealth || 100) : 1;
+    const self = [], car = [], carol = [];
+    let s = 0, c = 0, r = 1;
+    if (awake > 30) { s += 3; self.push('exhausted'); } else if (awake > 18) { s += 2; self.push('more sleep needed'); } else if (awake > 14) { s += 1; self.push('could use some sleep'); }
+    if (hungry > 9) { s += 2; self.push('starving'); } else if (hungry > 5) { s += 1; self.push('hungry'); }
+    if (hurt < 0.4) { s += 2; self.push('hurt'); } else if (hurt < 0.75) { s += 1; self.push('banged up'); }
+    const oil = day - (this.d.oilDay ?? -99), dmg = this.d.carDamage ?? 0;
+    if (oil > 14) { c += 1; car.push('due an oil change'); }
+    if (dmg > 60) { c += 3; car.push('smashed up'); } else if (dmg > 30) { c += 2; car.push('dented'); } else if (dmg > 10) { c += 1; car.push('scraped'); }
+    if (!car.length) car.push(oil <= 3 ? 'excellent: fresh oil' : 'excellent');
+    car.push('the door still in primer');
+    const recent = (this.d.flowers ?? []).filter((d) => day - d <= 7).length;
+    r -= Math.min(2, recent) + (this.dates > 0 ? 1 : 0);
+    if (!recent) carol.push('get Carol more flowers'); else carol.push(recent > 1 ? 'she kept the roses' : 'she liked the flowers');
+    if (this.dates) carol.push(`${this.dates} date${this.dates > 1 ? 's' : ''}`);
+    return {
+      self: { grade: at(s), note: self.length ? self.join(', ') : 'rested and fed' },
+      car: { grade: at(c), note: car.join(', ') },
+      carol: { grade: at(r + 1), note: carol.join(', ') },
+    };
   }
 
   // ---------------------------------------------------------------- what the city thinks

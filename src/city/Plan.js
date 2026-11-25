@@ -373,10 +373,14 @@ function downtown(cell, rnd) {
 // A spec's boxes in the lot's frame (its mass to the top of its parapet, a tower's tiers one each):
 // for the shaded boxes that stand in for it far off, and for flying into one that isn't built yet.
 export function boxesOf(s) {
-  const west = s.yaw < 0; // (facing west: its front runs north from `at`; facing east, south)
-  const foot = (inset, y0, y1) => (west
-    ? { x0: s.at.x + inset, x1: s.at.x + s.d - inset, z0: s.at.z + inset, z1: s.at.z + s.w - inset, y0, y1 }
-    : { x0: s.at.x - s.d + inset, x1: s.at.x - inset, z0: s.at.z - s.w + inset, z1: s.at.z - inset, y0, y1 });
+  // (its footprint from its turn: the front along (cos yaw, -sin yaw) from `at`, the body in behind it; a building
+  // square to the grid (yaw a quarter turn's multiple), so its box is the footprint's)
+  const ax = Math.cos(s.yaw), az = -Math.sin(s.yaw), nx = -Math.sin(s.yaw), nz = -Math.cos(s.yaw);
+  const foot = (inset, y0, y1) => {
+    const xs = [], zs = [];
+    for (const [u, v] of [[inset, inset], [s.w - inset, inset], [inset, s.d - inset], [s.w - inset, s.d - inset]]) { xs.push(s.at.x + ax * u + nx * v); zs.push(s.at.z + az * u + nz * v); }
+    return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs), y0, y1 };
+  };
   if (s.kind === 'tower') {
     const H = s.lobby + (s.floors - 1) * s.fh, out = [];
     let y = 0, inset = 0;
@@ -384,8 +388,11 @@ export function boxesOf(s) {
     for (const t of tiers) { const y1 = t.from >= s.floors ? H + 2.2 : s.lobby + (t.from - 1) * s.fh; out.push(foot(inset, y, y1)); y = y1; inset += t.inset; }
     return out;
   }
+  if (s.kind === 'dingbat') return [foot(0, 0, s.gh + 0.02 + s.upper + s.parapet)]; // (its carports and the floor over them: Homes.js)
   const H = (s.gh ?? 4.3) + ((s.floors ?? 2) - 1) * (s.fh ?? 3.2);
-  return [foot(0, 0, s.roof === 'hip' ? H + ((s.d + 0.9) / 2) * (s.pitch ?? 0.42) * 0.6 : H + (s.parapet ?? 0.95))];
+  // (a pitched roof's box part way up it: what a solid's test and the map want; the far roofs are their own: Stream.js)
+  const span = s.roof === 'gable' && s.ridge === 'z' ? s.w : s.d;
+  return [foot(0, 0, s.roof === 'hip' ? H + ((s.d + 0.9) / 2) * (s.pitch ?? 0.42) * 0.6 : s.roof === 'gable' ? H + (span / 2) * (s.pitch ?? 0.42) * 0.6 : s.roof === 'slab' ? H + 0.3 : H + (s.parapet ?? 0.95))];
 }
 
 // The whole city's buildings, by block, and a grid of their boxes to look a point up in.

@@ -113,6 +113,44 @@ export function flight(state) {
   };
 }
 
+// Coming down out of the air: in the suit the ring lets him down upright, legs together and hanging,
+// arms a little out, and brings the legs under him as the ground comes up (`state.brace` 0..1); out
+// of it (or falling hard) the arms go up and out and the legs fold (`state.flail` 0..1). On the way
+// down nothing runs: the walk mid-air was the user's "running animation, which ends up looking very funny".
+export function falling(state) {
+  return (out, t) => {
+    blendInto(out, POSES.descend, POSES.brace, state.brace ?? 0);
+    const f = state.flail ?? 0;
+    if (f > 0) blendInto(out, out, POSES.flail, f);
+    const drift = Math.sin(t * 1.3), still = 1 - (state.brace ?? 0);
+    out.kL += 0.05 * drift * still;
+    out.kR += 0.05 * Math.sin(t * 1.3 + 0.9) * still;
+    out.aL[2] += 0.04 * drift;
+    out.aR[2] += 0.04 * Math.sin(t * 1.3 + 0.5);
+    out.eL += 0.12 * f * Math.sin(t * 7.1);
+    out.eR += 0.12 * f * Math.sin(t * 6.3 + 1);
+    return breathe(out, t, 0.6);
+  };
+}
+
+// The touch down after a fall: the knees take it and he comes up again (`state.k` 1 at the touch to 0
+// once he's up; the feet stay planted by the foot IK, so the hips' drop is what bends the knees).
+export function touchdown(state) {
+  return (out, t) => {
+    const k = state.k ?? 0, dip = Math.sin(Math.PI * Math.min(1, (1 - k) * 1.6)) * (state.depth ?? 1);
+    copyPose(out, POSES.stand);
+    out.hy = -0.13 * dip;
+    out.sx = 0.12 * dip;
+    out.cx = 0.05 * dip;
+    out.nx = -0.06 * dip;
+    out.lLx = -0.32 * dip; out.lRx = -0.26 * dip;
+    out.kL = 0.6 * dip; out.kR = 0.55 * dip;
+    out.aL = [0.14 + 0.2 * dip, -1, 0.05 + 0.12 * dip]; out.aR = [-0.14 - 0.2 * dip, -1, 0.05 + 0.12 * dip];
+    out.eL = 0.2 + 0.25 * dip; out.eR = 0.2 + 0.25 * dip;
+    return breathe(out, t, 0.5);
+  };
+}
+
 // Lying on the back on a bed (the character root is rotated to horizontal by the caller).
 export function asleep(state) {
   // state.roll: -1 (left side) .. 0 (back) .. 1 (right side); state.unrest 0..1
@@ -230,6 +268,25 @@ export const POSES = {
     aR: [-0.12, 0.96, 0.24], eR: 0.06, tR: 0.2,
     aL: [0.22, -0.95, -0.18], eL: 0.22,
     lLx: 0.06, kL: 0.08, lRx: 0.22, kR: 0.62, lLz: 0.03, lRz: -0.05, fL: 0.75, fR: 0.7,
+  }),
+  // Let down by the ring: upright, legs together and hanging, toes down, arms a little out, looking down
+  // at where he'll land.
+  descend: makePose({
+    sx: -0.02, cx: -0.04, nx: 0.14, kx: 0.1,
+    aL: [0.34, -0.92, 0.08], eL: 0.32, aR: [-0.34, -0.92, 0.08], eR: 0.32,
+    lLx: -0.06, kL: 0.18, lRx: 0.02, kR: 0.26, lLz: 0.02, lRz: -0.02, fL: 0.42, fR: 0.38,
+  }),
+  // ready for the ground: knees bending, feet flat under him, arms out for the balance
+  brace: makePose({
+    hy: -0.04, sx: 0.08, cx: 0.02, nx: 0.08, kx: 0.06,
+    aL: [0.5, -0.82, 0.16], eL: 0.42, aR: [-0.5, -0.82, 0.16], eR: 0.42,
+    lLx: -0.34, kL: 0.62, lRx: -0.28, kR: 0.58, lLz: 0.05, lRz: -0.05, fL: 0.02, fR: 0.02,
+  }),
+  // falling with nothing to hold him: arms up and out, legs folding
+  flail: makePose({
+    sx: -0.08, cx: -0.12, nx: 0.1, kx: 0.05,
+    aL: [0.82, -0.2, 0.25], eL: 0.7, aR: [-0.82, -0.2, 0.25], eR: 0.7,
+    lLx: -0.5, kL: 0.85, lRx: -0.15, kR: 0.5, lLz: 0.07, lRz: -0.07, fL: 0.2, fR: 0.2,
   }),
   // Hard landing: down on one knee, ring fist to the ground, head up.
   land: makePose({

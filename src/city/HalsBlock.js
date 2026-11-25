@@ -22,6 +22,7 @@ import { runSteps } from '../engine/Slice.js';
 import { diner, market, shopRoom, stockShelves, kit } from './Interiors.js';
 import { SignPages, neonTexture, muralTexture, ghostTexture } from './Signs.js';
 import { PALM_KINDS } from './Palms.js';
+import { homeSteps } from './HalsHome.js';
 
 // How far the block's things are drawn (city/Lod.js): the walls, roofs, glass and signs from anywhere
 // (from the air they're the town), the trim and the street's small things only near
@@ -41,6 +42,7 @@ export const BLOCK = { z0: -24, z1: -199, cross: -210, kerbW: -0.4, kerbE: 12.4,
 export const BLOCK_PROPS = ['ac_units', 'ac_window', 'newsbox', 'meter', 'mailbox', 'payphone', 'vending', 'dish', 'neon_palm', 'neon_oil', 'fireescape',
   'elecboxes', 'cabinet', 'wheelie', 'parkbench', 'propane', 'powerpole', 'planter', 'barberpole', 'cart',
   'booth', 'stool', 'jukebox', 'espresso', 'napkins', 'ketchup', 'wallshelf', 'cooler', 'atm', 'magrack', 'oldregister', // (inside the diner and the store)
+  'benchpress', 'heavybag', 'bagchain', 'gloves', // (Iron Beach Gym: city/Shops.js)
   'policecar', 'ambulance']; // (the precinct's cruisers and the emergency room's ambulance at their kerbs)
 const KIT = { lamp: /low_poly012_/, hydrant: /low_poly002_/, dumpster: /low_poly006_/, bin: /low_poly001_/ };
 
@@ -195,6 +197,8 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
     for (const spec of east) { built.push({ spec, b: building(ctx, { ...spec, at: V(B.frontE, 0, spec.z), yaw: -Math.PI / 2 }), side: 1 }); yield; }
   }
   ctx.rnd = rnd;
+  // Hal's home at the head of the boulevard, and its grounds (city/HalsHome.js)
+  yield* homeSteps(ctx);
   for (const { spec, b, side } of built) dress(ctx, spec, b, side, g);
   // the rooms you can walk into (Interiors.js), their lettering
   for (const r of ctx.inside) { (r.kind === 'diner' ? diner : r.kind === 'market' ? market : shopRoom)(ctx, r.M, r); yield; }
@@ -229,13 +233,15 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
   }
   yield;
   for (const car of ctx.cars ?? []) smash.add(car, { kind: 'car', mass: 1300, shrink: 0.97 });
+  // what a room gives a body of its own once its props are in (the gym's bags on their chains: city/Shops.js)
+  for (const fn of ctx.after ?? []) fn({ scene, physics, smash, origin });
   // the other shops' shared lamp: a source in the scene's pool (city/Lamps.js), moved to the shop the
   // camera's in or nearest
   const shopLamp = new THREE.Object3D();
   g.add(shopLamp);
   const shopSrc = f.lamps?.add(shopLamp, { color: 0xfff0dc, power: 0, reach: 14 });
   // the shops' goods, their doors, the lights in the rooms (on when the camera's near: no recompiles)
-  const goods = stockShelves(ctx, g);
+  const goods = stockShelves(ctx, g, f); // (and the shops' stock: city/Stock.js, `ctx.stockRun`)
   for (const d of ctx.doors) { flatten(d.pivot); d.pivot.traverse((m) => { if (m.isMesh) m.castShadow = false; }); g.add(d.pivot); } // (a door was a dozen boxes: a draw call each; then batched, below)
   // the diner's and the store's lights, sources in the pool (their PointLights only say where)
   for (const r of ctx.roomLights) { const mk = new THREE.Object3D(); mk.position.copy(r.light.position); g.add(mk); r.src = f.lamps?.add(mk, { color: r.light.color, power: 0, reach: r.light.distance }); }
@@ -373,6 +379,7 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
   signs.sealAll(); // (all its signs are in: compressed)
   return {
     group: g, ctx, mats,
+    homeTrees: ctx.homeTrees ?? [], fountain: ctx.fountain, // (Hal's home's trees, for the city's tree field once it's made; Ferris)
     setNight(k) {
       cityU.uNight.value = k;
       for (const m of litMats) m.emissiveIntensity = 0.08 + k * 1.1; // (brighter still, a white lightbox clips to white and its letters go)
@@ -392,6 +399,7 @@ export function* blockSteps(f, origin, lod = null, drawn = new Set()) {
     update(dt, t, camera) {
       cityU.uTime.value = t;
       if (camera) for (const set of instSets) set.update(camera.position);
+      ctx.stockRun?.update(camera, dt);
       swingDoors(ctx.doors, g.position, dt, this);
       for (const d of ctx.doors) {
         if (!d.parts || d.drawn === d.open) continue;

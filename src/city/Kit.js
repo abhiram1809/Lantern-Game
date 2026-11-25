@@ -60,6 +60,12 @@ export function cityMaterials() {
   m.pbrick.color.setScalar(1.15);
   m.brick = weather(Object.assign(pbr('red_brick_plaster_patch_02', 2.6, { normalScale: 1.2 }), { vertexColors: true }), { base: 0.2, fade: 0.06 });
   m.tile = Object.assign(pbr('clay_roof_tiles_02', 2.2, { normalScale: 1.3 }), { vertexColors: true });
+  // the houses' painted lap siding (the Craftsmen's, a ranch's gable ends: Stream.js's lots) and their cedar shake
+  // roofs, each tinted by its vertex colour (the planks' texture is a pale grey: lifted, the paint reads as its colour)
+  m.siding = weather(Object.assign(pbr('brown_planks_05', 1.45, { normalScale: 0.9 }), { vertexColors: true }));
+  m.siding.color.setScalar(1.45);
+  m.shake = Object.assign(pbr('roof_slates_02', 2.4, { normalScale: 1.2 }), { vertexColors: true });
+  m.shake.color.setScalar(1.5); // (weathered cedar: silver-brown from the air, not a dark roof)
   m.shutter = Object.assign(pbr('painted_metal_shutter', 1.6, { metalness: 0.5, roughness: 0.75 }), { vertexColors: true });
   m.patio = Object.assign(pbr('patio_tiles', 1.6), { vertexColors: true });
   m.checker = Object.assign(pbr('floor_tiles_06', 1.2), { vertexColors: true });
@@ -293,8 +299,38 @@ export class Batch {
   }
 }
 export { GLASS_ATTR };
+
+// A Batch's small trim gathered by material and colour as it's added, each gathering one part when it's flushed (the
+// residential streets' rework, 2026-11-24: a block of houses was thousands of window rails, sills, door panels, fence
+// posts and pickets, each a part of its own, and a material's mesh holds `chunk` of them: the near trim came to a dozen
+// draws a block; Stream.js wraps a block of lots' batch in one). Glass (its rooms) and everything else go straight on.
+const SINK_KEYS = new Set(['paint', 'iron', 'concrete', 'metal', 'dark', 'tile', 'lamp', 'roadpaint', 'patio']);
+export class Sink {
+  constructor(batch) { this.batch = batch; this.parts = batch.parts; this.lists = new Map(); }
+  add(key, geo, m, color = 0xffffff, room = null) {
+    if (room || !SINK_KEYS.has(key)) return this.batch.add(key, geo, m, color, room);
+    const c = color.isColor ? color : Array.isArray(color) ? new THREE.Color(...color) : new THREE.Color(color);
+    const k = `${key}|${c.r.toFixed(3)},${c.g.toFixed(3)},${c.b.toFixed(3)}`;
+    const g = geo.index ? geo.toNonIndexed() : geo.clone();
+    for (const name of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
+    if (!g.attributes.normal) g.computeVertexNormals();
+    if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    if (m) g.applyMatrix4(m);
+    (this.lists.get(k) ?? this.lists.set(k, { key, c, list: [] }).get(k)).list.push(g);
+    return g;
+  }
+  // into the batch: each gathering one part
+  flush() {
+    for (const { key, c, list } of this.lists.values()) {
+      const g = list.length === 1 ? list[0] : mergeGeometries(list, false);
+      if (g) this.batch.add(key, g, null, c);
+    }
+    this.lists.clear();
+    return this.batch;
+  }
+}
 // what the batches draw that casts no shadow worth its draw: glass and lamps (light comes through, or from them),
 // and what's flat on a wall or the ground (signs and their lit faces, glow planes, road paint, floor tiles and
 // decals: the polish pass, 2026-11-23, when the sun's wider box took in another 50 of them; and the painted trim,
 // frames, sills and fascias, a street's worth of them 116 k shadow triangles: the walls' shadows are what show)
-const NO_SHADOW = /^(glass|clearGlass|lamp|wheelLamp|sign\d*|signLit\d*|glow|roadpaint|patio|checker|decal|paint)$/;
+const NO_SHADOW = /^(glass|clearGlass|lamp|wheelLamp|sign\d*|signLit\d*|glow|roadpaint|patio|checker|decal|paint|lawn|pavers|water)$/;

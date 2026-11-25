@@ -8,6 +8,10 @@ import { treeKit, foliageMaterial, forest } from '../fx/Trees.js';
 import { noiseTexture, woodTexture, fabricTexture, plaidTexture, ClockFace, photoTexture, glowTexture, pbrMaterial } from '../fx/Textures.js';
 import { prop, piece, hasProp, meshes, boundsIn, pivot } from '../props/Props.js';
 import { makeCar } from '../props/Car.js';
+import { assetUrl } from '../engine/Assets.js';
+
+const BAKED_GAIN = 4; // (the baked view's faces are a quarter as bright as the city: tools/bake-window.js)
+const HOME_OUT = new THREE.Vector3(0, 0, -1); // (the way Hal's window looks: city/HalsHome.js WINDOW.out; not imported, which would bring the city into Part One's code)
 
 const ROOM = { x0: -2.2, x1: 2.2, z0: -2.0, z1: 2.0, h: 2.6 };
 const HALL = { x0: -4.6, x1: 1.2, z0: 2.12, z1: 3.52 };
@@ -31,9 +35,12 @@ export class Bedroom {
   }
 
   // `morning`: the morning after the storm (Part Three): sun through the window, no rain, the lamp off.
-  build({ morning = false } = {}) {
+  // `view`: what's outside the window is the city itself, drawn from Hal's window in Las Palmas (`setView`, free
+  // roam's flat: story/Roam.js), not the street built here.
+  build({ morning = false, view = false } = {}) {
     const s = this.scene;
     this.morning = morning;
+    this.liveView = view;
     s.fog = morning ? new THREE.FogExp2(0xbac9d6, 0.005) : new THREE.FogExp2(0x05070a, 0.012);
     s.environment = this.engine.envMap;
     s.environmentIntensity = morning ? 0.32 : 0.12;
@@ -633,7 +640,15 @@ export class Bedroom {
     this.treeTime = { value: 0 };
     // by day in Part Three: Coast City's street outside, the blocks across it, downtown in the haze;
     // by night (Part One) the wooded ground and the tree line
-    if (this.morning && hasProp('office1')) this.buildStreetView();
+    if (this.liveView) { /* the city's own, through `setView` */ }
+    else if (this.morning) {
+      // Part Three's morning: the view from his window in Las Palmas at 9:41, baked (tools/bake-window.js); the
+      // street built here only if the bake's files are missing
+      new THREE.CubeTextureLoader().load(['px', 'nx', 'py', 'ny', 'pz', 'nz'].map((f) => assetUrl(`textures/views/hal_window_${f}.jpg`)), (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        this.setView(tex, HOME_OUT, BAKED_GAIN);
+      }, undefined, () => { if (hasProp('office1')) this.buildStreetView(); });
+    }
     else {
       const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: this.morning ? 0x46553a : 0x070a07, roughness: 1 }));
       ground.position.set(0, -2.5, 0);
@@ -659,6 +674,36 @@ export class Bedroom {
     s.add(this.meteor);
     this.meteorTrail = new Particles(500, { additive: true, drag: 0.6, turbulence: 1.5 });
     s.add(this.meteorTrail.points);
+  }
+
+  // The city outside the window as it is (free roam's flat): a cube of it drawn from Hal's window in the real
+  // building (`cube`; story/Roam.js windowView), laid on a box shaped like what's out there (the lot's ground 3.4 m
+  // below the floor, its walls 42 and 32 m off to the sides, the far end down the boulevard 40 m out), so that
+  // what's on the ground shifts as it should as he walks about the room. `rot` turns the room's directions into the
+  // city's (the room's +x, out of the window, is the house's front).
+  setView(cube, out, gain = 1) {
+    if (!this.view) {
+      const W = { x0: ROOM.x1 + WALL + 0.02, x1: ROOM.x1 + WALL + 40, y0: -3.4, y1: 60, z0: -42.4, z1: 31.6 };
+      const geo = new THREE.BoxGeometry(W.x1 - W.x0, W.y1 - W.y0, W.z1 - W.z0).translate((W.x0 + W.x1) / 2, (W.y0 + W.y1) / 2, (W.z0 + W.z1) / 2);
+      this.viewU = { uCube: { value: null }, uRot: { value: new THREE.Matrix3() }, uAt: { value: new THREE.Vector3(ROOM.x1 + WALL, 1.5, (WINDOW.z0 + WINDOW.z1) / 2) }, uGain: { value: 1 } };
+      const mat = new THREE.ShaderMaterial({
+        uniforms: this.viewU, side: THREE.BackSide, depthWrite: true, fog: false,
+        vertexShader: 'varying vec3 vP; void main() { vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        // (the cube's own sampling: a cube render target's faces aren't mirrored as a loaded cube's are)
+        fragmentShader: `uniform samplerCube uCube; uniform mat3 uRot; uniform vec3 uAt; uniform float uGain; varying vec3 vP;
+          void main() { vec3 d = uRot * normalize(vP - uAt); gl_FragColor = vec4(textureCube(uCube, d).rgb * uGain, 1.0); }`,
+      });
+      this.view = new THREE.Mesh(geo, mat);
+      this.view.frustumCulled = false;
+      this.view.renderOrder = -1;
+      this.scene.add(this.view);
+    }
+    // the room's +x out of the window, its +y up, its +z their cross: the room's frame turned into the city's
+    const X = out.clone().normalize(), Y = new THREE.Vector3(0, 1, 0), Z = X.clone().cross(Y);
+    this.viewU.uRot.value.set(X.x, Y.x, Z.x, X.y, Y.y, Z.y, X.z, Y.z, Z.z);
+    this.viewU.uCube.value = cube;
+    this.viewU.uGain.value = gain;
+    if (this.sky) this.sky.visible = false; // (the city's sky is in the cube)
   }
 
   // Interactable: { position, radius, label, key, action, enabled }

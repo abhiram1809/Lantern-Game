@@ -13,7 +13,7 @@ import { photoTexture } from '../fx/Textures.js';
 // Savings & Loan (his money, the rent, the ledger), the Herald (what Coast City's reading: Green
 // Lantern by the city's mood, what he answered), Weather. Keys: the arrows or WASD, E or Enter opens,
 // Q or Backspace goes back, G puts it away; with the mouse free, a click.
-const APPS = [
+export const APPS = [
   { id: 'whatup', name: 'What Up', icon: '✉', bg: 'linear-gradient(160deg,#3ddc84,#128c5e)' },
   { id: 'photos', name: 'Photos', icon: '❀', bg: 'linear-gradient(160deg,#ffb36b,#e5486c)' },
   { id: 'maps', name: 'Maps', icon: '⌖', bg: 'linear-gradient(160deg,#7fd3ff,#3a7bd5)' },

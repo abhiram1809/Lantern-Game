@@ -2,13 +2,14 @@ import * as THREE from 'three';
 import { RAPIER } from '../engine/Physics.js';
 import { Animator } from './Rig.js';
 import { Locomotion } from './Mocap.js';
-import { POSES, still, flight } from './Poses.js';
+import { POSES, still, flight, falling, touchdown } from './Poses.js';
 import { damp, clamp } from '../engine/Time.js';
 
 const HALF = 0.6, RADIUS = 0.27, CENTER = HALF + RADIUS, SKIN = 0.02;
 const PIVOT = 1.0; // the body pitches and banks about this height in flight
 const _dir = new THREE.Vector3(), _pivot = new THREE.Vector3(), _right = new THREE.Vector3(), _want = new THREE.Vector3();
 const _fwd = new THREE.Vector3(), _dv = new THREE.Vector3(), _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion();
+const _down = { x: 0, y: -1, z: 0 }, _from = { x: 0, y: 0, z: 0 };
 const X = new THREE.Vector3(1, 0, 0), Z = new THREE.Vector3(0, 0, 1);
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
@@ -68,6 +69,14 @@ export class Player {
     this.flightGen = flight(this.flightState);
     this.landGen = still(POSES.land, 0.6);
     this.landing = 0;
+    // off the ground: coming down (the ring lets him down in the suit), then the knees taking the touch down
+    this.fallState = { brace: 0, flail: 0 };
+    this.fallGen = falling(this.fallState);
+    this.touchState = { k: 0, depth: 1 };
+    this.touchGen = touchdown(this.touchState);
+    this.softLand = 0; // (the touch down's time left: he walks on through it, unlike the hard landing's crouch)
+    this.airT = 0; // how long since he left the ground
+    this.below = Infinity; // the ground's distance under his feet while he's in the air
     this.body = { pitch: 0, roll: 0 };
     this.fall = 0; // fastest downward speed since leaving the ground
     this.onTakeoff = this.onLand = this.onNoLanding = null;
@@ -197,6 +206,7 @@ export class Player {
     if (this.speed > 0.3 && !this.strafe) this.yaw = this.heading;
     this.vy = this.vel.y;
     this.fall = 0;
+    this.airT = 0.25; // (out of flight he's in the air already: the walk ran a beat at the flight's speed before the fall took over)
     this.groundMode();
   }
 
@@ -254,7 +264,9 @@ export class Player {
       }
       this.turnToTarget(dt);
       // falling (after dropping out of flight) keeps its momentum; on the ground the usual limits apply
-      const accel = !this.grounded ? 1.5 : wantSpeed > this.speed ? THREE.MathUtils.lerp(3.2, 5.5, smooth(0, this.runSpeed, wantSpeed)) : 7;
+      // (the ring, letting him down in the suit, takes the flight's speed off him as he comes down: with a
+      // boost's 19 m/s carried, he drifted a street's length before touching down)
+      const accel = !this.grounded ? (this.canFly ? 5 : 1.5) : wantSpeed > this.speed ? THREE.MathUtils.lerp(3.2, 5.5, smooth(0, this.runSpeed, wantSpeed)) : 7;
       this.speed += clamp(wantSpeed - this.speed, -accel * dt, accel * dt);
       this.heading = this.yaw;
     }
@@ -265,6 +277,12 @@ export class Player {
       const vx = Math.sin(this.heading) * this.speed + (dashing ? this.dashV.x : 0), vz = Math.cos(this.heading) * this.speed + (dashing ? this.dashV.z : 0);
       const wasAirborne = !this.grounded;
       this.vy = this.grounded ? -1 : this.vy - 9.81 * dt;
+      this.airT = this.grounded ? 0 : this.airT + dt;
+      if (!this.grounded) {
+        this.below = this.groundBelow();
+        // in the suit the ring lets him down: fast from high up, slowing to a step's pace for the touch down
+        if (this.canFly) { const most = THREE.MathUtils.lerp(2.6, 24, smooth(1.5, 45, this.below)); if (-this.vy > most) this.vy = damp(this.vy + 9.81 * dt, -most, 5, dt); } // (this step's gravity taken back, or it settled 2 m/s over)
+      }
       this.fall = Math.max(this.fall, -this.vy);
       this.kcc.computeColliderMovement(this.collider, { x: vx * dt, y: this.vy * dt, z: vz * dt }, undefined, undefined, this.filter);
       let m = this.kcc.computedMovement();
@@ -284,12 +302,14 @@ export class Player {
       actual = Math.hypot(m.x, m.z) / Math.max(dt, 1e-4);
       if (actual < this.speed - 0.3 && this.grounded) this.speed = damp(this.speed, actual, 6, dt); // walked into something
       if (wasAirborne && this.grounded) {
-        const impact = this.fall;
+        // (how hard he meets the ground: the speed he touches down at; the fastest on the way down was the
+        // ring's descent from high up, which it had slowed to a step's pace by the ground)
+        const impact = Math.min(this.fall, Math.max(0, -this.vy)), fell = this.airT;
         this.fall = 0;
-        if (impact > 3) {
-          if (impact > 9) { this.landing = 0.65; this.speed *= 0.2; }
-          this.onLand?.(impact);
-        }
+        this.airT = 0;
+        if (impact > 9) this.landing = 0.65, this.speed *= 0.2;
+        else if (fell > 0.25 || impact > 2.5) { this.softLand = 0.45; this.touchState.depth = clamp(0.45 + impact * 0.08, 0.45, 1); }
+        if (impact > 3) this.onLand?.(impact);
       }
     }
 
@@ -299,10 +319,21 @@ export class Player {
     B.roll = damp(B.roll, 0, 9, dt);
     this.applyBody(dt, 0);
 
+    if (this.softLand > 0) this.softLand -= dt;
     if (this.autoAnim) {
       this.object.rotation.set(0, this.yaw, 0);
-      const gen = this.landing > 0 ? this.landGen : this.loco;
-      if (this.animator.gen !== gen) this.animator.play(gen, gen === this.landGen ? 0.12 : 0.45);
+      // in the air (past a step down's moment): coming down, not walking; then the touch down, unless he
+      // walks straight on out of it
+      const inAir = !this.grounded && this.airT > 0.2;
+      if (inAir) {
+        const F = this.fallState;
+        F.brace = damp(F.brace, this.canFly ? 1 - smooth(0.6, 3.5, this.below) : 0.35 * (1 - smooth(0.5, 2.5, this.below)), 6, dt);
+        F.flail = damp(F.flail, this.canFly ? 0 : smooth(2, 9, -this.vy), 3, dt);
+      }
+      this.touchState.k = clamp(this.softLand / 0.45);
+      const touching = this.softLand > 0 && (this.speed < 2 || this.softLand > 0.3);
+      const gen = this.landing > 0 ? this.landGen : inAir ? this.fallGen : touching ? this.touchGen : this.loco;
+      if (this.animator.gen !== gen) this.animator.play(gen, gen === this.landGen ? 0.12 : gen === this.fallGen ? 0.35 : gen === this.touchGen ? 0.15 : 0.3);
       this.loco.speed = damp(this.loco.speed, actual, 14, dt);
       // strafing: the walk runs backwards when backing off, and the legs turn toward the travel
       // while the chest stays squared up (the upper/lower body split of third-person shooters)
@@ -412,6 +443,8 @@ export class Player {
         this.stopFlying(true);
         this.grounded = true;
         this.vy = -1;
+        this.softLand = 0.45; // (the knees take it: from the hover straight into the walk, he touched down stiff)
+        this.touchState.depth = clamp(0.4 + impact * 0.12, 0.4, 0.9);
         this.onLand?.(impact, true);
       }
     }
@@ -496,6 +529,32 @@ export class Player {
     this.director.pos.copy(_pivot).addScaledVector(_dir, this.camDistNow);
     this.director.look.copy(_pivot).addScaledVector(_dir, -1.5);
     this.director.fov = 55 + 14 * smooth(8, 22, speed);
+  }
+
+  // The floor under a foot at (x, z): what the scene's fixed colliders have there, a kerb's height up or a step's
+  // down from where he stands (for the foot IK, `player.ground`). With nothing there, where he stands: no offset.
+  // (Coast City's was 0 everywhere: on a 14 cm pavement or a shop's 15 cm floor the IK dropped his hips to reach
+  // it, and he walked the town on bent knees)
+  floorAt = (x, z) => {
+    const base = this.object.position.y;
+    if (!this.physics || this.physics.freed) return base;
+    _from.x = x; _from.y = base + 0.35; _from.z = z;
+    const hit = this.physics.world.castRay(new RAPIER.Ray(_from, _down), 0.75, true, undefined, undefined, this.collider, undefined, this.floorFilter);
+    return hit ? base + 0.35 - (hit.timeOfImpact ?? hit.toi) : base;
+  };
+  floorFilter = (c) => this.filter(c) && !c.parent()?.isDynamic(); // (not the loose things: a box he kicks isn't the floor)
+
+  // How far the ground (or the water) is under his feet, up to 60 m
+  groundBelow() {
+    const p = this.object.position;
+    let d = 60;
+    if (this.physics && !this.physics.freed) {
+      _from.x = p.x; _from.y = p.y + 0.1; _from.z = p.z;
+      const hit = this.physics.world.castRay(new RAPIER.Ray(_from, _down), 60, true, undefined, undefined, this.collider, undefined, this.filter);
+      if (hit) d = Math.max(0, (hit.timeOfImpact ?? hit.toi) - 0.1);
+    }
+    if (this.air) d = Math.min(d, Math.max(0, p.y - this.air.floor(p.x, p.z)));
+    return d;
   }
 
   removeFromPhysics() {

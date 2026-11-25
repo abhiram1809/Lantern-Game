@@ -412,7 +412,7 @@ export class Coast extends Story {
     this.show(f);
     this.playerActive = true;
     player.spawn(f.physics, f.scene, at, yaw);
-    player.ground = () => 0;
+    player.ground = player.floorAt; // (the feet on what's really under them: the pavements, the kerbs, the shops' floors)
     player.surface = 'stone';
     player.camDist = 2.6;
     f.focus(at);

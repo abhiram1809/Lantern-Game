@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { prop } from '../props/Props.js';
 import { box } from './Building.js';
-import { goodsTexture } from './Signs.js';
+import { Stock, stockRow } from './Stock.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 export const FLOOR = 0.15; // a shop's floor: the pavement's height, a step up from the road
@@ -294,25 +294,40 @@ export function market(ctx, M, r) {
   solid(cb - 0.7, FLOOR, cz - 2.6, cb, FLOOR + 1.02, cz - 0.7, 'wood');
   put('oldregister', ca + 1.3, FLOOR + 1.02, cz - 0.38, 0);
   add('clearGlass', box(ca + 2.2, FLOOR + 1.02, cz - 0.4, ca + 2.9, FLOOR + 1.3, cz - 0.1), 0xffffff); // the scratchers' case
-  goods.push(...shelfRow(ca + 2.24, ca + 2.86, FLOOR + 1.04, cz - 0.25, 0.06, 0.18, 0.01, M, true));
+  goods.push(...shelfRow(ca + 2.24, ca + 2.86, FLOOR + 1.04, cz - 0.25, 0.05, 0.1, 0.008, M, true, 0.004).map((g) => ({ ...g, sy: Math.min(g.sy, 0.13) }))); // (the tickets, stood in rows)
   ctx.labels.push({ M, u0: ca + 0.2, u1: ca + 1.0, y0: FLOOR + 1.02, h: 0.3, z: cz + 0.031, sign: { text: 'LOTTO', sub: 'Scratchers · Super Pick', style: 'lightbox', bg: '#1f4f9a', fg: '#ffd23f', accent: '#ffffff', font: 'condensed', wear: 0.1 }, lit: true });
   // the cigarette wall behind the counter
   const wz = cz - 1.5;
   add('paint', box(ca, FLOOR + 0.98, wz - 0.3, cb - 0.8, FLOOR + 2.4, wz), 0x2a2a2a);
   solid(ca, FLOOR, wz - 0.3, cb - 0.8, FLOOR + 2.4, wz, 'wood');
-  for (let k = 0; k < 6; k++) goods.push(...shelfRow(ca + 0.1, cb - 0.9, FLOOR + 1.05 + k * 0.22, wz + 0.02, 0.055, 0.09, 0.006, M, false, 0.06));
-  // candy at the counter's front, a security mirror in the far corner
-  add('metal', box(ca + 0.1, FLOOR, cz + 0.02, ca + 1.6, FLOOR + 0.75, cz + 0.3), 0x8a8e92);
-  solid(ca + 0.1, FLOOR, cz + 0.02, ca + 1.6, FLOOR + 0.75, cz + 0.3);
-  for (let k = 0; k < 3; k++) goods.push(...shelfRow(ca + 0.15, ca + 1.55, FLOOR + 0.12 + k * 0.22, cz + 0.28, 0.045, 0.12, 0.004, M, true, 0.12));
+  for (let k = 0; k < 6; k++) {
+    const y = FLOOR + 1.05 + k * 0.22;
+    add('dark', box(ca + 0.05, y - 0.012, wz, cb - 0.85, y, wz + 0.07), 0x1a1a1a); // (its ledge)
+    stockRow(ctx, M, { room: 'market', along: 'x', a: ca + 0.1, b: cb - 0.9, y, at: wz + 0.065, face: 1, depth: 0.06, H: 0.2, mix: ['cigarettes'], fill: 60, gap: 0.004, phys: false, take: false, miss: 0.08, seed: 60 + k });
+  }
+  // candy at the counter's front, in three steps (each its own collider: the bars lie on them), a security mirror
+  // in the far corner
+  for (let k = 0; k < 3; k++) {
+    const top = FLOOR + 0.4 + k * 0.17, front = cz + 0.3 - k * 0.1;
+    add('metal', box(ca + 0.1, FLOOR, cz + 0.02, ca + 1.6, top, front), [0x8a8e92, 0x7e8286, 0x8a8e92][k]);
+    add('paint', box(ca + 0.1, top - 0.03, front, ca + 1.6, top + 0.004, front + 0.004), 0xe23a2a); // (its price strip)
+    solid(ca + 0.1, FLOOR, cz + 0.02, ca + 1.6, top, front);
+    stockRow(ctx, M, { room: 'market', along: 'x', a: ca + 0.14, b: ca + 1.56, y: top, at: front - 0.006, face: 1, depth: 0.095, H: 0.06, mix: 'candy', span: [0.25, 0.45], seed: 40 + k, deep: 2 });
+  }
   add('metal', new THREE.SphereGeometry(0.32, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2).rotateX(-Math.PI / 2).translate(x1 - 0.4, ceil - 0.45, z1 + 0.4).applyMatrix4(new THREE.Matrix4()), 0xeeeeee);
   // three aisles of gondolas, from behind the counter to the coolers
-  for (const gx of [x0 + 7.7, x0 + 10.3, x0 + 12.9]) gondola(ctx, M, gx, z0 - 4.9, z1 + 3.0);
+  // (bottom shelf first: the heavy things low, the light ones high, as a store does it)
+  const aisles = [
+    [['cleaning', 'pantry', 'snacks', 'candy'], ['household', 'pantry', 'bread', 'snacks']],
+    [['pantry', 'pantry', 'bread', 'snacks'], ['cleaning', 'toiletries', 'wine', 'wine']],
+    [['autolow', 'paint', 'tools', 'liquor'], ['household', 'cleaning', 'pharmacy', 'snacks']],
+  ];
+  for (const [i, gx] of [x0 + 7.7, x0 + 10.3, x0 + 12.9].entries()) gondola(ctx, M, gx, z0 - 4.9, z1 + 3.0, { room: 'market', sides: aisles[i], seed: 10 + i });
   // the coolers along the back wall, stocked
   for (let i = 0; i < 6; i++) {
     const x = x0 + 4.4 + i * 1.29;
     put('cooler', x, FLOOR, z1 + 0.45, 0);
-    for (const y of [0.42, 0.7, 0.99, 1.24]) goods.push(...cans(x - 0.52, x + 0.52, FLOOR + y, z1 + 0.35, M));
+    coolerStock(ctx, M, x, z1 + 0.45, 'market', i < 2 ? 'beer' : i === 5 ? 'dairy' : 'drinks', i);
   }
   ctx.labels.push({ M, u0: x0 + 3.8, u1: x0 + 11.8, y0: FLOOR + 2.15, h: 0.45, z: z1 + 0.05, sign: { text: 'COLD BEER · SODA · JUICE', style: 'lightbox', bg: '#c0201b', fg: '#ffffff', font: 'condensed', wear: 0.1 }, lit: true });
   // shelving down both sides
@@ -329,19 +344,35 @@ export function market(ctx, M, r) {
   ctx.spots.push({ kind: 'cooler', label: 'Look in the cooler', at: V(x0 + 7.0, FLOOR, z1 + 1.6).applyMatrix4(M), look: V(x0 + 7.0, FLOOR + 1.1, z1 + 0.4).applyMatrix4(M), room: 'market' });
   ctx.spots.push({ kind: 'magazines', label: 'Look at the magazines', at: V(x0 + 11.8, FLOOR, z0 - 1.5).applyMatrix4(M), look: V(x0 + 11.8, FLOOR + 0.9, z0 - 0.7).applyMatrix4(M), room: 'market' });
   ctx.rooms.push({ name: 'market', M, x0, x1, z0, z1 });
+  (ctx.stockRooms ??= {}).market = { M, x0, x1, z0, z1, ceil };
 }
 
-// a double-sided gondola along z: its base and back panel, four shelves a side with price strips, the
-// goods on them, an end cap facing the front
-export function gondola(ctx, M, x, za, zb) {
+// A cooler's stock behind its glass (the cooler prop's three shelves and its floor, measured; x, z its place in the
+// room): drinks a shelf, taken through the door (story/Shopping.js reaches for its handle, not through the glass)
+export function coolerStock(ctx, M, x, z, room, mix, seed) {
+  for (const [k, [y, H]] of [[0.47, 0.27], [0.75, 0.29], [1.05, 0.24], [1.3, 0.17]].entries()) {
+    stockRow(ctx, M, { room, along: 'x', a: x - 0.5, b: x + 0.52, y: FLOOR + y, at: z + 0.19, face: 1, depth: 0.5, H, mix: k === 3 ? 'drinks' : mix, span: [0.2, 0.35], deep: 3, gap: 0.004, phys: false, door: z + 0.33, seed: seed * 11 + k, miss: 0.1 });
+  }
+}
+
+// a double-sided gondola along z: its base and spine, four shelves a side with price strips, the goods on them, a
+// cap along its top. `room`, `sides`: the room's products, a mix a shelf (bottom first) for each side ([-x, +x]);
+// without them, the plain boxes. Its colliders are its parts (one box round all of it held what was on its shelves
+// inside it)
+export function gondola(ctx, M, x, za, zb, { room = null, sides = null, seed = 1 } = {}) {
   const { add, solid } = kit(ctx, M), goods = ctx.goods, h = 1.55;
-  solid(x - 0.48, FLOOR, zb, x + 0.48, FLOOR + h + 0.05, za);
+  solid(x - 0.48, FLOOR, zb, x + 0.48, FLOOR + 0.145, za);
+  solid(x - 0.03, FLOOR + 0.145, zb, x + 0.03, FLOOR + h + 0.05, za);
+  const ys = [0.12, 0.47, 0.83, 1.19]; // (spaced for a cereal box: a crisp bag stood 28 cm, and the top shelf took nothing)
+  for (const y of ys.slice(1)) solid(x - 0.464, FLOOR + y, zb, x + 0.464, FLOOR + y + 0.025, za);
+  solid(x - 0.48, FLOOR + h, zb, x + 0.48, FLOOR + h + 0.05, za);
   add('metal', box(x - 0.48, FLOOR, zb, x + 0.48, FLOOR + 0.12, za), 0xe4e4e0);
   add('metal', box(x - 0.025, FLOOR + 0.12, zb, x + 0.025, FLOOR + h, za), 0xd8d8d2);
-  for (const y of [0.12, 0.5, 0.88, 1.26]) for (const s of [-1, 1]) {
+  for (const [k, y] of ys.entries()) for (const s of [-1, 1]) {
     add('metal', box(Math.min(x, x + s * 0.46), FLOOR + y, zb, Math.max(x, x + s * 0.46), FLOOR + y + 0.025, za), 0xe4e4e0);
     add('paint', box(x + s * 0.46 - 0.004, FLOOR + y - 0.03, zb, x + s * 0.464, FLOOR + y + 0.025, za), 0xe23a2a); // the price strip
-    goods.push(...shelfRowZ(za - 0.05, zb + 0.05, FLOOR + y + 0.025, x + s * 0.24, s, M));
+    if (room && sides) stockRow(ctx, M, { room, along: 'z', a: za - 0.05, b: zb + 0.05, y: FLOOR + y + 0.025, at: x + s * 0.455, face: s, depth: 0.42, H: (ys[k + 1] ?? h) - y - 0.03, mix: sides[s < 0 ? 0 : 1][k], seed: seed * 17 + k * 3 + (s + 1) });
+    else goods.push(...shelfRowZ(za - 0.05, zb + 0.05, FLOOR + y + 0.025, x + s * 0.24, s, M));
   }
   add('metal', box(x - 0.48, FLOOR + h, zb, x + 0.48, FLOOR + h + 0.05, za), 0xc8c8c2);
 }
@@ -367,43 +398,10 @@ export function shelfRowZ(za, zb, y, x, s, M) {
   }
   return out;
 }
-function cans(a, b, y, z, M) {
-  const out = [];
-  for (let u = a; u < b; u += 0.085) for (const dz of [0, -0.1, -0.2]) out.push({ M, x: u + 0.04, y: y + 0.07, z: z + dz, sx: 0.066, sy: Math.random() < 0.4 ? 0.2 : 0.125, sz: 0.066, yaw: 0, cell: 48 + Math.floor(Math.random() * 16), kind: 'can' });
-  return out;
-}
-
-// The goods, as two instanced meshes (boxes and cans) over one label atlas: each instance's cell of it
-export function stockShelves(ctx, group) {
-  const tex = goodsTexture();
-  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55 });
-  mat.onBeforeCompile = (sh) => {
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aCell;')
-      .replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_INSTANCING\nvMapUv = vMapUv / 8.0 + aCell;\n#endif');
-  };
-  mat.customProgramCacheKey = () => 'goods';
-  const out = [];
-  for (const kind of ['box', 'can']) {
-    const list = ctx.goods.filter((g) => g.kind === kind);
-    if (!list.length) continue;
-    const geo = kind === 'box' ? new THREE.BoxGeometry(1, 1, 1) : new THREE.CylinderGeometry(0.5, 0.5, 1, 12);
-    const mesh = new THREE.InstancedMesh(geo, mat, list.length), cell = new Float32Array(list.length * 2);
-    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3(), e = new THREE.Euler();
-    const yaws = new Map();
-    list.forEach((it, i) => {
-      if (!yaws.has(it.M)) yaws.set(it.M, new THREE.Euler().setFromRotationMatrix(it.M).y);
-      p.set(it.x, it.y, it.z).applyMatrix4(it.M);
-      q.setFromEuler(e.set(0, yaws.get(it.M) + it.yaw, 0));
-      m.compose(p, q, sc.set(it.sx, it.sy, it.sz));
-      mesh.setMatrixAt(i, m);
-      cell[i * 2] = (it.cell % 8) / 8; cell[i * 2 + 1] = Math.floor(it.cell / 8) / 8;
-    });
-    geo.setAttribute('aCell', new THREE.InstancedBufferAttribute(cell, 2));
-    mesh.castShadow = false;
-    mesh.receiveShadow = true;
-    mesh.computeBoundingSphere();
-    group.add(mesh);
-    out.push(mesh);
-  }
-  return out;
+// The goods: the shops' stock (city/Stock.js: the products as themselves near, their stand-ins far) and the plain
+// boxes the rest have, as two instanced meshes over the goods atlas: the stand-ins for the block to draw by distance;
+// the stock itself left on `ctx.stockRun` (its update each frame, the story's hands on it)
+export function stockShelves(ctx, group, f = null) {
+  const run = (ctx.stockRun = new Stock(ctx, group, { physics: f?.physics ?? null, smash: f?.smash ?? null }));
+  return run.standIns.meshes;
 }

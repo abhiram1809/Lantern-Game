@@ -80,6 +80,16 @@ body.powers #subtitle { max-width: min(760px, 56vw); }
 #pick button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 4px; border: 0; background: none; color: #eef2ef; font: 500 15px/1.2 var(--hud-font); text-align: left; cursor: pointer; }
 #pick button:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
 #pick .key { display: inline-grid; place-items: center; width: 20px; height: 20px; border: 1px solid #8a9a90; border-radius: 3px; font-size: 11px; color: #cfe; }
+/* in sight or out of it (he changes only where no one can see him), under his level in free roam's panel */
+#watched { display: inline-flex; margin-top: 8px; align-items: center; gap: 8px; padding: 5px 10px 5px 8px;
+  border-radius: 3px; background: rgba(0, 0, 0, 0.32); font: 600 10px/1 var(--hud-font); letter-spacing: 0.22em; color: #9fe8b6;
+  opacity: 0; transition: opacity 0.4s, color 0.3s; pointer-events: none; }
+#watched.show { opacity: 1; }
+#watched .eye { width: 16px; height: 9px; border: 1.5px solid currentColor; border-radius: 50% / 60%; position: relative; }
+#watched .eye::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: currentColor; }
+#watched:not(.seen) .eye { border-style: dashed; opacity: 0.7; }
+#watched:not(.seen) .eye::after { opacity: 0; }
+#watched.seen { color: #ffb37a; }
 #life { position: absolute; top: 54px; right: 26px; text-align: right; font: 600 11px/1.5 var(--hud-font); letter-spacing: 0.16em; color: #c9f5e3; opacity: 0; transition: opacity 0.4s; pointer-events: none; text-shadow: 0 0 8px rgba(0, 0, 0, 0.6); }
 #life.show { opacity: 1; }
 #life .cash b { font-size: 16px; letter-spacing: 0.08em; color: #eafff5; font-weight: 600; }
@@ -541,3 +551,74 @@ body.chart #hud, body.chart #controls, body.chart #vitals, body.chart #ringhud, 
 #perf.show { display: block; }
 #perf b { display: inline-block; width: 58px; color: var(--green); font-weight: 600; }
 #perf i { font-style: normal; color: rgba(216, 255, 230, 0.6); }
+
+/* ---------------------------------------------------------------- the inventory (I: ui/Inventory.js), over the stopped world */
+#inventory { position: absolute; inset: 3.2vh 2.6vw; display: flex; flex-direction: column; gap: 10px; z-index: 14; opacity: 0; pointer-events: none; transform: scale(0.985); transition: opacity 0.2s, transform 0.25s cubic-bezier(.2,.8,.3,1); font-family: var(--hud-font); color: var(--ink); }
+#inventory.show { opacity: 1; pointer-events: auto; transform: none; }
+#inventory::before { content: ''; position: fixed; inset: -50vh -50vw; z-index: -1; background: radial-gradient(ellipse at center, rgba(2, 10, 6, 0.62), rgba(0, 0, 0, 0.86)); pointer-events: none; } /* (the HUD and the world dimmed behind it) */
+#inventory .inv-head { display: flex; align-items: baseline; gap: 14px; padding: 0 4px; }
+#inventory .inv-head .who { font: 700 22px/1 var(--hud-font); letter-spacing: 0.08em; }
+#inventory .inv-head .what { font: 600 12px/1 var(--hud-font); letter-spacing: 0.42em; text-transform: uppercase; color: var(--green); }
+#inventory .inv-head .keys { margin-left: auto; font: 500 12px/1 var(--hud-font); letter-spacing: 0.12em; color: var(--ink-dim); }
+#inventory .inv-head .keys b { color: var(--green); }
+#inventory .inv-body { flex: 1; min-height: 0; display: grid; gap: 10px;
+  grid-template-columns: minmax(190px, 1fr) minmax(150px, 0.62fr) minmax(250px, 1.5fr) minmax(200px, 0.95fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "avatar pocket pocket phone" "avatar ring life phone" "carry stats stats phone" "detail stats stats phone"; }
+#inventory section { position: relative; min-height: 0; padding: 11px 13px 12px; border-radius: 7px; background: linear-gradient(160deg, rgba(8, 26, 16, 0.94), rgba(3, 10, 7, 0.94)); box-shadow: inset 0 0 0 1px rgba(93, 255, 149, 0.18), 0 10px 30px rgba(0, 0, 0, 0.35); backdrop-filter: blur(3px); }
+#inventory h3 { margin: 0 0 9px; font: 600 11px/1 var(--hud-font); letter-spacing: 0.3em; text-transform: uppercase; color: var(--green); }
+#inventory .hint { margin-top: 6px; font: 500 11px/1.3 var(--hud-font); letter-spacing: 0.1em; color: var(--ink-dim); }
+#inventory .hint b { color: var(--green); }
+#inventory .inv-avatar { grid-area: avatar; display: flex; flex-direction: column; }
+#inventory .portrait { align-self: center; width: auto; height: min(31vh, 360px); aspect-ratio: 300 / 440; object-fit: cover; border-radius: 5px; background: #050a07; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); cursor: grab; }
+#inventory .portrait:active { cursor: grabbing; }
+#inventory .outfit { margin-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+#inventory .outfit b { font: 700 15px/1.2 var(--hud-font); letter-spacing: 0.04em; }
+#inventory .outfit span { font: 500 12px/1.2 var(--hud-font); color: var(--ink-dim); }
+#inventory .inv-pocket { grid-area: pocket; }
+#inventory .inv-ring { grid-area: ring; }
+#inventory .inv-life { grid-area: life; }
+#inventory .inv-stats { grid-area: stats; overflow: auto; }
+#inventory .inv-phone { grid-area: phone; display: flex; flex-direction: column; }
+#inventory .inv-carry { grid-area: carry; }
+#inventory .inv-detail { grid-area: detail; min-height: 74px; }
+#inventory .slots { display: grid; gap: 6px; }
+#inventory [data-grid="pocket"] { grid-template-columns: repeat(8, 1fr); }
+#inventory [data-grid="carry"] { grid-template-columns: repeat(4, 1fr); }
+#inventory .slot { position: relative; aspect-ratio: 1; border-radius: 5px; background: rgba(0, 0, 0, 0.32); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: box-shadow 0.15s, background 0.15s; }
+#inventory .slot.empty { cursor: default; background: rgba(0, 0, 0, 0.18); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05); }
+#inventory .slot:not(.empty):hover { background: rgba(93, 255, 149, 0.08); box-shadow: inset 0 0 0 1px rgba(93, 255, 149, 0.45); }
+#inventory .slot.on { background: rgba(93, 255, 149, 0.14); box-shadow: inset 0 0 0 2px var(--green), 0 0 14px rgba(93, 255, 149, 0.35); }
+#inventory .slot .glyph { display: block; width: 62%; height: 62%; color: #cfeedd; }
+#inventory .slot .glyph svg { width: 100%; height: 100%; display: block; }
+#inventory .slot img { width: 86%; height: 86%; object-fit: contain; }
+#inventory .slot i { position: absolute; right: 4px; bottom: 2px; font: 700 11px/1 var(--hud-font); font-style: normal; color: var(--ink); }
+#inventory .ringbox { display: flex; align-items: center; gap: 12px; }
+#inventory .ringicon { width: 54px; height: 54px; color: var(--green); filter: drop-shadow(0 0 8px rgba(93, 255, 149, 0.55)); }
+#inventory .ringicon svg { width: 100%; height: 100%; }
+#inventory .ringtext { display: flex; flex-direction: column; gap: 2px; font: 500 12px/1.2 var(--hud-font); color: var(--ink-dim); }
+#inventory .ringtext b { font: 700 22px/1 var(--hud-font); color: var(--ink); }
+#inventory .ringtext em { font-style: normal; color: #fff0a0; }
+#inventory .rows { display: flex; flex-direction: column; gap: 5px; }
+#inventory .inv-stats .rows { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 22px; }
+#inventory .inv-stats .row .n { min-width: 0; flex: 0 1 auto; }
+#inventory .inv-stats .row { justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 3px; }
+#inventory .inv-stats .row .v { text-align: right; }
+#inventory .row { display: flex; align-items: baseline; gap: 10px; font: 500 13px/1.3 var(--hud-font); }
+#inventory .row .n { flex: none; min-width: 9.5em; color: var(--ink-dim); letter-spacing: 0.04em; }
+#inventory .inv-life .row .n { min-width: 3.4em; }
+#inventory .row .v { color: var(--ink); }
+#inventory .row .g { flex: none; width: 1.5em; text-align: center; font: 700 15px/1 var(--hud-font); }
+#inventory .gS { color: #ffd76b; } #inventory .gA { color: #8dffb8; } #inventory .gB { color: #d8f5a0; } #inventory .gC { color: #ffb36b; } #inventory .gD { color: #ff7a6a; }
+#inventory .apps { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); align-content: start; gap: 14px 8px; padding: 16px 10px; border-radius: 22px; background: linear-gradient(160deg, #1d2329, #0b0d10); box-shadow: inset 0 0 0 2px #333a42, inset 0 0 0 5px #08090b; }
+#inventory .app { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 0; border: 0; background: none; color: #eef2f5; cursor: pointer; }
+#inventory .app .tile { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font: 700 20px/1 -apple-system, 'Segoe UI', Roboto, sans-serif; color: #fff; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4); transition: transform 0.12s; }
+#inventory .app:hover .tile { transform: scale(1.07); }
+#inventory .app .name { font: 500 11px/1.1 -apple-system, 'Segoe UI', Roboto, sans-serif; }
+#inventory .inv-detail .name { font: 700 16px/1.2 var(--hud-font); letter-spacing: 0.03em; }
+#inventory .inv-detail .sub { margin-top: 3px; font: 500 12px/1.35 var(--hud-font); color: var(--ink-dim); }
+#inventory .inv-detail .none { font: 500 12px/1.3 var(--hud-font); color: var(--ink-dim); }
+#inventory .inv-detail .acts { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+#inventory .inv-detail button { padding: 5px 12px; border: 0; border-radius: 4px; background: rgba(93, 255, 149, 0.14); box-shadow: inset 0 0 0 1px rgba(93, 255, 149, 0.45); color: var(--ink); font: 600 12px/1.2 var(--hud-font); letter-spacing: 0.06em; cursor: pointer; }
+#inventory .inv-detail button:hover { background: rgba(93, 255, 149, 0.26); }
+@media (max-height: 700px) { #inventory .row { font-size: 12px; } #inventory .inv-stats .rows { gap: 2px; } #inventory .app .tile { width: 38px; height: 38px; } }

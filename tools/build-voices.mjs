@@ -280,6 +280,12 @@ const CHARACTERS = {
     fx: [['hp', 70], ['lowshelf', 180, 1.5], ['comp', { thr: -18, ratio: 3 }], ['reverb', { rt: 0.4, pre: 0.008, wet: 0.05, damp: 0.5 }]],
     tail: 0.15,
   },
+  sami: {
+    desc: 'Sami: a regular at the Blue Marlin, forties, drives a cab nights; warm, quick, delighted by his own theories',
+    voice: 'am_fenrir', speed: 1.07, f0: 122, formant: 1.0,
+    fx: [['hp', 75], ['comp', { thr: -18, ratio: 2.8 }], ['reverb', { rt: 0.45, pre: 0.008, wet: 0.06, damp: 0.5 }]],
+    tail: 0.15,
+  },
   townm1: { desc: 'A Coast City man, thirties, easygoing', voice: 'am_liam', speed: 1.02, f0: 126, formant: 1.0, fx: [['hp', 70], ['comp', { thr: -18, ratio: 2.5 }]] },
   townm2: { desc: 'A Coast City man, forties, deep, friendly', voice: 'am_onyx', speed: 1.0, f0: 98, formant: 0.98, fx: [['hp', 60], ['comp', { thr: -18, ratio: 2.5 }]] },
   townm3: { desc: 'A Coast City man, twenties, quick, nervous', voice: 'am_eric', speed: 1.05, f0: 132, formant: 1.02, fx: [['hp', 80], ['comp', { thr: -18, ratio: 2.5 }]] },

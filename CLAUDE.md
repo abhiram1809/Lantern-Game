@@ -100,9 +100,10 @@ lines are pre-rendered clips (`public/voices/`), with `speechSynthesis` only as 
 - **Show each iteration of a new model and ask** (front, three-quarter, profile, eyes). Keep review
   sheets short: very tall images preview with banding.
 - **NPCs need purpose:** jobs with visible steps, answers to Hal, talk he can overhear.
-- **T changes him anywhere** (the user, 2026-11-23, reversing their earlier "only out of sight"): whoever
-  can see him (`Roam.watchers()`) turns to the flare (`CityLife.glance`); in the air the ring sets him
-  down first. Don't add places where T is refused without asking.
+- **T changes him only out of sight** (the user, 2026-11-24, back to their 2026-11-18 rule after a day of
+  "anywhere"): `Roam.watchers()` (`CityLife.seenBy`: near, looking his way, nothing between) refuses T, the
+  car's change and travel off Earth, and the SEEN / OUT OF SIGHT badge shows it. Keep who counts fair: at 40 m
+  and anyone facing his way, the street refused him for people a block off. In the air the ring sets him down first.
 - **Movement and physics matter most.** Borrow established techniques (mocap, IK, motion matching,
   momentum steering) rather than inventing them. Lip movement yes; visemes and hair not needed.
 - **Boss fights:** challenging like Resident Evil, not Souls. Spam gets very little; blocking and
@@ -166,20 +167,25 @@ src/scenes/        Bedroom, Dream, Hyperspace, CrashSite (the lake), Space, Oa +
                    road, Coast City's host scene), Site, Ysmault, Korugar + KorugarSigns + Statue, Qward, Wake
                    (Part Seven's flight through space), Zamaron, Mortuary (Part Seven's sting), DayCycle
 src/city/          Coast City: Layout (the map), Plan (blocks, streets), Kit, Building, Signs (+ SignWorker), HalsBlock,
-                   Interiors, Shops, Office, Lod, Lamps, Traffic, Tower, Stream, Ground + Terrain + Relief + Water (the
+                   Interiors, Shops, Stock (the shops' products), HalsHome (Las Palmas), Homes (the residential streets),
+                   Office, Lod, Lamps, Traffic, Tower, Stream, Ground + Terrain + Relief + Water (the
                    ground, the hills' ground, the water, the quay walls), Landmarks + Highway + Bridge (Highway 1, the Bay
                    Bridge), Parks (Coast Park, the plazas, the city's trees), Hills (houses, roads, the Observatory),
-                   Port, Playland, Marina, Waterfront, Palms (every palm, near or as its picture)
+                   Port, Playland, Marina, Waterfront, Palms (every palm, near or as its picture), Homes (the houses' lots)
 src/props/         Props (load, clone, helpers), Car (makeCar, planDrive), Smash (every prop touchable)
 src/enemies/       Drones, Sinestro, Hammond, Atrocitus, Thunderers, StarSapphire (+ SapphireAlly), Predator
 src/vehicles/      Drive (the car, raycast vehicle), Jet (flight model, mouse aim)
 src/story/         one file per part (table above), Voyage, Roam (free roam), CityLife, DinerLife, KorugarLife,
-                   Life, Work, Emergencies, Pressure, Trap, Album, lines.js (all dialogue)
+                   Life, Work, Emergencies, Pressure, Trap, Album, Gym (the gym's workouts), Shopping (taking, carrying,
+                   paying), Inventory (what Hal has on him), lines.js (all dialogue)
 src/ui/            UI (HUD, subtitles, cards, pause, loading), PowerHud, TravelHud, VehicleHud, Phone, CityMap,
-                   PerfHud (the ` performance counter)
+                   PerfHud (the ` performance counter), Inventory (the I screen)
 tools/             asset, prop, people and voice builders, autorig, debug renderers, propview.html,
                    voices.html, fight-bots.js, sapphire-bot.js, sapphire-end-bot.js, story-monitor.js, people-test.js,
-                   perf-probe.js (what each draw costs), look-shots.js (the same views at the same hours, to compare)
+                   perf-probe.js (what each draw costs), look-shots.js (the same views at the same hours, to compare),
+                   bake-window.js + .mjs (the view from Hal's window, baked for Part Three),
+                   hood-shots.js + hood-ab.js (the residential streets' views and their costs, build against build), flicker.js,
+                   shop-test.js (into a shop, aim, take, pay), prep-products.mjs (the products' downloads cut down)
 ```
 
 ### Boot and loading
@@ -252,11 +258,35 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Interactions: `scene.interact({ position, radius, look, label, action })`. The nearest one shows
   while the player has control; E runs it **with `story.busy` already set**.
 - The **Ferris scene** hosts the airfield, the road and all of Coast City. `LOT` (6 km down the road)
-  is the frame for Hal's building, his two detailed blocks (`city/HalsBlock.js`) and the streamed
+  is the frame for Hal's building (Las Palmas, `city/HalsHome.js`: a Spanish Revival court of flats built from the
+  kit with the block, two wings to the lot, the court and its gate between, the front range to the street; the
+  doors `HOME_DOORS`, his window `WINDOW`), his two detailed blocks (`city/HalsBlock.js`) and the streamed
   city around them (`city/Plan.js` blocks from `city/Layout.js`, `city/Stream.js` builds blocks near the camera,
   boxes beyond; Hal's two outer halves are the cells with `half` / `halRow`). Traffic keeps right: southbound on the
   boulevard is its east half (x 6 to 10); its network is `streetSegments()`, the bridge's lanes and Highway 1's
   (`Highway.js` `highwayLanes()`).
+- The shops' stock (`city/Stock.js`): the fit-outs place products (`PRODUCTS`, downloaded) with `stockRow` (facings
+  along a shelf) and `stockHeap` (a crate's produce) into `ctx.stock`. Drawn as the goods atlas's boxes and cans (two
+  instanced draws for the block) until the camera's within 4.5 m of a shop; then, the products loaded the first time,
+  each one within 7.5 m of the camera as itself (a `BatchSet` a material, no shadows), its stand-in beyond. `phys`
+  items stand on shelf colliders (a gondola's boards, not one box round it) and are knocked off lazily: Hal running or
+  leaning into the shelf, a moving body touching one, a construct's sphere, a blow or blast through Smash (`blow` and
+  `blast` wrapped); then a Smash 'loose' body, back in the batch where it sleeps. `story/Shopping.js` takes them
+  (`stock.aim` along the camera's line), carries them (on his upturned palm, the hand turned in `animator.post`
+  after the IK; a big thing between both palms), rings them up at the counter (`checkout`), puts them back, and
+  minds the door; what's bought goes into `story/Inventory.js` (`story.inventory`, saved in LifeSave `inventory`).
+  The I screen (`ui/Inventory.js`, the user's sketch) shows it with his fixed keys, wallet and phone, the ring's
+  pocket (the stowed lantern, keepsakes by the checkpoints reached), Life's grades (`Life.condition()`) and the stats
+  (`Life.tally`: constructs, metres flown and driven, property in dollars). `tools/shop-test.js` drives a shop.
+- The residential streets (Suburbia, Bayside, Coast Heights, the outer halves beside Hal's blocks: 2026-11-24) are
+  lots, `city/Homes.js` (`planLots` from `Stream.replanCells`, `yard`, `garage`, `dingbat`, `homeExtras`, `alleyLine`):
+  Spanish Revival, Craftsman, ranch, postwar boxes, dingbats over carports and bungalow courts, a style leading each
+  face (`styleMix` by where the block is), garages beside the house, at the back of the drive, on the alley or (a
+  corner's) on the side street; one tree kind down a street's parkways (`STREET_TREES`); parked cars in some drives
+  (Smash's, through `Lod.addCar`, made after the block's colliders, asleep). Building.js has what they need, opt-in by
+  spec: `roof: 'gable'` (`ridge` 'x' or 'z') and `'slab'`, `roofMat`/`roofColor`/`eave`, windows as `{ u, w, h, v,
+  pic, lites }`, `flatColor`; `s.lot` makes the tile eaves lighter. A block of lots' trim is gathered by colour
+  (`Kit.js` `Sink`) so each near material is one draw. Look at them with `tools/hood-shots.js` (`shots`, `lotShot`).
 - Water: one surface at `Terrain.js` `WATER_Y` (-1.5, so the quay walls show), sea, bay, river and basins alike; the
   ground's height is `Ferris.groundAt(x, z)` (the water's surface over water) and `Ferris.waterAt(x, z)`, the
   terrain's baked from the layout (`Terrain.js`: a signed distance to the water). The ring takes the scene's water
@@ -287,6 +317,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   `alien: true` lines use the synthetic buzz. Add misread names to the script's lexicon.
 - The manifest (`public/voices/manifest.json`) holds each clip's duration, word timings and mouth
   curve; `Story.updateMouths` turns the speaker's jaw from it. `tools/voices.html` auditions lines.
+- People with lines of their own, as Ray has (voice `clerk`): Sami at the Blue Marlin's bar (voice `sami`; `lines` to
+  Hal and `glLines` to Green Lantern on his SHOPS regular, his talk with Doris and Gus in CityLife's `TALKS`, his word
+  on what Hal orders `CityLife.barChime`). A post's own `lines` / `glLines` beat the voice's generic `TALK`.
 
 ### Characters and animation
 
@@ -314,7 +347,9 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - `Player.js`: momentum ground movement, flight, `strafe` while a held construct is up. **`walkTo`
   does nothing while `player.control` is true and only runs on the ground** (use `Story.touchDown()`
   after flights and fights; `standDown()` after seats). Mount rigs with `player.mount(rig)`.
-  `player.ground` feeds the foot IK.
+  `player.ground` feeds the foot IK. Off the ground nothing walks: `fallGen` (Poses `falling`: let down upright by
+  the ring in the suit, `canFly`, its speed held to what's under him, `groundBelow()`; arms out falling in his
+  clothes) and `touchGen` (the knees taking the touch down, `softLand`); the hard landing's crouch past 9 m/s.
 
 ### Powers, props and fights
 
@@ -491,6 +526,11 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - Lines held by voices wait for real time, and cutscene lines for a click: voices off (`Save.setting('voice',
   false)`, `import('/src/engine/Save.js')`) and click the canvas while stepping a chapter.
 
+- A filler that skips what doesn't fit must stop when nothing in its mix fits: `stockRow` looped for ever on a top shelf
+  too low for every bag in its mix, and the tab froze (close it and open another: a frozen tab won't navigate).
+- Run the dev server on a port nobody's using (`lsof -iTCP:<port> -sTCP:LISTEN`): another agent's server answered on
+  5184 and the test's localStorage went to it.
+
 **Story flow**
 - A new world goes in every planet table in `Voyage.js` (leaving Zamaron threw: it was missing from the departures,
   and Hal was left in space).
@@ -517,6 +557,8 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   enter the home, I cannot get out").
 - A view turned by yaw and pitch: `(d.z, 0, -d.x)` is the *left* of `d`, so pitching about it turns the wrong way
   (Carol's hold had the mouse and W/S inverted).
+- A body on a ball joint (the gym's bags and gloves, `Shops.js` `hang`) went over the top of its beam and through the
+  ceiling from one construct's hook: past 70 degrees off the plumb it tears loose instead (`physics.beforeStep`).
 - A deck over the water (the bridge, the highway's arches) is somewhere to land (`canLand`), never the flight's
   `ground`/`floor`: as ground it lifted him onto the deck whenever he flew under it.
 
@@ -603,9 +645,20 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   draws, 790 k triangles of headstones, from Hal's street): merge it by material (`mergeByMaterial`) and swap a
   simplified copy in at a distance (`Ferris.cemLod`).
 - A merge's cells cut where their grid's lines run: Hal's street had x = 0 down its middle, and every material of
-  his blocks was two draws in each pass. Keep the grid off what's merged (`Batch.buildSteps({ at })`).
+  his blocks was two draws in each pass. Keep the grid off what's merged (`Batch.buildSteps({ at })`). The streamed
+  blocks' 4 km grid split every block across z 0 (the ones round Hal's lot) the same way.
+- A `BatchedMesh` takes its attributes from the first geometry added: giving `CityStream.pool` vertex colours left the
+  Hills', the Bridge's and the Highway's pools (added first, without them) and then every street lamp's black.
+- A Smash collider is shrunk about its centre, so a car's sits 2 cm above its wheels: made on a drive it dropped onto
+  it when anything woke it, hard enough to count as a crash (alarms all down the street). Fit the box to the wheels,
+  make it after the ground, and `item.settle` (Smash `bump`) skips the first seconds.
 - A transparent two-sided material is drawn twice, its back faces then its front (the cypresses' leaf cards, 300 k
   triangles each time): leaves are cut-outs (`Props.js` `prepare`).
+- Nothing is tone-mapped or converted to the output colour space when drawn into a render target: a cube of the city
+  is linear and brighter than white (the window's bake stores it at a quarter, `BAKED_GAIN`). A cube target's faces
+  read back (`readRenderTargetPixels`) and written into images first row first sample the same loaded as a CubeTexture.
+- A camera inside an additive cone sees its walls all round and the whole frame washes pale (the news helicopter's
+  beam, a "wedge" over the street at night): leave the walls out from inside and light the ground instead.
 - The canvas can't read a compressed (KTX2) texture: its average comes from the GPU (`Ktx2.js` `averageColour`). A
   far copy that got none drew its textured parts in their materials' plain colours (the far cars, from the KTX2
   change until this was found).
@@ -654,15 +707,25 @@ tools/             asset, prop, people and voice builders, autorig, debug render
   own scratch objects.
 - An arm held near full reach shakes, or its elbow swings out (Carol's at the pier's rail went out sideways):
   hold it short of straight, in the body's frame (`steadyHand`); a shorter body needs its own lean.
+- A thing carried on Hal's palm (no finger bones) sits on the palm turned up after the IK (`Shopping.posts`); eating,
+  bring it to his chin, not his eyes (at eye height a crisp bag hid his face).
 - Arm IK set in one scene stays on into the next (Hal walked into the hangar the morning after with his arms still
   pulled to his lap from the Ferris wheel): take every `reach` off when its scene ends, and clear both arms at a
   chapter's start. A hand's IK target must sit within the arm's reach (`Sapphire.handsOnLap` slides it down the
   thigh only as far as 88% of the arm): out of reach the arm goes straight and the hand lands inside the body.
 - A scripted move outside the player's update needs something to run the animator (`onFrame`).
-  Seated poses need `player.autoAnim` off.
+  Seated poses need `player.autoAnim` off. A driver that reads tweened marks runs a frame behind them from
+  `onFrame` (its task precedes the tweens made after it): run it from the scene's `updaters` (`Gym.js` `Body`).
+- `story/Gym.js` `fingerBones(rig)` gives a scan two finger joints and a thumb (added to its skeleton, the vertices
+  past the knuckles weighted over; uncurled they move as before); `grip(side, r)` solves the curls round a bar of
+  radius `r` without going into it. `Body` drives a rig: hips placed, feet and hands on marks by IK after the pose.
 - Turn a body about its hips, not the object's origin (which is at the feet). Point with the arm on
   the target's side.
-- Foot IK only lowers the hips: a root must ride at or above the ground under its feet. A stair's slope
+- Foot IK only lowers the hips: a root must ride at or above the ground under its feet. `player.ground` is the floor
+  under each foot: `player.floorAt` (a ray onto the fixed colliders) in Coast City and Korugar; a `() => 0` there
+  had him walk the 14 cm pavements and the shops' floors on bent knees, the hips dropped to reach the street.
+- A hand inside a glove: scale the hand bone down (it carries the thumb's weights) and the glove up by as much
+  (`Gym.wearGloves`, `HAND_IN`); drawing the fingers in left the thumb through the glove's top in a hook. A stair's slope
   goes through the steps' noses, not the risers' feet, or a body standing on it squats.
 
 **Code**
@@ -698,16 +761,32 @@ tools/             asset, prop, people and voice builders, autorig, debug render
 - The derived Star Sapphires all have Carol's face (other skins, hair, markings); the Korugarians kept
   in crystal still wear the Corps emblem from Abin Sur's scan; the citadel's plaza has only its
   parapet (the `queen` and `predator` arena, not dressed yet). Zamaron isn't in free roam's places yet.
-- The streamed city has no interiors, wall props or parked cars; Hal's blocks' upper-floor flats can't
-  be entered. Tom Kalmaku is a voice only.
+- The streamed city has no interiors or wall props; the houses (Homes.js) can't be entered; Hal's blocks' upper-floor
+  flats can't be entered. Tom Kalmaku is a voice only. The hills' houses (Hills.js) and Old Town's courts still have the
+  old stucco-and-hip styles; the trees are the field's lumpy shapes tinted (a jacaranda is a lavender oak).
+- Hal's flat is still Part One's bedroom scene, not a room inside Las Palmas: its window shows the city drawn from his
+  real window into a cube (`Roam.windowView`, `Bedroom.setView`, a face redrawn every half second for the light),
+  so the traffic and people out there stand still while he's in. Part Three's morning shows a bake of it at 9:41
+  (`tools/bake-window.js`, `public/textures/views/`): re-bake it after changing what's round the lot.
 - The map (2026-11-24, built by six agents in parallel and merged): checked in captures, Part Three's `drive` and
-  `grave` played through by script; not played by hand. Not re-run: Part Five's `commute`, Part Seven's pier
-  chapters (`pier`, `strike`, `return`, `wheel`) with the water 1.5 m lower. No traffic on the hill roads, no cars in
-  the suburbs' drives; the containers' colours read toy-like; the bay's sea wall and the bluff have no rocks; the
+  `grave` played through by script, Part Three's `drive` and Part Five's `commute` again on Las Palmas's lot; not played
+  by hand. Not re-run: Part Seven's pier chapters (`pier`, `strike`, `return`, `wheel`) with the water 1.5 m lower. No
+  traffic on the hill roads; the containers' colours read toy-like; the bay's sea wall and the bluff have no rocks; the
   spurs end in open desert; the in-game map draws Highway 1 from its own arcs (`Highway.js` exports
   `highwayCentrelines()`). A travel error (`null` reading `add`) was seen once in a bench run, not reproduced.
-- Scans have no finger bones (hands stay open) and lip sync is a jaw only.
-- Performance still to do: Hal's street is ~300 static draws, of which Hal's block's prop batches are ~70 (one per
+- Scans have no finger bones of their own (only the gym gives Hal's some: `fingerBones`) and lip sync is a jaw only.
+- The shops' stock (2026-11-24): checked in captures and by script (`tools/shop-test.js`), not played by hand. What
+  Hal carries sits on his open palm (a can on it reads a little like a waiter's); eating is the hand at his chin and a
+  nod. A cooler's door doesn't open (his hand stops at the glass). The cases' pastries and the bar's bottles aren't
+  taken (bought over the counter; Gus's); the produce heaps aren't physical. What he walked out with, or broke, is
+  remembered for the session only.
+- Coast City's `player.ground` is `() => 0` (`Roam.js`, `Coast.js`): on a raised floor (a shop's, 15 cm; a pavement)
+  the foot IK drops his hips to the street's level and he walks with bent knees. The gym sets its floor for its
+  workouts only. The gym's workouts (`Gym.js`) are checked in captures and by script, not played by hand; the jump
+  rope's handles are built (cylinders), the rope a tube drawn each frame; a glove's wide cuff shows the wrist.
+- Performance still to do (2026-11-25, with Las Palmas, the residential streets and the shops' stock: Hal's street at
+  11 PM 336 static draws, 529 k shadow triangles, car by day 295, downtown 6 PM 164; their times not taken clean, the
+  GPU shared): the new houses' shadows (+90 k triangles on the street) are the first thing to win back. Before them, Hal's street was ~300 static draws, of which Hal's block's prop batches are ~70 (one per
   material: fewer needs their textures in atlases), the streamed blocks' near meshes ~20, doors and neon ~16.
   Downtown from the air is 0.6 ms over the last commit before the map, at 11 PM (the new ground, the waterfront, the
   trees). Scans have no detail levels in the main pass (a Korugarian is 90 k triangles up

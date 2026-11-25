@@ -9,11 +9,11 @@
 // signs drawn from anywhere in reach and the trim within 210 m; its pavements, kerbs and gutters; lamps,
 // palms, hydrants and the core's signals at the corners, drawn instanced (their posts snap: Smash puts
 // the real one back in its place); colliders for every mass, parapet and pavement; the lamps' pools of
-// light at night. No interiors, people or parked cars: those are Hal's blocks'.
+// light at night. No interiors or people: those are Hal's blocks'. (Parked cars in the houses' drives: Homes.js.)
 //
-// The map rework (2026-11-24, city/Layout.js): Suburbia's houses stand on their own lots (`planLots`: set back
-// behind front gardens, a drive to a garage, low walls, hedges or picket fences, side and back fences, palms, oaks
-// and bushes, a pool in some back yards); Coast Park is one park across its 24 blocks and downtown's squares are
+// The map rework (2026-11-24, city/Layout.js): Suburbia's houses stand on their own lots (city/Homes.js, the
+// residential streets' rework the same day: Spanish Revival, Craftsman, ranch and postwar houses, dingbats and
+// bungalow courts, their gardens, fences, drives, garages and cars, the alleys' power lines); Coast Park is one park across its 24 blocks and downtown's squares are
 // paved plazas (city/Parks.js); the hills' houses, roads and observatory are city/Hills.js; every tree is in one
 // field (Parks.js TreeField). Where the layout's ground rises under a block (the hills' foot: Layout.js groundAt)
 // its buildings stand on plinths at the ground's height and its pavements follow the ground.
@@ -22,8 +22,10 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { piece } from '../props/Props.js';
 import { RAPIER } from '../engine/Physics.js';
 import { pbrMaterial, glowTexture } from '../fx/Textures.js';
-import { Batch, cityMaterials, cityU } from './Kit.js';
-import { building, box, label, hipRoof, metreUV } from './Building.js';
+import { Batch, Sink, cityMaterials, cityU } from './Kit.js';
+import { building, box, label } from './Building.js';
+import { planLots, yard, garage, dingbat, homeExtras, alleyLine, mailboxKit, treeOf } from './Homes.js';
+import { makeCar } from '../props/Car.js';
 import { tower } from './Tower.js';
 import { SignPages } from './Signs.js';
 import { CityIndex, seeded, streetX, EW, DOWNTOWN, LOT_Z, PIER, boxesOf } from './Plan.js';
@@ -38,13 +40,15 @@ import { Hills } from './Hills.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const ORIGIN = V(0, 0, LOT_Z);
-const FAR = new Set(['stucco', 'pbrick', 'brick', 'roofing', 'roofTile', 'glass', 'pavement', 'lawn', 'gravel', 'pavers', 'hedge', 'water', 'pool', 'spray']);
+const FAR = new Set(['stucco', 'pbrick', 'brick', 'siding', 'roofing', 'roofTile', 'shake', 'glass', 'pavement', 'lawn', 'gravel', 'pavers', 'hedge', 'water', 'pool', 'spray']);
 const PAVE = 0.14, LAWN = 0.11;
+const FLAT = /^(lawn|pavement|pool|water|gravel|pavers)$/;
 // the street kit's pieces (Ferris.js's KIT), their scale on the street
 const PIECES = {
   lamp: ['cityprops', /low_poly012_/, 1.8], mast: ['cityprops', /low_poly_metal_street_props_0$/, 1], signal: ['cityprops', /low_poly011_/, 1],
   hydrant: ['cityprops', /low_poly002_/, 1], palm0: ['palms', /^Palm_tree_001/, 1], palm1: ['palms', /^Palm_tree_002/, 1],
   bench: ['parkbench', /Object_2/, 1], newsbox: ['newsbox', /./, 1], bin: ['cityprops', /low_poly001_/, 1],
+  can: ['cityprops', /low_poly007_/, 1], // (a house's trash can out at the kerb: Homes.js; the mailbox is built there)
 };
 // how they're touched (props/Smash.js): the posts snap, the palms are fixed at the trunk
 const TOUCH = {
@@ -54,6 +58,7 @@ const TOUCH = {
   bench: { kind: 'solid', stuff: 'wood', box: new THREE.Box3(new THREE.Vector3(-0.9, 0, -0.3), new THREE.Vector3(0.9, 0.85, 0.3)) }, // (bolted down on the promenade)
   newsbox: { kind: 'breaks', mass: 45, strong: 6, box: new THREE.Box3(new THREE.Vector3(-0.25, 0, -0.22), new THREE.Vector3(0.25, 1.1, 0.22)) },
   bin: { kind: 'breaks', mass: 30, strong: 5, r: 0.3, h: 1.0 },
+  can: { kind: 'breaks', mass: 14, strong: 2, r: 0.28, h: 0.9 }, mailbox: { kind: 'breaks', mass: 12, strong: 3, box: new THREE.Box3(new THREE.Vector3(-0.12, 0, -0.25), new THREE.Vector3(0.12, 1.28, 0.25)) },
 };
 const PALM = { palm0: 0, palm1: 1 }; // (the palm field's kinds)
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = V(1, 1, 1), _p = V(0, 0, 0), _Y = V(0, 1, 0);
@@ -177,6 +182,8 @@ export class CityStream {
     this.pool = new THREE.MeshBasicMaterial({ map: glow, color: new THREE.Color(0.62, 0.46, 0.28), transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, polygonOffset: true, polygonOffsetFactor: -4 });
     this.spill = this.pool.clone();
     this.spill.color.setRGB(0.5, 0.45, 0.36);
+    this.porchPool = this.pool.clone(); // (a porch light's or a garage lamp's pool: smaller, dimmer, warmer; buildCell)
+    this.porchPool.color.setRGB(0.4, 0.27, 0.13);
     // the street kit's pieces, as templates for instancing (each one's parts merged by material: a few draws, not
     // one for every part of the model)
     this.kit = {};
@@ -188,6 +195,7 @@ export class CityStream {
       o.traverse((m) => { if (m.isMesh) parts.push({ geo: m.geometry, mat: m.material, M: m.matrixWorld.clone() }); });
       this.kit[k] = { o, parts: PALM[k] != null ? parts : mergeParts(parts) };
     }
+    this.kit.mailbox = mailboxKit(mats.paint); // (the houses' mailboxes on their posts: city/Homes.js)
     yield;
     this.ground = cityGround();
     f.scene.add(this.ground);
@@ -274,13 +282,13 @@ export class CityStream {
     const mesh = (this.far = new THREE.InstancedMesh(geo, mat, n));
     const hips = [];
     boxes.forEach((b, i) => {
-      const s = b.spec, tower = s.kind === 'tower', hip = s.roof === 'hip', y0 = s.at.y ?? 0;
+      const s = b.spec, tower = s.kind === 'tower', hip = s.roof === 'hip' || s.roof === 'gable', y0 = s.at.y ?? 0;
       // (a hip roof's box to its eaves, the roof itself one of `hips`: from the air the suburbs are their tiles)
       const H = hip ? y0 + (s.gh ?? 4.3) + ((s.floors ?? 2) - 1) * (s.fh ?? 3.2) : b.y1;
       _m.compose(_p.set((b.x0 + b.x1) / 2, b.y0, (b.z0 + b.z1) / 2), _q.identity(), _s.set(b.x1 - b.x0, H - b.y0, b.z1 - b.z0));
       mesh.setMatrixAt(i, _m);
       mesh.setColorAt(i, new THREE.Color(tower ? s.glass : s.color ?? 0xe6dcc6));
-      const kind = tower ? 2 : s.kind === 'garage' ? 1 : s.lot ? 4 : (s.gh ?? 4) > 6 ? 3 : s.shops?.length ? 0 : 1; // (a warehouse's one storey is tall)
+      const kind = tower ? 2 : s.kind === 'garage' || s.kind === 'dingbat' ? 1 : s.lot ? 4 : (s.gh ?? 4) > 6 ? 3 : s.shops?.length ? 0 : 1; // (a warehouse's one storey is tall)
       info.set([tower ? s.lobby : s.gh ?? 4.3, s.fh ?? 3.2, kind + 10 * Math.round(y0), (i * 7.31) % 977], i * 4);
       b.fi = i;
       if (hip) hips.push({ b, s, H, fi: i });
@@ -295,35 +303,55 @@ export class CityStream {
     this.buildHips(hips);
   }
 
-  // The far houses' hip roofs, terracotta, turned as their houses are (one instanced draw)
+  // The far houses' pitched roofs, turned as their houses are (one instanced draw): a hip's ridge short of its ends, a
+  // gable's running to them (its ends then the walls' colour: `aRidge`, `aWall`); each the colour its covering reads
+  // as from afar (barrel tiles' terracotta, shakes' grey-brown), shaded by its house's tint (the residential streets'
+  // rework, 2026-11-24: the suburbs were one orange from the air)
   buildHips(list) {
-    const pos = [], P = (x, y, z) => pos.push(x, y, z), r = 0.22;
-    // a unit roof: the eaves' rectangle at y 0, the ridge along x at y 1
+    const pos = [], ends = [], P = (x, y, z, e) => { pos.push(x, y, z); ends.push(e); }, r = 0.22;
+    // a unit roof: the eaves' rectangle at y 0, the ridge along x at y 1 (its ends at ±r, moved out by aRidge)
     const A = [-0.5, 0, 0.5], B = [0.5, 0, 0.5], C = [0.5, 0, -0.5], D = [-0.5, 0, -0.5], R0 = [-r, 1, 0], R1 = [r, 1, 0];
-    for (const t of [[A, B, R1], [A, R1, R0], [C, D, R0], [C, R0, R1], [B, C, R1], [D, A, R0]]) for (const p of t) P(...p);
+    for (const [t, e] of [[[A, B, R1], 0], [[A, R1, R0], 0], [[C, D, R0], 0], [[C, R0, R1], 0], [[B, C, R1], 1], [[D, A, R0], 1]]) for (const p of t) P(...p, e);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('aEnd', new THREE.Float32BufferAttribute(ends, 1));
     geo.computeVertexNormals();
-    const show = (this.hipShow = new Float32Array(Math.max(1, list.length)).fill(1));
+    const n = Math.max(1, list.length);
+    const show = (this.hipShow = new Float32Array(n).fill(1)), ridge = new Float32Array(n).fill(r), wallC = new Float32Array(n * 3);
     geo.setAttribute('aShow', new THREE.InstancedBufferAttribute(show, 1));
+    geo.setAttribute('aRidge', new THREE.InstancedBufferAttribute(ridge, 1));
+    geo.setAttribute('aWall', new THREE.InstancedBufferAttribute(wallC, 3));
     const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0 });
     mat.onBeforeCompile = (sh) => {
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aShow;')
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aShow; attribute float aEnd; attribute float aRidge; attribute vec3 aWall; varying vec3 vWall; varying float vEnd;')
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+          if (position.y > 0.5) transformed.x = sign(position.x) * aRidge; // (the ridge's ends: a hip's in from the gables, a gable's at them)
+          vEnd = aEnd * step(0.45, aRidge); vWall = aWall;`)
+        .replace('#include <beginnormal_vertex>', `#include <beginnormal_vertex>
+          if (aEnd > 0.5 && aRidge > 0.45) objectNormal = vec3(sign(position.x + 1e-4 * sign(position.z)), 0.0, 0.0); // (a gable's end: upright)`)
         .replace('#include <project_vertex>', '#include <project_vertex>\nif (aShow < 0.5) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWall; varying float vEnd;')
+        .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vWall, step(0.5, vEnd));');
     };
     mat.customProgramCacheKey = () => 'cityHips';
-    const mesh = (this.hips = new THREE.InstancedMesh(geo, mat, Math.max(1, list.length)));
+    const mesh = (this.hips = new THREE.InstancedMesh(geo, mat, n));
     mesh.count = list.length;
     this.hipOf = new Map();
-    const c = new THREE.Color();
+    const c = new THREE.Color(), wc = new THREE.Color();
+    // (what a covering reads as from afar: its texture's average, which its vertex colour tints, Kit.js)
+    const FAR_OF = { roofTile: 0xa8543a, shake: 0x6e675e, roofing: 0x8e8a84 };
     list.forEach(({ b, s, H, fi }, i) => {
-      const w = s.w + 0.9, d = s.d + 0.9, rise = (d / 2) * (s.pitch ?? 0.42);
-      const along = V(Math.cos(s.yaw), 0, -Math.sin(s.yaw)); // (the front's run)
-      _q.setFromAxisAngle(_Y, s.yaw);
-      _m.compose(_p.set((b.x0 + b.x1) / 2, H + 0.05, (b.z0 + b.z1) / 2), _q, _s.set(w, rise, d));
-      void along;
+      const gable = s.roof === 'gable', turned = gable && s.ridge === 'z', e = s.eave ?? (gable ? 0.5 : 0.45), rk = gable ? s.rake ?? 0.35 : e;
+      const pitch = s.pitch ?? 0.42, run = (turned ? s.d : s.w) + 2 * rk, span = (turned ? s.w : s.d) + 2 * e;
+      const rise = (span / 2) * pitch + (gable ? 0.16 : 0), y = gable ? H - e * pitch + 0.16 : H + 0.05;
+      _q.setFromAxisAngle(_Y, s.yaw + (turned ? Math.PI / 2 : 0));
+      _m.compose(_p.set((b.x0 + b.x1) / 2, y, (b.z0 + b.z1) / 2), _q, _s.set(run, gable ? rise - 0.16 : rise, span));
       mesh.setMatrixAt(i, _m);
-      mesh.setColorAt(i, c.setHex(0xa8543a).multiplyScalar(0.85 + 0.3 * ((i * 0.618) % 1)));
+      ridge[i] = gable ? 0.5 : Math.max(0, Math.min(0.5, 0.5 - span / 2 / run)); // (a hip's ridge: its length less its span, of the run)
+      c.setHex(FAR_OF[s.roofMat ?? 'roofTile'] ?? FAR_OF.roofTile).multiply(wc.setHex(s.roofColor ?? 0xffffff)).multiplyScalar(0.9 + 0.2 * ((i * 0.618) % 1));
+      mesh.setColorAt(i, c);
+      wc.setHex(s.color ?? 0xe6dcc6).multiplyScalar(0.74);
+      wallC.set([wc.r, wc.g, wc.b], i * 3);
       this.hipOf.set(fi, i);
     });
     mesh.position.copy(ORIGIN);
@@ -344,7 +372,7 @@ export class CityStream {
     const list = [], rnd = seeded(0x5eed1);
     for (const b of top.values()) {
       const w = b.x1 - b.x0, d = b.z1 - b.z0, cx = (b.x0 + b.x1) / 2, cz = (b.z0 + b.z1) / 2, H = b.y1, s = b.spec;
-      if (s.roof === 'hip') continue; // (a tiled roof: `hips`)
+      if (s.roof === 'hip' || s.roof === 'gable' || s.lot) continue; // (a pitched roof: `hips`; a house's flat roof has no stair hut)
       const add = (x, y, z, sx, sy, sz, col) => list.push({ x, y, z, sx, sy, sz, col, fi: b.fi });
       const at = (k) => [cx + (rnd() - 0.5) * (w - k), cz + (rnd() - 0.5) * (d - k)];
       if (s.kind === 'tower') {
@@ -492,12 +520,15 @@ export class CityStream {
   *buildCell(c) {
     const f = this.f, rnd = seeded(c.seed ^ 0x5bd1e995);
     const ctx = { batch: new Batch(), mats: this.mats, signs: this.signs, signUses: [], rnd, props: false, objects: [], lamps: [], neon: [], shops: [], solids: [], parapets: [], hulls: [], pads: [],
-      decals: {}, doors: [], inside: [], spots: [], posts: [], roomLights: [], rooms: [], labels: [], goods: [], beacons: [], trees: [], heights: [] };
+      decals: {}, doors: [], inside: [], spots: [], posts: [], roomLights: [], rooms: [], labels: [], goods: [], beacons: [], trees: [], heights: [], cars: [] };
+    // (a block of houses' trim gathered by material and colour: Kit.js Sink; flushed into its batch after the yards)
+    if (c.lots) ctx.batch = new Sink(ctx.batch);
     for (const s of c.specs) {
       // (their backs on the alleys blank: windows there were a third of a block's triangles, seen from nowhere)
       const spec = { back: false, ...s, at: V(s.at.x, s.at.y ?? 0, s.at.z), sides: s.sides && { ...s.sides } };
       if (s.kind === 'tower') tower(ctx, spec);
       else if (s.kind === 'garage') garage(ctx, spec);
+      else if (s.kind === 'dingbat') dingbat(ctx, spec, building);
       else {
         const b = building(ctx, spec);
         if (s.label) {
@@ -505,19 +536,23 @@ export class CityStream {
           label(ctx, b.M, s.w / 2 - lw, s.w / 2 + lw, y, 0.7, s.label);
         }
         if (s.plinth > 0.15) plinth(ctx, b.M, s);
-        if (s.chimney) chimney(ctx, b.M, s);
+        if (s.lot) homeExtras(ctx, b, spec); // (a house's chimney, wainscot, vents, aerial: city/Homes.js)
       }
       yield;
     }
-    this.signs.flush();
     const places = [], extras = [];
     this.street(ctx, c, places);
     if (c.lots) for (const lot of c.lots) yard(ctx, c, lot, places);
+    if (c.lots && !c.half) alleyLine(ctx, c, c.lots); // (the power line down its alley)
     if (c.parkId === 'coast') coastParkCell(this, ctx, c, places);
     else if (c.park === 'plaza') plaza(this, ctx, c, places);
     else if (c.park) this.park(ctx, c, places, extras);
+    this.signs.flush(); // (the buildings' signs, and a court's name over its gate)
+    if (ctx.batch instanceof Sink) ctx.batch = ctx.batch.flush();
     yield;
-    const merged = yield* ctx.batch.buildSteps(this.mats, { cell: 4000, chunk: 350 });
+    // (one mesh a material, whatever the block's size: with the grid's lines at 0, every block across z 0 or x 0 (the
+    // ones round Hal's lot) was two of each, its near trim twice the draws; a mesh at most `chunk` parts, each merge a few milliseconds)
+    const merged = yield* ctx.batch.buildSteps(this.mats, { cell: 1e5, at: [-5e4, -5e4], chunk: 600 });
     // its group (the trim, the street kit, the park's trees and hedges) and the rest of its merged pieces in the
     // city's batches, one per material (the perf pass, 2026-11-23: a block's own meshes were seven or eight draw
     // calls each)
@@ -534,15 +569,18 @@ export class CityStream {
       box3.union(m.geometry.boundingBox);
       const key = m.name.replace('city_', '');
       const isFar = FAR.has(key) || key.startsWith('sign') || (towers && /^(metal|concrete|paint|iron|bronze|roadpaint|dark|lamp)$/.test(key));
-      if (isFar) { far.push(this.batches.add(key, m.material, m.geometry, m.castShadow)); m.geometry.dispose(); continue; }
+      // (what lies flat on the ground casts nothing worth a shadow pass: the lawns, pavements and drives, the pools' and
+      // fountains' water, the parks' walks; the residential streets' rework, 2026-11-24, paying for its houses' shadows)
+      if (isFar) { far.push(this.batches.add(key, m.material, m.geometry, m.castShadow && !FLAT.test(key))); m.geometry.dispose(); continue; }
       // (the trim, sills and cornices cast no shadow: the walls' are theirs)
       for (const a of [...Object.values(m.geometry.attributes), m.geometry.index]) a?.onUpload(freeArray);
       m.castShadow = false;
       near.add(m);
     }
     // the kit, instanced (placeKit)
-    const items = [], bodies = [], palms = [], trees = [];
+    const items = [], bodies = [], palms = [], trees = [], cars = [];
     this.placeKit(places, kit, items, casters, palms);
+    yield;
     // the trees of its gardens and squares (in the city's tree field), their trunks solid
     for (const t of ctx.trees) {
       trees.push(this.trees.add(t.kind, t.x, t.y, t.z + LOT_Z, t.h, t.w, undefined, t.tint));
@@ -556,14 +594,45 @@ export class CityStream {
     // (a pavement on rising ground: its surface as a heightfield)
     for (const h of ctx.heights) bodies.push(P.fixedHeights(h.x1 - h.x0, h.z1 - h.z0, h.nx, h.nz, (x, z) => groundAt(x - ORIGIN.x, z - ORIGIN.z) + h.lift, (h.x0 + h.x1) / 2 + ORIGIN.x, (h.z0 + h.z1) / 2 + ORIGIN.z));
     yield;
+    // the cars in the drives and under the carports (props/Car.js): Smash's, drawn by distance as Hal's street's parked
+    // ones are (their own parts within 4 m, a merged copy to 16, then the far cars' batch: city/Lod.js); one a step,
+    // after the ground they stand on, their colliders' feet on it and asleep till something touches them (made before
+    // it, or a little into it, the ground came up under them and every alarm in the street went off)
+    for (const k of ctx.cars) {
+      let car;
+      try { car = makeCar(k.model, { paint: k.paint, dust: 0.25 + rnd() * 0.35 }); } catch { continue; } // (a model this scene didn't load)
+      car.position.set(k.x + ORIGIN.x, k.y, k.z + ORIGIN.z);
+      car.rotation.y = k.yaw;
+      f.scene.add(car);
+      // (its collider's foot at its wheels', not shrunk up off the drive: dropped those 2 cm the moment anything woke it,
+      // it hit the drive hard enough to set its alarm off)
+      const lb = f.smash.localBox(car), top = lb.max.y;
+      lb.min.y = (lb.min.y - 0.015 * top) / 0.985;
+      const item = f.smash.add(car, { kind: 'car', mass: 1300, shrink: 0.97, box: lb });
+      item.body.sleep();
+      item.settle = f.smash.clock + 4;
+      f.lod?.addCar(car, 260, item, { near: 4, far: 16 });
+      // (hidden till the Lod's next look at it puts it in its tier: shown as it was made, all 54 of its parts, a block's
+      // cars streamed in together were a thousand draws for a frame or two)
+      const li = f.lod?.of.get(car);
+      if (li) { li.on = false; car.visible = false; }
+      cars.push({ car, item });
+      yield;
+    }
     // night: the street lamps' pools, the shops' light on the pavement (each block one mesh of each)
     const pools = [], spills = [];
-    for (const l of ctx.lamps) if (l.street) pools.push(new THREE.PlaneGeometry(10, 10).rotateX(-Math.PI / 2).translate(l.at.x, (l.y ?? groundY(c, l.at.x, l.at.z) + PAVE) + 0.01, l.at.z));
+    // (the street lamps' wide pools, and the houses' porch lights' and garage lamps' small ones, dimmer: their
+    // vertices' colour)
+    const porches = [];
+    for (const l of ctx.lamps) {
+      if (l.street) pools.push(new THREE.PlaneGeometry(10, 10).rotateX(-Math.PI / 2).translate(l.at.x, (l.y ?? groundY(c, l.at.x, l.at.z) + PAVE) + 0.01, l.at.z));
+      else if (l.porch) porches.push(new THREE.PlaneGeometry(3.6, 3.6).rotateX(-Math.PI / 2).translate(l.at.x, l.y + 0.05, l.at.z));
+    }
     for (const s of ctx.shops) {
       const w = s.u1 - s.u0, cc = V((s.u0 + s.u1) / 2, 0, 2.2).applyMatrix4(s.F), N = V(0, 0, 1).transformDirection(s.F);
       spills.push(new THREE.PlaneGeometry(w + 1, 4.5).rotateX(-Math.PI / 2).rotateY(Math.atan2(N.x, N.z)).translate(cc.x, groundY(c, cc.x, cc.z) + PAVE + 0.012, cc.z));
     }
-    for (const [list, mat] of [[pools, this.pool], [spills, this.spill]]) if (list.length) { const geo = mergeGeometries(list, false); night.push(this.batches.add(`night|${mat.uuid}`, mat, geo, false)); geo.dispose(); }
+    for (const [list, mat] of [[pools, this.pool], [spills, this.spill], [porches, this.porchPool]]) if (list.length) { const geo = mergeGeometries(list, false); night.push(this.batches.add(`night|${mat.uuid}`, mat, geo, false)); geo.dispose(); }
     // what never moves keeps the matrices it has
     g.updateMatrixWorld(true);
     g.traverse((o) => { o.matrixAutoUpdate = false; });
@@ -572,7 +641,7 @@ export class CityStream {
     this.root.add(g);
     g.updateMatrixWorld(true);
     box3.union(new THREE.Box3().setFromObject(g)).translate(ORIGIN);
-    const b = { group: g, far, near, kit, night, items, bodies, casters, palms, trees, signs: ctx.signUses, occ: null, cast: true, shown: true, nearOn: false, revealed: 0 };
+    const b = { group: g, far, near, kit, night, items, bodies, casters, palms, trees, cars, signs: ctx.signUses, occ: null, cast: true, shown: true, nearOn: false, revealed: 0 };
     b.occ = this.occlusion.add(box3, (v) => { b.shown = v; g.visible = v; this.showCell(b); });
     c.built = b;
     // shown a few pieces a frame (each goes to the GPU the frame it's added: a whole block at once was a 60 ms
@@ -607,7 +676,7 @@ export class CityStream {
       else for (const part of t.parts) {
         const im = new THREE.InstancedMesh(part.geo, part.mat, list.length);
         list.forEach((p, i) => im.setMatrixAt(i, _m.multiplyMatrices(p.M, part.M)));
-        im.castShadow = !['hydrant', 'bench', 'newsbox', 'bin'].includes(k);
+        im.castShadow = !['hydrant', 'bench', 'newsbox', 'bin', 'can', 'mailbox'].includes(k);
         im.receiveShadow = true;
         im.computeBoundingSphere();
         group.add(im);
@@ -647,6 +716,7 @@ export class CityStream {
     const W = this.f.physics.world;
     for (const body of b.bodies) if (W.bodies.contains(body.handle)) W.removeRigidBody(body);
     for (const it of b.items) this.f.smash.remove(it);
+    for (const { car, item } of b.cars ?? []) { this.f.lod?.remove(car); this.f.smash.remove(item); }
     for (const id of b.palms) this.f.palms.remove(id);
     for (const id of b.trees) this.trees.remove(id);
     this.signs.release(b.signs);
@@ -661,7 +731,7 @@ export class CityStream {
     this.night = k;
     this.mats.lamp.emissiveIntensity = k * 1.8;
     for (const m of this.litMats) m.emissiveIntensity = 0.08 + k * 1.1;
-    this.pool.opacity = k; this.spill.opacity = k * 0.8;
+    this.pool.opacity = k; this.spill.opacity = k * 0.8; this.porchPool.opacity = k;
     // (the fountains' falling water by night: lit from below in their basins, softly, not the day's white)
     this.mats.spray.color.setRGB(0.87 - k * 0.68, 0.93 - k * 0.72, 0.95 - k * 0.7);
     this.mats.spray.opacity = 0.6 - k * 0.2;
@@ -811,15 +881,17 @@ export class CityStream {
         // a suburban street: a strip of lawn along the kerb (the parkway) between the drives, a palm on it in front of
         // each house, a lamp at every other lot's line
         if (!sloped) {
-          const cuts = lots.map((l) => [l.driveZ - l.driveW / 2 - 0.4, l.driveZ + l.driveW / 2 + 0.4]).sort((a, b) => a[0] - b[0]);
+          const cuts = lots.filter((l) => l.driveZ != null).map((l) => [l.driveZ - l.driveW / 2 - 0.4, l.driveZ + l.driveW / 2 + 0.4]).sort((a, b) => a[0] - b[0]);
           let z = c.z0 + 0.6;
           const strip = (z0, z1) => { if (z1 - z0 < 1.5) return; const x0 = Math.min(xk + sgn * 0.3, xk + sgn * 2.1), x1 = Math.max(xk + sgn * 0.3, xk + sgn * 2.1); batch.add('lawn', box(x0, PAVE - 0.03, z0, x1, PAVE + 0.012, z1), I, [1.06, 1.03, 0.9]); };
           for (const [a, b] of cuts) { strip(z, a); z = Math.max(z, b); }
           strip(z, c.z1 - 0.6);
         }
+        // (the street's trees: its palms, or the jacarandas, ficus, magnolias or sweetgums it was planted with: Homes.js)
         lots.forEach((l, i) => {
           const z = l.kerbZ;
-          if (l.kerbPalm) put(ctx.rnd() < 0.5 ? 'palm0' : 'palm1', xk + sgn * 1.2, z, ctx.rnd() * 6, 0.58 + ctx.rnd() * 0.14);
+          if (l.kerbPalm && (l.kerbTree === 'palm' || sloped)) put(ctx.rnd() < 0.5 ? 'palm0' : 'palm1', xk + sgn * 1.2, z, ctx.rnd() * 6, 0.58 + ctx.rnd() * 0.14);
+          else if (l.kerbPalm) treeOf((kind, x, zz, h, w, tint) => ctx.trees.push({ kind, x, y: PAVE + 0.01, z: zz, h: h * 0.85, w: Math.max(w, h * 0.95), tint }), l.kerbTree, xk + sgn * 1.2, z, ctx.rnd); // (rounder than a garden's: pruned clear of the road)
           if (i % 2 === 0) lamp(xk + sgn * 0.5, l.lineZ, sgn);
         });
       } else {
@@ -869,20 +941,22 @@ export function fixedCompound(P, ctx) {
 }
 
 // ------------------------------------------------------------------------------------------------ the plan, as it's built
-// Suburbia's houses on their lots (planLots), each block's buildings at the ground's height where the hills' foot
-// comes under it, and the index's boxes worked out again from what's built. Exported for whatever else draws the
-// city's buildings (the map: CityMap.js), so it draws them where they stand: `replanCells(new CityIndex())`.
+// Suburbia's houses on their lots (city/Homes.js planLots: every face of its blocks that isn't shops, the outer
+// halves beside Hal's blocks too, their backs on his alley's wall), each block's buildings at the ground's height where
+// the hills' foot comes under it, and the index's boxes worked out again from what's built. Exported for whatever else
+// draws the city's buildings (the map: CityMap.js), so it draws them where they stand: `replanCells(new CityIndex())`.
 export function replanCells(I) {
   if (I.replanned) return I;
   I.replanned = true;
   for (const c of I.cells) {
     c.relief = relief(c);
-    if (c.district === 'suburbia' && !c.half && !c.park) {
-      const isHouse = (s) => s.kind === 'building' && s.floors === 1 && s.roof === 'hip' && s.gh === 3.4;
+    if (c.district === 'suburbia' && !c.park) {
       const keep = [], lots = [];
+      // (beside Hal's blocks a lot is a little deeper, out to his alley's wall: HalsBlock.js alleys, at x -34 and 46)
+      const deep = c.half ? 26.5 : Math.min(25, (c.x1 - c.x0 - 6) / 2);
       for (const side of ['west', 'east']) {
         const list = c.specs.filter((s) => (side === 'west' ? s.yaw < 0 : s.yaw > 0));
-        if (list.length && list.every(isHouse)) lots.push(...planLots(c, side));
+        if (list.length && !list.some((s) => s.shops?.length) && (!c.half || c.half === side)) lots.push(...planLots(c, side, { deep, alley: !c.half }));
         else keep.push(...list);
       }
       if (lots.length) { c.lots = lots; c.specs = [...keep, ...lots.flatMap((l) => l.specs)]; }
@@ -921,226 +995,6 @@ function footprint(s) {
 function plinth(ctx, M, s) {
   ctx.batch.add('concrete', box(-0.08, -s.plinth - 0.4, -s.d - 0.08, s.w + 0.08, 0.02, 0.08), M, 0xb8ae9c);
   ctx.solids.push({ c: V(s.w / 2, -s.plinth / 2 - 0.2, -s.d / 2).applyMatrix4(M), half: V(s.w / 2 + 0.08, s.plinth / 2 + 0.2, s.d / 2 + 0.08), q: new THREE.Quaternion().setFromRotationMatrix(M) });
-}
-// a chimney up the outside of a house's side wall, through its eaves to above the ridge
-function chimney(ctx, M, s) {
-  const c = s.chimney, H = s.gh + ((s.floors ?? 1) - 1) * (s.fh ?? 3), top = H + ((s.d + 0.9) / 2) * (s.pitch ?? 0.42) + 0.5;
-  const u = c.side < 0 ? -0.55 : s.w + 0.55, z0 = -s.d * 0.5 - 0.6, z1 = z0 + 1.2;
-  ctx.batch.add(c.brick ? 'brick' : 'stucco', box(u - 0.5, -0.1, z0, u + 0.5, H - 0.6, z1), M, c.brick ? 0xffffff : s.color);
-  ctx.batch.add(c.brick ? 'brick' : 'stucco', box(u - 0.32, H - 0.6, z0 + 0.25, u + 0.32, top, z1 - 0.25), M, c.brick ? 0xffffff : s.color);
-  ctx.batch.add('concrete', box(u - 0.4, top, z0 + 0.17, u + 0.4, top + 0.1, z1 - 0.17), M, 0x8a847c);
-  ctx.solids.push({ c: V(u, (H - 0.6) / 2, (z0 + z1) / 2).applyMatrix4(M), half: V(0.5, (H - 0.5) / 2, 0.6), q: new THREE.Quaternion().setFromRotationMatrix(M) });
-}
-
-// ------------------------------------------------------------------------------------------------ Suburbia's lots
-// A street of houses as lots, each 15 to 22 m along the street and the block's half deep: the house set back 6 to
-// 8 m behind its front garden, a drive along one side to its garage (one car or two, flush with the house or a
-// little forward of it) or past it to a carport, the front door off the garden's path. In the face's frame (u
-// along the street from the face's start, v in from the front line), worked out once from the block's seed.
-const HOUSE = [0xead9bb, 0xe6b9a2, 0xecdcae, 0xf1e9d6, 0xf0cf7c, 0xd9d2c4, 0xc4dbd0, 0xf3f0e8, 0xf5f0e6, 0xf3c4d0, 0xb6cde0, 0xe8c2a4, 0xf0e2b6, 0xcfe3d4, 0xf2d0b4, 0xf4e4c4, 0xdfe8e4,
-  0xf3d1dc, 0xbfe3e0, 0xf6e7b0, 0xd8e8f5, 0xe8d5f0, 0xf8d9b8, 0xc9ead1];
-const DOORS = [0x8a3a2a, 0x2f4a3a, 0x3a5a7a, 0xf2efe6, 0x6a4a2a, 0x1f3d5a, 0xb05a2a, 0x5a2a3a];
-const TRIMS = [0xf4f1ea, 0xece4d2, 0x5a4030, 0x2f4a3a, 0x8a5a3a, 0x3a4a6a, 0xf4f1ea, 0xf4f1ea];
-function planLots(c, side) {
-  const west = side === 'west', len = c.z1 - c.z0, deep = Math.min(25, (c.x1 - c.x0 - 6) / 2), yaw = west ? -Math.PI / 2 : Math.PI / 2;
-  const rnd = seeded((c.seed ^ (west ? 0x51f3a : 0x7a21c)) >>> 0);
-  const O = west ? { x: c.x0, z: c.z0 } : { x: c.x1, z: c.z1 }, A = west ? { x: 0, z: 1 } : { x: 0, z: -1 }, N = west ? { x: 1, z: 0 } : { x: -1, z: 0 };
-  const at = (u, v) => ({ x: O.x + A.x * u + N.x * v, y: 0, z: O.z + A.z * u + N.z * v });
-  const spans = [];
-  for (let u = 0; u < len - 0.5;) { let w = pick(rnd, [15, 16, 17, 18, 18, 19, 20, 22]); if (len - u - w < 14) w = len - u; spans.push({ u0: u, w }); u += w; }
-  return spans.map(({ u0, w }, i) => {
-    const corner = i === 0 ? 'start' : i === spans.length - 1 ? 'end' : null;
-    const floors = rnd() < 0.2 ? 2 : 1, setback = range(rnd, 5.8, 8.0);
-    const garage = rnd() < 0.82 ? { w: rnd() < 0.45 ? 6.2 : 3.7, d: 6.6 } : null;
-    let gSide = rnd() < 0.5 ? 0 : 1; // (which end of the lot the drive's on: away from a corner's side street)
-    if (corner === 'start') gSide = 1; else if (corner === 'end') gSide = 0;
-    const gW = garage ? garage.w : 3.4, edge = 0.9, sideGap = 1.5;
-    const hw = Math.min(15.5, w - gW - edge - sideGap), hd = floors === 2 ? range(rnd, 9.2, 11) : range(rnd, 10.5, 12.8);
-    const gu0 = gSide ? u0 + w - edge - gW : u0 + edge, hu0 = gSide ? gu0 - hw : gu0 + gW;
-    const gv = garage ? Math.max(4.8, setback + (rnd() < 0.5 ? -1.1 : 0.4)) : setback + hd + 0.5;
-    const driveW = garage ? garage.w - 0.7 : 3.0, driveU = gu0 + gW / 2;
-    const color = pick(rnd, HOUSE), trim = pick(rnd, TRIMS), door = pick(rnd, DOORS), pitch = range(rnd, 0.34, 0.5);
-    const doorU = gSide ? hw * range(rnd, 0.55, 0.72) : hw * range(rnd, 0.28, 0.45);
-    const bays = Math.max(2, Math.round(hw / 3.1)), gwin = [];
-    for (let k = 0; k < bays; k++) { const u = (hw * (k + 0.5)) / bays; if (Math.abs(u - doorU) > 1.5) gwin.push(u); }
-    const specs = [];
-    const house = { kind: 'building', lot: true, at: at(hu0, setback), yaw, w: hw, d: hd, floors, gh: 3.1, fh: 2.9, roof: 'hip', pitch, parapet: 0, back: true, home: true,
-      color, trim, frame: pick(rnd, [0xf4f1ea, 0xf4f1ea, 0x3a3027, 0xe8ebee]), win: { w: 1.3, h: 1.3, sill: 0.95 }, groundWindows: gwin, bars: rnd() < 0.12, ac: 0.08,
-      bays: Math.max(2, Math.round((hw - 1) / 3.2)), entries: [{ x: doorU, w: 1.1, h: 2.3, color: door }], sides: { L: 'windows', R: 'windows' },
-      chimney: rnd() < 0.35 ? { side: gSide ? -1 : 1, brick: rnd() < 0.5 } : undefined };
-    specs.push(house);
-    if (garage) specs.push({ kind: 'garage', lot: true, at: at(gu0, gv), yaw, w: garage.w, d: garage.d, gh: 2.85, floors: 1, roof: 'hip', pitch: 0.32, color, trim, door: pick(rnd, [0xf2efe6, 0xe8e0d0, 0x8a6a4a, 0xf2efe6, 0x6a5a4a]) });
-    const lot = { side, west, yaw, O, A, N, deep, u0, w, corner, setback, house, hu0, hw, hd, garage, gu0, gW, gv, driveW, driveU, doorU, specs,
-      front: pick(rnd, ['open', 'open', 'hedge', 'wall', 'picket', 'iron', 'wall']), wallColor: rnd() < 0.5 ? color : 0xf2ede2,
-      fence: pick(rnd, ['wood', 'wood', 'block']), fenceColor: pick(rnd, [0x8a6a4a, 0x7a6a5a, 0x9a8a72, 0x6a5040]),
-      palm: rnd() < 0.42, oak: rnd() < 0.45, backTree: rnd() < 0.55, cypress: rnd() < 0.18, shrubs: 2 + Math.floor(rnd() * 4),
-      pool: deep - (setback + hd) > 6.4 && rnd() < 0.4, carport: !garage && rnd() < 0.6, mailbox: rnd() < 0.7, seed: Math.floor(rnd() * 1e6),
-      kerbPalm: rnd() < 0.7, porch: rnd() < 0.4 };
-    // where its kerb's palm, its lot line's lamp and its drive are along the street (the lot's frame: z)
-    const zOf = (u) => at(u, 0).z;
-    lot.driveZ = zOf(driveU);
-    lot.kerbZ = zOf(gSide ? u0 + Math.min(4, (w - gW) / 2) : u0 + w - Math.min(4, (w - gW) / 2));
-    lot.lineZ = zOf(u0 + (gSide ? 0.6 : w - 0.6));
-    // (on rising ground: the lot's terrace at the highest ground under it, the house and garage on it)
-    let hi = 0; for (let uu = u0; uu <= u0 + w + 0.01; uu += w / 4) for (let vv = 0; vv <= deep + 0.01; vv += deep / 4) { const p = at(uu, vv); hi = Math.max(hi, groundAt(p.x, p.z)); }
-    lot.y = c.relief > 0.05 ? hi : 0;
-    for (const s of specs) s.at.y = lot.y;
-    return lot;
-  });
-}
-
-// What a lot has round its house (Stream.buildCell, after the buildings): the lawn over it, the drive and the
-// garden's path, the front boundary (open, a hedge, a low wall, a picket fence, a low wall with railings), the side
-// and back fences, the bushes along the house, a palm or an oak in the front garden, a tree out back, a pool in some
-// back yards, a mailbox by the drive. All in the face's frame (`F`: u along the street, v in from it as -z).
-function yard(ctx, c, lot, places) {
-  const { batch } = ctx, rnd = seeded(lot.seed), y0 = lot.y, L = lot;
-  const F = new THREE.Matrix4().makeTranslation(L.O.x, y0, L.O.z).multiply(new THREE.Matrix4().makeRotationY(L.yaw));
-  const q = new THREE.Quaternion().setFromAxisAngle(_Y, L.yaw);
-  const add = (key, geo, color) => batch.add(key, geo, F, color);
-  const bx = (u0, v0, u1, v1, ya, yb) => box(u0, ya, -v1, u1, yb, -v0); // (u along, v in)
-  const solid = (u0, v0, u1, v1, ya, yb) => ctx.solids.push({ c: V((u0 + u1) / 2, (ya + yb) / 2, -(v0 + v1) / 2).applyMatrix4(F), half: V((u1 - u0) / 2, (yb - ya) / 2, (v1 - v0) / 2), q });
-  const pad = (u0, v0, u1, v1, yb) => { if (u1 - u0 > 0.05 && v1 - v0 > 0.05) ctx.pads.push({ c: V((u0 + u1) / 2, (yb - 0.3) / 2, -(v0 + v1) / 2).applyMatrix4(F), half: V((u1 - u0) / 2, (yb + 0.3) / 2, (v1 - v0) / 2) }); };
-  const toLot = (u, v) => V(u, 0, -v).applyMatrix4(F);
-  const ua = L.u0, ub = L.u0 + L.w, D = L.deep;
-  // the lawn, and the ground walked on (the pool's water is left open)
-  const plane = (u0, v0, u1, v1, y, key, color = 0xffffff) => { const g = new THREE.PlaneGeometry(u1 - u0, v1 - v0).rotateX(-Math.PI / 2).translate((u0 + u1) / 2, y, -(v0 + v1) / 2); metreUV(g); add(key, g, color); };
-  const lawnTint = [[1, 1, 1], [1.12, 1.02, 0.86], [0.92, 1.0, 0.9], [1.25, 1.06, 0.8], [1.04, 1.04, 0.96]][L.seed % 5]; // (some lusher, some drier)
-  plane(ua, 0, ub, D, LAWN, 'lawn', lawnTint);
-  const pool = L.pool ? { u0: L.hu0 + 0.8, u1: L.hu0 + Math.min(L.hw - 0.8, 9.5), v0: L.setback + L.hd + 2.2, v1: D - 1.4 } : null;
-  if (pool) { pad(ua, 0, ub, pool.v0 - 0.4, LAWN); pad(ua, pool.v1 + 0.4, ub, D, LAWN); pad(ua, pool.v0 - 0.4, pool.u0 - 0.4, pool.v1 + 0.4, LAWN); pad(pool.u1 + 0.4, pool.v0 - 0.4, ub, pool.v1 + 0.4, LAWN); }
-  else pad(ua, 0, ub, D, LAWN);
-  // on rising ground: the terrace's walls down to the ground round it
-  if (y0 > 0.01) for (const [u0, v0, u1, v1] of [[ua, 0, ub, 0], [ua, D, ub, D], [ua, 0, ua, D], [ub, 0, ub, D]]) {
-    const n = Math.max(1, Math.round(Math.hypot(u1 - u0, v1 - v0) / 3));
-    for (let k = 0; k < n; k++) {
-      const a = k / n, b = (k + 1) / n, uA = u0 + (u1 - u0) * a, vA = v0 + (v1 - v0) * a, uB = u0 + (u1 - u0) * b, vB = v0 + (v1 - v0) * b;
-      const pm = toLot((uA + uB) / 2, (vA + vB) / 2), g = Math.min(groundAt(pm.x, pm.z), groundAt(toLot(uA, vA).x, toLot(uA, vA).z), groundAt(toLot(uB, vB).x, toLot(uB, vB).z));
-      if (y0 - g < 0.12) continue;
-      const t = 0.25, along = u1 !== u0;
-      add('concrete', along ? bx(uA, vA - t, uB, vA + t, g - y0 - 0.3, LAWN + 0.06) : bx(uA - t, vA, uA + t, vB, g - y0 - 0.3, LAWN + 0.06), 0xc8bca8);
-    }
-  }
-  // the drive, its apron across the pavement, and the path from the pavement to the front door
-  const dv1 = L.garage ? L.gv : L.setback + L.hd + 4;
-  add('pavement', bx(L.driveU - L.driveW / 2, 0, L.driveU + L.driveW / 2, dv1, LAWN, LAWN + 0.035), [1.3, 1.27, 1.2]);
-  const pu = L.hu0 + L.doorU;
-  add('pavement', bx(pu - 0.6, 0, pu + 0.6, L.setback - 0.3, LAWN, LAWN + 0.03), [1.22, 1.17, 1.08]);
-  add('concrete', bx(pu - 0.9, L.setback - 0.6, pu + 0.9, L.setback + 0.05, LAWN, LAWN + 0.16), 0xc8c0b2); // the front step
-  // the front boundary along the pavement, open at the path and the drive
-  const gaps = [[pu - 0.8, pu + 0.8], [L.driveU - L.driveW / 2 - 0.3, L.driveU + L.driveW / 2 + 0.3]].sort((a, b) => a[0] - b[0]);
-  const runs = []; let u = ua + 0.05;
-  for (const [g0, g1] of gaps) { if (g0 > u + 0.3) runs.push([u, g0]); u = Math.max(u, g1); }
-  if (ub - 0.05 > u + 0.3) runs.push([u, ub - 0.05]);
-  for (let i = runs.length - 1; i >= 0; i--) if (runs[i][1] - runs[i][0] < 2.4) runs.splice(i, 1); // (no stubs of wall between the path and the drive)
-  const fv = 0.35;
-  for (const [r0, r1] of runs) {
-    if (L.front === 'hedge') { add('hedge', bx(r0, fv - 0.35, r1, fv + 0.35, LAWN, 0.95), 0x2c4a22); solid(r0, fv - 0.35, r1, fv + 0.35, 0, 0.95); }
-    else if (L.front === 'wall' || L.front === 'iron') {
-      const h = L.front === 'iron' ? 0.45 : 0.8;
-      add('stucco', bx(r0, fv - 0.15, r1, fv + 0.15, -0.2, h), L.wallColor);
-      add(L.front === 'iron' ? 'concrete' : 'tile', L.front === 'iron' ? bx(r0 - 0.03, fv - 0.2, r1 + 0.03, fv + 0.2, h, h + 0.07) : bx(r0 - 0.03, fv - 0.21, r1 + 0.03, fv + 0.21, h, h + 0.07), L.front === 'iron' ? 0xe8e2d6 : 0xffffff);
-      if (L.front === 'iron') {
-        for (let x = r0 + 0.08; x < r1 - 0.05; x += 0.14) add('iron', bx(x - 0.012, fv - 0.012, x + 0.012, fv + 0.012, h + 0.07, h + 0.95), 0x1d1c1b);
-        add('iron', bx(r0, fv - 0.02, r1, fv + 0.02, h + 0.9, h + 0.95), 0x1d1c1b);
-      }
-      solid(r0, fv - 0.2, r1, fv + 0.2, 0, L.front === 'iron' ? h + 0.95 : h + 0.07);
-    } else if (L.front === 'picket') {
-      for (let x = r0 + 0.06; x < r1 - 0.03; x += 0.16) add('paint', bx(x - 0.035, fv - 0.012, x + 0.035, fv + 0.012, LAWN, 0.92 + 0.04 * Math.abs(Math.sin(x * 9.7))), 0xf4f1ea);
-      for (const h of [0.3, 0.72]) add('paint', bx(r0, fv + 0.012, r1, fv + 0.04, h, h + 0.07), 0xf4f1ea);
-      solid(r0, fv - 0.05, r1, fv + 0.05, 0, 0.95);
-    }
-  }
-  // the side fences between the back yards (each lot builds the one on its start's line; the corners' on the street
-  // a stucco wall), from the house's front back to the alley, and the back fence on the alley
-  const fence = (u0, v0, u1, v1, street) => {
-    const h = street ? 1.8 : 1.75, alongU = Math.abs(u1 - u0) > Math.abs(v1 - v0);
-    const g = alongU ? bx(u0, v0 - 0.05, u1, v0 + 0.05, -0.2, h) : bx(u0 - 0.05, v0, u0 + 0.05, v1, -0.2, h);
-    if (street || L.fence === 'block') { add('stucco', alongU ? bx(u0, v0 - 0.1, u1, v0 + 0.1, -0.2, h) : bx(u0 - 0.1, v0, u0 + 0.1, v1, -0.2, h), street ? L.wallColor : 0xe2dccf); add('concrete', alongU ? bx(u0, v0 - 0.13, u1, v0 + 0.13, h, h + 0.06) : bx(u0 - 0.13, v0, u0 + 0.13, v1, h, h + 0.06), 0xd8d2c4); }
-    else {
-      add('paint', g, L.fenceColor);
-      const len = alongU ? u1 - u0 : v1 - v0, n = Math.max(1, Math.round(len / 2.4));
-      for (let k = 0; k <= n; k++) { const t = k / n, uu = u0 + (u1 - u0) * t, vv = v0 + (v1 - v0) * t; add('paint', bx(uu - 0.06, vv - 0.06, uu + 0.06, vv + 0.06, -0.2, h + 0.08), new THREE.Color(L.fenceColor).multiplyScalar(0.8)); }
-      for (const hh of [0.25, h - 0.3]) add('paint', alongU ? bx(u0, v0 + 0.05, u1, v0 + 0.1, hh, hh + 0.09) : bx(u0 + 0.05, v0, u0 + 0.1, v1, hh, hh + 0.09), new THREE.Color(L.fenceColor).multiplyScalar(0.85));
-    }
-    if (alongU) solid(u0, v0 - 0.1, u1, v0 + 0.1, 0, h); else solid(u0 - 0.1, v0, u0 + 0.1, v1, 0, h);
-  };
-  const vb = L.setback + 1.2;
-  if (L.corner !== 'start' || !c.south) fence(ua, vb, ua, D - 0.1, false);
-  if (L.corner === 'start') fence(ua + 0.1, vb, ua + 0.1, D - 0.1, true);
-  if (L.corner === 'end') fence(ub - 0.1, vb, ub - 0.1, D - 0.1, true);
-  fence(ua, D - 0.1, ub, D - 0.1, false);
-  // the garden: bushes along the house's front (not at the door), a palm or an oak, a tree out back, a cypress
-  const tree = (kind, uu, vv, h, w, tint) => { const p = toLot(uu, vv); ctx.trees.push({ kind, x: p.x, y: y0 + LAWN, z: p.z, h, w, tint }); };
-  // (some of them in flower: bougainvillea's magenta, hibiscus red, a yellow)
-  const bloom = rnd() < 0.45 ? pick(rnd, [[2.3, 0.55, 1.6], [2.5, 0.62, 0.6], [2.1, 1.7, 0.45], [2.4, 0.9, 1.9]]) : null;
-  for (let k = 0; k < L.shrubs; k++) { const uu = L.hu0 + 0.8 + ((L.hw - 1.6) * (k + 0.5)) / L.shrubs; if (Math.abs(uu - pu) < (L.porch ? 2.0 : 1.3)) continue; tree('shrub', uu, L.setback - 0.95, 0.9 + rnd() * 0.5, 1.2 + rnd() * 0.6, bloom && k % 2 === 0 ? bloom : undefined); }
-  // a porch over the front door on some: its slab, two posts, a little tiled roof
-  if (L.porch) {
-    const v0 = L.setback - 2.1;
-    add('concrete', bx(pu - 1.45, v0, pu + 1.45, L.setback, LAWN - 0.05, LAWN + 0.17), 0xd2c8b6);
-    for (const s of [-1, 1]) { add('paint', bx(pu + s * 1.3 - 0.08, v0 + 0.12, pu + s * 1.3 + 0.08, v0 + 0.28, LAWN + 0.17, 2.62), L.house.trim); solid(pu + s * 1.3 - 0.08, v0 + 0.12, pu + s * 1.3 + 0.08, v0 + 0.28, 0, 2.62); }
-    add('paint', bx(pu - 1.45, v0 + 0.08, pu + 1.45, v0 + 0.32, 2.5, 2.68), L.house.trim);
-    hipRoof(ctx, F.clone().multiply(new THREE.Matrix4().makeTranslation(pu - 1.55, 0, -v0)), 3.1, 2.1, 2.68, 0.42);
-  }
-  const openU = L.driveU < L.hu0 + L.hw / 2 ? ub - 2.2 : ua + 2.2; // (the garden's corner away from the drive)
-  if (L.palm) {
-    const p = toLot(openU, L.setback * 0.42), s = 0.55 + rnd() * 0.12;
-    places.push({ k: rnd() < 0.5 ? 'palm0' : 'palm1', M: new THREE.Matrix4().compose(V(p.x, y0 + LAWN, p.z), _q.setFromAxisAngle(_Y, rnd() * 6), _s.setScalar(s)), s });
-  } else if (L.oak) tree('oak', (openU + pu) / 2, L.setback * 0.5, 4.8 + rnd() * 1.8, 4.2 + rnd() * 1.4);
-  if (L.backTree && !L.pool) tree('oak', L.hu0 + L.hw * (0.25 + rnd() * 0.5), D - 2.8, 5 + rnd() * 3, 5 + rnd() * 2);
-  if (L.cypress) for (const dv of [0, 2.4]) tree('cypress', ua + 1.1, L.setback + L.hd + 1.5 + dv, 6 + rnd() * 2, 5.5);
-  // a patio slab behind the house, and the pool: its coping round the water
-  const pv = L.setback + L.hd;
-  add('pavement', bx(L.hu0 + 0.5, pv, L.hu0 + Math.min(L.hw, 6.5), pv + 2.2, LAWN, LAWN + 0.03), 0xd8cfc0);
-  if (pool) {
-    add('pool', bx(pool.u0, pool.v0, pool.u1, pool.v1, LAWN - 0.04, LAWN - 0.035), 0xffffff);
-    add('concrete', bx(pool.u0, pool.v0, pool.u1, pool.v1, -0.05, LAWN - 0.07), 0x6ab0c8); // (its floor, seen through the water)
-    for (const [a0, b0, a1, b1] of [[pool.u0 - 0.4, pool.v0 - 0.4, pool.u1 + 0.4, pool.v0], [pool.u0 - 0.4, pool.v1, pool.u1 + 0.4, pool.v1 + 0.4], [pool.u0 - 0.4, pool.v0, pool.u0, pool.v1], [pool.u1, pool.v0, pool.u1 + 0.4, pool.v1]]) {
-      add('concrete', bx(a0, b0, a1, b1, LAWN - 0.1, LAWN + 0.08), 0xf0ece2);
-      solid(a0, b0, a1, b1, 0, LAWN + 0.08);
-    }
-  }
-  // a carport over the drive: posts and a flat roof
-  if (L.carport) {
-    const c0 = L.setback + 1, c1 = c0 + 5.6, a = L.driveU - L.driveW / 2 - 0.1, b = L.driveU + L.driveW / 2 + 0.1;
-    for (const [uu, vv] of [[a, c0], [b, c0], [a, c1], [b, c1]]) { add('paint', bx(uu - 0.07, vv - 0.07, uu + 0.07, vv + 0.07, LAWN, 2.45), 0xf2efe6); solid(uu - 0.07, vv - 0.07, uu + 0.07, vv + 0.07, 0, 2.45); }
-    add('paint', bx(a - 0.2, c0 - 0.3, b + 0.2, c1 + 0.3, 2.45, 2.6), 0xf2efe6);
-    ctx.solids.push({ c: V((a + b) / 2, 2.52, -(c0 + c1) / 2).applyMatrix4(F), half: V((b - a) / 2 + 0.2, 0.08, (c1 - c0) / 2 + 0.3), q });
-  }
-  // the mailbox on its post by the drive
-  if (L.mailbox) {
-    const mu = L.driveU + (L.driveU < L.hu0 ? 1 : -1) * (L.driveW / 2 + 0.6);
-    add('paint', bx(mu - 0.05, 0.55, mu + 0.05, 0.65, LAWN, 1.0), 0x5a4a3a);
-    add('metal', bx(mu - 0.12, 0.42, mu + 0.12, 0.78, 1.0, 1.2), pick(rnd, [0x2a2a2a, 0xe8e8e8, 0x2f4a3a]));
-  }
-}
-
-// A garage at its house's side (Stream.buildCell, as the kit builds the house): stucco walls, its door a ribbed
-// metal up-and-over in its opening, a lamp beside it, a hip roof of the house's tiles. The kit's building frame:
-// its front along +x from `at`, facing +z, its body behind.
-function garage(ctx, s) {
-  const M = new THREE.Matrix4().makeTranslation(s.at.x, s.at.y ?? 0, s.at.z).multiply(new THREE.Matrix4().makeRotationY(s.yaw));
-  const { batch } = ctx, w = s.w, d = s.d, h = s.gh, t = 0.25, dh = 2.25, pier = Math.min(0.35, (w - 2.6) / 2 + 0.1);
-  batch.add('stucco', box(0, 0, -t, pier, h, 0), M, s.color);
-  batch.add('stucco', box(w - pier, 0, -t, w, h, 0), M, s.color);
-  batch.add('stucco', box(pier, dh, -t, w - pier, h, 0), M, s.color);
-  batch.add('stucco', box(0, 0, -d, t, h, -t), M, s.color);
-  batch.add('stucco', box(w - t, 0, -d, w, h, -t), M, s.color);
-  batch.add('stucco', box(t, 0, -d, w - t, h, -d + t), M, s.color);
-  // the door: painted panels in four bands, a groove between each, a handle
-  batch.add('paint', box(pier, 0.02, -t + 0.04, w - pier, dh, -t + 0.08), M, s.door);
-  const groove = new THREE.Color(s.door).multiplyScalar(0.62);
-  for (let k = 1; k < 4; k++) batch.add('paint', box(pier + 0.02, 0.02 + (k * (dh - 0.02)) / 4 - 0.02, -t + 0.08, w - pier - 0.02, 0.02 + (k * (dh - 0.02)) / 4 + 0.015, -t + 0.085), M, groove);
-  for (let k = 1; k < Math.round((w - 2 * pier) / 1.2); k++) { const u = pier + (k * (w - 2 * pier)) / Math.round((w - 2 * pier) / 1.2); batch.add('paint', box(u - 0.012, 0.05, -t + 0.08, u + 0.012, dh - 0.03, -t + 0.085), M, groove); }
-  batch.add('metal', box(w / 2 - 0.15, 0.42, -t + 0.08, w / 2 + 0.15, 0.47, -t + 0.12), M, 0x8a8a86);
-  batch.add('paint', box(pier - 0.06, 0, -0.02, pier, dh + 0.06, 0.03), M, s.trim);
-  batch.add('paint', box(w - pier, 0, -0.02, w - pier + 0.06, dh + 0.06, 0.03), M, s.trim);
-  batch.add('paint', box(pier - 0.06, dh, -0.02, w - pier + 0.06, dh + 0.08, 0.03), M, s.trim);
-  batch.add('metal', box(w - pier + 0.12, 1.9, 0, w - pier + 0.26, 2.12, 0.08), M, 0x2b2620);
-  batch.add('lamp', box(w - pier + 0.14, 1.93, 0.08, w - pier + 0.24, 2.08, 0.14), M, 0xfff0cc);
-  hipRoof(ctx, M, w, d, h, s.pitch ?? 0.32);
-  ctx.solids.push({ c: V(w / 2, h / 2, -d / 2).applyMatrix4(M), half: V(w / 2, h / 2, d / 2), q: new THREE.Quaternion().setFromRotationMatrix(M) });
 }
 
 // a kit piece's parts merged by material (in the piece's frame): a few instanced draws a piece, not one a part

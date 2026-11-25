@@ -182,6 +182,7 @@ farMat.onBeforeCompile = (sh) => {
 };
 farMat.customProgramCacheKey = () => 'farCars';
 const _w = new THREE.Vector3();
+const LO_FAR = 90; // (metres: past it a far car is its lighter copy)
 class FarCars {
   // (`casting`: the cars within their shadow distance, near or far: their shadows from their model's shape, a
   // shadow-only copy per model, not from their own parts, 75 shadow draws and 168 k triangles in the street)
@@ -229,24 +230,33 @@ class FarCars {
     if (geo && simplifier) geo = simplified(geo, 0.3);
     if (!geo) return null;
     geo.computeBoundingSphere();
-    model = { sig, geo, cars: new Set(), mesh: null, cap: 0 };
+    // (and past LO_FAR a far lighter copy of it: a car 90 m off is a few dozen pixels, and the residential streets'
+    // parked cars (city/Homes.js) put sixty more of them in Hal's street's view at ten thousand triangles each)
+    let lo = simplifier ? simplified(geo, 0.08, 0.04) : null;
+    if (lo) lo.computeBoundingSphere();
+    model = { sig, geo, lo, cars: new Set(), mesh: null, cap: 0 };
     this.models.set(sig, model);
     return model;
   }
   grow(model, cap) {
-    for (const m of [model.mesh, model.shade]) if (m) { m.removeFromParent(); m.dispose(); }
-    const geo = new THREE.BufferGeometry();
-    for (const [n, a] of Object.entries(model.geo.attributes)) geo.setAttribute(n, a);
-    geo.setIndex(model.geo.index);
-    geo.boundingSphere = model.geo.boundingSphere;
+    for (const m of [model.mesh, model.shade, model.loMesh]) if (m) { m.removeFromParent(); m.dispose(); }
+    const inst = (src, lit) => {
+      const geo = new THREE.BufferGeometry();
+      for (const [n, a] of Object.entries(src.attributes)) geo.setAttribute(n, a);
+      geo.setIndex(src.index);
+      geo.boundingSphere = src.boundingSphere;
+      geo.setAttribute('aLit', lit);
+      const mesh = new THREE.InstancedMesh(geo, farMat, cap);
+      mesh.setColorAt(0, _c.setRGB(1, 1, 1));
+      mesh.frustumCulled = false;
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+      mesh.count = 0;
+      return mesh;
+    };
     model.lit = new THREE.InstancedBufferAttribute(new Float32Array(cap * 2), 2);
-    geo.setAttribute('aLit', model.lit);
-    const mesh = (model.mesh = new THREE.InstancedMesh(geo, farMat, cap));
-    mesh.setColorAt(0, _c.setRGB(1, 1, 1));
-    mesh.frustumCulled = false;
-    mesh.castShadow = false;
-    mesh.receiveShadow = true;
-    mesh.count = 0;
+    const mesh = (model.mesh = inst(model.geo, model.lit));
+    if (model.lo) { model.loLit = new THREE.InstancedBufferAttribute(new Float32Array(cap * 2), 2); model.loMesh = inst(model.lo, model.loLit); this.scene.add(model.loMesh); }
     const shade = (model.shade = new THREE.InstancedMesh(model.geo, farMat, cap));
     shade.frustumCulled = false;
     shade.castShadow = true;
@@ -285,32 +295,39 @@ class FarCars {
       model.shade.visible = model.sn > 0;
       if (model.sn) model.shade.instanceMatrix.needsUpdate = true;
     }
+    const cam = this.cam;
     for (const model of this.models.values()) {
       const mesh = model.mesh;
       if (!mesh) continue;
-      let n = 0;
+      let n = 0, m = 0;
       for (const it of model.cars) {
         const o = it.object;
         if (!o.visible || !o.parent) continue;
         o.updateWorldMatrix(true, false);
-        mesh.setMatrixAt(n, o.matrixWorld);
-        mesh.setColorAt(n, o.userData.paint?.color ?? _c.setRGB(0.6, 0.6, 0.6));
+        // (near enough, the far copy; beyond LO_FAR, the lighter one)
+        const lo = model.loMesh && cam && _w.setFromMatrixPosition(o.matrixWorld).distanceToSquared(cam) > LO_FAR * LO_FAR;
+        const into = lo ? model.loMesh : mesh, k = lo ? m++ : n++;
+        into.setMatrixAt(k, o.matrixWorld);
+        into.setColorAt(k, o.userData.paint?.color ?? _c.setRGB(0.6, 0.6, 0.6));
         let head = 0, tail = 0;
         for (const l of it.car.item?.lamps ?? []) {
           if (!l.visible || !l.material.emissive) continue;
           const e = l.material.emissiveIntensity * (l.material.emissive.r + l.material.emissive.g) * 0.5;
+          if (e <= 0) continue; // (a parked car's dark lamps: not looked for, every frame, every car)
           l.getWorldPosition(_w);
           if (o.worldToLocal(_w).z > 0) head = Math.max(head, e); else tail = Math.max(tail, e);
         }
-        model.lit.setXY(n, head, tail);
-        n++;
+        (lo ? model.loLit : model.lit).setXY(k, head, tail);
       }
-      mesh.count = n;
-      mesh.visible = n > 0;
-      if (!n) continue;
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-      model.lit.needsUpdate = true;
+      for (const [into, count, lit] of [[mesh, n, model.lit], [model.loMesh, m, model.loLit]]) {
+        if (!into) continue;
+        into.count = count;
+        into.visible = count > 0;
+        if (!count) continue;
+        into.instanceMatrix.needsUpdate = true;
+        if (into.instanceColor) into.instanceColor.needsUpdate = true;
+        lit.needsUpdate = true;
+      }
     }
   }
 }
@@ -454,10 +471,10 @@ export function releaseMerged(group) {
 }
 // a share of a mesh's triangles (welded first: the merge leaves every triangle its own corners; the
 // simplifier keeps the seams where normals or UVs part)
-function simplified(geo, ratio) {
+function simplified(geo, ratio, error = 0.01) {
   const welded = mergeVertices(geo, 1e-4), pos = welded.attributes.position.array, index = welded.index.array;
   const target = Math.max(3, Math.floor((index.length / 3) * ratio) * 3);
-  const [out] = MeshoptSimplifier.simplify(index instanceof Uint32Array ? index : new Uint32Array(index), pos, 3, target, 0.01);
+  const [out] = MeshoptSimplifier.simplify(index instanceof Uint32Array ? index : new Uint32Array(index), pos, 3, target, error);
   if (out.length >= index.length) return welded;
   welded.setIndex(new THREE.BufferAttribute(out, 1));
   return welded;
@@ -513,9 +530,24 @@ export class Lod {
     this.of.set(car, this.items[this.items.length - 1]);
   }
 
+  // Something drawn by distance put away for good (a streamed block's parked car, its block going: Stream.js
+  // disposeCell): out of the checks, out of the far cars' batch and their shadows, its copies released
+  remove(object) {
+    const it = this.of.get(object);
+    if (!it) return;
+    this.of.delete(object);
+    const i = this.items.indexOf(it);
+    if (i >= 0) this.items.splice(i, 1);
+    if (!it.car) return;
+    this.farCars?.hide(it);
+    this.farCars?.shadow(it, false);
+    for (const k of PROXIES) if (it.car[k]) { object.remove(it.car[k]); releaseMerged(it.car[k]); it.car[k] = null; }
+  }
+
   update(dt, camera) {
     this.t += dt;
     const cam = camera.position, jumped = cam.distanceToSquared(this.last) > 2500; // a cut, or a jump across the valley
+    if (this.farCars) this.farCars.cam = cam; // (its far cars' tiers: FarCars.update)
     if (this.t < 0.2 && !jumped) return;
     this.t = 0;
     this.merges = 0; // (a car's copies made two a check at most: the first check made sixty, one frame)

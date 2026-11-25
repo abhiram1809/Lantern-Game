@@ -35,7 +35,7 @@ export function box(x0, y0, z0, x1, y1, z1) {
   g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
   return metreUV(g);
 }
-function cyl(r, h, x, y0, z, seg = 10) {
+export function cyl(r, h, x, y0, z, seg = 10) {
   const g = new THREE.CylinderGeometry(r, r, h, seg);
   g.translate(x, y0 + h / 2, z);
   return metreUV(g);
@@ -73,7 +73,7 @@ function pane(o, inset, z) {
 // One wall: a slab `t` thick with its openings cut through, and what fills them. F takes the
 // wall's frame into the block's. spec: { len, top (or `profile`: points along the top from u 0 to
 // len), t, mat, color, openings: [...], trim, frame, coping, belt, cornice }
-function wall(ctx, F, s) {
+export function wall(ctx, F, s) { // (exported: the houses' porches, Homes.js)
   const { batch } = ctx, t = s.t ?? 0.3;
   const shape = new THREE.Shape();
   shape.moveTo(0, 0); shape.lineTo(s.len, 0);
@@ -112,7 +112,7 @@ function coping(ctx, F, prof, s, t) {
     const a = pts[i], b = pts[i + 1], dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy);
     if (L < 1e-3) continue;
     const ang = Math.atan2(dy, dx);
-    const g = s.coping === 'tile' ? barrels(L + 0.04, t + 0.24, 0.035) : box(0, 0, -t - 0.06, L + 0.04, 0.07, 0.06);
+    const g = s.coping === 'tile' ? barrels(L + 0.04, t + 0.24, 0.035, 0.24, s.tileSeg ?? 6) : box(0, 0, -t - 0.06, L + 0.04, 0.07, 0.06);
     if (s.coping === 'tile') g.translate(0, 0, 0.12);
     const m = mul(F, tr(a.x - 0.02 * Math.cos(ang), a.y + 0.002, 0), new THREE.Matrix4().makeRotationZ(ang));
     ctx.batch.add(s.coping === 'tile' ? 'tile' : 'concrete', g, m, s.coping === 'tile' ? 0xffffff : s.trim ?? 0xd9d2c2);
@@ -120,9 +120,10 @@ function coping(ctx, F, prof, s, t) {
 }
 
 // Barrel tiles as a surface: rows of half-round caps across `w`, `d` deep (toward -z), each `lift`
-// proud: a real silhouette at the eaves and along a coping, the tile texture over it
-function barrels(w, d, lift, pitch = 0.24) {
-  const nx = Math.max(2, Math.round(w / pitch) * 6), nz = 2;
+// proud: a real silhouette at the eaves and along a coping, the tile texture over it (`seg`: each cap's facets; a
+// street of houses' eaves at 6 were 35 k triangles a block, Homes.js's lots take 3)
+function barrels(w, d, lift, pitch = 0.24, seg = 6) {
+  const nx = Math.max(2, Math.round(w / pitch) * seg), nz = seg > 4 ? 2 : 1;
   const g = new THREE.PlaneGeometry(w, d, nx, nz).rotateX(-Math.PI / 2);
   const p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
@@ -137,6 +138,7 @@ function barrels(w, d, lift, pitch = 0.24) {
 
 // ---------------------------------------------------------------------------------- openings
 function fill(ctx, F, s, o, t) {
+  if (o.empty) return; // (an opening left open: a gateway's arch, Homes.js)
   if (o.kind === 'shop') return storefront(ctx, F, s, o, t);
   if (o.kind === 'door') return entry(ctx, F, s, o, t);
   return window_(ctx, F, s, o, t);
@@ -153,9 +155,16 @@ function window_(ctx, F, s, o, t) {
   batch.add('paint', frameRing(o, 0.065, 0.07, z), F, frame);
   const room = roomFor(F, o.u + o.w / 2, o.floor ?? o.v - 0.9, Math.max(o.w + 1.6, 3.2), o.roomH ?? 3.1, 4.2, o.room ?? 0, o.lit ?? 0.45);
   batch.add('glass', pane(o, 0.06, z - 0.035), F, 0xffffff, room);
-  // a double-hung window: the meeting rail, and a mullion down a wide one
-  if (!o.arch || o.h > o.w * 1.2) batch.add('paint', box(o.u + 0.06, o.v + o.h * 0.5 - 0.03, z - 0.05, o.u + o.w - 0.06, o.v + o.h * 0.5 + 0.03, z), F, frame);
-  if (o.w > 1.5) batch.add('paint', box(o.u + o.w / 2 - 0.03, o.v + 0.06, z - 0.05, o.u + o.w / 2 + 0.03, o.v + o.h - 0.06, z), F, frame);
+  if (o.pic) { // a picture window (the houses': Stream.js's lots): a big fixed pane between two narrow sashes, their rails
+    for (const k of [0.22, 0.78]) batch.add('paint', box(o.u + o.w * k - 0.035, o.v + 0.06, z - 0.05, o.u + o.w * k + 0.035, o.v + o.h - 0.06, z), F, frame);
+    for (const [a, b] of [[0.06, o.w * 0.22 - 0.035], [o.w * 0.78 + 0.035, o.w - 0.06]]) batch.add('paint', box(o.u + a, o.v + o.h * 0.5 - 0.025, z - 0.05, o.u + b, o.v + o.h * 0.5 + 0.025, z), F, frame);
+  } else {
+    // a double-hung window: the meeting rail, and a mullion down a wide one (`lites`: the upper sash's panes, a
+    // Craftsman's three or four)
+    if (!o.arch || o.h > o.w * 1.2) batch.add('paint', box(o.u + 0.06, o.v + o.h * 0.5 - 0.03, z - 0.05, o.u + o.w - 0.06, o.v + o.h * 0.5 + 0.03, z), F, frame);
+    if (o.w > 1.5) batch.add('paint', box(o.u + o.w / 2 - 0.03, o.v + 0.06, z - 0.05, o.u + o.w / 2 + 0.03, o.v + o.h - 0.06, z), F, frame);
+    if (o.lites) for (let k = 1; k < o.lites; k++) batch.add('paint', box(o.u + (o.w * k) / o.lites - 0.018, o.v + o.h * 0.5, z - 0.045, o.u + (o.w * k) / o.lites + 0.018, o.v + o.h - 0.06, z), F, frame);
+  }
   if (o.sill !== false) batch.add('concrete', box(o.u - 0.07, o.v - 0.07, -0.12, o.u + o.w + 0.07, o.v, 0.06), F, s.trim ?? 0xd9d2c2);
   if (o.lintel) batch.add('concrete', box(o.u - 0.1, o.v + o.h, -0.02, o.u + o.w + 0.1, o.v + o.h + 0.2, 0.04), F, s.trim ?? 0xd9d2c2);
   // iron bars over a ground-floor window (rejas), set into the reveal
@@ -361,10 +370,15 @@ function pent(ctx, F, s, u0, u1, y) {
 export function building(ctx, s) {
   const M = mul(tr(s.at.x, s.at.y ?? 0, s.at.z), ry(s.yaw));
   const t = s.t ?? 0.3, gh = s.gh ?? 4.3, fh = s.fh ?? 3.2, floors = s.floors ?? 2;
-  const H = gh + (floors - 1) * fh, hip = s.roof === 'hip', par = hip ? 0 : s.parapet ?? 0.95, top = H + par;
+  const H = gh + (floors - 1) * fh, hip = s.roof === 'hip', gable = s.roof === 'gable', slab = s.roof === 'slab';
+  const pitched = hip || gable || slab, par = pitched ? 0 : s.parapet ?? 0.95, top = H + par;
   const mat = s.wall ?? 'stucco', color = s.color ?? 0xe6dcc6, trim = s.trim ?? 0xe4dccb;
   const rnd = ctx.rnd;
-  const common = { t, mat, color, trim, frame: s.frame, gh, coping: hip ? 'none' : s.coping ?? 'cap' };
+  const common = { t, mat, color, trim, frame: s.frame, gh, coping: pitched ? 'none' : s.coping ?? 'cap', tileSeg: s.lot ? 3 : undefined };
+  // a gable roof's ends: the walls under them rise to its ridge (`ridge` 'x': along the front, the sides are the
+  // gables; 'z': back from the front, the front and the back are)
+  const pitch = s.pitch ?? 0.42, ridgeZ = gable && s.ridge === 'z';
+  const gableUnder = (half, at) => H + (half - Math.abs(at - half)) * pitch; // (the roof's underside at `at` across a span of 2 half)
   // ---- the front
   const openings = [];
   for (const sh of s.shops ?? []) openings.push({ kind: 'shop', u: sh.x0 + 0.28, v: 0, w: sh.x1 - sh.x0 - 0.56, h: sh.h ?? Math.min(gh - 1.05, 3.25), ...sh });
@@ -383,9 +397,14 @@ export function building(ctx, s) {
       } else openings.push({ kind: 'win', u: bayU(i) - win.w / 2, v: base + win.sill, w: win.w, h: win.h, arch: win.arch, floor: base, roomH: fh, ac: rnd() < (s.ac ?? 0.2), lintel: mat !== 'stucco' });
     }
   }
-  // ground-floor windows of a building with no shops (barred, as the old courts' are)
-  for (const g of s.groundWindows ?? []) openings.push({ kind: 'win', u: g - win.w / 2, v: 0.95, w: win.w, h: Math.min(win.h, gh - 1.6), arch: win.arch, floor: 0, roomH: gh, bars: s.bars ?? true, ac: false, room: s.groundRoom ?? 0, lit: s.groundRoom ? 0.3 : 0.45 });
-  const profile = s.gable ? gableProfile(s.w, top, s.gable) : null;
+  // ground-floor windows of a building with no shops (barred, as the old courts' are); an entry `{ u, w, h, v, arch,
+  // pic, lites }` for one of its own size (a house's picture window, a Craftsman's grouped sashes)
+  for (const g of s.groundWindows ?? []) {
+    if (typeof g === 'number') { openings.push({ kind: 'win', u: g - win.w / 2, v: 0.95, w: win.w, h: Math.min(win.h, gh - 1.6), arch: win.arch, floor: 0, roomH: gh, bars: s.bars ?? true, ac: false, room: s.groundRoom ?? 0, lit: s.groundRoom ? 0.3 : 0.45 }); continue; }
+    const ww = g.w ?? win.w, wv = g.v ?? 0.95;
+    openings.push({ kind: 'win', u: g.u - ww / 2, v: wv, w: ww, h: Math.min(g.h ?? win.h, gh - wv - 0.35), arch: g.arch ?? win.arch, pic: g.pic, lites: g.lites, floor: 0, roomH: gh, bars: g.bars ?? s.bars ?? true, ac: false, room: s.groundRoom ?? 0, lit: 0.45 });
+  }
+  const profile = s.gable ? gableProfile(s.w, top, s.gable) : ridgeZ ? [V(s.w, H, 0), V(s.w / 2, gableUnder(s.w / 2, s.w / 2), 0), V(0, H, 0)] : null;
   wall(ctx, M, { ...common, len: s.w, top, profile, openings, belt: s.belt ? gh : null, cornice: s.cornice ? H : null, bands: s.bands, bandColor: s.bandColor });
   // fix the doors that open onto balconies: their glass and frame came with `entry`; the door leaf is glazed
   // ---- the sides (from the back to just behind the front) and the back
@@ -406,9 +425,14 @@ export function building(ctx, s) {
   };
   const L = sideW(true), R = sideW(false);
   const FL = mul(M, tr(0, 0, -s.d), ry(-Math.PI / 2)), FR = mul(M, tr(s.w, 0, -t), ry(Math.PI / 2));
+  // (under a gable along the front, the sides are its ends: from the back (L) or the front (R) to the ridge and down)
+  const len = s.d - t, hd = s.d / 2;
+  const sideGable = gable && !ridgeZ;
+  const Lprof = sideGable ? [V(len, gableUnder(hd, t), 0), V(hd, gableUnder(hd, hd), 0), V(0, H, 0)] : undefined;
+  const Rprof = sideGable ? [V(len, H, 0), V(hd - t, gableUnder(hd, hd), 0), V(0, gableUnder(hd, t), 0)] : undefined;
   // a side wall's u runs from the back (L) or the front (R); flip the right side's shops' u so both read front to back
-  wall(ctx, FL, { ...common, len: s.d - t, top: s.sides?.Ltop ?? top, openings: L.op.map((o) => (o.kind === 'shop' ? { ...o, u: s.d - t - o.u - o.w } : o)), coping: common.coping });
-  wall(ctx, FR, { ...common, len: s.d - t, top: s.sides?.Rtop ?? top, openings: R.op, coping: common.coping });
+  wall(ctx, FL, { ...common, len, top: s.sides?.Ltop ?? top, profile: Lprof, openings: L.op.map((o) => (o.kind === 'shop' ? { ...o, u: s.d - t - o.u - o.w } : o)), coping: common.coping });
+  wall(ctx, FR, { ...common, len, top: s.sides?.Rtop ?? top, profile: Rprof, openings: R.op, coping: common.coping });
   const FB = mul(M, tr(s.w - t, 0, -s.d), ry(Math.PI));
   const back = [];
   if (s.back !== false) {
@@ -427,9 +451,14 @@ export function building(ctx, s) {
       for (let i = 0; i < Math.max(1, Math.round(bw / 7)); i++) back.push({ kind: 'win', u: (bw * (i + 0.25)) / Math.max(1, Math.round(bw / 7)) + 1.4, v: 1.6, w: 0.8, h: 0.9, floor: 0, roomH: gh, bars: true, room: 1, lit: 0.3 });
     }
   }
-  wall(ctx, FB, { ...common, len: s.w - 2 * t, top, openings: back.filter((o) => o.u > 0.2 && o.u + o.w < s.w - 2 * t - 0.2) });
-  // ---- the roof
-  if (hip) hipRoof(ctx, M, s.w, s.d, H, s.pitch ?? 0.42);
+  const bl = s.w - 2 * t, hw = s.w / 2;
+  const Bprof = ridgeZ ? [V(bl, gableUnder(hw, t), 0), V(hw - t, gableUnder(hw, hw), 0), V(0, gableUnder(hw, s.w - t), 0)] : undefined;
+  wall(ctx, FB, { ...common, len: bl, top, profile: Bprof, openings: back.filter((o) => o.u > 0.2 && o.u + o.w < s.w - 2 * t - 0.2) });
+  // ---- the roof (`roofMat`, `roofColor`, `eave`: a house's covering, its colour and its overhang: Stream.js's lots)
+  const cover = { mat: s.roofMat, color: s.roofColor, o: s.eave, seg: s.lot ? 3 : undefined };
+  if (hip) hipRoof(ctx, M, s.w, s.d, H, pitch, cover);
+  else if (gable) gableRoof(ctx, M, s.w, s.d, H, pitch, { ...cover, ridge: ridgeZ ? 'z' : 'x', rake: s.rake, fascia: s.fascia });
+  else if (slab) slabRoof(ctx, M, s, H);
   else flatRoof(ctx, M, s, H, t, top);
   // deco pilasters, standing proud of the front and up past the parapet
   if (s.deco) for (const u of s.deco.at) {
@@ -521,7 +550,7 @@ function balcony(ctx, M, u, base, s) {
 // a flat roof inside its parapets: the roofing, and what stands on it
 function flatRoof(ctx, M, s, H, t, top) {
   const { batch, rnd } = ctx;
-  batch.add('roofing', box(t, H - 0.2, -s.d + t, s.w - t, H + 0.03, -t), M, 0x55524e);
+  batch.add('roofing', box(t, H - 0.2, -s.d + t, s.w - t, H + 0.03, -t), M, s.flatColor ?? 0x55524e); // (`flatColor`: a house's or a dingbat's, Homes.js: lighter gravel)
   // flashing up the inside of the parapets
   batch.add('roofing', box(t, H, -t - 0.02, s.w - t, H + 0.3, -t), M, 0x3d3b38);
   // (without props, the streamed blocks', its vents, hatch and aerial all the same: they're the kit's)
@@ -569,9 +598,10 @@ function flatRoof(ctx, M, s, H, t, top) {
   }
 }
 
-// a tiled hip roof over walls that stop at the eaves (exported for the suburbs' garages and the hills' houses)
-export function hipRoof(ctx, M, w, d, H, pitch) {
-  const o = 0.45, x0 = -o, x1 = w + o, z0 = o, z1 = -d - o, rise = ((d + 2 * o) / 2) * pitch, ry0 = H + 0.05, top = ry0 + rise;
+// a tiled hip roof over walls that stop at the eaves (exported for the suburbs' garages and the hills' houses);
+// `mat` its covering (the barrel tiles, or a house's shakes: 'shake'), `color` its shade, `o` the eaves' overhang
+export function hipRoof(ctx, M, w, d, H, pitch, { mat = 'roofTile', color = 0xffffff, o = 0.45, fascia = 0x5a4030, seg = 6 } = {}) {
+  const x0 = -o, x1 = w + o, z0 = o, z1 = -d - o, rise = ((d + 2 * o) / 2) * pitch, ry0 = H + 0.05, top = ry0 + rise;
   const inset = (d + 2 * o) / 2, ra = V(x0 + inset, top, (z0 + z1) / 2), rb = V(x1 - inset, top, (z0 + z1) / 2);
   const tris = [
     [V(x0, ry0, z0), V(x1, ry0, z0), rb], [V(x0, ry0, z0), rb, ra], // front
@@ -588,11 +618,71 @@ export function hipRoof(ctx, M, w, d, H, pitch) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   g.computeVertexNormals();
-  ctx.batch.add('roofTile', g, M, 0xffffff); // (its own key: a roof stays drawn from afar, the copings' tiles don't)
+  ctx.batch.add(mat, g, M, color); // (its own key: a roof stays drawn from afar, the copings' tiles don't)
   // the eaves: fascia boards and the soffit under them
-  ctx.batch.add('paint', box(x0, ry0 - 0.16, z1, x1, ry0 + 0.02, z0), M, 0x5a4030);
-  ctx.batch.add('tile', barrels(w + 2 * o, 0.3, 0.05).translate(x0, ry0 + 0.01, z0 + 0.02), M, 0xffffff); // the tiles' ends along the front eave
+  ctx.batch.add('paint', box(x0, ry0 - 0.16, z1, x1, ry0 + 0.02, z0), M, fascia);
+  if (mat === 'roofTile') ctx.batch.add('tile', barrels(w + 2 * o, 0.3, 0.05, 0.24, seg).translate(x0, ry0 + 0.01, z0 + 0.02), M, 0xffffff); // the tiles' ends along the front eave
   ctx.hulls.push({ pts: [...tris.flat().map((p) => p.clone().applyMatrix4(M))] });
+}
+
+// A gable roof over walls that rise to it at its ends (building()'s `roof: 'gable'`, and the houses' porches): two
+// slopes with a thickness, the soffits under them, the fascia along the eaves and the barge boards up the rakes, a
+// ridge cap; barrel tiles also along its eaves. `ridge` 'x' runs along the front (from x 0 to w), 'z' back from it.
+// `o` the eaves' overhang, `rake` the gables'.
+export function gableRoof(ctx, M, w, d, H, pitch, { ridge = 'x', mat = 'roofTile', color = 0xffffff, o = 0.5, rake = 0.35, fascia = 0x5a4030, soffit = 0xe6dfd2 } = {}) {
+  o ??= 0.5; rake ??= 0.35; mat ??= 'roofTile'; color ??= 0xffffff; fascia ??= 0x5a4030;
+  // (built in a frame where the ridge runs along x, from 0 to L, and the span across it is z from 0 to -D)
+  const F = ridge === 'z' ? mul(M, tr(w, 0, 0), ry(Math.PI / 2)) : M, L = ridge === 'z' ? d : w, D = ridge === 'z' ? w : d;
+  const th = 0.16, hd = D / 2, x0 = -rake, x1 = L + rake, yE = H - o * pitch, yR = H + hd * pitch, zR = -hd;
+  const tile = mat === 'roofTile', { batch } = ctx;
+  const quad = (a, b, c, e) => [a, b, c, a, c, e];
+  const surf = (pts, key, col, up) => { // (UVs in metres: along the ridge, and up the slope)
+    const g = new THREE.BufferGeometry().setFromPoints(pts), uv = [];
+    const n = new THREE.Vector3().subVectors(pts[1], pts[0]).cross(new THREE.Vector3().subVectors(pts[2], pts[0])).normalize();
+    const along = V(1, 0, 0), upS = new THREE.Vector3().crossVectors(n, along);
+    for (const p of pts) uv.push(p.dot(along), p.dot(upS) * (up ?? 1));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.computeVertexNormals();
+    batch.add(key, g, F, col);
+  };
+  for (const s of [1, -1]) { // the front slope (the eave at z +o), the back (at -D - o)
+    const zE = s > 0 ? o : -D - o;
+    const eA = V(x0, yE + th, zE), eB = V(x1, yE + th, zE), rA = V(x0, yR + th, zR), rB = V(x1, yR + th, zR);
+    surf(s > 0 ? quad(eA, eB, rB, rA) : quad(eB, eA, rA, rB), mat, color);
+    const uA = V(x0, yE, zE), uB = V(x1, yE, zE), uR0 = V(x0, yR, zR), uR1 = V(x1, yR, zR);
+    surf(s > 0 ? quad(uB, uA, uR0, uR1) : quad(uA, uB, uR1, uR0), 'paint', soffit); // (its underside)
+    surf(s > 0 ? quad(uA, uB, eB, eA) : quad(uB, uA, eA, eB), 'paint', fascia); // the fascia along the eave
+    // the barge boards up the rakes: the slab's edge at each end
+    surf(s > 0 ? quad(uA, eA, rA, uR0) : quad(eA, uA, uR0, rA), 'paint', fascia);
+    surf(s > 0 ? quad(eB, uB, uR1, rB) : quad(uB, eB, rB, uR1), 'paint', fascia);
+    if (tile) { // the tiles' ends along the eave
+      const g = barrels(x1 - x0, 0.32, 0.05, 0.24, 3).translate(x0, 0, 0);
+      const m = s > 0 ? mul(F, tr(0, yE + th + 0.005, zE + 0.02), new THREE.Matrix4().makeRotationX(Math.atan(pitch)))
+        : mul(F, tr(x1 + x0, yE + th + 0.005, zE - 0.02), ry(Math.PI), new THREE.Matrix4().makeRotationX(Math.atan(pitch)));
+      batch.add('tile', g, m, 0xffffff);
+    }
+  }
+  // the ridge: a row of half-round caps on a tiled roof, a shake roof's capping boards
+  if (tile) batch.add(mat, metreUV(new THREE.CylinderGeometry(0.13, 0.13, x1 - x0 + 0.06, 8, 1, false, 0, Math.PI).rotateZ(Math.PI / 2).translate((x0 + x1) / 2, yR + th - 0.02, zR)), F, color);
+  else for (const s of [1, -1]) {
+    const g = box(x0 - 0.02, -0.03, 0, x1 + 0.02, 0.03, 0.17);
+    batch.add(mat, g, mul(F, tr(0, yR + th + 0.02, zR), new THREE.Matrix4().makeRotationX(s > 0 ? Math.atan(pitch) : Math.PI - Math.atan(pitch))), new THREE.Color(color).multiplyScalar(0.85));
+  }
+  // what's walked on: the slab's hull
+  const pts = [];
+  for (const x of [x0, x1]) for (const [y, z] of [[yE, o], [yE + th, o], [yR, zR], [yR + th, zR], [yE, -D - o], [yE + th, -D - o]]) pts.push(V(x, y, z).applyMatrix4(F));
+  ctx.hulls.push({ pts });
+  return { F, L, D, yR: yR + th };
+}
+
+// A flat roof on a low house (building()'s `roof: 'slab'`, the ranches'): its slab out over the walls on every side
+// (`eave`), a deep fascia round it, the soffit under, white rock over the top, a vent stack or two and the aerial
+function slabRoof(ctx, M, s, H) {
+  const o = s.eave ?? 0.8, th = 0.28, x0 = -o, x1 = s.w + o, z0 = o, z1 = -s.d - o, { batch, rnd } = ctx, fa = s.fascia ?? 0xf2efe6;
+  batch.add('paint', box(x0, H, z1, x1, H + th, z0), M, fa); // (its edges, the fascia, and its underside, the soffit)
+  batch.add('roofing', box(x0 + 0.06, H + th, z1 + 0.06, x1 - 0.06, H + th + 0.02, z0 - 0.06), M, s.roofColor ?? 0xc8c2b6); // the rock
+  for (let i = 0; i < 2; i++) { const u = 1 + rnd() * (s.w - 2), z = -1 - rnd() * (s.d - 2); batch.add('metal', cyl(0.05, 0.5, u, H + th, z, 8), M, 0x8d8b86); }
+  ctx.solids.push({ c: V(s.w / 2, H + th / 2, -s.d / 2).applyMatrix4(M), half: V(s.w / 2 + o, th / 2, s.d / 2 + o), q: new THREE.Quaternion().setFromRotationMatrix(M), stuff: 'stone' });
 }
 
 // the sign-painting for a wall: a mural or a ghost sign, laid just off a wall's face

@@ -26,6 +26,8 @@ export const TEXTURES = [
   { id: 'patio_tiles', use: 'Coast City: terracotta tiling at shop doors' },
   { id: 'rectangular_facade_tiles', use: 'Coast City: the bank front' },
   { id: 'floor_tiles_06', use: 'Coast City: the diner’s checkered tiles' },
+  { id: 'brown_planks_05', use: 'Coast City: the houses’ painted lap siding (Rob Tuytel)' },
+  { id: 'roof_slates_02', use: 'Coast City: the houses’ cedar shake roofs (Rob Tuytel)' },
 ];
 const MAPS = { diff: ['Diffuse'], nor: ['nor_gl'], rough: ['Rough', 'rough'] };
 const SLOT = { diff: 'color', nor: 'normal', rough: 'mr' };

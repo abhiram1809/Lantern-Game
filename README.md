@@ -77,7 +77,7 @@ Once the ring is charged (after the oath):
 | Right click or F (hold) | Guard: the shield comes up whatever is armed, and goes down when you let go. Raised just as a blow lands, it **parries**. A left click behind it drops it and strikes |
 | Scroll | Change the construct's range |
 | Q | Holster the construct |
-| Space twice | Take off / drop out of flight (there is no jump) |
+| Space twice | Take off / drop out of flight: in the suit the ring lets him down upright and slows him for the touch down (there is no jump) |
 | W / Space / C / Shift (flying) | Fly where you look / climb / descend / boost |
 | L | Keep the lantern in the ring's pocket dimension, or set it down in front of you |
 
@@ -480,7 +480,7 @@ block debris, bolts and Hal.
    drive it), and the lake where Abin Sur's ship came down. Coast City has people on every street, traffic,
    parks, a freeway across it and a flood channel with its bridges; the radar's top left and **N** opens
    the whole map. Hal earns his money at Ferris: clock in at Hangar Two between nine and five and fly test
-   cards in the prototype. **G** takes out his phone. He goes home by either front door of his building. Press **T** to change: out of the suit into
+   cards in the prototype. **G** takes out his phone. He goes home to **Las Palmas**, the Spanish Revival court of flats at the head of the boulevard, by either wing's door or the court's arched gate; from his flat's window you see the lot, his car and the boulevard as they are outside. Press **T** to change: out of the suit into
    Hal's clothes (no flying, no constructs), or back. Hal's car is in his space by the hangars: at the
    driver's door the ring makes him a key (unless it's out of charge), and he drives it anywhere on the
    valley floor and gets out where he stops. The lantern (**L**) comes to him on any world; from low
@@ -497,13 +497,29 @@ block debris, bolts and Hal.
    night. Walk into **Rosie's Diner** (sit at the counter or in a booth with **E**, put
    a coin in the jukebox), **Coast Liquor**, or any of the other shops: each has someone behind its
    counter and something to buy (**E** at the counter: tacos at Mendoza's, a haircut at Ortega's, a load
-   of washing, a record, flowers, phở); the doors open as you walk up.
+   of washing, a record, flowers, phở); the doors open as you walk up. The stores are stocked shelf by
+   shelf: chips, cereal, cans, bread, soda and beer in the coolers, produce at the Ocean Market, pastries in
+   the bakery's and the donut shop's cases, medicine at the pharmacy, oil and tools at the parts and
+   hardware stores, bottles behind the Blue Marlin's bar. Look at something on a shelf and press **E** to
+   take it (one in each hand, or a big thing in both); **E** at the counter pays for it, then eat it there
+   or keep it (what Hal keeps is in his inventory, **I**); **E** at the shelf puts it back. Walk out without
+   paying and they'll shout after you, and remember. Run into a shelf, or hit it with the ring, and the stock
+   comes off it (a bottle that lands hard breaks, and it's yours).
+   **Inventory** (**I**, time stops while it's up): Hal as he stands (drag to turn him), the ring's pocket (the
+   lantern when it's put away, keepsakes from the worlds he's been to), the ring's charge, his Life (Self, Car,
+   Carol, graded, with what would help), his stats, his phone's apps, and what he carries: keys, wallet, phone,
+   and whatever he's bought and kept (eat it, drink it, hold it, leave it).
    **Over the crossing**, the next block south: the **Blue Marlin** bar on the corner (Gus behind the
-   bar, two regulars, a pool table, a beer), the **14th Precinct** of the Coast City Police (the desk
+   bar, a pool table, a beer or a ginger ale; on his stool Sami, a night cab driver with his own lines, who knows
+   exactly who Green Lantern is and is wrong every time; Doris, who has heard all of it), the **14th Precinct** of the Coast City Police (the desk
    sergeant, the bull pen, the holding cell), **St. Mary's** with its emergency room (the triage nurse,
    the doctor; see a doctor to heal), the **Palms** picture house (a ticket for the matinee, popcorn),
    Tony's Pizza, a travel agent, a thrift shop, the cleaner's, bail bonds, a bookshop, a TV shop, a beauty
-   salon, a boxing gym and the Ocean Market. Walkers of its own, parked cruisers and an ambulance.
+   salon, **Iron Beach Gym** and the Ocean Market. Walkers of its own, parked cruisers and an ambulance.
+   At the gym a day pass ($2, as Hal, not Green Lantern) buys a workout you watch: the bench press (the
+   trainer spots the last reps), the heavy bag (gloved up, combinations round the bag, which swings and
+   turns on its chain) or the jump rope; **E** or a click finishes it early, and the hour goes by. The bags
+   swing for anyone: punch them, walk into them, or hit them with the ring.
    **The Ferris offices** by the staff lot are open too: the lobby, the receptionist, models of the
    company's jets, and the wall of its test pilots, Martin Jordan among them. Hal's own front door, on
    the lot, takes him up to his flat: the fridge, the coffee, the window, and the bed, where sleeping
@@ -517,8 +533,9 @@ block debris, bolts and Hal.
    back. Walk near people and you'll overhear them, out loud or whispering about Hal Jordan, or about
    Green Lantern. Fly low over them and they look up and point; make a construct near them and they run.
    By night the street empties out.
-   **Changing**: **T** changes Hal anywhere, in his flat too. People who can see him turn to look at
-   the ring's flare. Flying low, the ring sets him down first; high up, land first (**C**). The diner's
+   **Changing**: **T** changes Hal only where nobody can see him: an alley, a roof, the sky, his flat.
+   The eye under his money says **SEEN** or **OUT OF SIGHT** (someone near, looking his way, with nothing
+   between). Flying low, the ring sets him down first; high up, land first (**C**). The diner's
    restroom does it behind a door. His flat is indoors: no flight and no constructs there, in the suit
    or out of it.
    **The day goes by**: a minute every two seconds, the sun across the sky and the town's lamps coming

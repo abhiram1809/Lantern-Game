@@ -8,11 +8,29 @@
 // - below -80, the Air Force: a pair of jets low over the town every so often, the boom after.
 import * as THREE from 'three';
 import { prop, loadProps, meshes, boundsIn, pivot } from '../props/Props.js';
+import { glowTexture } from '../fx/Textures.js';
 import { LOT } from '../scenes/Ferris.js';
 import { LANES } from '../city/Traffic.js';
 
 const V = (x, y, z) => new THREE.Vector3(x + LOT.x, y, z + LOT.z);
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _down = new THREE.Vector3(0, -1, 0);
+
+// a searchlight's beam: additive, its light along the cone's core (how square on the surface faces the camera), none
+// at its silhouette, falling off from the lamp (the cone's uv runs 1 at its apex to 0 at its foot)
+function beamMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uOpacity: { value: 0 }, uColor: { value: new THREE.Color(1.0, 0.95, 0.85) } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: `varying vec3 vN; varying vec3 vV; varying float vAlong;
+      void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); vAlong = uv.y; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float uOpacity; uniform vec3 uColor; varying vec3 vN; varying vec3 vV; varying float vAlong;
+      void main() {
+        float face = abs(dot(normalize(vN), normalize(vV)));
+        float a = uOpacity * pow(face, 2.2) * mix(0.25, 1.0, vAlong * vAlong) * smoothstep(0.0, 0.08, vAlong) * smoothstep(1.0, 0.97, vAlong);
+        gl_FragColor = vec4(uColor * a, 1.0);
+      }`,
+  });
+}
 
 export class Pressure {
   constructor(story, f) {
@@ -42,11 +60,19 @@ export class Pressure {
       const hub = (list) => (list.length ? pivot(body, list, boundsIn(body, list).getCenter(new THREE.Vector3())) : null);
       this.rotor = hub(main);
       this.tailRotor = hub(tail);
-      // the beam: a long cone, drawn additively, from its nose down to him
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1, 24, 1, true).translate(0, -0.5, 0), new THREE.MeshBasicMaterial({ color: 0xfff2d8, transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      // the beam: a long cone, drawn additively, from its nose down to him; bright along its core and gone at its
+      // edges as it turns away from the camera, brightest near the lamp (a flat cone of one opacity read as a pale
+      // wedge across the picture, hard-edged)
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1, 32, 8, true).translate(0, -0.5, 0), beamMaterial());
       cone.frustumCulled = false;
       this.f.scene.add(cone);
       this.beam = cone;
+      // and where it lands: a pool of its light on the ground round him (from inside the cone, the camera just
+      // behind him, the cone's walls are what's left out)
+      const spot = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: glowTexture('rgba(255,255,255,1)', 'rgba(255,255,255,0.35)'), color: new THREE.Color(1.0, 0.95, 0.85), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+      spot.scale.setScalar(6.5);
+      this.f.scene.add(spot);
+      this.spot = spot;
       g.position.copy(hp).add(_a.set(-140, 90, 80));
       this.f.scene.add(g);
       this.chopper = { g, a: Math.random() * 6, life: 0, gone: false, sound: story.audio.wind?.(0) };
@@ -68,8 +94,13 @@ export class Pressure {
     // (fainter with the camera inside it: from in there it washed out half the picture)
     const cam = this.story.engine.camera.position, axis = _b.copy(hp).sub(c.g.position), tt = Math.max(0, Math.min(1, _a.copy(cam).sub(c.g.position).dot(axis) / axis.lengthSq()));
     const off = _a.copy(c.g.position).addScaledVector(axis, tt).distanceTo(cam), inside = off < 2.6 * tt + 0.5;
-    b.material.opacity += ((want && night ? (inside ? 0.012 : 0.05) : 0) - b.material.opacity) * Math.min(1, dt * 3);
-    b.visible = b.material.opacity > 0.005;
+    const u = b.material.uniforms.uOpacity;
+    u.value += ((want && night ? (inside ? 0 : 0.22) : 0) - u.value) * Math.min(1, dt * 3);
+    b.visible = u.value > 0.005;
+    const sp = this.spot, on = want && night ? 0.55 : 0;
+    sp.material.opacity += (on - sp.material.opacity) * Math.min(1, dt * 3);
+    sp.visible = sp.material.opacity > 0.005;
+    if (sp.visible) sp.position.set(hp.x, (story.player.flying ? this.f.groundAt?.(hp.x, hp.z) ?? 0 : hp.y) + 0.03, hp.z);
     if (b.visible) {
       // its apex at the helicopter, out along the line to him (the cone runs down -y from its apex)
       const d = _b.copy(hp).sub(c.g.position), len = d.length();
@@ -79,7 +110,7 @@ export class Pressure {
     }
     const dist = c.g.position.distanceTo(this.story.engine.camera.position);
     c.sound?.level(Math.max(0, 0.08 * (1 - dist / 260)), 1);
-    if (!want && dist > 380) { c.sound?.stop(1); c.g.removeFromParent(); this.beam.removeFromParent(); this.chopper = null; this.rotor = this.tailRotor = null; }
+    if (!want && dist > 380) { c.sound?.stop(1); c.g.removeFromParent(); this.beam.removeFromParent(); this.spot.removeFromParent(); this.chopper = null; this.rotor = this.tailRotor = null; }
   }
 
   // ---------------------------------------------------------------- the police lines

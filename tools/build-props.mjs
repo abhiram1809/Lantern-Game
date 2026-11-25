@@ -228,6 +228,19 @@ export const PROPS = [
     title: 'Magazine Rack Full of Geo Articles', author: 'Brendan_489', uid: '53f55fbd5c0b4c1cbc219bb717b6819e' },
   { name: 'oldregister', tris: 1500, error: 0.015, src: 'assets/props/oldregister.glb', forward: '+z', height: 0.42, tex: 1024,
     title: 'Old Cash Register_PBR', author: 'Li.Wenzhao', uid: 'cfdc8b3756fa4bb4b7c26d8ac92fd1bc' },
+  // Iron Beach Gym (src/city/Shops.js, story/Gym.js): the flat bench and its loaded bar (one file, split by material in
+  // the game: the bar is lifted off the uprights), the heavy bags on their chains, the gloves hung up and worn.
+  // Licences and authors as their Sketchfab pages give them (the API's model record), 2026-11-24.
+  // (scaled 1.1: its pad 50 cm up, the bar in the hooks at 94 cm, the bar 2.2 m, the plates 41 cm across)
+  { name: 'benchpress', src: 'assets/props/benchpress.glb', forward: '+z', scale: 1.1, tex: 1024,
+    title: 'Bench Press', author: 'Chad Green (WhimzE)', uid: 'e6c409f6d6b0469cb401dbd736286e06' },
+  { name: 'heavybag', tris: 8000, error: 0.004, src: 'assets/props/heavybag.glb', forward: '+z', height: 1.5, tex: 1024,
+    title: 'Vintage / Old punching bag', author: 'maxsbond.work', uid: '487e01cd3eea41c8a49062956c79eb66' },
+  { name: 'gloves', tris: 14000, error: 0.004, src: 'assets/props/gloves.glb', forward: '+z', scale: 1, tex: 1024,
+    title: 'Vintage / Old boxing gloves', author: 'maxsbond.work', uid: 'b41079124d1e420d8549d088917b1dff' },
+  // (Ysmault's chain again, a bag's half metre of it: its links 5 cm, a few hundred triangles each)
+  { name: 'bagchain', tris: 2400, error: 0.01, src: 'assets/props/chain.glb', forward: '+z', height: 0.52, tex: 256,
+    title: 'Iron chain', author: 'dabori', uid: '6d079f01c7c142e0be54d7f2d33b33e6' },
   // Zamaron (Part Seven): the violet crystal's world (scenes/Zamaron.js re-skins the crystals in its own light)
   { name: 'crystal_cluster', src: 'assets/props/crystal_cluster.glb', forward: '+z', height: 6, tex: 512,
     title: 'Crystal Cluster', author: 'WhiteWinterprison', uid: 'e920cf6b57d642a3a03c76c847031f1f' },
@@ -315,6 +328,58 @@ export const PROPS = [
     title: 'Large Beach Hut 1', author: 'rhcreations', uid: 'fde51449d03840528d31d060597c53e5' },
   { name: 'cleat', src: 'assets/props/cleat.glb', forward: '+x', length: 0.45, tex: 256,
     title: 'Dock Cleat', author: 'buggyprince', uid: '421736f05c1a452f8f25b21ab6a020f0' },
+  // The shops' stock (city/Stock.js, 2026-11-24): what's on the shelves of Coast Liquor, Ocean Market, the
+  // pharmacy, the parts and hardware stores, the bakery's and the donut shop's cases and the Blue Marlin's back bar.
+  // Each cut down from its download by tools/prep-products.mjs; licences and authors as the source pages give them
+  // (Sketchfab's model record, Poly Haven's asset info), 2026-11-24. Seen from a metre or two: small maps.
+  ...[
+    // packaged
+    { name: 'snackbags', forward: '+z', height: 0.28, tris: 1800, title: 'Package Low', author: 'Bowen154', uid: 'fb44add4533149ab9dc559ec34d1b96c' },
+    { name: 'chipbag', forward: '+z', height: 0.26, tris: 800, title: 'CHIP BAG', author: 'M. Visual', uid: '7116fcdfbc3b4ad0bd578d6728915f84' },
+    { name: 'cereal', forward: '+z', height: 0.30, title: 'KORADO CEREAL BOX', author: 'SugarShark', uid: '6f11ea9d68f049d7b3ea37d90cc23e90' },
+    { name: 'candybars', forward: '+z', scale: 0.0095, title: 'Candy Bars', author: 'TopazDragon117', uid: 'e46b661ab1744b03b9f89d38d186d5d9' },
+    { name: 'groceries', forward: '+z', scale: 1, tris: 2000, tex: 1024, title: 'Long Life Food', author: 'Mia Pecina Zorko', ph: 'long_life_food' },
+    { name: 'cigarettes', forward: '+z', scale: 1, tris: 400, title: 'Cigarette Pack', author: 'Ulrich Büch', ph: 'cigarette_pack' },
+    // drinks
+    { name: 'sodacans', forward: '+z', height: 0.122, tris: 2000, title: 'HexaBerry Soda Cans', author: 'hexabear2020', uid: '96aa6a20264848ab9c5be2478594ec44' },
+    { name: 'dietsoda', forward: '+z', height: 0.122, tris: 400, title: 'Diet Soda', author: 'Blender3D', uid: 'fdc6b2fd40974708a07f1717a433e7c1' },
+    { name: 'beercan', forward: '+z', height: 0.157, tris: 400, title: 'Generic Beverage Can', author: 'CGoutset', uid: '3d0c9c38f10b4e739db811893dbac786' },
+    { name: 'beerbottle', forward: '+z', height: 0.23, tris: 600, title: 'Golden Goat Beer Bottle', author: 'FrodoUndead', uid: '3afb43308c914f7e9fa7850b2d38b90b' },
+    { name: 'wine', forward: '+z', scale: 1, tris: 2400, tex: 1024, title: 'Wine Bottles 01', author: 'Rico Cilliers (modelling), Jurita Burger (graphic design)', ph: 'wine_bottles_01' },
+    { name: 'liquor', forward: '+z', height: 0.30, tris: 1500, title: 'Whiskey and Wine Low-Poly Bottles', author: 'Helyeouka', uid: '99999f032f624e8cb05651f041dbf8eb' },
+    { name: 'port', forward: '+z', height: 0.30, tris: 600, title: 'Bottle of Port [Free Download]', author: 'scrampunk', uid: '34d0475889c945708f070959cbf0df58' },
+    { name: 'tumbler', forward: '+z', height: 0.14, tris: 300, title: 'Ikea Glass', author: 'Taylor Lane', uid: '0ce3b89790954c499f9dc67f3e3a621f' },
+    // baked
+    { name: 'breads', forward: '+z', tex: 256, scale: 0.01, tris: 4500, title: 'Game Ready Bakery Asset Pack', author: 'Meerschaum Digital', uid: '5fffce6e9a2d4c9b999e0f574d0b05f1' },
+    { name: 'croissant', forward: '+z', tex: 256, scale: 0.8, tris: 500, title: 'Croissant', author: 'Greg Zaal (processing), Dario Barresi (scanning)', ph: 'croissant' },
+    { name: 'buns', forward: '+z', tex: 256, scale: 1, tris: 1200, title: 'Hamburger Buns', author: 'Alexander Shulha', ph: 'hamburger_buns' },
+    { name: 'donut', forward: '+z', tex: 256, length: 0.09, tris: 500, title: 'donut', author: 'copycatypo', uid: '630fbf8b6af0481ebde40f2bd35947df' },
+    { name: 'muffin', forward: '+z', height: 0.075, tris: 600, title: 'Photo Scan Muffin - Low Tria', author: 'Horton', uid: 'beac0847c065485b96c383979bad3efe' },
+    // produce
+    { name: 'produce', forward: '+z', tex: 256, scale: 0.01, tris: 5500, title: 'Game Ready Fruit & Vegetable Asset Pack', author: 'Meerschaum Digital', uid: '9846beef2c6b46caadc4a547a4dcd144' },
+    { name: 'melons', forward: '+z', tex: 256, scale: 1, tris: 1500, title: 'Game Ready Fruit Asset Pack', author: 'Meerschaum Digital', uid: '105da0b01b414fceb2feac631b0f64e8' },
+    { name: 'bananas', forward: '+z', scale: 1, tris: 1500, title: 'Bananas', author: 'Alexander Shulha', ph: 'bananas' },
+    { name: 'lemon', forward: '+z', tex: 256, scale: 1, tris: 500, title: 'Lemon', author: 'Kuutti Siitonen', ph: 'lemon' },
+    { name: 'onion', forward: '+z', tex: 256, scale: 1, tris: 500, title: 'Yellow Onion', author: 'Kuutti Siitonen', ph: 'yellow_onion' },
+    // the pharmacy
+    { name: 'painpills', forward: '-z', height: 0.10, tris: 400, title: 'Simple Pain Pills', author: 'Blender3D', uid: 'e8ff733b5a184335aac1e59d4c0820e0' },
+    { name: 'medbox', forward: '+z', height: 0.075, title: 'Medicines', author: 'T-Art', uid: 'c071c69e73b0495692703cae47d21611' },
+    { name: 'toiletries', forward: '+z', scale: 1, tris: 2500, tex: 1024, title: 'Toiletries', author: 'HippoStance', uid: 'f00fd952b5c640a1babf70cce5312d79' },
+    { name: 'medtape', forward: '+z', tex: 256, scale: 1, tris: 300, title: 'Medical Tape', author: 'Miroslav Turura', ph: 'medical_tape' },
+    // the parts store and the hardware store
+    { name: 'motoroil', forward: '+z', scale: 1, tris: 600, title: 'Old retro motor oil tin can', author: 'VladIG_CG', uid: '0b69e10add604138a3abfddc55c2b5be' },
+    { name: 'lube', forward: '+z', scale: 1, tris: 800, title: 'Lubricant Spray', author: 'James Ray Cock', ph: 'lubricant_spray' },
+    { name: 'spraypaint', forward: '+z', scale: 1, tris: 600, title: 'Spray Paint Bottles', author: 'James Ray Cock', ph: 'spray_paint_bottles' },
+    { name: 'ducttape', forward: '+z', height: 0.048, tris: 600, title: 'Duct Tape', author: 'Andough', uid: '859dab7e35a549c7a5417d76096252c1' },
+    { name: 'pliers', forward: '+z', tex: 256, scale: 1, tris: 800, title: 'Pliers', author: 'PierreB3D', ph: 'pliers' },
+    { name: 'screwdriver', forward: '+z', tex: 256, scale: 1, tris: 500, title: 'Screwdriver', author: 'PierreB3D', ph: 'screwdriver' },
+    { name: 'tapemeasure', forward: '+z', scale: 1, tris: 600, title: 'Measuring Tape 01', author: 'Kuutti Siitonen', ph: 'measuring_tape_01' },
+    // cleaning, for the shelves of all of them
+    { name: 'cleaner', forward: '+z', scale: 1, tris: 700, title: 'All Purpose Cleaner', author: 'Kuutti Siitonen', ph: 'all_purpose_cleaner' },
+    { name: 'bleach', forward: '+z', scale: 1, tris: 700, title: 'Bleach Bottle', author: 'James Ray Cock', ph: 'bleach_bottle' },
+    { name: 'multiclean', forward: '+z', scale: 1, tris: 900, title: 'Multi Cleaner Bottle', author: 'James Ray Cock', ph: 'multi_cleaner_bottle' },
+    { name: 'drain', forward: '+z', scale: 1, tris: 700, title: 'Drain Cleaner', author: 'James Ray Cock', ph: 'drain_cleaner' },
+  ].map((p) => ({ src: `assets/props/${p.name}.glb`, tex: 512, near: 1.5, small: true, error: 0.03, ...p })), // (a few hundred triangles each: a shelf holds hundreds)
 ];
 
 const YAW = { '+z': 0, '-z': Math.PI, '+x': -Math.PI / 2, '-x': Math.PI / 2 };
@@ -359,7 +424,8 @@ for (const p of PROPS) {
     metalRough(),
     dedup(),
     prune(),
-    fitTextures({ cap: (slot, t) => Math.min(tex, neededSize(t, { near: p.near ?? 2 })), report: (r) => { rows = r; } }),
+    // (`small`: a product's bumps and sheen at half its colour's size: seen from a metre or two, they read as the colour does)
+    fitTextures({ cap: (slot, t) => Math.min(p.small && slot !== 'color' ? tex / 2 : tex, neededSize(t, { near: p.near ?? 2 })), report: (r) => { rows = r; } }),
   );
   const out = `public/models/props/${p.name}.glb`;
   await io.write(out, doc);
@@ -369,14 +435,17 @@ for (const p of PROPS) {
 }
 
 // the credits, from the same list
-const lines = PROPS.map((p) => `- **${p.title}** by ${p.author}, [sketchfab.com/3d-models/${p.uid}](https://sketchfab.com/3d-models/${p.uid}), licensed [${BY}](https://creativecommons.org/licenses/by/4.0/). Used as \`${p.name}\`; reoriented, rescaled, textures recompressed${p.drop || p.cut ? ', parts removed' : ''}${p.simplify || p.tris ? ', simplified' : ''}${p.opaque ? ', materials made opaque' : ''}.`);
+// (Poly Haven's, `ph`, are CC0: credited all the same)
+const source = (p) => (p.ph ? `[polyhaven.com/a/${p.ph}](https://polyhaven.com/a/${p.ph}), [CC0](https://creativecommons.org/publicdomain/zero/1.0/)` : `[sketchfab.com/3d-models/${p.uid}](https://sketchfab.com/3d-models/${p.uid}), licensed [${BY}](https://creativecommons.org/licenses/by/4.0/)`);
+const lines = PROPS.map((p) => `- **${p.title}** by ${p.author}, ${source(p)}. Used as \`${p.name}\`; reoriented, rescaled, textures recompressed${p.drop || p.cut ? ', parts removed' : ''}${p.simplify || p.tris ? ', simplified' : ''}${p.opaque ? ', materials made opaque' : ''}.`);
 await writeFile('CREDITS.md', `# Credits
 
 The game's code is MIT (see \`LICENSE\`). These third-party 3D models are not: each keeps its own
 licence. They come from [Sketchfab](https://sketchfab.com) by way of the
-[Objaverse](https://huggingface.co/datasets/allenai/objaverse) dataset. The originals are in
-\`assets/props/\`; \`npm run props\` (\`tools/build-props.mjs\`) builds the game's copies in
-\`public/models/props/\`, and writes this file.
+[Objaverse](https://huggingface.co/datasets/allenai/objaverse) dataset, and from
+[Poly Haven](https://polyhaven.com). The originals are in \`assets/props/\` (the shops' products cut down from
+their downloads by \`tools/prep-products.mjs\`); \`npm run props\` (\`tools/build-props.mjs\`) builds the game's
+copies in \`public/models/props/\`, and writes this file.
 
 ## Props
 
